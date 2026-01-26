@@ -771,6 +771,14 @@ function handleHoverMarkAsRead(articleId: number): void {
   }
 }
 
+.article-list > div:first-child {
+  --wails-draggable: drag;
+}
+
+.article-list > div:first-child > div {
+  --wails-draggable: no-drag;
+}
+
 /* Responsive width for article list on medium screens */
 @media (max-width: 1400px) and (min-width: 768px) {
   .article-list {

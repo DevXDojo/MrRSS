@@ -113,6 +113,58 @@ func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
 	}
 }
 
+func setupApplicationMenu(app *application.App, db *database.DB, h *handlers.Handler, bgCtx context.Context) {
+	// Only for macOS
+	if runtime.GOOS != "darwin" {
+		return
+	}
+
+	menu := app.NewMenu()
+	menu.AddRole(application.AppMenu) // About, Hide, Quit, etc
+
+	// Get language for labels
+	lang := "en"
+	if l, err := db.GetSetting("language"); err == nil && l != "" {
+		lang = l
+	}
+
+	var fileLabel, refreshLabel, addFeedLabel, settingsLabel string
+	switch lang {
+	case "zh-CN", "zh", "zh-cn":
+		fileLabel = "文件"
+		refreshLabel = "立即刷新"
+		addFeedLabel = "添加订阅"
+		settingsLabel = "设置"
+	default:
+		fileLabel = "File"
+		refreshLabel = "Refresh Now"
+		addFeedLabel = "Add Feed"
+		settingsLabel = "Settings"
+	}
+
+	// File Menu
+	fileMenu := menu.AddSubmenu(fileLabel)
+	fileMenu.Add(refreshLabel).OnClick(func(ctx *application.Context) {
+		if h.Fetcher != nil {
+			go h.Fetcher.FetchAll(bgCtx)
+		}
+	}).SetAccelerator("CmdOrCtrl+R")
+
+	fileMenu.Add(addFeedLabel).OnClick(func(ctx *application.Context) {
+		app.Event.Emit("show-add-feed")
+	}).SetAccelerator("CmdOrCtrl+N")
+
+	fileMenu.AddSeparator()
+	fileMenu.Add(settingsLabel).OnClick(func(ctx *application.Context) {
+		app.Event.Emit("show-settings")
+	}).SetAccelerator("CmdOrCtrl+,")
+
+	menu.AddRole(application.EditMenu)
+	menu.AddRole(application.WindowMenu)
+
+	app.Menu.SetApplicationMenu(menu)
+}
+
 func main() {
 	// Get proper paths for data files
 	logPath, err := utils.GetLogPath()
@@ -437,14 +489,7 @@ func main() {
 	// Determine background color based on theme setting
 	// Default to dark gray to prevent white flash on startup/close
 	// This matches the CSS dark mode background color (#1e1e1e = rgb(30, 30, 30))
-	backgroundColour := application.NewRGB(30, 30, 30)
-	if theme, err := db.GetSetting("theme"); err == nil {
-		if theme == "light" {
-			// Use white for light theme
-			backgroundColour = application.NewRGB(255, 255, 255)
-		}
-		// For "dark" or "auto", use dark background
-	}
+	// For "dark" or "auto", use dark background
 
 	// Create main window options
 	windowOptions := application.WebviewWindowOptions{
@@ -453,10 +498,11 @@ func main() {
 		Width:            windowWidth,
 		Height:           windowHeight,
 		URL:              "/",
-		Mac:              application.MacWindow{},
+		Frameless:        true,
+		BackgroundType:   application.BackgroundTypeTransparent,
 		Windows:          application.WindowsWindow{},
 		Linux:            application.LinuxWindow{},
-		BackgroundColour: backgroundColour,
+		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
 	}
 
 	// Set position if restored from DB
@@ -467,6 +513,9 @@ func main() {
 
 	// Create main window
 	mainWindow = app.Window.NewWithOptions(windowOptions)
+
+	// Setup application menu for macOS
+	setupApplicationMenu(app, db, h, bgCtx)
 
 	if !restoredFromDB {
 		mainWindow.Center()

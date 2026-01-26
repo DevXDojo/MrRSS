@@ -21,6 +21,7 @@ import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
 import { useWindowState } from './composables/core/useWindowState';
 import { useAppUpdates } from './composables/core/useAppUpdates';
+import { Events } from '@wailsio/runtime';
 import type { Feed } from './types/models';
 
 const store = useAppStore();
@@ -192,6 +193,19 @@ onMounted(async () => {
       }
     }, 500);
   }, 100);
+
+  // Add macos class to root if on macOS for layout adjustments
+  if (navigator.userAgent.includes('Mac')) {
+    document.documentElement.classList.add('macos');
+  }
+
+  // Listen for Wails events from native menu
+  Events.On('show-add-feed', () => {
+    window.dispatchEvent(new CustomEvent('show-add-feed'));
+  });
+  Events.On('show-settings', () => {
+    window.dispatchEvent(new CustomEvent('show-settings'));
+  });
 });
 
 // Listen for events from Sidebar (moved outside onMounted to ensure proper capture)
@@ -373,7 +387,7 @@ function onFeedUpdated(): void {
 }
 
 .toast-container > * {
-  top: 42px; /* Account for MacOS top padding */
+  top: 10px; /* Adjusted since MacOS top padding is removed */
 }
 
 .toast-container > * {
@@ -385,7 +399,7 @@ function onFeedUpdated(): void {
     gap: 10px;
   }
   .app-container.macos-padding .toast-container {
-    top: 52px; /* Account for MacOS top padding on larger screens */
+    top: 20px; /* Adjusted since MacOS top padding is removed */
   }
 }
 .resizer {

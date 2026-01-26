@@ -136,6 +136,10 @@ const emitShowSettings = () => window.dispatchEvent(new CustomEvent('show-settin
   align-items: stretch;
 }
 
+:global(.macos) .compact-sidebar-wrapper {
+  padding-top: 0;
+}
+
 .feed-drawer-wrapper {
   position: relative;
   height: 100%;

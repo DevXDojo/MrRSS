@@ -275,6 +275,16 @@ defineExpose({
   z-index: 20;
 }
 
+.smart-activity-bar {
+  --wails-draggable: drag;
+}
+
+.smart-activity-bar button,
+.smart-activity-bar .w-8.h-px,
+.smart-activity-bar img {
+  --wails-draggable: no-drag;
+}
+
 /* Smaller screens (laptops, tablets) */
 @media (max-width: 1400px) {
   .smart-activity-bar {

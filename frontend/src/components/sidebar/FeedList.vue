@@ -522,12 +522,19 @@ function handleTogglePin() {
   background: var(--text-secondary);
 }
 
-/* Responsive width for feed drawer on medium screens */
 @media (max-width: 1400px) {
   .feed-drawer-width {
     width: 240px !important;
     min-width: 240px !important;
   }
+}
+
+.feed-drawer-width > div:first-child {
+  --wails-draggable: drag;
+}
+
+.feed-drawer-width > div:first-child > div {
+  --wails-draggable: no-drag;
 }
 </style>
 

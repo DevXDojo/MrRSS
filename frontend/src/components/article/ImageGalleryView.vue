@@ -1272,4 +1272,12 @@ onUnmounted(() => {
 .dark-mode .prose-content :deep(a) {
   color: #4daafc;
 }
+
+.flex-col.flex-1.h-full > div:first-child {
+  --wails-draggable: drag;
+}
+
+.flex-col.flex-1.h-full > div:first-child > * {
+  --wails-draggable: no-drag;
+}
 </style>
