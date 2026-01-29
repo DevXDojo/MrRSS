@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"MrRSS/internal/database"
+	"MrRSS/internal/freshrss"
 	"MrRSS/internal/handlers/core"
 )
 
@@ -151,7 +153,9 @@ func HandleMarkAllAsRead(h *core.Handler, w http.ResponseWriter, r *http.Request
 	feedIDStr := r.URL.Query().Get("feed_id")
 	category := r.URL.Query().Get("category")
 
+	var syncReqs []database.SyncRequest
 	var err error
+
 	if feedIDStr != "" {
 		// Mark all as read for a specific feed
 		feedID, parseErr := strconv.ParseInt(feedIDStr, 10, 64)
@@ -159,19 +163,25 @@ func HandleMarkAllAsRead(h *core.Handler, w http.ResponseWriter, r *http.Request
 			http.Error(w, "Invalid feed_id parameter", http.StatusBadRequest)
 			return
 		}
-		err = h.DB.MarkAllAsReadForFeed(feedID)
+		syncReqs, err = h.DB.MarkAllAsReadForFeedWithSync(feedID)
 	} else if category != "" {
 		// Mark all as read for a specific category
-		err = h.DB.MarkAllAsReadForCategory(category)
+		syncReqs, err = h.DB.MarkAllAsReadForCategoryWithSync(category)
 	} else {
 		// Mark all as read globally
-		err = h.DB.MarkAllAsRead()
+		syncReqs, err = h.DB.MarkAllAsReadWithSync()
 	}
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Perform immediate sync to FreshRSS if needed
+	if len(syncReqs) > 0 {
+		go performImmediateBulkSync(h, syncReqs)
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -383,11 +393,16 @@ func HandleMarkRelativeToArticle(h *core.Handler, w http.ResponseWriter, r *http
 	}
 
 	// Mark articles relative to this article's published time
-	count, err := h.DB.MarkArticlesRelativeToPublishedTime(article.PublishedAt, direction, feedID, category)
+	count, syncReqs, err := h.DB.MarkArticlesRelativeToPublishedTimeWithSync(article.PublishedAt, direction, feedID, category)
 	if err != nil {
 		log.Printf("[HandleMarkRelativeToArticle] Error marking articles: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Perform immediate sync to FreshRSS if needed
+	if len(syncReqs) > 0 {
+		go performImmediateBulkSync(h, syncReqs)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -395,4 +410,38 @@ func HandleMarkRelativeToArticle(h *core.Handler, w http.ResponseWriter, r *http
 		"success": true,
 		"count":   count,
 	})
+}
+
+// performImmediateBulkSync performs immediate sync for multiple articles to FreshRSS in a background goroutine
+func performImmediateBulkSync(h *core.Handler, syncReqs []database.SyncRequest) {
+	// Check if FreshRSS is enabled and configured
+	enabled, _ := h.DB.GetSetting("freshrss_enabled")
+	if enabled != "true" {
+		return
+	}
+
+	serverURL, username, password, err := h.DB.GetFreshRSSConfig()
+	if err != nil || serverURL == "" || username == "" || password == "" {
+		log.Printf("[Bulk Sync] FreshRSS not configured, skipping sync")
+		return
+	}
+
+	// Create sync service
+	syncService := freshrss.NewBidirectionalSyncService(serverURL, username, password, h.DB)
+
+	// Perform immediate sync for each article
+	ctx := context.Background()
+	successCount := 0
+	for _, syncReq := range syncReqs {
+		err = syncService.SyncArticleStatus(ctx, syncReq.ArticleID, syncReq.ArticleURL, syncReq.Action)
+		if err != nil {
+			log.Printf("[Bulk Sync] Failed for article %d: %v", syncReq.ArticleID, err)
+			// Enqueue for retry during next global sync
+			_ = h.DB.EnqueueSyncChange(syncReq.ArticleID, syncReq.ArticleURL, syncReq.Action)
+		} else {
+			successCount++
+			log.Printf("[Bulk Sync] Success for article %d: %s", syncReq.ArticleID, syncReq.Action)
+		}
+	}
+	log.Printf("[Bulk Sync] Completed: %d/%d articles synced successfully", successCount, len(syncReqs))
 }

@@ -3,6 +3,7 @@ package feed
 import (
 	"MrRSS/internal/models"
 	"MrRSS/internal/utils"
+	"html"
 	"net/url"
 	"regexp"
 	"strings"
@@ -218,7 +219,11 @@ func ExtractAllImageURLsFromHTML(htmlContent string) []string {
 
 	for _, match := range matches {
 		if len(match) > 1 {
-			urls = append(urls, match[1])
+			// Unescape HTML entities (e.g., &amp; -> &) in the URL
+			// This is necessary because URLs in HTML attributes may be HTML-escaped
+			// but when returned as JSON or used directly in <img src>, they should not be
+			unescapedURL := html.UnescapeString(match[1])
+			urls = append(urls, unescapedURL)
 		}
 	}
 

@@ -24,8 +24,15 @@ function getFeedTypeLabel(typeCode: string): string {
   return mapping[typeCode] || typeCode;
 }
 
-const { fieldOptions, textOperatorOptions, booleanOptions, feedNames, feedCategories, feedTypes } =
-  useRuleOptions();
+const {
+  fieldOptions,
+  textOperatorOptions,
+  booleanOptions,
+  feedNames,
+  feedCategories,
+  feedTypes,
+  feedTags,
+} = useRuleOptions();
 
 interface Props {
   condition: Condition;
@@ -259,6 +266,40 @@ function getMultiSelectDisplayText(): string {
               <span class="truncate">{{ getFeedTypeLabel(type as string) }}</span>
             </div>
             <div v-if="feedTypes.length === 0" class="text-text-secondary text-xs sm:text-sm p-2">
+              {{ t('article.content.noArticles') }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-select dropdown for feed tags -->
+        <div v-else-if="condition.field === 'feed_tags'" class="dropdown-container">
+          <button
+            type="button"
+            class="dropdown-trigger text-xs sm:text-sm"
+            @click="emit('toggle-dropdown')"
+          >
+            <span class="dropdown-text truncate">{{ getMultiSelectDisplayText() }}</span>
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div v-if="isDropdownOpen" class="dropdown-menu dropdown-down">
+            <div
+              v-for="tag in feedTags"
+              :key="tag"
+              :class="[
+                'dropdown-option text-xs sm:text-sm',
+                condition.values.includes(tag as string) ? 'selected' : '',
+              ]"
+              @click.stop="handleToggleMultiSelectValue(tag as string)"
+            >
+              <input
+                type="checkbox"
+                :checked="condition.values.includes(tag as string)"
+                class="checkbox-input"
+                tabindex="-1"
+              />
+              <span class="truncate">{{ tag }}</span>
+            </div>
+            <div v-if="feedTags.length === 0" class="text-text-secondary text-xs sm:text-sm p-2">
               {{ t('article.content.noArticles') }}
             </div>
           </div>

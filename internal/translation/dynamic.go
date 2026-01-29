@@ -147,7 +147,7 @@ func (t *DynamicTranslator) getTranslatorWithProvider() (Translator, string, err
 	case "deepl":
 		// For deeplx self-hosted, endpoint is required but API key is optional
 		if endpoint == "" && apiKey == "" {
-			return nil, "", fmt.Errorf("DeepL API key is required (or provide a custom endpoint for deeplx)")
+			return nil, "", fmt.Errorf("deepL API key is required (or provide a custom endpoint for deeplx)")
 		}
 		if endpoint != "" {
 			translator = NewDeepLTranslatorWithEndpoint(apiKey, endpoint)
@@ -156,13 +156,13 @@ func (t *DynamicTranslator) getTranslatorWithProvider() (Translator, string, err
 		}
 	case "baidu":
 		if appID == "" || secretKey == "" {
-			return nil, "", fmt.Errorf("Baidu App ID and Secret Key are required")
+			return nil, "", fmt.Errorf("baidu App ID and Secret Key are required")
 		}
 		translator = NewBaiduTranslator(appID, secretKey)
 	case "ai":
 		// Allow empty API key for local endpoints (e.g., Ollama)
 		if apiKey == "" && !isLocalEndpoint(endpoint) {
-			return nil, "", fmt.Errorf("AI API key is required for non-local endpoints")
+			return nil, "", fmt.Errorf("ai API key is required for non-local endpoints")
 		}
 		aiTranslator := NewAITranslator(apiKey, endpoint, model)
 		if systemPrompt != "" {
@@ -175,7 +175,7 @@ func (t *DynamicTranslator) getTranslatorWithProvider() (Translator, string, err
 	case "custom":
 		// Custom translator with user-defined configuration
 		if endpoint == "" {
-			return nil, "", fmt.Errorf("Custom translation endpoint is required")
+			return nil, "", fmt.Errorf("custom translation endpoint is required")
 		}
 		if customTimeout == 0 {
 			customTimeout = 10 // Default timeout

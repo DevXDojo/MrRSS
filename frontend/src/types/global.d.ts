@@ -18,12 +18,27 @@ export interface InputDialogOptions {
   suggestions?: string[];
 }
 
+export interface MultiSelectOption {
+  value: string;
+  label: string;
+  color?: string;
+}
+
+export interface MultiSelectDialogOptions {
+  title: string;
+  message: string;
+  options: MultiSelectOption[];
+  confirmText?: string;
+  cancelText?: string;
+}
+
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 declare global {
   interface Window {
     showConfirm: (ConfirmDialogOptions) => Promise<boolean>;
     showInput: (InputDialogOptions) => Promise<string | null>;
+    showMultiSelect: (MultiSelectDialogOptions) => Promise<string[] | null>;
     showToast: (string, ToastType?, number?) => void;
   }
 

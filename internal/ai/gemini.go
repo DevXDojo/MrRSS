@@ -130,7 +130,7 @@ func (h *GeminiHandler) ParseResponse(body []byte) (ResponseResult, error) {
 	}
 
 	if err := json.Unmarshal(body, &errorResponse); err == nil && errorResponse.Error.Code != 0 {
-		return ResponseResult{}, fmt.Errorf("Gemini API error (code %d): %s", errorResponse.Error.Code, errorResponse.Error.Message)
+		return ResponseResult{}, fmt.Errorf("gemini API error (code %d): %s", errorResponse.Error.Code, errorResponse.Error.Message)
 	}
 
 	var response struct {
@@ -191,11 +191,11 @@ func (h *GeminiHandler) ValidateResponse(statusCode int, body []byte) error {
 	case http.StatusOK:
 		return nil
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return fmt.Errorf("Gemini authentication failed")
+		return fmt.Errorf("gemini authentication failed")
 	case http.StatusNotFound:
-		return fmt.Errorf("Gemini model not found")
+		return fmt.Errorf("gemini model not found")
 	default:
-		return fmt.Errorf("Gemini API returned status %d: %s", statusCode, string(body))
+		return fmt.Errorf("gemini API returned status %d: %s", statusCode, string(body))
 	}
 }
 

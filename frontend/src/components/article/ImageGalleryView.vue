@@ -9,14 +9,11 @@ import {
   PhList,
   PhCopy,
   PhDownloadSimple,
-  PhGlobe,
   PhX,
   PhTextT,
   PhTextTSlash,
   PhMagnifyingGlassPlus,
   PhMagnifyingGlassMinus,
-  PhEnvelope,
-  PhEnvelopeOpen,
 } from '@phosphor-icons/vue';
 import { openInBrowser } from '@/utils/browser';
 
@@ -54,15 +51,11 @@ const columnCount = ref(4);
 const containerRef = ref<HTMLElement | null>(null);
 // eslint-disable-next-line no-undef
 let resizeObserver: ResizeObserver | null = null;
-const contextMenu = ref<{ show: boolean; x: number; y: number; article: Article | null }>({
-  show: false,
-  x: 0,
-  y: 0,
-  article: null,
-});
 const imageCountCache = ref<Map<number, number>>(new Map());
 const showTextOverlay = ref(true);
+const showThumbnailStrip = ref(true);
 const thumbnailStripRef = ref<HTMLElement | null>(null);
+const thumbnailStripWidth = ref(0);
 
 // Image viewer zoom and pan
 const scale = ref(1);
@@ -77,9 +70,19 @@ if (savedShowTextOverlay !== null) {
   showTextOverlay.value = savedShowTextOverlay === 'true';
 }
 
+// Load showThumbnailStrip preference from localStorage
+const savedShowThumbnailStrip = localStorage.getItem('imageGalleryShowThumbnailStrip');
+if (savedShowThumbnailStrip !== null) {
+  showThumbnailStrip.value = savedShowThumbnailStrip === 'true';
+}
+
 // Watch for changes and save to localStorage
 watch(showTextOverlay, (newValue) => {
   localStorage.setItem('imageGalleryShowTextOverlay', String(newValue));
+});
+
+watch(showThumbnailStrip, (newValue) => {
+  localStorage.setItem('imageGalleryShowThumbnailStrip', String(newValue));
 });
 
 // Compute which feed ID to fetch (if viewing a specific feed)
@@ -122,6 +125,15 @@ const canNavigateNext = computed(() => {
   if (currentArticleIndex.value >= 0 && currentArticleIndex.value < articles.value.length - 1)
     return true;
   return false;
+});
+
+// Check if thumbnails should be centered (when they don't fill the container)
+const shouldCenterThumbnails = computed(() => {
+  if (allImages.value.length === 0) return false;
+  // Each thumbnail is 64px (w-16) + 8px (gap-2) = 72px
+  const thumbnailWidth = 72;
+  const totalThumbnailsWidth = allImages.value.length * thumbnailWidth;
+  return totalThumbnailsWidth < thumbnailStripWidth.value;
 });
 
 // Fetch image gallery articles
@@ -464,17 +476,75 @@ function formatDate(dateString: string): string {
 function handleContextMenu(event: MouseEvent, article: Article) {
   event.preventDefault();
   event.stopPropagation();
-  contextMenu.value = {
-    show: true,
-    x: event.clientX,
-    y: event.clientY,
-    article,
-  };
+
+  // Use global context menu system to avoid conflicts with sidebar/context menu
+  const menuItems = [
+    {
+      label: article.is_read ? t('article.action.markAsUnread') : t('article.action.markAsRead'),
+      action: 'toggleRead',
+      icon: article.is_read ? 'ph-envelope' : 'ph-envelope-open',
+    },
+    {
+      label: article.is_favorite
+        ? t('article.action.removeFromFavorites')
+        : t('article.imageGallery.addToFavorite'),
+      action: 'toggleFavorite',
+      icon: 'ph-star',
+      iconWeight: article.is_favorite ? 'fill' : 'regular',
+      iconColor: article.is_favorite ? 'text-yellow-500' : '',
+    },
+    { separator: true },
+    {
+      label: t('common.contextMenu.copyTitle'),
+      action: 'copyTitle',
+      icon: 'ph-text-t',
+    },
+    {
+      label: t('common.contextMenu.copyLink'),
+      action: 'copyLink',
+      icon: 'ph-link',
+    },
+    { separator: true },
+    {
+      label: t('common.contextMenu.downloadImage'),
+      action: 'downloadImage',
+      icon: 'PhDownloadSimple',
+    },
+    {
+      label: t('article.action.openInBrowser'),
+      action: 'openBrowser',
+      icon: 'ph-globe',
+    },
+  ];
+
+  window.dispatchEvent(
+    new CustomEvent('open-context-menu', {
+      detail: {
+        x: event.clientX,
+        y: event.clientY,
+        items: menuItems,
+        data: article,
+        callback: handleImageAction,
+      },
+    })
+  );
 }
 
-// Close context menu
-function closeContextMenu() {
-  contextMenu.value.show = false;
+// Handle context menu actions
+async function handleImageAction(action: string, article: Article): Promise<void> {
+  if (action === 'toggleRead') {
+    await toggleReadStatus(article);
+  } else if (action === 'toggleFavorite') {
+    await toggleFavorite(article);
+  } else if (action === 'copyTitle') {
+    await copyArticleTitle(article);
+  } else if (action === 'copyLink') {
+    await copyArticleLink(article);
+  } else if (action === 'downloadImage') {
+    await downloadImage(article.image_url || '');
+  } else if (action === 'openBrowser') {
+    openOriginal(article);
+  }
 }
 
 // Download image
@@ -577,7 +647,6 @@ async function copyImage(src: string) {
 // Open original article
 function openOriginal(article: Article) {
   openInBrowser(article.url);
-  closeContextMenu();
 }
 
 // Toggle article read status
@@ -681,12 +750,17 @@ function stopDrag() {
 
 // Handle keyboard shortcuts
 function handleKeyDown(e: KeyboardEvent) {
-  // Only handle keyboard when image viewer is open
+  // Handle Escape key - stop it immediately when image viewer is open
+  if (e.key === 'Escape' && showImageViewer.value) {
+    e.stopImmediatePropagation();
+    closeImageViewer();
+    return;
+  }
+
+  // Only handle other keyboard shortcuts when image viewer is open
   if (!showImageViewer.value) return;
 
-  if (e.key === 'Escape') {
-    closeImageViewer();
-  } else if (e.key === 'ArrowLeft') {
+  if (e.key === 'ArrowLeft') {
     e.preventDefault();
     previousImage();
   } else if (e.key === 'ArrowRight') {
@@ -774,13 +848,28 @@ watch(category, async () => {
   calculateColumns();
 });
 
+// Update thumbnail strip width when the ref is available
+watch(thumbnailStripRef, () => {
+  if (thumbnailStripRef.value) {
+    thumbnailStripWidth.value = thumbnailStripRef.value.offsetWidth;
+  }
+});
+
+// Watch for allImages changes and update thumbnail strip width
+watch(allImages, async () => {
+  await nextTick();
+  if (thumbnailStripRef.value) {
+    thumbnailStripWidth.value = thumbnailStripRef.value.offsetWidth;
+  }
+});
+
 onMounted(() => {
   fetchImages();
   if (containerRef.value) {
     containerRef.value.addEventListener('scroll', handleScroll);
   }
-  window.addEventListener('click', closeContextMenu);
-  window.addEventListener('keydown', handleKeyDown);
+  // Use capture phase to handle Escape before other listeners
+  window.addEventListener('keydown', handleKeyDown, { capture: true } as any);
 
   // Set up ResizeObserver to watch for container size changes
   if (containerRef.value) {
@@ -801,8 +890,8 @@ onUnmounted(() => {
     resizeObserver.disconnect();
     resizeObserver = null;
   }
-  window.removeEventListener('click', closeContextMenu);
-  window.removeEventListener('keydown', handleKeyDown);
+  // Remove with capture option to match the addEventListener call
+  window.removeEventListener('keydown', handleKeyDown, { capture: true } as any);
 });
 </script>
 
@@ -933,9 +1022,9 @@ onUnmounted(() => {
       @click="closeImageViewer"
     >
       <!-- Top bar: Close button, Image counter, Zoom controls, Action buttons -->
-      <div class="flex items-center justify-between shrink-0 mb-2" @click.stop>
-        <div class="flex items-center gap-2">
-          <!-- Image counter -->
+      <div class="relative shrink-0 mb-2" @click.stop>
+        <!-- Left: Image counter -->
+        <div class="absolute left-0 top-0 flex items-center gap-2">
           <div
             v-if="allImages.length > 1"
             class="px-2 py-1 rounded bg-black/50 text-white text-sm font-medium min-w-[60px] text-center backdrop-blur-sm"
@@ -944,10 +1033,11 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <!-- Center: Zoom controls and Action buttons -->
+        <div class="flex items-center justify-center gap-2">
           <!-- Zoom controls -->
           <button
-            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-colors"
+            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-all duration-200 hover:scale-105 active:scale-95"
             :disabled="scale <= MIN_SCALE"
             :title="t('common.imageViewer.zoomOut')"
             @click="zoomOut"
@@ -960,7 +1050,7 @@ onUnmounted(() => {
             {{ Math.round(scale * 100) }}%
           </span>
           <button
-            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-colors"
+            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-all duration-200 hover:scale-105 active:scale-95"
             :disabled="scale >= MAX_SCALE"
             :title="t('common.imageViewer.zoomIn')"
             @click="zoomIn"
@@ -970,21 +1060,21 @@ onUnmounted(() => {
 
           <!-- Action buttons -->
           <button
-            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-colors"
+            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-all duration-200 hover:scale-105 active:scale-95"
             :title="t('common.contextMenu.copyImage')"
             @click="copyImage(currentImageUrl)"
           >
             <PhCopy :size="20" />
           </button>
           <button
-            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-colors"
+            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-all duration-200 hover:scale-105 active:scale-95"
             :title="t('common.contextMenu.downloadImage')"
             @click="downloadImage(currentImageUrl)"
           >
             <PhDownloadSimple :size="20" />
           </button>
           <button
-            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-colors"
+            class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-all duration-200 hover:scale-105 active:scale-95"
             :title="
               selectedArticle.is_favorite
                 ? t('article.imageGallery.actionUnfavorite')
@@ -1000,13 +1090,15 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- Close button -->
-        <button
-          class="w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full text-white flex items-center justify-center transition-colors"
-          @click="closeImageViewer"
-        >
-          <PhX :size="20" />
-        </button>
+        <!-- Right: Close button -->
+        <div class="absolute right-0 top-0">
+          <button
+            class="w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full text-white flex items-center justify-center transition-colors"
+            @click="closeImageViewer"
+          >
+            <PhX :size="20" />
+          </button>
+        </div>
       </div>
 
       <!-- Navigation buttons -->
@@ -1076,41 +1168,67 @@ onUnmounted(() => {
           />
         </div>
 
-        <!-- Thumbnail strip (shown when there are multiple images) -->
-        <div v-if="allImages.length > 1" class="w-full mt-3 px-2 shrink-0" @click.stop>
+        <!-- Thumbnail strip toggle handle (always visible when there are multiple images) -->
+        <div v-if="allImages.length > 1" class="w-full shrink-0" @click.stop>
+          <!-- Collapsed state: show expand hint -->
           <div
-            ref="thumbnailStripRef"
-            class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
-            @wheel="handleThumbnailWheel"
+            v-if="!showThumbnailStrip"
+            class="relative w-full py-3 flex items-center justify-center"
           >
-            <button
-              v-for="(image, index) in allImages"
-              :key="index"
-              class="relative shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-all duration-200 hover:scale-105 active:scale-95"
-              :class="
-                index === currentImageIndex
-                  ? 'border-accent shadow-lg shadow-accent/30'
-                  : 'border-white/20 hover:border-white/40'
-              "
-              @click="
-                currentImageIndex = index;
-                currentImageLoading = true;
-                resetView();
-              "
-            >
-              <img
-                :src="image"
-                :alt="`${t('common.text.image')} ${index + 1}`"
-                class="w-full h-full object-cover"
-                loading="lazy"
-              />
-              <!-- Active indicator -->
-              <div
-                v-if="index === currentImageIndex"
-                class="absolute inset-0 bg-accent/20 pointer-events-none"
-              ></div>
-            </button>
+            <div
+              class="h-1 w-12 bg-white/30 rounded-full cursor-pointer hover:bg-white/50 hover:w-16 transition-all duration-300"
+              @click="showThumbnailStrip = true"
+            ></div>
           </div>
+
+          <!-- Expanded state: show thumbnails with collapse handle -->
+          <template v-else>
+            <!-- Collapse handle above thumbnails -->
+            <div class="relative w-full py-2 flex items-center justify-center">
+              <div
+                class="h-1 w-16 bg-white/20 rounded-full cursor-pointer hover:bg-white/40 hover:w-20 transition-all duration-300"
+                @click="showThumbnailStrip = false"
+              ></div>
+            </div>
+
+            <!-- Thumbnail strip -->
+            <div class="w-full px-2" @click.stop>
+              <div
+                ref="thumbnailStripRef"
+                class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+                :class="shouldCenterThumbnails ? 'justify-center' : 'justify-start'"
+                @wheel="handleThumbnailWheel"
+              >
+                <button
+                  v-for="(image, index) in allImages"
+                  :key="index"
+                  class="relative shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-all duration-200"
+                  :class="
+                    index === currentImageIndex
+                      ? 'border-accent shadow-lg shadow-accent/30'
+                      : 'border-white/30 hover:border-white/60'
+                  "
+                  @click="
+                    currentImageIndex = index;
+                    currentImageLoading = true;
+                    resetView();
+                  "
+                >
+                  <img
+                    :src="image"
+                    :alt="`${t('common.text.image')} ${index + 1}`"
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <!-- Active indicator -->
+                  <div
+                    v-if="index === currentImageIndex"
+                    class="absolute inset-0 bg-accent/20 pointer-events-none"
+                  ></div>
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -1131,7 +1249,7 @@ onUnmounted(() => {
               {{ t('article.action.viewOriginal') }}
             </a>
             <button
-              class="px-3 py-1.5 bg-black/50 hover:bg-black/70 text-white rounded-md text-sm whitespace-nowrap transition-colors duration-200"
+              class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-md text-sm whitespace-nowrap transition-all duration-200"
               :title="t('article.action.viewArticle')"
               @click="openArticleDetail"
             >
@@ -1144,87 +1262,6 @@ onUnmounted(() => {
           <span class="shrink-0">{{ formatDate(selectedArticle.published_at) }}</span>
         </div>
       </div>
-    </div>
-
-    <!-- Context Menu -->
-    <div
-      v-if="contextMenu.show && contextMenu.article"
-      class="fixed z-50 bg-bg-primary border border-border rounded-lg shadow-lg py-1 min-w-[180px]"
-      :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
-      @click.stop
-    >
-      <button
-        class="w-full px-4 py-2 flex items-center gap-3 text-sm text-text-primary hover:bg-bg-tertiary active:bg-bg-secondary transition-colors cursor-pointer"
-        @click="
-          toggleReadStatus(contextMenu.article);
-          closeContextMenu();
-        "
-      >
-        <PhEnvelope v-if="!contextMenu.article.is_read" :size="16" />
-        <PhEnvelopeOpen v-else :size="16" />
-        <span>{{
-          contextMenu.article.is_read
-            ? t('article.action.markAsUnread')
-            : t('article.action.markAsRead')
-        }}</span>
-      </button>
-      <button
-        class="w-full px-4 py-2 flex items-center gap-3 text-sm text-text-primary hover:bg-bg-tertiary active:bg-bg-secondary transition-colors cursor-pointer"
-        @click="
-          toggleFavorite(contextMenu.article);
-          closeContextMenu();
-        "
-      >
-        <PhHeart
-          :size="16"
-          :weight="contextMenu.article.is_favorite ? 'fill' : 'regular'"
-          :class="contextMenu.article.is_favorite ? 'text-yellow-500' : ''"
-        />
-        <span>{{
-          contextMenu.article.is_favorite
-            ? t('article.action.removeFromFavorites')
-            : t('article.imageGallery.addToFavorite')
-        }}</span>
-      </button>
-      <div class="h-px bg-border my-1"></div>
-      <button
-        class="w-full px-4 py-2 flex items-center gap-3 text-sm text-text-primary hover:bg-bg-tertiary active:bg-bg-secondary transition-colors cursor-pointer"
-        @click="
-          copyArticleTitle(contextMenu.article);
-          closeContextMenu();
-        "
-      >
-        <PhTextT :size="16" />
-        <span>{{ t('common.contextMenu.copyTitle') }}</span>
-      </button>
-      <button
-        class="w-full px-4 py-2 flex items-center gap-3 text-sm text-text-primary hover:bg-bg-tertiary active:bg-bg-secondary transition-colors cursor-pointer"
-        @click="
-          copyArticleLink(contextMenu.article);
-          closeContextMenu();
-        "
-      >
-        <PhCopy :size="16" />
-        <span>{{ t('common.contextMenu.copyLink') }}</span>
-      </button>
-      <div class="h-px bg-border my-1"></div>
-      <button
-        class="w-full px-4 py-2 flex items-center gap-3 text-sm text-text-primary hover:bg-bg-tertiary active:bg-bg-secondary transition-colors cursor-pointer"
-        @click="
-          downloadImage(contextMenu.article.image_url || '');
-          closeContextMenu();
-        "
-      >
-        <PhDownloadSimple :size="16" />
-        <span>{{ t('common.contextMenu.downloadImage') }}</span>
-      </button>
-      <button
-        class="w-full px-4 py-2 flex items-center gap-3 text-sm text-text-primary hover:bg-bg-tertiary active:bg-bg-secondary transition-colors cursor-pointer"
-        @click="openOriginal(contextMenu.article)"
-      >
-        <PhGlobe :size="16" />
-        <span>{{ t('article.action.openInBrowser') }}</span>
-      </button>
     </div>
   </div>
 </template>

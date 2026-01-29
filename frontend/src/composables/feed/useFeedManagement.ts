@@ -259,6 +259,189 @@ export function useFeedManagement() {
     window.showToast(t('modal.feed.feedsMovedSuccess'), 'success');
   }
 
+  /**
+   * Add tags to multiple feeds (internal function)
+   */
+  async function addTagsToFeeds(selectedIds: number[], tagIds: number[]) {
+    if (!store.feeds) return;
+
+    // Add selected tags to each feed
+    const promises = selectedIds.map((id: number) => {
+      const feed = store.feeds!.find((f) => f.id === id);
+      if (!feed) return Promise.resolve();
+
+      // Get existing tags
+      const existingTagIds = (feed.tags || []).map((t) => t.id);
+      // Merge with new tags (avoid duplicates)
+      const mergedTagIds = Array.from(new Set([...existingTagIds, ...tagIds]));
+
+      return fetch('/api/feeds/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: feed.id,
+          title: feed.title,
+          url: feed.url,
+          category: feed.category,
+          is_image_mode: feed.is_image_mode,
+          website_url: feed.website_url,
+          image_url: feed.image_url,
+          script_path: feed.script_path,
+          hide_from_timeline: feed.hide_from_timeline,
+          proxy_url: feed.proxy_url,
+          proxy_enabled: feed.proxy_enabled,
+          refresh_interval: feed.refresh_interval,
+          type: feed.type,
+          xpath_item: feed.xpath_item,
+          xpath_item_title: feed.xpath_item_title,
+          xpath_item_content: feed.xpath_item_content,
+          xpath_item_uri: feed.xpath_item_uri,
+          xpath_item_author: feed.xpath_item_author,
+          xpath_item_timestamp: feed.xpath_item_timestamp,
+          xpath_item_time_format: feed.xpath_item_time_format,
+          xpath_item_thumbnail: feed.xpath_item_thumbnail,
+          xpath_item_categories: feed.xpath_item_categories,
+          xpath_item_uid: feed.xpath_item_uid,
+          article_view_mode: feed.article_view_mode,
+          auto_expand_content: feed.auto_expand_content,
+          tags: mergedTagIds,
+        }),
+      });
+    });
+
+    await Promise.all(promises);
+    store.fetchFeeds();
+    window.showToast(t('modal.feed.tagsAddedSuccess'), 'success');
+  }
+
+  /**
+   * Add tags to multiple feeds (shows dialog)
+   */
+  async function handleBatchAddTags(selectedIds: number[]) {
+    if (!store.feeds) return;
+
+    // Dispatch event to show batch tag selector
+    window.dispatchEvent(
+      new CustomEvent('show-batch-tag-selector', {
+        detail: { feedIds: selectedIds },
+      })
+    );
+  }
+
+  /**
+   * Set image mode for multiple feeds
+   */
+  async function handleBatchSetImageMode(selectedIds: number[]) {
+    const confirmed = await window.showConfirm({
+      title: t('modal.feed.setImageModeTitle'),
+      message: t('modal.feed.setImageModeMessage', { count: selectedIds.length }),
+      confirmText: t('common.action.confirm'),
+      cancelText: t('common.action.cancel'),
+      isDanger: false,
+    });
+    if (!confirmed) return;
+
+    if (!store.feeds) return;
+
+    const promises = selectedIds.map((id: number) => {
+      const feed = store.feeds!.find((f) => f.id === id);
+      if (!feed) return Promise.resolve();
+
+      return fetch('/api/feeds/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: feed.id,
+          title: feed.title,
+          url: feed.url,
+          category: feed.category,
+          is_image_mode: true,
+          website_url: feed.website_url,
+          image_url: feed.image_url,
+          script_path: feed.script_path,
+          hide_from_timeline: feed.hide_from_timeline,
+          proxy_url: feed.proxy_url,
+          proxy_enabled: feed.proxy_enabled,
+          refresh_interval: feed.refresh_interval,
+          type: feed.type,
+          xpath_item: feed.xpath_item,
+          xpath_item_title: feed.xpath_item_title,
+          xpath_item_content: feed.xpath_item_content,
+          xpath_item_uri: feed.xpath_item_uri,
+          xpath_item_author: feed.xpath_item_author,
+          xpath_item_timestamp: feed.xpath_item_timestamp,
+          xpath_item_time_format: feed.xpath_item_time_format,
+          xpath_item_thumbnail: feed.xpath_item_thumbnail,
+          xpath_item_categories: feed.xpath_item_categories,
+          xpath_item_uid: feed.xpath_item_uid,
+          article_view_mode: feed.article_view_mode,
+          auto_expand_content: feed.auto_expand_content,
+        }),
+      });
+    });
+
+    await Promise.all(promises);
+    store.fetchFeeds();
+    window.showToast(t('modal.feed.imageModeSetSuccess'), 'success');
+  }
+
+  /**
+   * Unset image mode for multiple feeds
+   */
+  async function handleBatchUnsetImageMode(selectedIds: number[]) {
+    const confirmed = await window.showConfirm({
+      title: t('modal.feed.unsetImageModeTitle'),
+      message: t('modal.feed.unsetImageModeMessage', { count: selectedIds.length }),
+      confirmText: t('common.action.confirm'),
+      cancelText: t('common.action.cancel'),
+      isDanger: false,
+    });
+    if (!confirmed) return;
+
+    if (!store.feeds) return;
+
+    const promises = selectedIds.map((id: number) => {
+      const feed = store.feeds!.find((f) => f.id === id);
+      if (!feed) return Promise.resolve();
+
+      return fetch('/api/feeds/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: feed.id,
+          title: feed.title,
+          url: feed.url,
+          category: feed.category,
+          is_image_mode: false,
+          website_url: feed.website_url,
+          image_url: feed.image_url,
+          script_path: feed.script_path,
+          hide_from_timeline: feed.hide_from_timeline,
+          proxy_url: feed.proxy_url,
+          proxy_enabled: feed.proxy_enabled,
+          refresh_interval: feed.refresh_interval,
+          type: feed.type,
+          xpath_item: feed.xpath_item,
+          xpath_item_title: feed.xpath_item_title,
+          xpath_item_content: feed.xpath_item_content,
+          xpath_item_uri: feed.xpath_item_uri,
+          xpath_item_author: feed.xpath_item_author,
+          xpath_item_timestamp: feed.xpath_item_timestamp,
+          xpath_item_time_format: feed.xpath_item_time_format,
+          xpath_item_thumbnail: feed.xpath_item_thumbnail,
+          xpath_item_categories: feed.xpath_item_categories,
+          xpath_item_uid: feed.xpath_item_uid,
+          article_view_mode: feed.article_view_mode,
+          auto_expand_content: feed.auto_expand_content,
+        }),
+      });
+    });
+
+    await Promise.all(promises);
+    store.fetchFeeds();
+    window.showToast(t('modal.feed.imageModeUnsetSuccess'), 'success');
+  }
+
   return {
     handleImportOPML,
     handleExportOPML,
@@ -268,5 +451,9 @@ export function useFeedManagement() {
     handleDeleteFeed,
     handleBatchDelete,
     handleBatchMove,
+    handleBatchAddTags,
+    handleBatchSetImageMode,
+    handleBatchUnsetImageMode,
+    addTagsToFeeds,
   };
 }

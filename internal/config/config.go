@@ -23,6 +23,7 @@ type Defaults struct {
 	AICustomHeaders               string `json:"ai_custom_headers"`
 	AIEndpoint                    string `json:"ai_endpoint"`
 	AIModel                       string `json:"ai_model"`
+	AISearchEnabled               bool   `json:"ai_search_enabled"`
 	AISummaryPrompt               string `json:"ai_summary_prompt"`
 	AITranslationPrompt           string `json:"ai_translation_prompt"`
 	AIUsageLimit                  string `json:"ai_usage_limit"`
@@ -32,7 +33,6 @@ type Defaults struct {
 	BaiduAppId                    string `json:"baidu_app_id"`
 	BaiduSecretKey                string `json:"baidu_secret_key"`
 	CloseToTray                   bool   `json:"close_to_tray"`
-	CompactMode                   bool   `json:"compact_mode"`
 	ContentFontFamily             string `json:"content_font_family"`
 	ContentFontSize               int    `json:"content_font_size"`
 	ContentLineHeight             string `json:"content_line_height"`
@@ -65,6 +65,7 @@ type Defaults struct {
 	Language                      string `json:"language"`
 	LastGlobalRefresh             string `json:"last_global_refresh"`
 	LastNetworkTest               string `json:"last_network_test"`
+	LayoutMode                    string `json:"layout_mode"`
 	MaxArticleAgeDays             int    `json:"max_article_age_days"`
 	MaxCacheSizeMb                int    `json:"max_cache_size_mb"`
 	MaxConcurrentRefreshes        string `json:"max_concurrent_refreshes"`
@@ -138,6 +139,8 @@ func GetString(key string) string {
 		return defaults.AIEndpoint
 	case "ai_model":
 		return defaults.AIModel
+	case "ai_search_enabled":
+		return strconv.FormatBool(defaults.AISearchEnabled)
 	case "ai_summary_prompt":
 		return defaults.AISummaryPrompt
 	case "ai_translation_prompt":
@@ -156,8 +159,6 @@ func GetString(key string) string {
 		return defaults.BaiduSecretKey
 	case "close_to_tray":
 		return strconv.FormatBool(defaults.CloseToTray)
-	case "compact_mode":
-		return strconv.FormatBool(defaults.CompactMode)
 	case "content_font_family":
 		return defaults.ContentFontFamily
 	case "content_font_size":
@@ -222,6 +223,8 @@ func GetString(key string) string {
 		return defaults.LastGlobalRefresh
 	case "last_network_test":
 		return defaults.LastNetworkTest
+	case "layout_mode":
+		return defaults.LayoutMode
 	case "max_article_age_days":
 		return strconv.Itoa(defaults.MaxArticleAgeDays)
 	case "max_cache_size_mb":

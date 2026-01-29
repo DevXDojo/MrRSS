@@ -1,5 +1,12 @@
 // Type definitions for models
 
+export interface Tag {
+  id: number;
+  name: string;
+  color: string; // Hex color code
+  position?: number;
+}
+
 export interface Article {
   id: number;
   feed_id: number;
@@ -67,6 +74,8 @@ export interface Feed {
   latest_article_time?: string; // Latest article publish time
   articles_per_month?: number; // Average articles per month (calculated from last 90 days)
   last_update_status?: string; // Last update status ("success" or "failed")
+  // Tags (populated by API handlers)
+  tags?: Tag[]; // Tags assigned to this feed
 }
 
 export interface UnreadCounts {
@@ -146,6 +155,7 @@ export interface FilterCondition {
   field:
     | 'feed_name'
     | 'feed_category'
+    | 'feed_tags'
     | 'article_title'
     | 'is_read'
     | 'is_favorite'

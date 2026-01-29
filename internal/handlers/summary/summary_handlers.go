@@ -107,7 +107,7 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 			usedFallback = true
 		} else {
 			// Use AI summarization (API key is optional for some providers)
-			apiKey, err := h.DB.GetEncryptedSetting("ai_api_key")
+			apiKey, _ := h.DB.GetEncryptedSetting("ai_api_key")
 			// Some AI providers don't require API keys, so we proceed regardless
 			log.Printf("Using AI summarization (API key: %s)", func() string {
 				if apiKey != "" {

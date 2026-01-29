@@ -14,10 +14,12 @@ import {
 import { ref, onMounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
+import { useArticleFilter } from '@/composables/article/useArticleFilter';
 import LogoSvg from '../../../assets/logo.svg';
 
 const store = useAppStore();
 const { t } = useI18n();
+const { clearAllFilters } = useArticleFilter();
 
 interface NavItem {
   id: string;
@@ -123,6 +125,8 @@ onMounted(async () => {
 });
 
 function handleNavClick(item: NavItem) {
+  // Clear any active saved filters when clicking main filter buttons
+  clearAllFilters();
   store.setFilter(item.filterType);
   emit('select-filter', item.filterType);
 

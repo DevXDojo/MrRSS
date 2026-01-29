@@ -195,18 +195,27 @@ func HandleFilteredArticles(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	feedCategories := make(map[int64]string)
 	feedTypes := make(map[int64]string)
 	feedIsImageMode := make(map[int64]bool)
+	feedTags := make(map[int64][]string)
 
 	for _, feed := range feeds {
 		feedCategories[feed.ID] = feed.Category
 		feedTypes[feed.ID] = GetFeedType(&feed)
 		feedIsImageMode[feed.ID] = feed.IsImageMode
+
+		// Build tag names list for this feed
+		tags, _ := h.DB.GetFeedTags(feed.ID)
+		tagNames := make([]string, len(tags))
+		for i, tag := range tags {
+			tagNames[i] = tag.Name
+		}
+		feedTags[feed.ID] = tagNames
 	}
 
 	// Apply filter conditions
 	if len(req.Conditions) > 0 {
 		var filteredArticles []models.Article
 		for _, article := range articles {
-			if evaluateArticleConditions(article, req.Conditions, feedCategories, feedTypes, feedIsImageMode) {
+			if evaluateArticleConditions(article, req.Conditions, feedCategories, feedTypes, feedIsImageMode, feedTags) {
 				filteredArticles = append(filteredArticles, article)
 			}
 		}

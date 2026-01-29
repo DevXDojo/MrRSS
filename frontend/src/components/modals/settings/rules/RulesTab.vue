@@ -348,8 +348,10 @@ async function onDrop(targetRuleId: number, event: DragEvent) {
         </transition-group>
       </div>
     </SettingGroup>
+  </div>
 
-    <!-- Rule Editor Modal -->
+  <!-- Rule Editor Modal (Teleported to body) -->
+  <Teleport to="body">
     <RuleEditorModal
       v-if="showRuleEditor"
       :show="showRuleEditor"
@@ -357,7 +359,7 @@ async function onDrop(targetRuleId: number, event: DragEvent) {
       @close="showRuleEditor = false"
       @save="handleSaveRule"
     />
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>

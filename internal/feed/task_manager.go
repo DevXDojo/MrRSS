@@ -477,7 +477,7 @@ func (tm *TaskManager) ExecuteImmediately(ctx context.Context, feed models.Feed)
 		var success bool
 
 		// Get retry timeout from settings
-		retryTimeoutSeconds := tm.getRetryTimeout()
+		retryTimeout := tm.getRetryTimeout()
 
 		// First attempt: 10 second timeout
 		ctx1, cancel1 := context.WithTimeout(ctx, 10*time.Second)
@@ -491,9 +491,9 @@ func (tm *TaskManager) ExecuteImmediately(ctx context.Context, feed models.Feed)
 
 		// Second attempt: use configured retry timeout if first attempt failed
 		if !success && err != nil {
-			log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeoutSeconds)
+			log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeout)
 
-			ctx2, cancel2 := context.WithTimeout(ctx, retryTimeoutSeconds)
+			ctx2, cancel2 := context.WithTimeout(ctx, retryTimeout)
 			defer cancel2()
 
 			err = tm.fetcher.fetchFeedWithContext(ctx2, task.Feed)
@@ -623,7 +623,7 @@ func (tm *TaskManager) processTask(ctx context.Context, task *RefreshTask) {
 	var success bool
 
 	// Get retry timeout from settings
-	retryTimeoutSeconds := tm.getRetryTimeout()
+	retryTimeout := tm.getRetryTimeout()
 
 	// First attempt: 60 second timeout (increased from 10s for large feeds)
 	// Many feeds have 100+ articles, and processing can take time
@@ -639,10 +639,10 @@ func (tm *TaskManager) processTask(ctx context.Context, task *RefreshTask) {
 
 	// Second attempt: use configured retry timeout if first attempt failed
 	if !success && err != nil {
-		log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeoutSeconds)
+		log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeout)
 		tm.logOperation("RT", task.Feed.Title)
 
-		ctx2, cancel2 := context.WithTimeout(ctx, retryTimeoutSeconds)
+		ctx2, cancel2 := context.WithTimeout(ctx, retryTimeout)
 		defer cancel2()
 
 		err = tm.fetcher.fetchFeedWithContext(ctx2, task.Feed)
@@ -1012,14 +1012,5 @@ func (tm *TaskManager) logOperation(operation string, feedName string) {
 
 	if _, err := tm.logFile.WriteString(logEntry); err != nil {
 		log.Printf("Failed to write to task log: %v", err)
-	}
-}
-
-// closeTaskLog closes the task log file
-func (tm *TaskManager) closeTaskLog() {
-	if tm.logFile != nil {
-		tm.logFile.Close()
-		tm.logFile = nil
-		tm.logEnabled = false
 	}
 }

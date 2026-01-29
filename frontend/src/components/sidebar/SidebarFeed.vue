@@ -200,12 +200,12 @@ function handleDragEnd() {
 @reference "../../style.css";
 
 .feed-item {
-  @apply px-2 sm:px-3 py-1.5 sm:py-2 cursor-pointer rounded-md text-xs sm:text-sm text-text-primary flex items-center gap-1.5 sm:gap-2.5 hover:bg-bg-tertiary transition-colors;
+  @apply px-2 sm:px-3 py-1.5 sm:py-2 cursor-pointer rounded-md text-xs sm:text-sm text-text-primary flex items-center gap-1 hover:bg-bg-tertiary transition-colors;
 }
 
 /* Compact mode: reduce padding and gap */
 .feed-item.compact {
-  @apply px-1 sm:px-1.5 py-0.5 sm:py-1 gap-0.5 sm:gap-1;
+  @apply px-1 sm:px-1.5 py-0.5 sm:py-1 gap-0 sm:gap-0.5;
 }
 
 /* Indentation for nested feeds */

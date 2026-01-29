@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/rsshub"
@@ -27,8 +28,11 @@ func HandleFeeds(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clear sensitive password fields before sending to frontend
+	// Populate tags for each feed
 	for i := range feeds {
+		tags, _ := h.DB.GetFeedTags(feeds[i].ID)
+		feeds[i].Tags = tags
+		// Clear sensitive password fields before sending to frontend
 		feeds[i].EmailPassword = ""
 	}
 
@@ -79,6 +83,8 @@ func HandleAddFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		EmailUsername   string `json:"email_username"`
 		EmailPassword   string `json:"email_password"`
 		EmailFolder     string `json:"email_folder"`
+		// Tags
+		Tags []int64 `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -137,6 +143,14 @@ func HandleAddFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if err := h.DB.UpdateFeed(feed.ID, feed.Title, feed.URL, feed.Category, feed.ScriptPath, req.HideFromTimeline, req.ProxyURL, req.ProxyEnabled, req.RefreshInterval, req.IsImageMode, feed.Type, feed.XPathItem, feed.XPathItemTitle, feed.XPathItemContent, feed.XPathItemUri, feed.XPathItemAuthor, feed.XPathItemTimestamp, feed.XPathItemTimeFormat, feed.XPathItemThumbnail, feed.XPathItemCategories, feed.XPathItemUid, req.ArticleViewMode, req.AutoExpandContent, feed.EmailAddress, feed.EmailIMAPServer, feed.EmailUsername, feed.EmailPassword, feed.EmailFolder, feed.EmailIMAPPort); err != nil {
 		http.Error(w, "feed created but failed to update settings: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Set tags for the feed
+	if len(req.Tags) > 0 {
+		if err := h.DB.SetFeedTags(feedID, req.Tags); err != nil {
+			// Log error but don't fail - feed was created successfully
+			// Tags can be set later via edit
+		}
 	}
 
 	// Immediately fetch articles for the newly added feed in background
@@ -217,6 +231,8 @@ func HandleUpdateFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		EmailUsername   string `json:"email_username"`
 		EmailPassword   string `json:"email_password"`
 		EmailFolder     string `json:"email_folder"`
+		// Tags
+		Tags []int64 `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -270,10 +286,74 @@ func HandleUpdateFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.DB.UpdateFeed(req.ID, req.Title, req.URL, req.Category, req.ScriptPath, req.HideFromTimeline, req.ProxyURL, req.ProxyEnabled, req.RefreshInterval, req.IsImageMode, req.Type, req.XPathItem, req.XPathItemTitle, req.XPathItemContent, req.XPathItemUri, req.XPathItemAuthor, req.XPathItemTimestamp, req.XPathItemTimeFormat, req.XPathItemThumbnail, req.XPathItemCategories, req.XPathItemUid, req.ArticleViewMode, req.AutoExpandContent, req.EmailAddress, req.EmailIMAPServer, req.EmailUsername, req.EmailPassword, req.EmailFolder, req.EmailIMAPPort); err != nil {
+	// If title is empty, fetch the default title from the feed
+	finalTitle := req.Title
+	if finalTitle == "" {
+		// Get current feed to determine its type
+		currentFeed, err := h.DB.GetFeedByID(req.ID)
+		if err != nil {
+			http.Error(w, "failed to get feed info: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch default title based on feed type
+		if req.ScriptPath != "" || (currentFeed != nil && currentFeed.ScriptPath != "") {
+			// Script-based feed
+			scriptPathToUse := req.ScriptPath
+			if scriptPathToUse == "" {
+				scriptPathToUse = currentFeed.ScriptPath
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			parsedFeed, err := h.Fetcher.ParseFeedWithScript(ctx, "", scriptPathToUse, false)
+			if err == nil && parsedFeed.Title != "" {
+				finalTitle = parsedFeed.Title
+			} else {
+				finalTitle = scriptPathToUse
+			}
+		} else if req.XPathItem != "" || (currentFeed != nil && currentFeed.XPathItem != "") {
+			// XPath-based feed: use default title
+			finalTitle = "XPath Feed"
+		} else if req.Type == "email" || (currentFeed != nil && currentFeed.Type == "email") {
+			// Email-based feed: use email address as title
+			emailAddr := req.EmailAddress
+			if emailAddr == "" && currentFeed != nil {
+				emailAddr = currentFeed.EmailAddress
+			}
+			finalTitle = emailAddr
+		} else {
+			// URL-based feed: fetch and parse to get title
+			urlToFetch := req.URL
+			if urlToFetch == "" && currentFeed != nil {
+				urlToFetch = currentFeed.URL
+			}
+			if urlToFetch != "" {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				parsedFeed, err := h.Fetcher.ParseFeed(ctx, urlToFetch)
+				if err == nil && parsedFeed.Title != "" {
+					finalTitle = parsedFeed.Title
+				} else {
+					// Fallback to URL as title
+					finalTitle = urlToFetch
+				}
+			}
+		}
+	}
+
+	if err := h.DB.UpdateFeed(req.ID, finalTitle, req.URL, req.Category, req.ScriptPath, req.HideFromTimeline, req.ProxyURL, req.ProxyEnabled, req.RefreshInterval, req.IsImageMode, req.Type, req.XPathItem, req.XPathItemTitle, req.XPathItemContent, req.XPathItemUri, req.XPathItemAuthor, req.XPathItemTimestamp, req.XPathItemTimeFormat, req.XPathItemThumbnail, req.XPathItemCategories, req.XPathItemUid, req.ArticleViewMode, req.AutoExpandContent, req.EmailAddress, req.EmailIMAPServer, req.EmailUsername, req.EmailPassword, req.EmailFolder, req.EmailIMAPPort); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Update tags for the feed
+	if req.Tags != nil {
+		if err := h.DB.SetFeedTags(req.ID, req.Tags); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 

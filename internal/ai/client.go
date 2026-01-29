@@ -189,16 +189,6 @@ func (c *Client) tryFormat(handler FormatHandler, config RequestConfig) (Respons
 	return result, nil
 }
 
-// sendRequest sends the HTTP request with proper headers
-func (c *Client) sendRequest(jsonBody []byte) (*http.Response, error) {
-	return c.sendRequestToEndpoint(jsonBody, c.config.Endpoint)
-}
-
-// sendRequestToEndpoint sends the HTTP request to a specific endpoint
-func (c *Client) sendRequestToEndpoint(jsonBody []byte, apiURL string) (*http.Response, error) {
-	return c.sendRequestToEndpointWithHandler(jsonBody, apiURL, nil)
-}
-
 // sendRequestToEndpointWithHandler sends the HTTP request to a specific endpoint with handler-specific headers
 func (c *Client) sendRequestToEndpointWithHandler(jsonBody []byte, apiURL string, handler FormatHandler) (*http.Response, error) {
 	// Validate endpoint URL to prevent SSRF attacks

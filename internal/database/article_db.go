@@ -78,8 +78,52 @@ func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) erro
 }
 
 // GetArticles retrieves articles with filtering, pagination, and sorting.
+// Optimized to filter feeds first for category queries, reducing JOIN overhead.
 func (db *DB) GetArticles(filter string, feedID int64, category string, showHidden bool, limit, offset int) ([]models.Article, error) {
 	db.WaitForReady()
+
+	// Optimization: For category queries, first get the feed IDs, then query articles
+	// This avoids JOINing all articles and then filtering by category
+	var feedIDFilter []int64
+	var useFeedIDFilter bool
+
+	if category != "" {
+		var categoryQuery string
+		var categoryArgs []interface{}
+
+		if category == "\x00" {
+			// Special value "\x00" means explicit uncategorized filtering
+			categoryQuery = "SELECT id FROM feeds WHERE category IS NULL OR category = ''"
+		} else {
+			// Simple prefix match for category hierarchy
+			categoryQuery = "SELECT id FROM feeds WHERE category = ? OR category LIKE ?"
+			categoryArgs = []interface{}{category, category + "/%"}
+		}
+
+		rows, err := db.Query(categoryQuery, categoryArgs...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query feeds by category: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				log.Println("Error scanning feed ID:", err)
+				continue
+			}
+			feedIDFilter = append(feedIDFilter, id)
+		}
+
+		// If no feeds found in this category, return empty result early
+		if len(feedIDFilter) == 0 {
+			return []models.Article{}, nil
+		}
+
+		useFeedIDFilter = true
+	}
+
+	// Build the main query
 	baseQuery := `
 		SELECT a.id, a.feed_id, a.title, a.url, a.image_url, a.audio_url, a.video_url, a.published_at, a.is_read, a.is_favorite, a.is_hidden, a.is_read_later, a.translated_title, a.summary, a.freshrss_item_id, f.title, a.author
 		FROM articles a
@@ -111,21 +155,19 @@ func (db *DB) GetArticles(filter string, feedID int64, category string, showHidd
 		}
 	}
 
-	if feedID > 0 {
+	// Apply feed ID filter
+	if useFeedIDFilter {
+		// Use optimized IN clause with pre-filtered feed IDs
+		placeholders := make([]string, len(feedIDFilter))
+		for i, id := range feedIDFilter {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		whereClauses = append(whereClauses, "a.feed_id IN ("+strings.Join(placeholders, ",")+")")
+	} else if feedID > 0 {
 		whereClauses = append(whereClauses, "a.feed_id = ?")
 		args = append(args, feedID)
 	}
-
-	if category == "\x00" {
-		// Special value "\x00" means explicit uncategorized filtering
-		whereClauses = append(whereClauses, "(f.category IS NULL OR f.category = '')")
-	} else if category != "" {
-		// Simple prefix match for category hierarchy
-		whereClauses = append(whereClauses, "(f.category = ? OR f.category LIKE ?)")
-		args = append(args, category, category+"/%")
-	}
-	// Note: When category is empty string, it means no category filter was provided,
-	// so we should not filter by category at all (show all articles from all categories).
 
 	query := baseQuery
 	if len(whereClauses) > 0 {
@@ -641,11 +683,12 @@ func (db *DB) MarkArticlesRelativeToPublishedTime(referencePublishedAt time.Time
 
 	var operator string
 
-	if direction == "above" {
+	switch direction {
+	case "above":
 		operator = ">"
-	} else if direction == "below" {
+	case "below":
 		operator = "<"
-	} else {
+	default:
 		return 0, fmt.Errorf("invalid direction: %s", direction)
 	}
 
@@ -769,4 +812,112 @@ func (db *DB) GetArticleIDByUniqueID(title string, feedID int64, publishedAt tim
 		return 0, err
 	}
 	return id, nil
+}
+
+// SearchArticlesWithAI executes a search query with an AI-generated WHERE clause.
+// The whereClause should be pre-validated to prevent SQL injection.
+func (db *DB) SearchArticlesWithAI(whereClause string, limit int) ([]models.Article, error) {
+	db.WaitForReady()
+
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	// Build the complete query with the AI-generated WHERE clause
+	query := fmt.Sprintf(`
+		SELECT a.id, a.feed_id, a.title, a.url, a.image_url, a.audio_url, a.video_url,
+			   a.published_at, a.is_read, a.is_favorite, a.is_hidden, a.is_read_later,
+			   a.translated_title, a.summary, a.freshrss_item_id, f.title, a.author
+		FROM articles a
+		JOIN feeds f ON a.feed_id = f.id
+		WHERE %s
+		ORDER BY a.published_at DESC
+		LIMIT %d
+	`, whereClause, limit)
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("query execution failed: %w", err)
+	}
+	defer rows.Close()
+
+	var articles []models.Article
+	for rows.Next() {
+		var a models.Article
+		var imageURL, audioURL, videoURL, translatedTitle, summary, freshrssItemID, author sql.NullString
+		var publishedAt sql.NullTime
+		if err := rows.Scan(&a.ID, &a.FeedID, &a.Title, &a.URL, &imageURL, &audioURL, &videoURL, &publishedAt, &a.IsRead, &a.IsFavorite, &a.IsHidden, &a.IsReadLater, &translatedTitle, &summary, &freshrssItemID, &a.FeedTitle, &author); err != nil {
+			log.Println("Error scanning article in AI search:", err)
+			continue
+		}
+		a.ImageURL = imageURL.String
+		a.AudioURL = audioURL.String
+		a.VideoURL = videoURL.String
+		if publishedAt.Valid {
+			a.PublishedAt = publishedAt.Time
+		} else {
+			a.PublishedAt = time.Time{}
+		}
+		a.TranslatedTitle = translatedTitle.String
+		a.Summary = summary.String
+		a.FreshRSSItemID = freshrssItemID.String
+		a.Author = author.String
+		articles = append(articles, a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration failed: %w", err)
+	}
+
+	return articles, nil
+}
+
+// SearchArticlesWithSQL executes a complete SQL query for AI search with content and relevance scoring.
+// The query should include all necessary SELECT fields and be pre-validated.
+func (db *DB) SearchArticlesWithSQL(query string) ([]models.Article, error) {
+	db.WaitForReady()
+
+	if query == "" {
+		return nil, fmt.Errorf("empty query")
+	}
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("query execution failed: %w", err)
+	}
+	defer rows.Close()
+
+	var articles []models.Article
+	for rows.Next() {
+		var a models.Article
+		var imageURL, audioURL, videoURL, translatedTitle, summary, freshrssItemID, author sql.NullString
+		var publishedAt sql.NullTime
+		var relevanceScore float64
+		if err := rows.Scan(&a.ID, &a.FeedID, &a.Title, &a.URL, &imageURL, &audioURL, &videoURL, &publishedAt, &a.IsRead, &a.IsFavorite, &a.IsHidden, &a.IsReadLater, &translatedTitle, &summary, &freshrssItemID, &a.FeedTitle, &author, &relevanceScore); err != nil {
+			log.Println("Error scanning article in AI search with SQL:", err)
+			continue
+		}
+		a.ImageURL = imageURL.String
+		a.AudioURL = audioURL.String
+		a.VideoURL = videoURL.String
+		if publishedAt.Valid {
+			a.PublishedAt = publishedAt.Time
+		} else {
+			a.PublishedAt = time.Time{}
+		}
+		a.TranslatedTitle = translatedTitle.String
+		a.Summary = summary.String
+		a.FreshRSSItemID = freshrssItemID.String
+		a.Author = author.String
+		articles = append(articles, a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration failed: %w", err)
+	}
+
+	return articles, nil
 }

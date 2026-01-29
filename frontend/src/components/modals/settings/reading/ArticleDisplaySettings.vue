@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhArticle, PhImage, PhListDashes } from '@phosphor-icons/vue';
+import { PhArticle, PhImage, PhSquaresFour } from '@phosphor-icons/vue';
 import { SettingGroup, SettingWithToggle, SettingWithSelect } from '@/components/settings';
 import '@/components/settings/styles.css';
 import type { SettingsData } from '@/types/settings';
@@ -49,12 +49,18 @@ function updateSetting(key: keyof SettingsData, value: any) {
       @update:model-value="updateSetting('show_article_preview_images', $event)"
     />
 
-    <SettingWithToggle
-      :icon="PhListDashes"
-      :title="t('setting.typography.compactMode')"
-      :description="t('setting.typography.compactModeDesc')"
-      :model-value="settings.compact_mode"
-      @update:model-value="updateSetting('compact_mode', $event)"
+    <SettingWithSelect
+      :icon="PhSquaresFour"
+      :title="t('setting.typography.layoutMode')"
+      :description="t('setting.typography.layoutModeDesc')"
+      :model-value="settings.layout_mode"
+      :options="[
+        { value: 'normal', label: t('setting.typography.layoutModeNormal') },
+        { value: 'compact', label: t('setting.typography.layoutModeCompact') },
+        { value: 'card', label: t('setting.typography.layoutModeCard') },
+      ]"
+      width="md"
+      @update:model-value="updateSetting('layout_mode', $event)"
     />
   </SettingGroup>
 </template>

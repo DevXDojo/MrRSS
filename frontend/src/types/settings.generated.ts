@@ -10,6 +10,7 @@ export interface SettingsData {
   ai_custom_headers: string;
   ai_endpoint: string;
   ai_model: string;
+  ai_search_enabled: boolean;
   ai_summary_prompt: string;
   ai_translation_prompt: string;
   ai_usage_limit: string;
@@ -19,7 +20,6 @@ export interface SettingsData {
   baidu_app_id: string;
   baidu_secret_key: string;
   close_to_tray: boolean;
-  compact_mode: boolean;
   content_font_family: string;
   content_font_size: number;
   content_line_height: string;
@@ -52,6 +52,7 @@ export interface SettingsData {
   language: string;
   last_global_refresh: string;
   last_network_test: string;
+  layout_mode: string;
   max_article_age_days: number;
   max_cache_size_mb: number;
   max_concurrent_refreshes: string;

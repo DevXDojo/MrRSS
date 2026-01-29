@@ -181,6 +181,28 @@ export function useArticleActions(
       try {
         const direction = action === 'markAboveAsRead' ? 'above' : 'below';
 
+        // Show confirmation dialog
+        const confirmTitle =
+          action === 'markAboveAsRead'
+            ? t('article.action.markAboveReadConfirmTitle')
+            : t('article.action.markBelowReadConfirmTitle');
+        const confirmMessage =
+          action === 'markAboveAsRead'
+            ? t('article.action.markAboveReadConfirmMessage')
+            : t('article.action.markBelowReadConfirmMessage');
+
+        const confirmed = await window.showConfirm({
+          title: confirmTitle,
+          message: confirmMessage,
+          confirmText: t('common.confirm'),
+          cancelText: t('common.cancel'),
+          isDanger: false,
+        });
+
+        if (!confirmed) {
+          return;
+        }
+
         // Build query parameters
         const params = new URLSearchParams({
           id: article.id.toString(),

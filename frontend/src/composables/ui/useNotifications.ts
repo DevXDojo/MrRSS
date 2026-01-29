@@ -1,5 +1,10 @@
 import { ref } from 'vue';
-import type { ConfirmDialogOptions, InputDialogOptions, ToastType } from '@/types/global';
+import type {
+  ConfirmDialogOptions,
+  InputDialogOptions,
+  MultiSelectDialogOptions,
+  ToastType,
+} from '@/types/global';
 
 export interface Toast {
   id: number;
@@ -18,9 +23,15 @@ export interface InputDialogState extends InputDialogOptions {
   onCancel: () => void;
 }
 
+export interface MultiSelectDialogState extends MultiSelectDialogOptions {
+  onConfirm: (values: string[]) => void;
+  onCancel: () => void;
+}
+
 export function useNotifications() {
   const confirmDialog = ref<ConfirmDialogState | null>(null);
   const inputDialog = ref<InputDialogState | null>(null);
+  const multiSelectDialog = ref<MultiSelectDialogState | null>(null);
   const toasts = ref<Toast[]>([]);
 
   // Track recent toast messages to prevent duplicates
@@ -54,6 +65,22 @@ export function useNotifications() {
         },
         onCancel: () => {
           inputDialog.value = null;
+          resolve(null);
+        },
+      };
+    });
+  }
+
+  function showMultiSelect(options: MultiSelectDialogOptions): Promise<string[] | null> {
+    return new Promise((resolve) => {
+      multiSelectDialog.value = {
+        ...options,
+        onConfirm: (values: string[]) => {
+          multiSelectDialog.value = null;
+          resolve(values);
+        },
+        onCancel: () => {
+          multiSelectDialog.value = null;
           resolve(null);
         },
       };
@@ -95,15 +122,18 @@ export function useNotifications() {
   function installGlobalHandlers(): void {
     window.showConfirm = showConfirm;
     window.showInput = showInput;
+    window.showMultiSelect = showMultiSelect;
     window.showToast = showToast;
   }
 
   return {
     confirmDialog,
     inputDialog,
+    multiSelectDialog,
     toasts,
     showConfirm,
     showInput,
+    showMultiSelect,
     showToast,
     removeToast,
     installGlobalHandlers,

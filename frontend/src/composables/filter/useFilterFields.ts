@@ -16,6 +16,7 @@ export function useFilterFields() {
   const fieldOptions: FieldOption[] = [
     { value: 'feed_name', labelKey: 'modal.feed.feedName', multiSelect: true },
     { value: 'feed_category', labelKey: 'modal.feed.feedCategory', multiSelect: true },
+    { value: 'feed_tags', labelKey: 'modal.feed.feedTags', multiSelect: true },
     { value: 'article_title', labelKey: 'article.parts.articleTitle', multiSelect: false },
     { value: 'feed_type', labelKey: 'modal.filter.feedType', multiSelect: true },
     { value: 'published_after', labelKey: 'modal.filter.publishedAfter', multiSelect: false },
@@ -114,6 +115,17 @@ export function useFilterFields() {
   });
 
   /**
+   * Get available feed tags
+   */
+  const feedTags: ComputedRef<string[]> = computed(() => {
+    const tagSet = new Set<string>();
+    store.feeds.forEach((f) => {
+      f.tags?.forEach((t) => tagSet.add(t.name));
+    });
+    return Array.from(tagSet);
+  });
+
+  /**
    * Check if field is a date field
    */
   function isDateField(field: string): boolean {
@@ -124,7 +136,12 @@ export function useFilterFields() {
    * Check if field supports multiple values
    */
   function isMultiSelectField(field: string): boolean {
-    return field === 'feed_name' || field === 'feed_category' || field === 'feed_type';
+    return (
+      field === 'feed_name' ||
+      field === 'feed_category' ||
+      field === 'feed_type' ||
+      field === 'feed_tags'
+    );
   }
 
   /**
@@ -199,6 +216,7 @@ export function useFilterFields() {
     feedNames,
     feedCategories,
     feedTypes,
+    feedTags,
     isDateField,
     isMultiSelectField,
     isBooleanField,

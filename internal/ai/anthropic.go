@@ -140,7 +140,7 @@ func (h *AnthropicHandler) ParseResponse(body []byte) (ResponseResult, error) {
 
 	// Check for API errors
 	if response.Error.Message != "" {
-		return ResponseResult{}, fmt.Errorf("Anthropic API error (%s): %s", response.Error.Type, response.Error.Message)
+		return ResponseResult{}, fmt.Errorf("anthropic API error (%s): %s", response.Error.Type, response.Error.Message)
 	}
 
 	// Extract content

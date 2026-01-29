@@ -10,17 +10,7 @@ import {
   type Component,
 } from 'vue';
 import * as PhosphorIcons from '@phosphor-icons/vue';
-
-export interface ContextMenuItem {
-  label?: string;
-  action?: string;
-  icon?: string;
-  iconWeight?: 'regular' | 'bold' | 'light' | 'fill' | 'duotone' | 'thin';
-  iconColor?: string;
-  disabled?: boolean;
-  danger?: boolean;
-  separator?: boolean;
-}
+import type { ContextMenuItem } from '@/types/context-menu';
 
 interface Props {
   items: ContextMenuItem[];

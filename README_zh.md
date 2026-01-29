@@ -3,7 +3,7 @@
   <h1>MrRSS</h1>
   <p><strong>一个现代化、跨平台且免费的 AI RSS 阅读器.</strong></p>
 
-  [![Version](https://img.shields.io/badge/version-1.3.17-blue.svg)](https://github.com/WCY-dt/MrRSS/releases)
+  [![Version](https://img.shields.io/badge/version-1.3.19-blue.svg)](https://github.com/WCY-dt/MrRSS/releases)
   [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
   [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
   [![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)

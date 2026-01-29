@@ -131,23 +131,32 @@ pre-commit run --all-files
 
 ```plaintext
 MrRSS/
-├── main.go                    # Application entry point
-├── internal/                 # Go backend packages
-│   ├── database/            # Data layer, models, migrations
-│   ├── handlers/            # HTTP API handlers by feature
-│   ├── feed/               # RSS fetching and processing
-│   ├── translation/        # Multi-language support
-│   ├── discovery/          # Feed discovery engine
-│   └── utils/              # Shared utilities
-├── frontend/                 # Vue.js frontend
+├── main.go                    # Desktop application entry point
+├── main-core.go               # Headless server entry point
+├── internal/                  # Go backend packages
+│   ├── ai/                   # AI configuration and utilities
+│   ├── aiusage/              # AI usage tracking and limits
+│   ├── cache/                # Media cache management
+│   ├── config/               # Configuration with schema-driven generation
+│   ├── database/             # SQLite operations with WAL mode
+│   ├── discovery/            # Feed discovery engine
+│   ├── feed/                 # RSS fetching and processing
+│   ├── handlers/             # HTTP API handlers by feature
+│   ├── models/               # Core data structures
+│   ├── summary/              # TF-IDF + TextRank + AI summarization
+│   ├── translation/          # Multi-service translation
+│   └── utils/                # Platform utilities
+├── frontend/                  # Vue.js frontend
 │   ├── src/
-│   │   ├── components/      # UI components
-│   │   ├── stores/          # Pinia state management
-│   │   ├── composables/    # Vue composables
-│   │   ├── types/           # TypeScript definitions
-│   │   └── i18n/            # Internationalization
-│   └── dist/                # Built assets (embedded)
-└── wails.json               # Wails configuration
+│   │   ├── components/       # UI components (article/, sidebar/, modals/)
+│   │   ├── composables/      # Vue composables (article/, feed/, ui/)
+│   │   ├── stores/           # Pinia state management
+│   │   ├── types/            # TypeScript definitions
+│   │   └── i18n/             # Internationalization (en, zh)
+│   └── dist/                 # Built assets (embedded)
+├── docs/                      # Comprehensive documentation
+├── tools/                     # Development tools (settings generator)
+└── scripts/                   # Automation scripts
 ```
 
 ### Communication Pattern

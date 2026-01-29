@@ -13,6 +13,7 @@ require (
 	github.com/antchfx/xmlquery v1.5.0
 	github.com/chromedp/chromedp v0.14.2
 	github.com/emersion/go-imap v1.2.1
+	github.com/emersion/go-imap-id v0.0.0-20190926060100-f94a56b9ecde
 	github.com/go-ego/gse v1.0.0
 	github.com/gomarkdown/markdown v0.0.0-20250810172220-2e2c11897d1a
 	github.com/longbridgeapp/opencc v0.3.13
@@ -21,7 +22,8 @@ require (
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.62
 	golang.org/x/crypto v0.47.0
 	golang.org/x/net v0.49.0
-	modernc.org/sqlite v1.44.2
+	golang.org/x/text v0.33.0
+	modernc.org/sqlite v1.44.3
 )
 
 require (
@@ -98,7 +100,6 @@ require (
 	golang.org/x/mod v0.31.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/tools v0.40.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	modernc.org/libc v1.67.6 // indirect

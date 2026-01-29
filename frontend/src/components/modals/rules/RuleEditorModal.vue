@@ -12,12 +12,10 @@ import {
 } from '@/composables/rules/useRuleOptions';
 import { useRuleConditions } from '@/composables/rules/useRuleConditions';
 import { useRuleActions } from '@/composables/rules/useRuleActions';
-import { useModalClose } from '@/composables/ui/useModalClose';
+import BaseModal from '@/components/common/BaseModal.vue';
+import ModalFooter from '@/components/common/ModalFooter.vue';
 
 const { t } = useI18n();
-
-// Modal close handling - z-index 70 for nested modals
-useModalClose(() => handleClose(true), 70);
 
 // Use composables
 const { actionOptions } = useRuleOptions();
@@ -95,6 +93,11 @@ const hasUnsavedChanges = computed(() => {
     currentConditions !== initialConditions ||
     currentActions !== initialActions
   );
+});
+
+// Computed title
+const modalTitle = computed(() => {
+  return props.rule ? t('modal.rule.editRule') : t('modal.rule.addRule');
 });
 
 // Initialize form when rule changes
@@ -201,155 +204,145 @@ async function handleClose(checkUnsaved = false): Promise<void> {
 </script>
 
 <template>
-  <div
-    v-if="show"
-    class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
-    data-modal-open="true"
-    style="will-change: transform; transform: translateZ(0)"
-  >
-    <div
-      class="bg-bg-primary w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-border overflow-hidden animate-fade-in"
-    >
-      <!-- Header -->
-      <div class="p-4 sm:p-5 border-b border-border flex justify-between items-center shrink-0">
-        <h3 class="text-lg font-semibold m-0 flex items-center gap-2 text-text-primary">
-          <PhLightning :size="20" />
-          {{ rule ? t('modal.rule.editRule') : t('modal.rule.addRule') }}
-        </h3>
-        <span
-          class="text-2xl cursor-pointer text-text-secondary hover:text-text-primary"
-          @click="handleClose(true)"
-          >&times;</span
-        >
+  <BaseModal v-if="show" size="2xl" :z-index="70" @close="handleClose(true)">
+    <!-- Custom Header -->
+    <template #header>
+      <h3 class="text-lg font-semibold m-0 flex items-center gap-2 text-text-primary">
+        <PhLightning :size="20" />
+        {{ modalTitle }}
+      </h3>
+    </template>
+
+    <!-- Content -->
+    <div class="p-4 sm:p-6 space-y-6">
+      <!-- Rule Name -->
+      <div class="space-y-2">
+        <label class="block text-sm font-medium">{{ t('modal.rule.name') }}</label>
+        <input
+          v-model="ruleName"
+          type="text"
+          :placeholder="t('modal.rule.namePlaceholder')"
+          class="input-field w-full"
+        />
       </div>
 
-      <!-- Content -->
-      <div class="flex-1 overflow-y-scroll p-4 sm:p-6 space-y-6 scroll-smooth">
-        <!-- Rule Name -->
-        <div class="space-y-2">
-          <label class="block text-sm font-medium">{{ t('modal.rule.name') }}</label>
-          <input
-            v-model="ruleName"
-            type="text"
-            :placeholder="t('modal.rule.namePlaceholder')"
-            class="input-field w-full"
+      <!-- Conditions Section -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="flex items-center gap-2 text-sm font-medium">
+            <PhFunnel :size="16" />
+            {{ t('modal.rule.condition') }}
+          </label>
+        </div>
+
+        <!-- Empty state -->
+        <div
+          v-if="conditions.length === 0"
+          class="text-center text-text-secondary py-4 bg-bg-secondary rounded-lg border border-border"
+        >
+          <p class="text-sm">{{ t('modal.filter.conditionAlways') }}</p>
+        </div>
+
+        <!-- Condition list -->
+        <div v-else class="space-y-3">
+          <div v-for="(condition, index) in conditions" :key="condition.id">
+            <!-- Logic connector -->
+            <RuleLogicConnector
+              v-if="index > 0"
+              :logic="condition.logic || 'and'"
+              @update="(logic) => (condition.logic = logic)"
+            />
+
+            <!-- Condition card -->
+            <RuleConditionItem
+              :condition="condition"
+              :index="index"
+              :is-dropdown-open="openDropdownIndex === index"
+              @update:field="
+                (value) => {
+                  condition.field = value;
+                  handleFieldChange(index);
+                }
+              "
+              @update:operator="(value) => (condition.operator = value)"
+              @update:value="(value) => (condition.value = value)"
+              @update:values="(values) => (condition.values = values)"
+              @update:negate="handleToggleNegate(index)"
+              @toggle-dropdown="toggleDropdown(index)"
+              @remove="removeCondition(index)"
+            />
+          </div>
+        </div>
+
+        <!-- Add condition button -->
+        <button
+          class="btn-secondary w-full flex items-center justify-center gap-2"
+          @click="addCondition"
+        >
+          <PhPlus :size="16" />
+          {{ t('modal.rule.addCondition') }}
+        </button>
+      </div>
+
+      <!-- Actions Section -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="flex items-center gap-2 text-sm font-medium">
+            <PhListChecks :size="16" />
+            {{ t('modal.rule.actions') }}
+          </label>
+        </div>
+
+        <!-- Empty state -->
+        <div
+          v-if="actions.length === 0"
+          class="text-center text-text-secondary py-4 bg-bg-secondary rounded-lg border border-border"
+        >
+          <p class="text-sm">{{ t('setting.rule.noActionsSelected') }}</p>
+        </div>
+
+        <!-- Action list -->
+        <div v-else class="space-y-2">
+          <RuleAction
+            v-for="(action, index) in actions"
+            :key="index"
+            :action="action"
+            :index="index"
+            :selected-actions="actions"
+            :all-action-options="actionOptions"
+            @update="(value) => updateAction(index, value)"
+            @remove="removeAction(index)"
           />
         </div>
 
-        <!-- Conditions Section -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="flex items-center gap-2 text-sm font-medium">
-              <PhFunnel :size="16" />
-              {{ t('modal.rule.condition') }}
-            </label>
-          </div>
-
-          <!-- Empty state -->
-          <div
-            v-if="conditions.length === 0"
-            class="text-center text-text-secondary py-4 bg-bg-secondary rounded-lg border border-border"
-          >
-            <p class="text-sm">{{ t('modal.filter.conditionAlways') }}</p>
-          </div>
-
-          <!-- Condition list -->
-          <div v-else class="space-y-3">
-            <div v-for="(condition, index) in conditions" :key="condition.id">
-              <!-- Logic connector -->
-              <RuleLogicConnector
-                v-if="index > 0"
-                :logic="condition.logic || 'and'"
-                @update="(logic) => (condition.logic = logic)"
-              />
-
-              <!-- Condition card -->
-              <RuleConditionItem
-                :condition="condition"
-                :index="index"
-                :is-dropdown-open="openDropdownIndex === index"
-                @update:field="
-                  (value) => {
-                    condition.field = value;
-                    handleFieldChange(index);
-                  }
-                "
-                @update:operator="(value) => (condition.operator = value)"
-                @update:value="(value) => (condition.value = value)"
-                @update:values="(values) => (condition.values = values)"
-                @update:negate="handleToggleNegate(index)"
-                @toggle-dropdown="toggleDropdown(index)"
-                @remove="removeCondition(index)"
-              />
-            </div>
-          </div>
-
-          <!-- Add condition button -->
-          <button
-            class="btn-secondary w-full flex items-center justify-center gap-2"
-            @click="addCondition"
-          >
-            <PhPlus :size="16" />
-            {{ t('modal.rule.addCondition') }}
-          </button>
-        </div>
-
-        <!-- Actions Section -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="flex items-center gap-2 text-sm font-medium">
-              <PhListChecks :size="16" />
-              {{ t('modal.rule.actions') }}
-            </label>
-          </div>
-
-          <!-- Empty state -->
-          <div
-            v-if="actions.length === 0"
-            class="text-center text-text-secondary py-4 bg-bg-secondary rounded-lg border border-border"
-          >
-            <p class="text-sm">{{ t('setting.rule.noActionsSelected') }}</p>
-          </div>
-
-          <!-- Action list -->
-          <div v-else class="space-y-2">
-            <RuleAction
-              v-for="(action, index) in actions"
-              :key="index"
-              :action="action"
-              :index="index"
-              :selected-actions="actions"
-              :all-action-options="actionOptions"
-              @update="(value) => updateAction(index, value)"
-              @remove="removeAction(index)"
-            />
-          </div>
-
-          <!-- Add action button -->
-          <button
-            class="btn-secondary w-full flex items-center justify-center gap-2"
-            :disabled="actions.length >= actionOptions.length"
-            @click="addAction"
-          >
-            <PhPlus :size="16" />
-            {{ t('modal.rule.addAction') }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Footer -->
-      <div
-        class="p-4 sm:p-5 border-t border-border bg-bg-secondary flex justify-end gap-3 shrink-0"
-      >
-        <button class="btn-secondary" @click="handleClose(true)">
-          {{ t('common.cancel') }}
-        </button>
-        <button class="btn-primary" :disabled="!isValid" @click="handleSave">
-          {{ t('common.action.saveChanges') }}
+        <!-- Add action button -->
+        <button
+          class="btn-secondary w-full flex items-center justify-center gap-2"
+          :disabled="actions.length >= actionOptions.length"
+          @click="addAction"
+        >
+          <PhPlus :size="16" />
+          {{ t('modal.rule.addAction') }}
         </button>
       </div>
     </div>
-  </div>
+
+    <!-- Footer -->
+    <template #footer>
+      <ModalFooter
+        align="right"
+        :secondary-button="{
+          label: t('common.cancel'),
+          onClick: () => handleClose(true),
+        }"
+        :primary-button="{
+          label: t('common.action.saveChanges'),
+          disabled: !isValid,
+          onClick: handleSave,
+        }"
+      />
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
@@ -359,33 +352,7 @@ async function handleClose(checkUnsaved = false): Promise<void> {
   @apply p-2 border border-border rounded-md bg-bg-primary text-text-primary text-sm focus:border-accent focus:outline-none transition-colors;
   height: 38px;
 }
-.select-field {
-  @apply p-2 border border-border rounded-md bg-bg-primary text-text-primary text-sm focus:border-accent focus:outline-none transition-colors cursor-pointer;
-  height: 38px;
-}
-.date-field {
-  @apply p-2 border border-border rounded-md bg-bg-primary text-text-primary text-sm focus:border-accent focus:outline-none transition-colors cursor-pointer;
-  color-scheme: light dark;
-  height: 38px;
-}
-.btn-primary {
-  @apply bg-accent text-white border-none px-5 py-2.5 rounded-lg cursor-pointer font-semibold hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-}
 .btn-secondary {
   @apply bg-bg-tertiary text-text-primary border border-border px-4 py-2.5 rounded-lg cursor-pointer font-medium hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.animate-fade-in {
-  animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes modalFadeIn {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 </style>

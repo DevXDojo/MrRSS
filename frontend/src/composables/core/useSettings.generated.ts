@@ -18,6 +18,7 @@ export function generateInitialSettings(): SettingsData {
     ai_custom_headers: settingsDefaults.ai_custom_headers,
     ai_endpoint: settingsDefaults.ai_endpoint,
     ai_model: settingsDefaults.ai_model,
+    ai_search_enabled: settingsDefaults.ai_search_enabled,
     ai_summary_prompt: settingsDefaults.ai_summary_prompt,
     ai_translation_prompt: settingsDefaults.ai_translation_prompt,
     ai_usage_limit: settingsDefaults.ai_usage_limit,
@@ -27,7 +28,6 @@ export function generateInitialSettings(): SettingsData {
     baidu_app_id: settingsDefaults.baidu_app_id,
     baidu_secret_key: settingsDefaults.baidu_secret_key,
     close_to_tray: settingsDefaults.close_to_tray,
-    compact_mode: settingsDefaults.compact_mode,
     content_font_family: settingsDefaults.content_font_family,
     content_font_size: settingsDefaults.content_font_size,
     content_line_height: settingsDefaults.content_line_height,
@@ -60,6 +60,7 @@ export function generateInitialSettings(): SettingsData {
     language: settingsDefaults.language,
     last_global_refresh: settingsDefaults.last_global_refresh,
     last_network_test: settingsDefaults.last_network_test,
+    layout_mode: settingsDefaults.layout_mode,
     max_article_age_days: settingsDefaults.max_article_age_days,
     max_cache_size_mb: settingsDefaults.max_cache_size_mb,
     max_concurrent_refreshes: settingsDefaults.max_concurrent_refreshes,
@@ -119,6 +120,7 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     ai_custom_headers: data.ai_custom_headers || settingsDefaults.ai_custom_headers,
     ai_endpoint: data.ai_endpoint || settingsDefaults.ai_endpoint,
     ai_model: data.ai_model || settingsDefaults.ai_model,
+    ai_search_enabled: data.ai_search_enabled === 'true',
     ai_summary_prompt: data.ai_summary_prompt || settingsDefaults.ai_summary_prompt,
     ai_translation_prompt: data.ai_translation_prompt || settingsDefaults.ai_translation_prompt,
     ai_usage_limit: data.ai_usage_limit || settingsDefaults.ai_usage_limit,
@@ -128,7 +130,6 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     baidu_app_id: data.baidu_app_id || settingsDefaults.baidu_app_id,
     baidu_secret_key: data.baidu_secret_key || settingsDefaults.baidu_secret_key,
     close_to_tray: data.close_to_tray === 'true',
-    compact_mode: data.compact_mode === 'true',
     content_font_family: data.content_font_family || settingsDefaults.content_font_family,
     content_font_size: parseInt(data.content_font_size) || settingsDefaults.content_font_size,
     content_line_height: data.content_line_height || settingsDefaults.content_line_height,
@@ -172,6 +173,7 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     language: data.language || settingsDefaults.language,
     last_global_refresh: data.last_global_refresh || settingsDefaults.last_global_refresh,
     last_network_test: data.last_network_test || settingsDefaults.last_network_test,
+    layout_mode: data.layout_mode || settingsDefaults.layout_mode,
     max_article_age_days:
       parseInt(data.max_article_age_days) || settingsDefaults.max_article_age_days,
     max_cache_size_mb: parseInt(data.max_cache_size_mb) || settingsDefaults.max_cache_size_mb,
@@ -238,6 +240,9 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ai_custom_headers: settingsRef.value.ai_custom_headers ?? settingsDefaults.ai_custom_headers,
     ai_endpoint: settingsRef.value.ai_endpoint ?? settingsDefaults.ai_endpoint,
     ai_model: settingsRef.value.ai_model ?? settingsDefaults.ai_model,
+    ai_search_enabled: (
+      settingsRef.value.ai_search_enabled ?? settingsDefaults.ai_search_enabled
+    ).toString(),
     ai_summary_prompt: settingsRef.value.ai_summary_prompt ?? settingsDefaults.ai_summary_prompt,
     ai_translation_prompt:
       settingsRef.value.ai_translation_prompt ?? settingsDefaults.ai_translation_prompt,
@@ -252,7 +257,6 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     baidu_app_id: settingsRef.value.baidu_app_id ?? settingsDefaults.baidu_app_id,
     baidu_secret_key: settingsRef.value.baidu_secret_key ?? settingsDefaults.baidu_secret_key,
     close_to_tray: (settingsRef.value.close_to_tray ?? settingsDefaults.close_to_tray).toString(),
-    compact_mode: (settingsRef.value.compact_mode ?? settingsDefaults.compact_mode).toString(),
     content_font_family:
       settingsRef.value.content_font_family ?? settingsDefaults.content_font_family,
     content_font_size: (
@@ -316,6 +320,7 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ).toString(),
     language: settingsRef.value.language ?? settingsDefaults.language,
     last_network_test: settingsRef.value.last_network_test ?? settingsDefaults.last_network_test,
+    layout_mode: settingsRef.value.layout_mode ?? settingsDefaults.layout_mode,
     max_article_age_days: (
       settingsRef.value.max_article_age_days ?? settingsDefaults.max_article_age_days
     ).toString(),

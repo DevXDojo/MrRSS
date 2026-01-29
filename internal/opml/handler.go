@@ -121,7 +121,8 @@ func Parse(r io.Reader) ([]models.Feed, error) {
 	var feeds []models.Feed
 	var extract func([]*Outline, string)
 	extract = func(outlines []*Outline, category string) {
-		for _, o := range outlines {
+		for i := 0; i < len(outlines); i++ {
+			o := outlines[i]
 			xmlURL := strings.TrimSpace(o.XMLURL)
 			if xmlURL != "" {
 				title := strings.TrimSpace(o.Title)
@@ -133,13 +134,52 @@ func Parse(r io.Reader) ([]models.Feed, error) {
 				}
 				// Use outline's category attribute if present, otherwise use hierarchy
 				feedCategory := category
-				if o.Category != "" {
+				if o.Category != "" && !strings.HasPrefix(o.Category, "tag:") {
 					feedCategory = strings.TrimSpace(o.Category)
 				}
+
+				// Check if next outline is a tag (sibling element)
+				var tags []models.Tag
+				for j := i + 1; j < len(outlines); j++ {
+					nextOutline := outlines[j]
+					// Check if this is a tag (type="tag" or category starts with "tag:")
+					isTag := nextOutline.Type == "tag" || strings.HasPrefix(nextOutline.Category, "tag:")
+					// Stop if we hit another feed or category (non-tag outline with XMLURL or no XMLURL but not a tag)
+					if nextOutline.XMLURL != "" {
+						break // Next feed found
+					}
+					if !isTag && nextOutline.XMLURL == "" && len(nextOutline.Outlines) == 0 {
+						// This might be a category folder, check if it has nested outlines
+						if len(nextOutline.Outlines) > 0 {
+							break // Category folder with children, not a tag
+						}
+					}
+					if isTag {
+						tagName := strings.TrimSpace(nextOutline.Text)
+						if tagName == "" {
+							tagName = strings.TrimSpace(nextOutline.Title)
+						}
+						// Extract tag name from category if it starts with "tag:"
+						if strings.HasPrefix(nextOutline.Category, "tag:") {
+							tagName = strings.TrimSpace(strings.TrimPrefix(nextOutline.Category, "tag:"))
+						}
+						if tagName != "" {
+							tags = append(tags, models.Tag{
+								Name:  tagName,
+								Color: "#3B82F6", // Default color for imported tags
+							})
+						}
+						i = j // Skip the tag outline in the main loop
+					} else {
+						break // Not a tag, stop processing
+					}
+				}
+
 				feeds = append(feeds, models.Feed{
 					Title:    title,
 					URL:      xmlURL,
 					Category: feedCategory,
+					Tags:     tags,
 					// XPath support
 					Type:                o.Type,
 					XPathItem:           o.XPathItem,
@@ -277,6 +317,16 @@ func Generate(feeds []models.Feed) ([]byte, error) {
 			XPathItemCategories: f.XPathItemCategories,
 			XPathItemUid:        f.XPathItemUid,
 		})
+
+		// Add tags as additional outline elements with "tag:" prefix in category
+		for _, tag := range f.Tags {
+			*currentOutlines = append(*currentOutlines, &Outline{
+				Text:     tag.Name,
+				Title:    tag.Name,
+				Type:     "tag",
+				Category: "tag:" + tag.Name,
+			})
+		}
 	}
 
 	return xml.MarshalIndent(doc, "", "  ")

@@ -10,11 +10,11 @@
         <key>CFBundleIdentifier</key>
             <string>com.mrrss.app</string>
         <key>CFBundleVersion</key>
-            <string>1.3.17</string>
+            <string>1.3.19</string>
         <key>CFBundleGetInfoString</key>
             <string>Built with Wails</string>
         <key>CFBundleShortVersionString</key>
-            <string>1.3.17</string>
+            <string>1.3.19</string>
         <key>CFBundleIconFile</key>
             <string>icons</string>
         <key>LSMinimumSystemVersion</key>

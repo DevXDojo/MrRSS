@@ -98,12 +98,12 @@ func (h *OllamaHandler) ParseResponse(body []byte) (ResponseResult, error) {
 	if err := json.Unmarshal(body, &chatResponse); err == nil && chatResponse.Message.Content != "" {
 		// Check for Ollama error
 		if chatResponse.Error != "" {
-			return ResponseResult{}, fmt.Errorf("Ollama API error: %s", chatResponse.Error)
+			return ResponseResult{}, fmt.Errorf("ollama API error: %s", chatResponse.Error)
 		}
 
 		// Check if response is complete
 		if !chatResponse.Done {
-			return ResponseResult{}, fmt.Errorf("Ollama response incomplete (done=false)")
+			return ResponseResult{}, fmt.Errorf("ollama response incomplete (done=false)")
 		}
 
 		content := strings.TrimSpace(chatResponse.Message.Content)
@@ -130,17 +130,17 @@ func (h *OllamaHandler) ParseResponse(body []byte) (ResponseResult, error) {
 
 	// Check for Ollama error
 	if generateResponse.Error != "" {
-		return ResponseResult{}, fmt.Errorf("Ollama API error: %s", generateResponse.Error)
+		return ResponseResult{}, fmt.Errorf("ollama API error: %s", generateResponse.Error)
 	}
 
 	// Check if response is complete
 	if !generateResponse.Done {
-		return ResponseResult{}, fmt.Errorf("Ollama response incomplete (done=false)")
+		return ResponseResult{}, fmt.Errorf("ollama response incomplete (done=false)")
 	}
 
 	content := strings.TrimSpace(generateResponse.Response)
 	if content == "" {
-		return ResponseResult{}, fmt.Errorf("empty response from Ollama")
+		return ResponseResult{}, fmt.Errorf("empty response from ollama")
 	}
 
 	return ResponseResult{
@@ -155,11 +155,11 @@ func (h *OllamaHandler) ValidateResponse(statusCode int, body []byte) error {
 	case http.StatusOK:
 		return nil
 	case http.StatusUnauthorized:
-		return fmt.Errorf("Ollama authentication failed")
+		return fmt.Errorf("ollama authentication failed")
 	case http.StatusNotFound:
-		return fmt.Errorf("Ollama endpoint or model not found")
+		return fmt.Errorf("ollama endpoint or model not found")
 	default:
-		return fmt.Errorf("Ollama API returned status %d: %s", statusCode, string(body))
+		return fmt.Errorf("ollama API returned status %d: %s", statusCode, string(body))
 	}
 }
 

@@ -13,6 +13,7 @@ import UpdateAvailableDialog from './components/modals/update/UpdateAvailableDia
 import ContextMenu from './components/common/ContextMenu.vue';
 import ConfirmDialog from './components/modals/common/ConfirmDialog.vue';
 import InputDialog from './components/modals/common/InputDialog.vue';
+import MultiSelectDialog from './components/modals/common/MultiSelectDialog.vue';
 import Toast from './components/common/Toast.vue';
 import { onMounted, ref, computed } from 'vue';
 import { useNotifications } from './composables/ui/useNotifications';
@@ -38,9 +39,18 @@ const isSidebarOpen = ref(true);
 // Check if we're in image gallery mode
 const isImageGalleryMode = computed(() => store.currentFilter === 'imageGallery');
 
+// Check if we're in card mode
+const isCardMode = ref(false);
+
 // Use composables
-const { confirmDialog, inputDialog, toasts, removeToast, installGlobalHandlers } =
-  useNotifications();
+const {
+  confirmDialog,
+  inputDialog,
+  multiSelectDialog,
+  toasts,
+  removeToast,
+  installGlobalHandlers,
+} = useNotifications();
 
 const { contextMenu, openContextMenu, handleContextMenuAction } = useContextMenu();
 
@@ -91,11 +101,13 @@ onMounted(async () => {
     const res = await fetch('/api/settings');
     const data = await res.json();
 
-    // Set initial article list width based on compact mode setting
-    const isCompactMode = data.compact_mode === true || data.compact_mode === 'true';
+    // Set initial article list width based on layout mode setting
+    const layoutMode = data.layout_mode || 'normal';
+    const isCompactModeLayout = layoutMode === 'compact';
+    isCardMode.value = layoutMode === 'card';
     // First set the compact mode, then set the width (order matters)
-    setCompactMode(isCompactMode);
-    setArticleListWidth(isCompactMode ? 500 : 350);
+    setCompactMode(isCompactModeLayout);
+    setArticleListWidth(isCompactModeLayout ? 500 : 350);
 
     // Notify all components that settings have been loaded
     window.dispatchEvent(new CustomEvent('settings-loaded'));
@@ -227,11 +239,15 @@ window.addEventListener('show-discover-blogs', (e) => {
 });
 
 // Listen for compact mode changes to update article list width
-window.addEventListener('compact-mode-changed', (e) => {
-  const customEvent = e as CustomEvent<{ enabled: boolean }>;
-  const enabled = customEvent.detail.enabled;
-  setCompactMode(enabled);
-  setArticleListWidth(enabled ? 600 : 400); // Always update width when user changes setting
+window.addEventListener('layout-mode-changed', (e) => {
+  const customEvent = e as CustomEvent<{ mode: string }>;
+  const mode = customEvent.detail.mode;
+  const isCompactModeLayout = mode === 'compact';
+  isCardMode.value = mode === 'card';
+  setCompactMode(isCompactModeLayout);
+  if (!isCardMode.value) {
+    setArticleListWidth(isCompactModeLayout ? 600 : 400);
+  }
 });
 
 // Global Context Menu Event Listener
@@ -293,9 +309,12 @@ function onFeedUpdated(): void {
     <template v-else>
       <ArticleList :is-sidebar-open="isSidebarOpen" @toggle-sidebar="toggleSidebar" />
 
-      <div class="resizer hidden md:block" @mousedown="startResizeArticleList"></div>
+      <!-- Hide resizer and ArticleDetail when in card mode -->
+      <template v-if="!isCardMode">
+        <div class="resizer hidden md:block" @mousedown="startResizeArticleList"></div>
 
-      <ArticleDetail />
+        <ArticleDetail />
+      </template>
     </template>
 
     <AddFeedModal v-if="showAddFeed" @close="showAddFeed = false" @added="onFeedAdded" />
@@ -357,6 +376,18 @@ function onFeedUpdated(): void {
       @confirm="inputDialog.onConfirm"
       @cancel="inputDialog.onCancel"
       @close="inputDialog = null"
+    />
+
+    <MultiSelectDialog
+      v-if="multiSelectDialog"
+      :title="multiSelectDialog.title"
+      :message="multiSelectDialog.message"
+      :options="multiSelectDialog.options"
+      :confirm-text="multiSelectDialog.confirmText"
+      :cancel-text="multiSelectDialog.cancelText"
+      @confirm="multiSelectDialog.onConfirm"
+      @cancel="multiSelectDialog.onCancel"
+      @close="multiSelectDialog = null"
     />
 
     <div class="toast-container">

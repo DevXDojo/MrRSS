@@ -20,6 +20,54 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+// saveFeedTags creates or finds tags by name and associates them with the feed
+func saveFeedTags(h *core.Handler, feedID int64, tags []models.Tag) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	var tagIDs []int64
+	for _, tag := range tags {
+		// Check if tag already exists by name
+		existingTags, err := h.DB.GetTags()
+		if err != nil {
+			log.Printf("Error fetching tags: %v", err)
+			continue
+		}
+
+		var foundTagID int64
+		for _, existingTag := range existingTags {
+			if strings.EqualFold(existingTag.Name, tag.Name) {
+				foundTagID = existingTag.ID
+				break
+			}
+		}
+
+		// If tag doesn't exist, create it
+		if foundTagID == 0 {
+			newTag := &models.Tag{
+				Name:  tag.Name,
+				Color: tag.Color,
+			}
+			id, err := h.DB.AddTag(newTag)
+			if err != nil {
+				log.Printf("Error creating tag %s: %v", tag.Name, err)
+				continue
+			}
+			foundTagID = id
+		}
+
+		tagIDs = append(tagIDs, foundTagID)
+	}
+
+	// Associate tags with feed
+	if len(tagIDs) > 0 {
+		return h.DB.SetFeedTags(feedID, tagIDs)
+	}
+
+	return nil
+}
+
 // HandleOPMLImport handles OPML/JSON file import based on file extension.
 // @Summary      Import subscriptions from OPML/JSON
 // @Description  Import RSS feed subscriptions from an OPML or JSON file
@@ -104,6 +152,15 @@ func HandleOPMLImport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error importing feed %s: %v", f.Title, err)
 			continue
 		}
+
+		// Save tags for the feed
+		if len(f.Tags) > 0 {
+			if err := saveFeedTags(h, feedID, f.Tags); err != nil {
+				log.Printf("Error saving tags for feed %s: %v", f.Title, err)
+				// Continue even if tag saving fails
+			}
+		}
+
 		feedIDs = append(feedIDs, feedID)
 	}
 
@@ -290,6 +347,15 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 			log.Printf("Error importing feed %s: %v", f.Title, err)
 			continue
 		}
+
+		// Save tags for the feed
+		if len(f.Tags) > 0 {
+			if err := saveFeedTags(h, feedID, f.Tags); err != nil {
+				log.Printf("Error saving tags for feed %s: %v", f.Title, err)
+				// Continue even if tag saving fails
+			}
+		}
+
 		feedIDs = append(feedIDs, feedID)
 	}
 

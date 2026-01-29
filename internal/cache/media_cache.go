@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -126,9 +127,10 @@ func (mc *MediaCache) download(url, referer string) ([]byte, string, error) {
 
 	req.Header.Set("User-Agent", userAgents[0]) // Start with Windows Chrome
 
-	// Set referer if provided
-	if referer != "" {
-		req.Header.Set("Referer", referer)
+	// CRITICAL FIX: Use smart referer logic to handle cases where the original referer would be blocked
+	smartReferer := getSmartReferer(url, referer)
+	if smartReferer != "" {
+		req.Header.Set("Referer", smartReferer)
 	}
 
 	// Add additional headers to bypass restrictions
@@ -160,6 +162,40 @@ func (mc *MediaCache) download(url, referer string) ([]byte, string, error) {
 	}
 
 	return data, contentType, nil
+}
+
+// getSmartReferer determines the appropriate referer to use for a given image URL
+// For third-party images (different domain than the referer), we use the image's own domain
+// as the referer to avoid anti-hotlinking issues
+func getSmartReferer(imageURL, originalReferer string) string {
+	// Parse the image URL to get its hostname
+	imgURL, err := url.Parse(imageURL)
+	if err != nil {
+		// If we can't parse the image URL, use the original referer
+		return originalReferer
+	}
+
+	// Parse the original referer to get its hostname
+	refURL, err := url.Parse(originalReferer)
+	if err != nil {
+		// If we can't parse the referer, use no referer
+		return ""
+	}
+
+	imgHost := imgURL.Hostname()
+	refHost := refURL.Hostname()
+
+	// If the image host and referer host are the same domain, use the original referer
+	// This handles same-origin images (e.g., images hosted on the same site as the article)
+	if imgHost == refHost || strings.HasSuffix(imgHost, "."+refHost) || strings.HasSuffix(refHost, "."+imgHost) {
+		return originalReferer
+	}
+
+	// For third-party images (different domain), use the image's own domain as referer
+	// This avoids anti-hotlinking issues when the article's referer is blocked
+	// For example: img.500px.me/image.jpg with referer from rsshub.pseudoyu.com
+	// will use https://img.500px.me as the referer
+	return fmt.Sprintf("%s://%s", imgURL.Scheme, imgURL.Host)
 }
 
 // CleanupOldFiles removes cached files older than the specified age

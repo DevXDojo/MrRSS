@@ -1,0 +1,260 @@
+<script setup lang="ts">
+import { ref, watch, onMounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { PhPlus, PhFunnel } from '@phosphor-icons/vue';
+import type { FilterCondition } from '@/types/filter';
+import type { SavedFilter } from '@/types/filter';
+import { useFilterFields } from '@/composables/filter/useFilterFields';
+import { useFilterConditions } from '@/composables/filter/useFilterConditions';
+import RuleConditionItem from '../rules/RuleConditionItem.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
+import ModalFooter from '@/components/common/ModalFooter.vue';
+
+const { t } = useI18n();
+
+interface Props {
+  show?: boolean;
+  editFilter?: SavedFilter | null;
+  currentFilters?: FilterCondition[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  show: false,
+  editFilter: null,
+  currentFilters: () => [],
+});
+
+const emit = defineEmits<{
+  close: [];
+  save: [name: string, filters: FilterCondition[]];
+}>();
+
+// Filter name input
+const filterName = ref('');
+
+// Use filter composables
+const { logicOptions, onFieldChange: handleFieldChange } = useFilterFields();
+
+const {
+  conditions,
+  openDropdownIndex,
+  initializeConditions,
+  addCondition,
+  removeCondition,
+  toggleNegate,
+  toggleDropdown,
+  getValidConditions,
+} = useFilterConditions();
+
+// Safe computed for current filters
+const safeCurrentFilters = computed(() => {
+  return Array.isArray(props.currentFilters) ? props.currentFilters : [];
+});
+
+// Computed title
+const modalTitle = computed(() => {
+  return props.editFilter
+    ? t('sidebar.savedFilters.editFilter')
+    : t('sidebar.savedFilters.saveFilter');
+});
+
+// Computed save button text
+const saveButtonText = computed(() => {
+  return props.editFilter ? t('common.save') : t('sidebar.savedFilters.save');
+});
+
+// Watch for modal show changes
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      if (props.editFilter) {
+        // Edit mode: load existing filter
+        filterName.value = props.editFilter.name;
+        try {
+          const existingConditions = JSON.parse(props.editFilter.conditions);
+          initializeConditions(existingConditions);
+        } catch {
+          initializeConditions([]);
+        }
+      } else if (safeCurrentFilters.value.length > 0) {
+        // Create mode: load current filters
+        filterName.value = '';
+        initializeConditions(safeCurrentFilters.value);
+      } else {
+        // Create mode: start fresh
+        filterName.value = '';
+        initializeConditions([]);
+      }
+    }
+  }
+);
+
+onMounted(() => {
+  if (props.show) {
+    if (props.editFilter) {
+      filterName.value = props.editFilter.name;
+      try {
+        const existingConditions = JSON.parse(props.editFilter.conditions);
+        initializeConditions(existingConditions);
+      } catch {
+        initializeConditions([]);
+      }
+    }
+  }
+});
+
+function onFieldChangeIndex(index: number): void {
+  handleFieldChange(conditions.value[index]);
+}
+
+function close() {
+  emit('close');
+}
+
+function save() {
+  if (!filterName.value.trim()) {
+    window.showToast(t('sidebar.savedFilters.nameRequired'), 'error');
+    return;
+  }
+
+  const validConditions = getValidConditions();
+  if (validConditions.length === 0) {
+    window.showToast(t('sidebar.savedFilters.conditionsRequired'), 'error');
+    return;
+  }
+
+  emit('save', filterName.value.trim(), validConditions);
+  emit('close');
+}
+</script>
+
+<template>
+  <BaseModal v-if="show" size="2xl" :z-index="100" max-height="85vh" @close="close">
+    <!-- Custom Header -->
+    <template #header>
+      <h3 class="text-lg font-semibold m-0 flex items-center gap-2 text-text-primary">
+        <PhFunnel :size="20" />
+        {{ modalTitle }}
+      </h3>
+    </template>
+
+    <!-- Content -->
+    <div class="p-4 sm:p-6">
+      <!-- Filter Name Input -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-text-primary mb-2">
+          {{ t('sidebar.savedFilters.filterName') }}
+        </label>
+        <input
+          v-model="filterName"
+          type="text"
+          class="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none transition-colors"
+          :placeholder="t('sidebar.savedFilters.filterNamePlaceholder')"
+        />
+      </div>
+
+      <!-- Filter Conditions -->
+      <div class="mt-4">
+        <h4 class="text-sm font-medium text-text-primary mb-3">
+          {{ t('modal.filter.filterConditions') }}
+        </h4>
+
+        <!-- Empty state -->
+        <div v-if="conditions.length === 0" class="text-center text-text-secondary py-8">
+          <PhFunnel :size="48" class="mx-auto mb-3 opacity-50" />
+          <p>{{ t('modal.filter.noFiltersApplied') }}</p>
+        </div>
+
+        <!-- Condition list -->
+        <div v-else class="space-y-3">
+          <div v-for="(condition, index) in conditions" :key="condition.id">
+            <!-- Logic connector -->
+            <div v-if="index > 0" class="flex items-center justify-center my-3">
+              <div class="flex-1 h-px bg-border"></div>
+              <div class="logic-connector mx-3">
+                <button
+                  v-for="opt in logicOptions"
+                  :key="opt.value"
+                  :class="['logic-btn', condition.logic === opt.value ? 'active' : '']"
+                  @click="(condition.logic as 'and' | 'or' | null) = opt.value"
+                >
+                  {{ t(opt.labelKey) }}
+                </button>
+              </div>
+              <div class="flex-1 h-px bg-border"></div>
+            </div>
+
+            <!-- Condition card -->
+            <RuleConditionItem
+              :condition="condition"
+              :index="index"
+              :is-dropdown-open="openDropdownIndex === index"
+              @update:field="
+                (value) => {
+                  condition.field = value;
+                  onFieldChangeIndex(index);
+                }
+              "
+              @update:operator="(value) => (condition.operator = value)"
+              @update:value="(value) => (condition.value = value)"
+              @update:values="(values) => (condition.values = values)"
+              @update:negate="toggleNegate(index)"
+              @toggle-dropdown="toggleDropdown(index)"
+              @remove="removeCondition(index)"
+            />
+          </div>
+        </div>
+
+        <!-- Add condition button -->
+        <button
+          class="btn-secondary w-full mt-4 flex items-center justify-center gap-2"
+          @click="addCondition"
+        >
+          <PhPlus :size="18" />
+          {{ t('modal.filter.addCondition') }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <template #footer>
+      <ModalFooter
+        align="right"
+        :secondary-button="{
+          label: t('common.cancel'),
+          onClick: close,
+        }"
+        :primary-button="{
+          label: saveButtonText,
+          onClick: save,
+        }"
+      />
+    </template>
+  </BaseModal>
+</template>
+
+<style scoped>
+@reference "../../style.css";
+
+.btn-secondary {
+  @apply bg-bg-tertiary text-text-primary border border-border px-4 py-2.5 rounded-lg cursor-pointer font-medium hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.logic-connector {
+  @apply flex items-center gap-1 bg-bg-tertiary rounded-full p-1;
+}
+
+.logic-btn {
+  @apply px-3 py-1 text-xs font-bold rounded-full transition-all cursor-pointer;
+  @apply text-text-secondary bg-transparent;
+}
+
+.logic-btn:hover {
+  @apply text-text-primary bg-bg-secondary;
+}
+
+.logic-btn.active {
+  @apply text-white bg-accent;
+}
+</style>

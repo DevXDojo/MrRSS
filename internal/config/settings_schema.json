@@ -249,6 +249,13 @@
       "encrypted": false,
       "frontend_key": "aiChatEnabled"
     },
+    "ai_search_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "aiSearchEnabled"
+    },
     "summary_enabled": {
       "type": "bool",
       "default": true,
@@ -606,12 +613,12 @@
       "encrypted": false,
       "frontend_key": "shortcutsEnabled"
     },
-    "compact_mode": {
-      "type": "bool",
-      "default": false,
+    "layout_mode": {
+      "type": "string",
+      "default": "normal",
       "category": "reading",
       "encrypted": false,
-      "frontend_key": "compactMode"
+      "frontend_key": "layoutMode"
     },
     "feed_drawer_pinned": {
       "type": "bool",

@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"log"
+	"time"
 )
 
 // This file adds FreshRSS sync tracking to article operations
@@ -13,6 +14,13 @@ type SyncRequest struct {
 	ArticleID  int64
 	ArticleURL string
 	Action     SyncAction
+}
+
+// articleInfo represents basic article information for sync operations
+type articleInfo struct {
+	id     int64
+	url    string
+	feedID int64
 }
 
 // MarkArticleReadWithSync marks an article as read/unread and returns sync request if FreshRSS is enabled
@@ -309,4 +317,233 @@ func (db *DB) UpdateFreshRSSItemID(articleID int64, freshRSSItemID string) error
 
 	log.Printf("[UpdateFreshRSSItemID] Updated article %d with FreshRSS Item ID: %s", articleID, freshRSSItemID)
 	return nil
+}
+
+// MarkAllAsReadWithSync marks all articles as read and returns sync requests if FreshRSS is enabled
+func (db *DB) MarkAllAsReadWithSync() ([]SyncRequest, error) {
+	// Get all unread article IDs and URLs
+	query := `SELECT id, url, feed_id FROM articles WHERE is_read = 0 AND is_hidden = 0`
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var articles []articleInfo
+	for rows.Next() {
+		var info articleInfo
+		if err := rows.Scan(&info.id, &info.url, &info.feedID); err != nil {
+			return nil, err
+		}
+		articles = append(articles, info)
+	}
+
+	// Mark all as read
+	if err := db.MarkAllAsRead(); err != nil {
+		return nil, err
+	}
+
+	// Collect sync requests for FreshRSS feeds
+	return db.collectSyncRequests(articles), nil
+}
+
+// MarkAllAsReadForFeedWithSync marks all articles in a feed as read and returns sync requests if FreshRSS is enabled
+func (db *DB) MarkAllAsReadForFeedWithSync(feedID int64) ([]SyncRequest, error) {
+	// Get all unread article IDs and URLs for this feed
+	query := `SELECT id, url, feed_id FROM articles WHERE feed_id = ? AND is_read = 0 AND is_hidden = 0`
+	rows, err := db.Query(query, feedID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var articles []articleInfo
+	for rows.Next() {
+		var info articleInfo
+		if err := rows.Scan(&info.id, &info.url, &info.feedID); err != nil {
+			return nil, err
+		}
+		articles = append(articles, info)
+	}
+
+	// Mark all as read for this feed
+	if err := db.MarkAllAsReadForFeed(feedID); err != nil {
+		return nil, err
+	}
+
+	// Collect sync requests for FreshRSS feeds
+	return db.collectSyncRequests(articles), nil
+}
+
+// MarkAllAsReadForCategoryWithSync marks all articles in a category as read and returns sync requests if FreshRSS is enabled
+func (db *DB) MarkAllAsReadForCategoryWithSync(category string) ([]SyncRequest, error) {
+	// Get all feed IDs in this category
+	var feedIDs []int64
+
+	// Handle empty category (uncategorized)
+	var rows *sql.Rows
+	var err error
+	if category == "" {
+		rows, err = db.Query("SELECT id FROM feeds WHERE (category IS NULL OR category = '')")
+	} else {
+		rows, err = db.Query("SELECT id FROM feeds WHERE category = ?", category)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var feedID int64
+		if err := rows.Scan(&feedID); err != nil {
+			return nil, err
+		}
+		feedIDs = append(feedIDs, feedID)
+	}
+
+	// Get all unread article IDs and URLs for feeds in this category
+	var articles []articleInfo
+
+	for _, feedID := range feedIDs {
+		query := `SELECT id, url, feed_id FROM articles WHERE feed_id = ? AND is_read = 0 AND is_hidden = 0`
+		rows, err := db.Query(query, feedID)
+		if err != nil {
+			return nil, err
+		}
+
+		for rows.Next() {
+			var info articleInfo
+			if err := rows.Scan(&info.id, &info.url, &info.feedID); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			articles = append(articles, info)
+		}
+		rows.Close()
+	}
+
+	// Mark all as read for this category
+	if err := db.MarkAllAsReadForCategory(category); err != nil {
+		return nil, err
+	}
+
+	// Collect sync requests for FreshRSS feeds
+	return db.collectSyncRequests(articles), nil
+}
+
+// MarkArticlesRelativeToPublishedTimeWithSync marks articles relative to a reference time and returns sync requests
+func (db *DB) MarkArticlesRelativeToPublishedTimeWithSync(referencePublishedAt time.Time, direction string, feedID int64, category string) (int, []SyncRequest, error) {
+	// Build query based on parameters
+	var operator string
+	if direction == "above" {
+		operator = ">"
+	} else {
+		operator = "<"
+	}
+
+	// Build WHERE clause
+	var whereClause string
+	var args []interface{}
+	baseClause := "is_read = 0 AND is_hidden = 0 AND published_at " + operator + " ?"
+	args = append(args, referencePublishedAt)
+
+	if feedID > 0 {
+		whereClause = baseClause + " AND feed_id = ?"
+		args = append(args, feedID)
+	} else if category != "" {
+		// Get feed IDs in this category
+		var feedIDs []int64
+		var rows *sql.Rows
+		var err error
+		if category == "" {
+			rows, err = db.Query("SELECT id FROM feeds WHERE (category IS NULL OR category = '')")
+		} else {
+			rows, err = db.Query("SELECT id FROM feeds WHERE category = ?", category)
+		}
+		if err != nil {
+			return 0, nil, err
+		}
+
+		for rows.Next() {
+			var fid int64
+			if err := rows.Scan(&fid); err != nil {
+				rows.Close()
+				return 0, nil, err
+			}
+			feedIDs = append(feedIDs, fid)
+		}
+		rows.Close()
+
+		// Build IN clause for feed IDs
+		if len(feedIDs) > 0 {
+			whereClause = baseClause + " AND feed_id IN ("
+			for i := range feedIDs {
+				if i > 0 {
+					whereClause += ","
+				}
+				whereClause += "?"
+				args = append(args, feedIDs[i])
+			}
+			whereClause += ")"
+		} else {
+			// No feeds in category, nothing to mark
+			return 0, nil, nil
+		}
+	} else {
+		whereClause = baseClause
+	}
+
+	// Get articles to mark
+	query := `SELECT id, url, feed_id FROM articles WHERE ` + whereClause
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer rows.Close()
+
+	var articles []articleInfo
+	for rows.Next() {
+		var info articleInfo
+		if err := rows.Scan(&info.id, &info.url, &info.feedID); err != nil {
+			return 0, nil, err
+		}
+		articles = append(articles, info)
+	}
+
+	// Mark articles as read
+	count, err := db.MarkArticlesRelativeToPublishedTime(referencePublishedAt, direction, feedID, category)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// Collect sync requests for FreshRSS feeds
+	syncRequests := db.collectSyncRequests(articles)
+	return count, syncRequests, nil
+}
+
+// collectSyncRequests collects sync requests for articles that belong to FreshRSS feeds
+func (db *DB) collectSyncRequests(articles []articleInfo) []SyncRequest {
+	enabled, _ := db.GetSetting("freshrss_enabled")
+	if enabled != "true" {
+		return nil
+	}
+
+	var syncRequests []SyncRequest
+	action := SyncActionMarkRead
+
+	for _, article := range articles {
+		// Check if this article belongs to a FreshRSS feed
+		var isFreshRSSFeed bool
+		err := db.QueryRow("SELECT COALESCE(is_freshrss_source, 0) FROM feeds WHERE id = ?", article.feedID).Scan(&isFreshRSSFeed)
+		if err == nil && isFreshRSSFeed {
+			syncRequests = append(syncRequests, SyncRequest{
+				ArticleID:  article.id,
+				ArticleURL: article.url,
+				Action:     action,
+			})
+			log.Printf("[FreshRSS Sync] Article %d needs sync: %s", article.id, action)
+		}
+	}
+
+	return syncRequests
 }

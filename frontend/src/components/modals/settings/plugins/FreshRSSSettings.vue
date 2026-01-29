@@ -157,27 +157,6 @@ watch(
   }
 );
 
-// Watch for FreshRSS connection settings changes
-watch(
-  () => [
-    props.settings.freshrss_server_url,
-    props.settings.freshrss_username,
-    props.settings.freshrss_api_password,
-  ],
-  async () => {
-    if (props.settings.freshrss_enabled) {
-      // Settings changed while FreshRSS is enabled
-      // Backend will handle cleanup and resync
-      // Wait for cleanup and resync to complete, then refresh
-      setTimeout(async () => {
-        await appStore.fetchFeeds();
-        await appStore.fetchArticles();
-        await appStore.fetchUnreadCounts();
-      }, 3000); // Wait longer for cleanup + resync
-    }
-  }
-);
-
 // Format sync time
 function formatSyncTime(timeStr: string | null): string {
   if (!timeStr) return t('setting.freshrss.never');

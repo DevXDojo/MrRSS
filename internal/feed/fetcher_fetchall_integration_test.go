@@ -30,7 +30,6 @@ func TestFetchAll_RespectsConcurrency(t *testing.T) {
 	var peak int32
 
 	// create multiple feed servers
-	servers := make([]*httptest.Server, 0)
 	for i := 0; i < 5; i++ {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			atomic.AddInt32(&active, 1)
@@ -52,7 +51,6 @@ func TestFetchAll_RespectsConcurrency(t *testing.T) {
 			w.Write([]byte(`<?xml version="1.0"?><rss><channel><title>t</title><item><title>a</title><link>http://x</link><guid>1</guid></item></channel></rss>`))
 		}))
 		defer srv.Close()
-		servers = append(servers, srv)
 
 		// add feed entry
 		_, err := db.AddFeed(&models.Feed{Title: "f", URL: srv.URL})

@@ -37,16 +37,16 @@ type FilterResponse struct {
 }
 
 // evaluateArticleConditions evaluates all filter conditions for an article
-func evaluateArticleConditions(article models.Article, conditions []FilterCondition, feedCategories map[int64]string, feedTypes map[int64]string, feedIsImageMode map[int64]bool) bool {
+func evaluateArticleConditions(article models.Article, conditions []FilterCondition, feedCategories map[int64]string, feedTypes map[int64]string, feedIsImageMode map[int64]bool, feedTags map[int64][]string) bool {
 	if len(conditions) == 0 {
 		return true
 	}
 
-	result := evaluateSingleCondition(article, conditions[0], feedCategories, feedTypes, feedIsImageMode)
+	result := evaluateSingleCondition(article, conditions[0], feedCategories, feedTypes, feedIsImageMode, feedTags)
 
 	for i := 1; i < len(conditions); i++ {
 		condition := conditions[i]
-		conditionResult := evaluateSingleCondition(article, condition, feedCategories, feedTypes, feedIsImageMode)
+		conditionResult := evaluateSingleCondition(article, condition, feedCategories, feedTypes, feedIsImageMode, feedTags)
 
 		switch condition.Logic {
 		case "and":
@@ -76,7 +76,7 @@ func matchMultiSelectContains(fieldValue string, values []string, singleValue st
 }
 
 // evaluateSingleCondition evaluates a single filter condition for an article
-func evaluateSingleCondition(article models.Article, condition FilterCondition, feedCategories map[int64]string, feedTypes map[int64]string, feedIsImageMode map[int64]bool) bool {
+func evaluateSingleCondition(article models.Article, condition FilterCondition, feedCategories map[int64]string, feedTypes map[int64]string, feedIsImageMode map[int64]bool, feedTags map[int64][]string) bool {
 	var result bool
 
 	switch condition.Field {
@@ -86,6 +86,11 @@ func evaluateSingleCondition(article models.Article, condition FilterCondition, 
 	case "feed_category":
 		feedCategory := feedCategories[article.FeedID]
 		result = matchMultiSelectContains(feedCategory, condition.Values, condition.Value)
+
+	case "feed_tags":
+		articleTags := feedTags[article.FeedID]
+		// Check if any tag matches
+		result = matchMultiSelectTags(articleTags, condition.Values, condition.Value)
 
 	case "article_title":
 		if condition.Value == "" {
@@ -189,4 +194,31 @@ func evaluateSingleCondition(article models.Article, condition FilterCondition, 
 		return !result
 	}
 	return result
+}
+
+// matchMultiSelectTags checks if any of the article's tags match the selected values
+func matchMultiSelectTags(articleTags []string, values []string, singleValue string) bool {
+	if len(values) > 0 {
+		// Check if any of the selected values match any of the article's tags
+		for _, val := range values {
+			lowerVal := strings.ToLower(val)
+			for _, tag := range articleTags {
+				if strings.Contains(strings.ToLower(tag), lowerVal) {
+					return true
+				}
+			}
+		}
+		return false
+	} else if singleValue != "" {
+		// Check if the single value matches any tag
+		lowerVal := strings.ToLower(singleValue)
+		for _, tag := range articleTags {
+			if strings.Contains(strings.ToLower(tag), lowerVal) {
+				return true
+			}
+		}
+		return false
+	}
+	// No filter specified, match all
+	return true
 }

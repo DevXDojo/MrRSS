@@ -33,10 +33,13 @@ import type { ThemePreference } from '@/stores/app';
 import { useSettings } from '@/composables/core/useSettings';
 import { useAppUpdates } from '@/composables/core/useAppUpdates';
 import { useFeedManagement } from '@/composables/feed/useFeedManagement';
-import { useModalClose } from '@/composables/ui/useModalClose';
+import { useModalClose, LARGE_MODAL_Z_INDEX } from '@/composables/ui/useModalClose';
 
 const store = useAppStore();
 const { t } = useI18n();
+
+// Modal close handling - use lower z-index for large modal so nested modals appear on top
+const { zIndex: modalZIndex } = useModalClose(() => emit('close'), LARGE_MODAL_Z_INDEX);
 
 // Use composables
 const { settings, fetchSettings, applySettings } = useSettings();
@@ -58,6 +61,9 @@ const {
   handleDeleteFeed,
   handleBatchDelete,
   handleBatchMove,
+  handleBatchAddTags,
+  handleBatchSetImageMode,
+  handleBatchUnsetImageMode,
 } = useFeedManagement();
 
 const emit = defineEmits<{
@@ -66,9 +72,6 @@ const emit = defineEmits<{
 
 const activeTab: Ref<TabName> = ref('general');
 const showDiscoverAllModal = ref(false);
-
-// Modal close handling
-useModalClose(() => emit('close'));
 
 onMounted(async () => {
   try {
@@ -86,13 +89,13 @@ function handleDiscoverAll() {
 
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4"
+    class="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    :style="{ zIndex: modalZIndex }"
     data-modal-open="true"
     data-settings-modal="true"
-    style="will-change: transform; transform: translateZ(0)"
   >
     <div
-      class="bg-bg-primary w-full max-w-5xl h-full sm:h-[800px] sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in"
+      class="bg-bg-primary w-full max-w-5xl h-full sm:h-[800px] sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in mx-2 sm:mx-4 my-2 sm:my-4"
     >
       <div class="p-3 sm:p-5 border-b border-border flex justify-between items-center shrink-0">
         <h3 class="text-text-secondary sm:text-lg font-semibold m-0 flex items-center gap-2">
@@ -215,6 +218,9 @@ function handleDiscoverAll() {
             @delete-feed="handleDeleteFeed"
             @batch-delete="handleBatchDelete"
             @batch-move="handleBatchMove"
+            @batch-add-tags="handleBatchAddTags"
+            @batch-set-image-mode="handleBatchSetImageMode"
+            @batch-unset-image-mode="handleBatchUnsetImageMode"
             @discover-all="handleDiscoverAll"
             @select-feed="emit('close')"
             @update:settings="settings = $event"
@@ -271,10 +277,12 @@ function handleDiscoverAll() {
         </div>
       </div>
     </div>
-
-    <!-- Discover All Feeds Modal -->
-    <DiscoverAllFeedsModal :show="showDiscoverAllModal" @close="showDiscoverAllModal = false" />
   </div>
+
+  <!-- Discover All Feeds Modal (Teleported to body) -->
+  <Teleport to="body">
+    <DiscoverAllFeedsModal :show="showDiscoverAllModal" @close="showDiscoverAllModal = false" />
+  </Teleport>
 </template>
 
 <style scoped>

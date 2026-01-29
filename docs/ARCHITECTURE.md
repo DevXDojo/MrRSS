@@ -36,16 +36,26 @@ Handlers are organized by feature domains in `internal/handlers/`:
 
 ```plaintext
 handlers/
-├── core/          # Core handler initialization and scheduling
+├── ai/            # AI configuration test and AI search
 ├── article/       # Article CRUD and filtering
-├── feed/          # Feed management
+├── browser/       # URL opening in browser
+├── chat/          # AI chat sessions and messages
+├── core/          # Core handler initialization and scheduling
+├── custom_css/    # Custom CSS management
 ├── discovery/     # Feed discovery
+├── feed/          # Feed management
+├── filter_category/  # Saved filters management
+├── freshrss/      # FreshRSS synchronization
 ├── media/         # Media handling (images, audio, video)
+├── network/       # Network detection
 ├── opml/          # OPML import/export
+├── rsshub/        # RSSHub integration
 ├── rules/         # Filtering rules
 ├── script/        # Custom script execution
 ├── settings/      # Settings management
+├── statistics/    # Usage statistics
 ├── summary/       # Article summarization
+├── tags/          # Tag management
 ├── translation/   # Translation services
 ├── update/        # Application updates
 └── window/        # Window management

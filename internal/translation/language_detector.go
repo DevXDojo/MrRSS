@@ -11,9 +11,7 @@ import (
 
 // LanguageDetector handles language detection using whatlanggo
 // whatlanggo is a pure Go implementation with minimal binary size impact
-type LanguageDetector struct {
-	once sync.Once
-}
+type LanguageDetector struct{}
 
 // languageDetectorInstance is the singleton instance
 var (

@@ -45,6 +45,9 @@ export function useFeedForm(feed?: Feed) {
   const emailPassword = ref('');
   const emailFolder = ref('INBOX');
 
+  // Tags
+  const selectedTags = ref<number[]>([]);
+
   // Article view mode
   const articleViewMode = ref<'global' | 'webpage' | 'rendered' | 'external'>('global');
 
@@ -254,6 +257,11 @@ export function useFeedForm(feed?: Feed) {
       feedType.value = 'url';
     }
 
+    // Initialize tags
+    if (feed.tags) {
+      selectedTags.value = feed.tags.map((tag) => tag.id);
+    }
+
     // Initialize proxy settings
     if (feed.proxy_url) {
       proxyMode.value = 'custom';
@@ -389,6 +397,8 @@ export function useFeedForm(feed?: Feed) {
     emailUsername,
     emailPassword,
     emailFolder,
+    // Tags
+    selectedTags,
     articleViewMode,
     autoExpandContent,
     proxyMode,

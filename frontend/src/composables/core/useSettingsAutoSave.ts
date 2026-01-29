@@ -31,9 +31,25 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
 
   // Track previous article display settings to prevent unnecessary refreshes
   const prevArticleDisplaySettings: Ref<{
-    showHiddenArticles: string;
+    showHiddenArticles: boolean;
   }> = ref({
     showHiddenArticles: settingsDefaults.show_hidden_articles,
+  });
+
+  // Track previous layout mode setting to prevent unnecessary width resets
+  const prevLayoutMode: Ref<string> = ref(settingsDefaults.layout_mode);
+
+  // Track previous summary settings
+  const prevSummarySettings: Ref<{
+    enabled: boolean;
+    provider: string;
+    triggerMode: string;
+    length: string;
+  }> = ref({
+    enabled: settingsDefaults.summary_enabled,
+    provider: settingsDefaults.summary_provider,
+    triggerMode: settingsDefaults.summary_trigger_mode,
+    length: settingsDefaults.summary_length,
   });
 
   /**
@@ -48,6 +64,13 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       };
       prevArticleDisplaySettings.value = {
         showHiddenArticles: settingsRef.value.show_hidden_articles,
+      };
+      prevLayoutMode.value = settingsRef.value.layout_mode;
+      prevSummarySettings.value = {
+        enabled: settingsRef.value.summary_enabled,
+        provider: settingsRef.value.summary_provider,
+        triggerMode: settingsRef.value.summary_trigger_mode,
+        length: settingsRef.value.summary_length,
       };
       isInitialLoad = false;
     }, 100);
@@ -159,14 +182,49 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
         })
       );
 
-      // Notify about compact_mode change
-      window.dispatchEvent(
-        new CustomEvent('compact-mode-changed', {
-          detail: {
-            enabled: settingsRef.value.compact_mode,
-          },
-        })
-      );
+      // Notify about layout_mode change only if it actually changed
+      if (settingsRef.value.layout_mode !== prevLayoutMode.value) {
+        window.dispatchEvent(
+          new CustomEvent('layout-mode-changed', {
+            detail: {
+              mode: settingsRef.value.layout_mode,
+            },
+          })
+        );
+        // Update tracking
+        prevLayoutMode.value = settingsRef.value.layout_mode;
+      }
+
+      // Check if summary settings changed
+      const summaryChanged =
+        prevSummarySettings.value.enabled !== settingsRef.value.summary_enabled ||
+        prevSummarySettings.value.provider !== settingsRef.value.summary_provider ||
+        prevSummarySettings.value.triggerMode !== settingsRef.value.summary_trigger_mode ||
+        prevSummarySettings.value.length !== settingsRef.value.summary_length;
+
+      if (summaryChanged) {
+        window.dispatchEvent(
+          new CustomEvent('summary-settings-changed', {
+            detail: {
+              enabled: settingsRef.value.summary_enabled,
+              provider: settingsRef.value.summary_provider,
+              triggerMode: settingsRef.value.summary_trigger_mode,
+              length: settingsRef.value.summary_length,
+            },
+          })
+        );
+        // Update tracking
+        prevSummarySettings.value = {
+          enabled: settingsRef.value.summary_enabled,
+          provider: settingsRef.value.summary_provider,
+          triggerMode: settingsRef.value.summary_trigger_mode,
+          length: settingsRef.value.summary_length,
+        };
+      }
+
+      // Notify all components that settings have been updated
+      // This ensures components like ArticleList can re-fetch settings
+      window.dispatchEvent(new CustomEvent('settings-updated'));
     } catch (e) {
       console.error('Error auto-saving settings:', e);
     }

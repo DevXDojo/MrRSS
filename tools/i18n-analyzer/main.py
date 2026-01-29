@@ -317,6 +317,83 @@ def extract_label_keys_from_file(file_path: Path, search_dir: Path) -> Dict[str,
     return label_keys
 
 
+def find_dynamic_i18n_patterns(search_dir: Path) -> List[Tuple[str, int, str]]:
+    """
+    Find dynamic i18n key patterns that cannot be statically analyzed.
+    Returns list of (file_path, line_number, pattern) tuples.
+    Detects:
+    - Template literals: t(`prefix.${variable}`)
+    - String concatenation: t('prefix.' + variable)
+    """
+    dynamic_patterns = []
+
+    # Pattern to match t() calls with template literals (backticks)
+    # Matches: t(`prefix.${variable}`) or t(`prefix.${variable}.suffix`)
+    template_pattern = re.compile(
+        r"""(?<!\w)t\(\s*                    # t( with optional whitespace
+        `                                  # opening backtick
+        ([^`]*?\$\{[^}]+\}[^`]*?)          # template content with ${variable}
+        `                                  # closing backtick
+        \s*\)                              # closing ) with optional whitespace
+        """,
+        re.VERBOSE | re.DOTALL,
+    )
+
+    # Pattern to match t() calls with string concatenation
+    # Matches: t('prefix.' + variable) or t("prefix." + variable)
+    concat_pattern = re.compile(
+        r"""(?<!\w)t\(\s*                    # t( with optional whitespace
+        ['"`]([a-zA-Z0-9._\-]+)['"`]\s*\+  # string part followed by +
+        \s*(?:[a-zA-Z0-9._\-]+\s*\+)*      # optional additional concatenations
+        \s*[a-zA-Z0-9._\-]+                # variable part
+        \s*\)                              # closing ) with optional whitespace
+        """,
+        re.VERBOSE,
+    )
+
+    # Search in all TypeScript, JavaScript, and Vue files
+    for ext in ["*.vue", "*.ts", "*.tsx", "*.js", "*.jsx"]:
+        for file_path in search_dir.rglob(ext):
+            # Skip the i18n locale files and types files
+            if "i18n/" in str(file_path):
+                continue
+
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                # Remove both single-line and multi-line comments
+                content = re.sub(r'//.*?$', '', content, flags=re.MULTILINE)
+                content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+
+                # Search for template literal patterns
+                for match in template_pattern.finditer(content):
+                    line_num = content[:match.start()].count('\n') + 1
+                    pattern = match.group(1)
+
+                    try:
+                        rel_path = file_path.relative_to(search_dir)
+                        dynamic_patterns.append((str(rel_path), line_num, pattern))
+                    except ValueError:
+                        dynamic_patterns.append((str(file_path), line_num, pattern))
+
+                # Search for string concatenation patterns
+                for match in concat_pattern.finditer(content):
+                    line_num = content[:match.start()].count('\n') + 1
+                    pattern = match.group(1) + " + ..."
+
+                    try:
+                        rel_path = file_path.relative_to(search_dir)
+                        dynamic_patterns.append((str(rel_path), line_num, pattern))
+                    except ValueError:
+                        dynamic_patterns.append((str(file_path), line_num, pattern))
+
+            except Exception as e:
+                print(f"Warning: Could not read {file_path}: {e}")
+
+    return dynamic_patterns
+
+
 def find_all_i18n_calls(search_dir: Path) -> Dict[str, List[Tuple[str, int]]]:
     """
     Find ALL t() calls in the codebase and extract the keys.
@@ -470,6 +547,9 @@ def main():
     # Find ALL i18n calls in the codebase
     all_calls = find_all_i18n_calls(FRONTEND_DIR)
 
+    # Find dynamic i18n patterns that cannot be statically analyzed
+    dynamic_patterns = find_dynamic_i18n_patterns(FRONTEND_DIR)
+
     # Find missing keys (used but not defined)
     missing_keys = set(all_calls.keys()) - set(all_keys)
 
@@ -519,6 +599,7 @@ def main():
     safe_print(f"  - Category keys (excluded from report): {len(all_categories)}")
     safe_print(f"  - Leaf keys with values (included in report): {len(filtered_keys)}")
     safe_print(f"  - Used keys found in code: {len(all_calls)}")
+    safe_print(f"  - Dynamic i18n patterns (cannot be statically analyzed): {len(dynamic_patterns)} ⚠️")
     safe_print(f"  - Missing keys (used but not defined): {len(missing_keys)} ⚠️")
     safe_print(f"  - Unused keys (defined but never used): {len(unused_keys)} ⚠️")
     safe_print(f"\nLocale file inconsistencies:")
@@ -565,7 +646,29 @@ def main():
         output_lines.append("---")
         output_lines.append("")
 
-    # Section 1: Missing Keys (used but not defined)
+    # Section 1: Dynamic i18n Patterns (cannot be statically analyzed)
+    if dynamic_patterns:
+        output_lines.append("## ⚠️ Dynamic i18n Patterns (Cannot be Statically Analyzed)")
+        output_lines.append("")
+        output_lines.append("This section shows i18n keys that are built dynamically at runtime.")
+        output_lines.append("These patterns use template literals or string concatenation and cannot be")
+        output_lines.append("automatically verified against the locale files. Manual review is required.")
+        output_lines.append("")
+        output_lines.append("| File | Line | Pattern |")
+        output_lines.append("|------|------|----------|")
+
+        for file_path, line_num, pattern in sorted(dynamic_patterns):
+            short_path = file_path.replace("frontend/src/", "")
+            link = create_file_link(short_path, line_num, is_windows)
+            # Escape special markdown characters in pattern
+            safe_pattern = pattern.replace("|", "\\|").replace("`", "\\`")
+            output_lines.append(f"| {link} | {line_num} | `{safe_pattern}` |")
+
+        output_lines.append("")
+        output_lines.append("---")
+        output_lines.append("")
+
+    # Section 2: Missing Keys (used but not defined)
     if missing_keys:
         output_lines.append("## ⚠️ Missing Keys (Used in Code but Not Defined)")
         output_lines.append("")

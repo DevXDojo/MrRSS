@@ -215,6 +215,7 @@ func (db *DB) Init() error {
 				_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_read_published ON articles(is_read, published_at DESC)`)
 				_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_fav_published ON articles(is_favorite, published_at DESC)`)
 				_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_readlater_published ON articles(is_read_later, published_at DESC)`)
+				_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_hidden_published ON articles(is_hidden, published_at DESC)`)
 			}
 		}
 
@@ -426,6 +427,10 @@ func initSchema(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_articles_fav_published ON articles(is_favorite, published_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_articles_readlater_published ON articles(is_read_later, published_at DESC);
 
+	-- Covering index for category queries (hidden + published_at)
+	-- Optimizes queries with: WHERE is_hidden = 0 ORDER BY published_at DESC
+	CREATE INDEX IF NOT EXISTS idx_articles_hidden_published ON articles(is_hidden, published_at DESC);
+
 	-- Translation cache index
 	CREATE INDEX IF NOT EXISTS idx_translation_cache_lookup ON translation_cache(source_text_hash, target_lang, provider);
 
@@ -533,6 +538,37 @@ func runMigrations(db *sql.DB) error {
 
 	// Migration: Add author field to articles table
 	_, _ = db.Exec(`ALTER TABLE articles ADD COLUMN author TEXT DEFAULT ''`)
+
+	// Migration: Add saved_filters table for custom filter persistence
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS saved_filters (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL UNIQUE,
+		conditions TEXT NOT NULL,
+		position INTEGER DEFAULT 0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`)
+	_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_saved_filters_position ON saved_filters(position)`)
+
+	// Migration: Add tags table for feed tagging feature
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS tags (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL UNIQUE,
+		color TEXT NOT NULL DEFAULT '#3B82F6',
+		position INTEGER DEFAULT 0
+	)`)
+	_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tags_position ON tags(position)`)
+
+	// Migration: Add feed_tags junction table for many-to-many relationship
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS feed_tags (
+		feed_id INTEGER NOT NULL,
+		tag_id INTEGER NOT NULL,
+		PRIMARY KEY (feed_id, tag_id),
+		FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE,
+		FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+	)`)
+	_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_feed_tags_feed_id ON feed_tags(feed_id)`)
+	_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_feed_tags_tag_id ON feed_tags(tag_id)`)
 
 	return nil
 }

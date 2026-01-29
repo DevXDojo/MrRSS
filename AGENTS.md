@@ -62,22 +62,29 @@ MrRSS/
 ├── main.go                      # Desktop application entry point
 ├── main-core.go                 # Headless server entry point
 ├── internal/                    # Backend Go code
+│   ├── ai/                      # AI configuration and utilities
+│   ├── aiusage/                 # AI usage tracking and limits
 │   ├── cache/                   # Media cache management
 │   ├── config/                  # Configuration with schema-driven generation
 │   ├── crypto/                  # Encryption for sensitive settings
 │   ├── database/                # SQLite operations with WAL mode
 │   ├── discovery/               # Smart feed discovery system
 │   ├── feed/                    # RSS/Atom parsing and script execution
+│   ├── freshrss/                # FreshRSS synchronization logic
 │   ├── handlers/                # HTTP API handlers (organized by feature)
+│   ├── jsonimport/              # JSON feed import utilities
 │   ├── models/                  # Core data structures
+│   ├── monitor/                 # System monitoring utilities
+│   ├── network/                 # Network detection and utilities
 │   ├── opml/                    # OPML import/export
+│   ├── rsshub/                  # RSSHub integration
 │   ├── rules/                   # Filtering rules engine
 │   ├── statistics/              # Usage analytics
 │   ├── summary/                 # TF-IDF + TextRank + AI summarization
 │   ├── translation/             # Multi-service translation
-│   ├── tray/                    # System tray integration
 │   ├── utils/                   # Platform utilities
-│   └── version/                 # Version constant
+│   ├── version/                 # Version constant
+│   └── webview/                 # Webview utilities
 ├── frontend/src/
 │   ├── components/              # Vue components (article/, sidebar/, modals/, common/)
 │   ├── composables/             # Reusable logic (article/, feed/, discovery/, rules/, ui/)
@@ -104,17 +111,29 @@ MrRSS/
 
 #### Core Packages
 - **`internal/handlers/`**: Feature-based API handlers
+  - `ai/` - AI configuration test and AI search
   - `article/` - CRUD operations, filtering, export
-  - `feed/` - Feed management, metadata
+  - `browser/` - URL opening in browser
+  - `chat/` - AI chat sessions and messages
+  - `core/` - Core handler initialization
+  - `custom_css/` - Custom CSS management
   - `discovery/` - Feed discovery engine
-  - `media/` - Image/audio/video processing
-  - `ai/` - AI integration (summaries, chat)
-  - `summary/` - Local + AI summarization
-  - `translation/` - Multi-service translation
+  - `feed/` - Feed management, metadata
+  - `filter_category/` - Saved filters management
   - `freshrss/` - FreshRSS synchronization
+  - `media/` - Image/audio/video processing and proxy
+  - `network/` - Network detection
+  - `opml/` - OPML import/export
+  - `rsshub/` - RSSHub integration
   - `rules/` - Filtering automation
-  - `opml/` - Import/export
+  - `script/` - Custom script management
   - `settings/` - Configuration management
+  - `statistics/` - Usage statistics
+  - `summary/` - Local + AI summarization
+  - `tags/` - Tag management
+  - `translation/` - Multi-service translation
+  - `update/` - Application update handling
+  - `window/` - Window state management
 
 - **`internal/database/`**: SQLite operations
   - WAL mode for concurrency

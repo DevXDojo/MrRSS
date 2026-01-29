@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
-import { ref, computed, type Ref } from 'vue';
+import { ref, computed, onMounted, onUnmounted, type Ref } from 'vue';
 import {
   PhRss,
   PhPlus,
@@ -16,13 +16,18 @@ import {
   PhImage,
   PhMagnifyingGlass,
   PhX,
+  PhTag,
 } from '@phosphor-icons/vue';
 import type { Feed } from '@/types/models';
 import { formatRelativeTime } from '@/utils/date';
 import { SettingGroup, ButtonControl } from '@/components/settings';
+import BatchActionsDropdown from './BatchActionsDropdown.vue';
+import BatchTagSelectorModal from './BatchTagSelectorModal.vue';
+import { useFeedManagement } from '@/composables/feed/useFeedManagement';
 
 const store = useAppStore();
 const { t, locale } = useI18n();
+const { addTagsToFeeds } = useFeedManagement();
 
 const emit = defineEmits<{
   'add-feed': [];
@@ -30,11 +35,46 @@ const emit = defineEmits<{
   'delete-feed': [id: number];
   'batch-delete': [ids: number[]];
   'batch-move': [ids: number[]];
+  'batch-add-tags': [ids: number[]];
+  'batch-set-image-mode': [ids: number[]];
+  'batch-unset-image-mode': [ids: number[]];
   'select-feed': [feedId: number];
+  'manage-tags': [];
 }>();
 
 const selectedFeeds: Ref<number[]> = ref([]);
 const searchQuery = ref('');
+
+// Batch tag selector state
+const showBatchTagSelector = ref(false);
+const pendingFeedIdsForTags = ref<number[]>([]);
+
+function handleShowBatchTagSelector(event: Event) {
+  const customEvent = event as CustomEvent<{ feedIds: number[] }>;
+  pendingFeedIdsForTags.value = customEvent.detail.feedIds;
+  showBatchTagSelector.value = true;
+}
+
+async function handleBatchTagsConfirm(tagIds: number[]) {
+  await addTagsToFeeds(pendingFeedIdsForTags.value, tagIds);
+  pendingFeedIdsForTags.value = [];
+  selectedFeeds.value = [];
+  showBatchTagSelector.value = false;
+}
+
+function handleBatchTagsClose() {
+  pendingFeedIdsForTags.value = [];
+  showBatchTagSelector.value = false;
+}
+
+// Listen for batch tag selector event
+onMounted(() => {
+  window.addEventListener('show-batch-tag-selector', handleShowBatchTagSelector);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('show-batch-tag-selector', handleShowBatchTagSelector);
+});
 
 // Sorting state
 type SortField =
@@ -162,6 +202,24 @@ function handleBatchMove() {
   selectedFeeds.value = [];
 }
 
+function handleBatchAddTags() {
+  if (selectedFeeds.value.length === 0) return;
+  emit('batch-add-tags', selectedFeeds.value);
+  selectedFeeds.value = [];
+}
+
+function handleBatchSetImageMode() {
+  if (selectedFeeds.value.length === 0) return;
+  emit('batch-set-image-mode', selectedFeeds.value);
+  selectedFeeds.value = [];
+}
+
+function handleBatchUnsetImageMode() {
+  if (selectedFeeds.value.length === 0) return;
+  emit('batch-unset-image-mode', selectedFeeds.value);
+  selectedFeeds.value = [];
+}
+
 function getFavicon(url: string): string {
   try {
     return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}`;
@@ -207,33 +265,45 @@ async function handleFeedClick(feed: Feed, event: Event) {
   store.setFeed(feed.id);
   emit('select-feed', feed.id);
 }
+
+function handleManageTags() {
+  emit('manage-tags');
+}
 </script>
 
 <template>
   <SettingGroup :icon="PhRss" :title="t('modal.feed.manageFeeds')">
-    <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-2">
+    <div class="flex flex-wrap justify-between gap-1.5 sm:gap-2 mb-2">
+      <div class="flex flex-wrap gap-1.5 sm:gap-2">
+        <ButtonControl
+          :label="t('setting.feed.addFeed')"
+          :icon="PhPlus"
+          type="secondary"
+          class="py-1.5 px-2.5 sm:px-3"
+          @click="handleAddFeed"
+        />
+        <ButtonControl
+          :label="t('common.action.deleteSelected')"
+          :icon="PhTrash"
+          :disabled="selectedFeeds.length === 0"
+          type="danger"
+          class="py-1.5 px-2.5 sm:px-3"
+          @click="handleBatchDelete"
+        />
+        <BatchActionsDropdown
+          :disabled="selectedFeeds.length === 0"
+          @move="handleBatchMove"
+          @add-tags="handleBatchAddTags"
+          @set-image-mode="handleBatchSetImageMode"
+          @unset-image-mode="handleBatchUnsetImageMode"
+        />
+      </div>
       <ButtonControl
-        :label="t('setting.feed.addFeed')"
-        :icon="PhPlus"
+        :label="t('modal.tag.manageTags')"
+        :icon="PhTag"
         type="secondary"
         class="py-1.5 px-2.5 sm:px-3"
-        @click="handleAddFeed"
-      />
-      <ButtonControl
-        :label="t('common.action.deleteSelected')"
-        :icon="PhTrash"
-        :disabled="selectedFeeds.length === 0"
-        type="danger"
-        class="py-1.5 px-2.5 sm:px-3"
-        @click="handleBatchDelete"
-      />
-      <ButtonControl
-        :label="t('common.action.moveSelected')"
-        :icon="PhFolder"
-        :disabled="selectedFeeds.length === 0"
-        type="secondary"
-        class="py-1.5 px-2.5 sm:px-3"
-        @click="handleBatchMove"
+        @click="handleManageTags"
       />
     </div>
 
@@ -422,9 +492,11 @@ async function handleFeedClick(feed: Feed, event: Event) {
           </div>
 
           <!-- Title Column -->
-          <div class="min-w-0">
-            <div class="font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2">
-              <span class="truncate">{{ feed.title }}</span>
+          <div class="min-w-0 flex-1">
+            <div
+              class="font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 overflow-hidden"
+            >
+              <span class="truncate" :title="feed.title">{{ feed.title }}</span>
               <!-- Feed Type Indicators -->
               <img
                 v-if="feed.is_freshrss_source"
@@ -449,9 +521,36 @@ async function handleFeedClick(feed: Feed, event: Event) {
               <PhEyeSlash
                 v-if="feed.hide_from_timeline"
                 :size="14"
-                class="text-text-secondary shrink-0"
+                class="text-text-secondary shrink-0 inline"
                 :title="t('setting.reading.hideFromTimeline')"
               />
+              <!-- Tags (limited to prevent overflow) -->
+              <div
+                v-if="feed.tags && feed.tags.length > 0"
+                class="flex gap-0.5 shrink-0 overflow-hidden"
+              >
+                <span
+                  v-for="tag in feed.tags.slice(0, 3)"
+                  :key="tag.id"
+                  class="text-[9px] px-1.5 py-0.5 rounded text-white whitespace-nowrap leading-tight shrink-0"
+                  :style="{ backgroundColor: tag.color }"
+                  :title="tag.name"
+                >
+                  {{ tag.name }}
+                </span>
+                <span
+                  v-if="feed.tags.length > 3"
+                  class="text-[9px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-secondary whitespace-nowrap leading-tight shrink-0"
+                  :title="
+                    feed.tags
+                      .slice(3)
+                      .map((t) => t.name)
+                      .join(', ')
+                  "
+                >
+                  +{{ feed.tags.length - 3 }}
+                </span>
+              </div>
             </div>
             <!-- Mobile-only URL display -->
             <div class="text-xs text-text-secondary truncate sm:hidden">
@@ -578,6 +677,15 @@ async function handleFeedClick(feed: Feed, event: Event) {
       </div>
     </div>
   </SettingGroup>
+
+  <!-- Batch Tag Selector Modal (Teleported to body) -->
+  <Teleport to="body">
+    <BatchTagSelectorModal
+      :show="showBatchTagSelector"
+      @close="handleBatchTagsClose"
+      @confirm="handleBatchTagsConfirm"
+    />
+  </Teleport>
 </template>
 
 <style scoped>

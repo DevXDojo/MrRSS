@@ -64,6 +64,7 @@ node_modules/
 dist/
 package.json.md5
 *.syso
+unused-files.json
 
 # Cypress
 frontend/cypress/videos/
@@ -84,4 +85,5 @@ tmpclaude-*-cwd
 
 # Tools
 i18n_usage_report.md
-build/.DS_Store
+.DS_Store
+__pycache__/

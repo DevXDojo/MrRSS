@@ -68,11 +68,13 @@ onMounted(() => {
       }
     }
   }
-  document.addEventListener('keydown', handleKeyDown);
+  // Use capture phase to handle Escape before other listeners
+  document.addEventListener('keydown', handleKeyDown, { capture: true } as any);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown);
+  // Remove with capture option to match the addEventListener call
+  document.removeEventListener('keydown', handleKeyDown, { capture: true } as any);
 });
 
 function close() {
@@ -155,13 +157,18 @@ function stopDrag() {
 }
 
 function handleKeyDown(e: KeyboardEvent) {
-  // Check if image viewer is open
+  // Only handle Escape key - stop it immediately to prevent other modals from closing
+  if (e.key === 'Escape') {
+    e.stopImmediatePropagation();
+    close();
+    return;
+  }
+
+  // Check if image viewer is open for other keys
   const imageViewer = document.querySelector('[data-image-viewer="true"]');
   if (!imageViewer) return;
 
-  if (e.key === 'Escape') {
-    close();
-  } else if (e.key === '+' || e.key === '=') {
+  if (e.key === '+' || e.key === '=') {
     zoomIn();
   } else if (e.key === '-' || e.key === '_') {
     zoomOut();

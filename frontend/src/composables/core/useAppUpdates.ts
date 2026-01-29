@@ -29,7 +29,12 @@ export function useAppUpdates() {
         updateInfo.value = data;
 
         if (data.error) {
-          window.showToast(t('common.errors.errorCheckingUpdates'), 'error');
+          // Handle different error types with specific messages
+          if (data.error === 'network_error') {
+            window.showToast(t('common.errors.networkErrorCheckingUpdates'), 'error');
+          } else {
+            window.showToast(t('common.errors.errorCheckingUpdates'), 'error');
+          }
         } else if (data.has_update) {
           window.showToast(t('setting.update.updateAvailable'), 'info');
         } else if (!silent) {

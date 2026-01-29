@@ -251,7 +251,7 @@ func (cm *CleanupManager) layeredCleanup(targetSizeMB float64) int64 {
 		} else {
 			log.Printf("Layer 6: Removed %d medium article metadata", count)
 			totalRemoved += count
-			currentSizeMB, _ = cm.fetcher.db.GetDatabaseSizeMB()
+			_, _ = cm.fetcher.db.GetDatabaseSizeMB()
 		}
 	}
 

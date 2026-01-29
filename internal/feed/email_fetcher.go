@@ -5,15 +5,18 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/emersion/go-imap"
+	id "github.com/emersion/go-imap-id"
 	"github.com/emersion/go-imap/client"
 	"github.com/mmcdole/gofeed"
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/models"
+	"MrRSS/internal/version"
 )
 
 // EmailFetcher handles fetching and parsing newsletter emails
@@ -125,6 +128,13 @@ func (ef *EmailFetcher) connectToIMAP(feed *models.Feed) (*client.Client, error)
 		}
 	}
 
+	// Send ID command before login (RFC 2971)
+	// This is required by some email providers like NetEase (163, 126)
+	if err := ef.sendIMAPID(c); err != nil {
+		// Log the error but continue - ID command is optional for most servers
+		// Some servers may not support the ID extension
+	}
+
 	// Login
 	if err := c.Login(feed.EmailUsername, feed.EmailPassword); err != nil {
 		c.Logout()
@@ -132,6 +142,30 @@ func (ef *EmailFetcher) connectToIMAP(feed *models.Feed) (*client.Client, error)
 	}
 
 	return c, nil
+}
+
+// sendIMAPID sends the IMAP ID command to identify the client
+// This is required by some email providers (e.g., NetEase 163/126) as per RFC 2971
+func (ef *EmailFetcher) sendIMAPID(c *client.Client) error {
+	idClient := id.NewClient(c)
+
+	// Check if server supports ID extension
+	supported, err := idClient.SupportID()
+	if err != nil || !supported {
+		// Server doesn't support ID extension, skip
+		return nil
+	}
+
+	// Send client identification
+	clientID := id.ID{
+		id.FieldName:    "MrRSS",
+		id.FieldVersion: version.Version,
+		id.FieldVendor:  "MrRSS",
+		id.FieldOS:      runtime.GOOS,
+	}
+
+	_, err = idClient.ID(clientID)
+	return err
 }
 
 // fetchEmailBatch fetches and parses a batch of emails

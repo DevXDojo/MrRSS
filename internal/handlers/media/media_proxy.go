@@ -91,10 +91,15 @@ func proxyImagesInHTML(htmlContent, referer string) string {
 		proxyURL := fmt.Sprintf("/api/media/proxy?url_b64=%s",
 			base64.StdEncoding.EncodeToString([]byte(srcURL)))
 
+		// CRITICAL FIX: Determine if we should use the referer or not
+		// Some sites block requests from certain referers (e.g., RSS hubs)
+		// We use smart referer logic to handle this
+		proxyReferer := getSmartReferer(srcURL, referer)
+
 		// Add referer if provided (also base64-encoded)
-		if referer != "" {
+		if proxyReferer != "" {
 			proxyURL += fmt.Sprintf("&referer_b64=%s",
-				base64.StdEncoding.EncodeToString([]byte(referer)))
+				base64.StdEncoding.EncodeToString([]byte(proxyReferer)))
 		}
 
 		// Replace the src attribute
@@ -102,6 +107,40 @@ func proxyImagesInHTML(htmlContent, referer string) string {
 	})
 
 	return htmlContent
+}
+
+// getSmartReferer determines the appropriate referer to use for a given image URL
+// For third-party images (different domain than the referer), we use the image's own domain
+// as the referer to avoid anti-hotlinking issues
+func getSmartReferer(imageURL, originalReferer string) string {
+	// Parse the image URL to get its hostname
+	imgURL, err := url.Parse(imageURL)
+	if err != nil {
+		// If we can't parse the image URL, use the original referer
+		return originalReferer
+	}
+
+	// Parse the original referer to get its hostname
+	refURL, err := url.Parse(originalReferer)
+	if err != nil {
+		// If we can't parse the referer, use no referer
+		return ""
+	}
+
+	imgHost := imgURL.Hostname()
+	refHost := refURL.Hostname()
+
+	// If the image host and referer host are the same domain, use the original referer
+	// This handles same-origin images (e.g., images hosted on the same site as the article)
+	if imgHost == refHost || strings.HasSuffix(imgHost, "."+refHost) || strings.HasSuffix(refHost, "."+imgHost) {
+		return originalReferer
+	}
+
+	// For third-party images (different domain), use the image's own domain as referer
+	// This avoids anti-hotlinking issues when the article's referer is blocked
+	// For example: img.500px.me/image.jpg with referer from rsshub.pseudoyu.com
+	// will use https://img.500px.me as the referer
+	return fmt.Sprintf("%s://%s", imgURL.Scheme, imgURL.Host)
 }
 
 // HandleMediaProxy serves cached media or downloads and caches it
@@ -1726,8 +1765,11 @@ func proxyMediaDirectly(mediaURL, referer string, w http.ResponseWriter) error {
 
 	// Set headers to bypass anti-hotlinking
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	if referer != "" {
-		req.Header.Set("Referer", referer)
+
+	// CRITICAL FIX: Use smart referer logic to handle cases where the original referer would be blocked
+	smartReferer := getSmartReferer(mediaURL, referer)
+	if smartReferer != "" {
+		req.Header.Set("Referer", smartReferer)
 	}
 
 	// Add additional headers

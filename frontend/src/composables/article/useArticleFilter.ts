@@ -1,20 +1,30 @@
-import { ref, type Ref } from 'vue';
+import { ref, computed, type Ref } from 'vue';
 import { useAppStore } from '@/stores/app';
 import type { Article } from '@/types/models';
 import type { FilterCondition } from '@/types/filter';
 
 export function useArticleFilter() {
   const store = useAppStore();
-  const activeFilters: Ref<FilterCondition[]> = ref([]);
-  const filteredArticlesFromServer: Ref<Article[]> = ref([]);
-  const isFilterLoading = ref(false);
+  // Use computed to get references to the store's filter state
+  const activeFilters = computed({
+    get: () => store.activeFilters,
+    set: (value) => store.setActiveFilters(value),
+  });
+  const filteredArticlesFromServer = computed({
+    get: () => store.filteredArticlesFromServer,
+    set: (value) => store.setFilteredArticlesFromServer(value),
+  });
+  const isFilterLoading = computed({
+    get: () => store.isFilterLoading,
+    set: (value) => store.setIsFilterLoading(value),
+  });
   const filterPage = ref(1);
   const filterHasMore = ref(true);
   const filterTotal = ref(0);
 
   // Reset filter state
   function resetFilterState(): void {
-    filteredArticlesFromServer.value = [];
+    store.setFilteredArticlesFromServer([]);
     filterPage.value = 1;
     filterHasMore.value = true;
     filterTotal.value = 0;
@@ -27,7 +37,7 @@ export function useArticleFilter() {
       return;
     }
 
-    isFilterLoading.value = true;
+    store.setIsFilterLoading(true);
     try {
       const page = append ? filterPage.value : 1;
 
@@ -46,9 +56,9 @@ export function useArticleFilter() {
         const articles = data.articles || [];
 
         if (append) {
-          filteredArticlesFromServer.value = [...filteredArticlesFromServer.value, ...articles];
+          store.setFilteredArticlesFromServer([...store.filteredArticlesFromServer, ...articles]);
         } else {
-          filteredArticlesFromServer.value = articles;
+          store.setFilteredArticlesFromServer(articles);
           filterPage.value = 1;
         }
 
@@ -69,16 +79,16 @@ export function useArticleFilter() {
       } else {
         console.error('Error fetching filtered articles');
         if (!append) {
-          filteredArticlesFromServer.value = [];
+          store.setFilteredArticlesFromServer([]);
         }
       }
     } catch (e) {
       console.error('Error fetching filtered articles:', e);
       if (!append) {
-        filteredArticlesFromServer.value = [];
+        store.setFilteredArticlesFromServer([]);
       }
     } finally {
-      isFilterLoading.value = false;
+      store.setIsFilterLoading(false);
     }
   }
 
@@ -92,8 +102,11 @@ export function useArticleFilter() {
 
   // Clear all filters
   function clearAllFilters(): void {
-    activeFilters.value = [];
-    resetFilterState();
+    store.setActiveFilters([]);
+    store.setFilteredArticlesFromServer([]);
+    filterPage.value = 1;
+    filterHasMore.value = true;
+    filterTotal.value = 0;
   }
 
   return {

@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"runtime"
 
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/version"
 
+	id "github.com/emersion/go-imap-id"
 	"github.com/emersion/go-imap/client"
 )
 
@@ -98,6 +101,10 @@ func HandleTestIMAPConnection(h *core.Handler, w http.ResponseWriter, r *http.Re
 	defer c.Logout()
 	log.Printf("[IMAP Test] Connected successfully")
 
+	// Send ID command before login (RFC 2971)
+	// This is required by some email providers like NetEase (163, 126)
+	sendIMAPIDCommand(c)
+
 	// Login
 	log.Printf("[IMAP Test] Attempting login for user: %s", req.Username)
 	if err := c.Login(req.Username, req.Password); err != nil {
@@ -126,4 +133,33 @@ func HandleTestIMAPConnection(h *core.Handler, w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Connection successful!"})
+}
+
+// sendIMAPIDCommand sends the IMAP ID command to identify the client
+// This is required by some email providers (e.g., NetEase 163/126) as per RFC 2971
+func sendIMAPIDCommand(c *client.Client) {
+	idClient := id.NewClient(c)
+
+	// Check if server supports ID extension
+	supported, err := idClient.SupportID()
+	if err != nil || !supported {
+		// Server doesn't support ID extension, skip
+		log.Printf("[IMAP ID] Server does not support ID extension")
+		return
+	}
+
+	// Send client identification
+	clientID := id.ID{
+		id.FieldName:    "MrRSS",
+		id.FieldVersion: version.Version,
+		id.FieldVendor:  "MrRSS",
+		id.FieldOS:      runtime.GOOS,
+	}
+
+	serverID, err := idClient.ID(clientID)
+	if err != nil {
+		log.Printf("[IMAP ID] Failed to send ID command: %v", err)
+		return
+	}
+	log.Printf("[IMAP ID] Server ID: %v", serverID)
 }

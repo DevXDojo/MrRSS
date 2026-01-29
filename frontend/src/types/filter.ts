@@ -28,3 +28,15 @@ export interface LogicOption {
   value: 'and' | 'or';
   labelKey: string;
 }
+
+/**
+ * Saved filter - a user-saved collection of filter conditions
+ */
+export interface SavedFilter {
+  id: number;
+  name: string;
+  conditions: string; // JSON string of FilterCondition[]
+  position: number;
+  created_at: string;
+  updated_at: string;
+}

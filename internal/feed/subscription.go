@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"golang.org/x/net/html"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/antchfx/htmlquery"
 	"github.com/antchfx/xmlquery"
@@ -29,13 +31,13 @@ func generateTitleFromRoute(route string) string {
 	name := parts[0]
 
 	// Capitalize first letter of each word
-	title := strings.Title(strings.ReplaceAll(name, "-", " "))
+	title := cases.Title(language.English).String(strings.ReplaceAll(name, "-", " "))
 
 	// Add route category if present (e.g., "weibo/user/xxx" → "Weibo - xxx")
 	if len(parts) > 1 {
 		category := parts[0]
 		remainder := strings.Join(parts[1:], "/")
-		title = fmt.Sprintf("%s - %s", strings.Title(category), remainder)
+		title = fmt.Sprintf("%s - %s", cases.Title(language.English).String(category), remainder)
 	}
 
 	return title

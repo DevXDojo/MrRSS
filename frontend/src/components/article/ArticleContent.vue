@@ -112,6 +112,9 @@ onMounted(async () => {
     'auto-show-all-content-changed',
     onAutoShowAllContentChanged as EventListener
   );
+
+  // Listen for summary settings changes
+  window.addEventListener('summary-settings-changed', onSummarySettingsChanged as EventListener);
 });
 
 // Computed to check if chat should be shown
@@ -618,6 +621,21 @@ function onAutoShowAllContentChanged(e: Event): void {
   autoShowAllContent.value = customEvent.detail.value;
 }
 
+// Handle summary settings change
+async function onSummarySettingsChanged(): Promise<void> {
+  // Reload summary settings to get the latest enabled state
+  await loadSummarySettings();
+
+  // Clear cached summary when settings change
+  if (props.article) {
+    summaryResult.value = null;
+    // Auto-generate summary if newly enabled
+    if (shouldAutoGenerateSummary() && props.articleContent) {
+      setTimeout(() => generateSummary(props.article), 100);
+    }
+  }
+}
+
 // Watch for article changes and regenerate summary + translations
 watch(
   () => props.article?.id,
@@ -796,6 +814,8 @@ onBeforeUnmount(() => {
     'auto-show-all-content-changed',
     onAutoShowAllContentChanged as EventListener
   );
+
+  window.removeEventListener('summary-settings-changed', onSummarySettingsChanged as EventListener);
 });
 </script>
 
@@ -836,6 +856,7 @@ onBeforeUnmount(() => {
       />
 
       <ArticleSummary
+        v-if="summaryEnabled"
         :summary-result="summaryResult"
         :is-loading-summary="isLoadingSummary"
         :translation-enabled="translationEnabled"

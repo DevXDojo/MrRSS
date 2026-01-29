@@ -52,6 +52,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		aiCustomHeaders := safeGetSetting(h, "ai_custom_headers")
 		aiEndpoint := safeGetSetting(h, "ai_endpoint")
 		aiModel := safeGetSetting(h, "ai_model")
+		aiSearchEnabled := safeGetSetting(h, "ai_search_enabled")
 		aiSummaryPrompt := safeGetSetting(h, "ai_summary_prompt")
 		aiTranslationPrompt := safeGetSetting(h, "ai_translation_prompt")
 		aiUsageLimit := safeGetSetting(h, "ai_usage_limit")
@@ -61,7 +62,6 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		baiduAppId := safeGetSetting(h, "baidu_app_id")
 		baiduSecretKey := safeGetEncryptedSetting(h, "baidu_secret_key")
 		closeToTray := safeGetSetting(h, "close_to_tray")
-		compactMode := safeGetSetting(h, "compact_mode")
 		contentFontFamily := safeGetSetting(h, "content_font_family")
 		contentFontSize := safeGetSetting(h, "content_font_size")
 		contentLineHeight := safeGetSetting(h, "content_line_height")
@@ -94,6 +94,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		language := safeGetSetting(h, "language")
 		lastGlobalRefresh := safeGetSetting(h, "last_global_refresh")
 		lastNetworkTest := safeGetSetting(h, "last_network_test")
+		layoutMode := safeGetSetting(h, "layout_mode")
 		maxArticleAgeDays := safeGetSetting(h, "max_article_age_days")
 		maxCacheSizeMb := safeGetSetting(h, "max_cache_size_mb")
 		maxConcurrentRefreshes := safeGetSetting(h, "max_concurrent_refreshes")
@@ -145,6 +146,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			"ai_custom_headers":                aiCustomHeaders,
 			"ai_endpoint":                      aiEndpoint,
 			"ai_model":                         aiModel,
+			"ai_search_enabled":                aiSearchEnabled,
 			"ai_summary_prompt":                aiSummaryPrompt,
 			"ai_translation_prompt":            aiTranslationPrompt,
 			"ai_usage_limit":                   aiUsageLimit,
@@ -154,7 +156,6 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			"baidu_app_id":                     baiduAppId,
 			"baidu_secret_key":                 baiduSecretKey,
 			"close_to_tray":                    closeToTray,
-			"compact_mode":                     compactMode,
 			"content_font_family":              contentFontFamily,
 			"content_font_size":                contentFontSize,
 			"content_line_height":              contentLineHeight,
@@ -187,6 +188,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			"language":                         language,
 			"last_global_refresh":              lastGlobalRefresh,
 			"last_network_test":                lastNetworkTest,
+			"layout_mode":                      layoutMode,
 			"max_article_age_days":             maxArticleAgeDays,
 			"max_cache_size_mb":                maxCacheSizeMb,
 			"max_concurrent_refreshes":         maxConcurrentRefreshes,
@@ -240,6 +242,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			AICustomHeaders               string `json:"ai_custom_headers"`
 			AIEndpoint                    string `json:"ai_endpoint"`
 			AIModel                       string `json:"ai_model"`
+			AISearchEnabled               string `json:"ai_search_enabled"`
 			AISummaryPrompt               string `json:"ai_summary_prompt"`
 			AITranslationPrompt           string `json:"ai_translation_prompt"`
 			AIUsageLimit                  string `json:"ai_usage_limit"`
@@ -249,7 +252,6 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			BaiduAppId                    string `json:"baidu_app_id"`
 			BaiduSecretKey                string `json:"baidu_secret_key"`
 			CloseToTray                   string `json:"close_to_tray"`
-			CompactMode                   string `json:"compact_mode"`
 			ContentFontFamily             string `json:"content_font_family"`
 			ContentFontSize               string `json:"content_font_size"`
 			ContentLineHeight             string `json:"content_line_height"`
@@ -282,6 +284,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			Language                      string `json:"language"`
 			LastGlobalRefresh             string `json:"last_global_refresh"`
 			LastNetworkTest               string `json:"last_network_test"`
+			LayoutMode                    string `json:"layout_mode"`
 			MaxArticleAgeDays             string `json:"max_article_age_days"`
 			MaxCacheSizeMb                string `json:"max_cache_size_mb"`
 			MaxConcurrentRefreshes        string `json:"max_concurrent_refreshes"`
@@ -354,6 +357,10 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			h.DB.SetSetting("ai_model", req.AIModel)
 		}
 
+		if req.AISearchEnabled != "" {
+			h.DB.SetSetting("ai_search_enabled", req.AISearchEnabled)
+		}
+
 		if req.AISummaryPrompt != "" {
 			h.DB.SetSetting("ai_summary_prompt", req.AISummaryPrompt)
 		}
@@ -390,10 +397,6 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 		if req.CloseToTray != "" {
 			h.DB.SetSetting("close_to_tray", req.CloseToTray)
-		}
-
-		if req.CompactMode != "" {
-			h.DB.SetSetting("compact_mode", req.CompactMode)
 		}
 
 		if req.ContentFontFamily != "" {
@@ -526,6 +529,10 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 		if req.LastNetworkTest != "" {
 			h.DB.SetSetting("last_network_test", req.LastNetworkTest)
+		}
+
+		if req.LayoutMode != "" {
+			h.DB.SetSetting("layout_mode", req.LayoutMode)
 		}
 
 		if req.MaxArticleAgeDays != "" {
@@ -719,6 +726,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		aiCustomHeaders := safeGetSetting(h, "ai_custom_headers")
 		aiEndpoint := safeGetSetting(h, "ai_endpoint")
 		aiModel := safeGetSetting(h, "ai_model")
+		aiSearchEnabled := safeGetSetting(h, "ai_search_enabled")
 		aiSummaryPrompt := safeGetSetting(h, "ai_summary_prompt")
 		aiTranslationPrompt := safeGetSetting(h, "ai_translation_prompt")
 		aiUsageLimit := safeGetSetting(h, "ai_usage_limit")
@@ -728,7 +736,6 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		baiduAppId := safeGetSetting(h, "baidu_app_id")
 		baiduSecretKey := safeGetEncryptedSetting(h, "baidu_secret_key")
 		closeToTray := safeGetSetting(h, "close_to_tray")
-		compactMode := safeGetSetting(h, "compact_mode")
 		contentFontFamily := safeGetSetting(h, "content_font_family")
 		contentFontSize := safeGetSetting(h, "content_font_size")
 		contentLineHeight := safeGetSetting(h, "content_line_height")
@@ -761,6 +768,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		language := safeGetSetting(h, "language")
 		lastGlobalRefresh := safeGetSetting(h, "last_global_refresh")
 		lastNetworkTest := safeGetSetting(h, "last_network_test")
+		layoutMode := safeGetSetting(h, "layout_mode")
 		maxArticleAgeDays := safeGetSetting(h, "max_article_age_days")
 		maxCacheSizeMb := safeGetSetting(h, "max_cache_size_mb")
 		maxConcurrentRefreshes := safeGetSetting(h, "max_concurrent_refreshes")
@@ -812,6 +820,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			"ai_custom_headers":                aiCustomHeaders,
 			"ai_endpoint":                      aiEndpoint,
 			"ai_model":                         aiModel,
+			"ai_search_enabled":                aiSearchEnabled,
 			"ai_summary_prompt":                aiSummaryPrompt,
 			"ai_translation_prompt":            aiTranslationPrompt,
 			"ai_usage_limit":                   aiUsageLimit,
@@ -821,7 +830,6 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			"baidu_app_id":                     baiduAppId,
 			"baidu_secret_key":                 baiduSecretKey,
 			"close_to_tray":                    closeToTray,
-			"compact_mode":                     compactMode,
 			"content_font_family":              contentFontFamily,
 			"content_font_size":                contentFontSize,
 			"content_line_height":              contentLineHeight,
@@ -854,6 +862,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			"language":                         language,
 			"last_global_refresh":              lastGlobalRefresh,
 			"last_network_test":                lastNetworkTest,
+			"layout_mode":                      layoutMode,
 			"max_article_age_days":             maxArticleAgeDays,
 			"max_cache_size_mb":                maxCacheSizeMb,
 			"max_concurrent_refreshes":         maxConcurrentRefreshes,

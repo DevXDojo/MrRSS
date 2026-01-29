@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PhRobot, PhChatCircleText, PhTrash, PhBroom } from '@phosphor-icons/vue';
 import {
+  PhRobot,
+  PhChatCircleText,
+  PhTrash,
+  PhBroom,
+  PhMagnifyingGlass,
+  PhInfo,
+} from '@phosphor-icons/vue';
+import {
+  InfoBox,
   SettingGroup,
   SettingWithToggle,
   NestedSettingsContainer,
@@ -58,6 +66,17 @@ async function clearAllChatSessions() {
 
 <template>
   <SettingGroup :icon="PhRobot" :title="t('setting.ai.aiFeatures')">
+    <!-- AI Search -->
+    <InfoBox :icon="PhInfo" :content="t('setting.ai.isBeta')" />
+    <SettingWithToggle
+      :icon="PhMagnifyingGlass"
+      :title="t('setting.ai.aiSearchEnabled')"
+      :description="t('setting.ai.aiSearchEnabledDesc')"
+      :model-value="settings.ai_search_enabled"
+      @update:model-value="emit('update:settings', { ...settings, ai_search_enabled: $event })"
+    />
+
+    <!-- AI Chat -->
     <SettingWithToggle
       :icon="PhChatCircleText"
       :title="t('setting.ai.aiChatEnabled')"

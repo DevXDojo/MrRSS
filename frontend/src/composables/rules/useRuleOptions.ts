@@ -30,6 +30,7 @@ export function useRuleOptions() {
   const fieldOptions: FieldOption[] = [
     { value: 'feed_name', labelKey: 'modal.feed.feedName', multiSelect: true },
     { value: 'feed_category', labelKey: 'modal.feed.feedCategory', multiSelect: true },
+    { value: 'feed_tags', labelKey: 'modal.feed.feedTags', multiSelect: true },
     { value: 'article_title', labelKey: 'article.parts.articleTitle', multiSelect: false },
     { value: 'feed_type', labelKey: 'modal.filter.feedType', multiSelect: true },
     {
@@ -134,6 +135,15 @@ export function useRuleOptions() {
     return Array.from(typeSet);
   });
 
+  // Feed tags for multi-select
+  const feedTags: ComputedRef<string[]> = computed(() => {
+    const tagSet = new Set<string>();
+    store.feeds.forEach((f) => {
+      f.tags?.forEach((t) => tagSet.add(t.name));
+    });
+    return Array.from(tagSet);
+  });
+
   return {
     fieldOptions,
     textOperatorOptions,
@@ -142,6 +152,7 @@ export function useRuleOptions() {
     feedNames,
     feedCategories,
     feedTypes,
+    feedTags,
   };
 }
 
@@ -151,7 +162,12 @@ export function isDateField(field: string): boolean {
 }
 
 export function isMultiSelectField(field: string): boolean {
-  return field === 'feed_name' || field === 'feed_category' || field === 'feed_type';
+  return (
+    field === 'feed_name' ||
+    field === 'feed_category' ||
+    field === 'feed_type' ||
+    field === 'feed_tags'
+  );
 }
 
 export function isBooleanField(field: string): boolean {

@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -77,47 +80,99 @@ type UserAgentTransport struct {
 	userAgent string
 }
 
-// RoundTrip implements http.RoundTripper
+// RoundTrip implements http.RoundTripper with automatic Cloudflare bypass
 func (t *UserAgentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Force set User-Agent to match browser (overwrite any existing value)
-	req.Header.Set("User-Agent", t.userAgent)
+	// First attempt: Use browser User-Agent
+	return t.roundTripWithRetry(req, true)
+}
 
-	// Force set Accept header for RSS feeds (overwrite any existing value)
-	req.Header.Set("Accept", "application/rss+xml, application/xml, text/xml, application/atom+xml;q=0.9,*/*;q=0.8")
+// roundTripWithRetry performs the actual HTTP request with optional retry logic
+func (t *UserAgentTransport) roundTripWithRetry(req *http.Request, useBrowserUA bool) (*http.Response, error) {
+	if useBrowserUA {
+		// Use browser-like headers
+		req.Header.Set("User-Agent", t.userAgent)
+		req.Header.Set("Accept", "application/rss+xml, application/xml, text/xml, application/atom+xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
+		req.Header.Set("DNT", "1")
 
-	// Force set Accept-Language header to mimic browser
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
+		// Add Sec-Fetch headers to mimic modern browsers
+		if req.Header.Get("Sec-Fetch-Dest") == "" {
+			req.Header.Set("Sec-Fetch-Dest", "document")
+		}
+		if req.Header.Get("Sec-Fetch-Mode") == "" {
+			req.Header.Set("Sec-Fetch-Mode", "navigate")
+		}
+		if req.Header.Get("Sec-Fetch-Site") == "" {
+			req.Header.Set("Sec-Fetch-Site", "none")
+		}
+		if req.Header.Get("Sec-Fetch-User") == "" {
+			req.Header.Set("Sec-Fetch-User", "?1")
+		}
 
-	// Don't manually set Accept-Encoding - let Go's http.Transport handle it automatically
-	// This ensures proper gzip decompression is applied
-	// Removing: req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		if req.Header.Get("Cache-Control") == "" {
+			req.Header.Set("Cache-Control", "max-age=0")
+		}
+	} else {
+		// Use simple curl-like User-Agent to bypass Cloudflare
+		req.Header.Set("User-Agent", "curl/8.11.1")
+		req.Header.Set("Accept", "*/*")
 
-	// Force set DNT header
-	req.Header.Set("DNT", "1")
-
-	// Note: Don't set Connection header as it's managed by the transport layer
-	// Note: Don't set Upgrade-Insecure-Requests as it's only relevant for navigation
-
-	// Add Sec-Fetch headers to mimic modern browsers
-	if req.Header.Get("Sec-Fetch-Dest") == "" {
-		req.Header.Set("Sec-Fetch-Dest", "document")
+		// Remove browser-specific headers that might trigger Cloudflare
+		req.Header.Del("Sec-Fetch-Dest")
+		req.Header.Del("Sec-Fetch-Mode")
+		req.Header.Del("Sec-Fetch-Site")
+		req.Header.Del("Sec-Fetch-User")
+		req.Header.Del("Cache-Control")
+		req.Header.Del("DNT")
+		req.Header.Del("Accept-Language")
 	}
-	if req.Header.Get("Sec-Fetch-Mode") == "" {
-		req.Header.Set("Sec-Fetch-Mode", "navigate")
-	}
-	if req.Header.Get("Sec-Fetch-Site") == "" {
-		req.Header.Set("Sec-Fetch-Site", "none")
-	}
-	if req.Header.Get("Sec-Fetch-User") == "" {
-		req.Header.Set("Sec-Fetch-User", "?1")
+
+	// Perform the request
+	resp, err := t.Original.RoundTrip(req)
+	if err != nil {
+		return resp, err
 	}
 
-	// Cache-Control header
-	if req.Header.Get("Cache-Control") == "" {
-		req.Header.Set("Cache-Control", "max-age=0")
+	// If this is the first attempt and we got a 403, check for Cloudflare challenge
+	if useBrowserUA && resp.StatusCode == 403 {
+		// Read the response body to check for Cloudflare challenge page
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if err != nil {
+			// If we can't read the body, just return the 403 response as-is
+			return resp, fmt.Errorf("failed to read 403 response body: %w", err)
+		}
+
+		bodyStr := string(body)
+
+		// Check for Cloudflare challenge page indicators
+		isCloudflare := strings.Contains(bodyStr, "Checking your browser") ||
+			strings.Contains(bodyStr, "Cloudflare") ||
+			strings.Contains(bodyStr, "cf_chl_opt") ||
+			strings.Contains(bodyStr, "challenge-platform") ||
+			strings.Contains(bodyStr, "jschl-answer") ||
+			strings.Contains(bodyStr, "cf-browser-verification")
+
+		if isCloudflare {
+			// Detected Cloudflare challenge page - retry with simple User-Agent
+			// Create a new request for retry
+			retryResp, retryErr := t.roundTripWithRetry(req, false)
+			if retryErr != nil {
+				// Retry failed, return original response (create new body reader)
+				resp.Body = io.NopCloser(bytes.NewReader(body))
+				return resp, retryErr
+			}
+
+			// Retry succeeded - return the new response
+			return retryResp, nil
+		}
+
+		// Not a Cloudflare challenge - restore body and return original response
+		resp.Body = io.NopCloser(bytes.NewReader(body))
 	}
 
-	return t.Original.RoundTrip(req)
+	return resp, nil
 }
 
 // CreateHTTPClientWithUserAgent creates an HTTP client with a custom User-Agent

@@ -2,25 +2,10 @@ package database
 
 import (
 	"database/sql"
-	"strings"
 	"time"
 
 	"MrRSS/internal/models"
 )
-
-// parseDateTimeForSQL converts Go time format to SQLite-compatible format
-// Input: "2025-12-31 14:19:21 +0000 UTC" -> Output: "2025-12-31 14:19:21"
-func parseDateTimeForSQL(timeStr string) string {
-	if timeStr == "" {
-		return ""
-	}
-	// Split by space and take first two parts (date and time)
-	parts := strings.Split(timeStr, " ")
-	if len(parts) >= 2 {
-		return parts[0] + " " + parts[1]
-	}
-	return timeStr
-}
 
 // AddFeed adds a new feed or updates an existing one.
 // Returns the feed ID and any error encountered.
