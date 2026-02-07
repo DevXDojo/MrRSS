@@ -681,14 +681,35 @@ async function cardModalToggleReadLater(): Promise<void> {
   const article = cardModalArticle.value;
   const newReadLaterState = !article.is_read_later;
 
+  // Update modal article state
+  article.is_read_later = newReadLaterState;
+  // When adding to read later, also mark as unread
+  if (newReadLaterState) {
+    article.is_read = false;
+  }
+
+  // Also update the article in store's articles array for proper state sync
+  const storeArticle = store.articles.find((a) => a.id === article.id);
+  if (storeArticle) {
+    storeArticle.is_read_later = newReadLaterState;
+    if (newReadLaterState) {
+      storeArticle.is_read = false;
+    }
+  }
+
   try {
-    await fetch(`/api/articles/read-later?id=${article.id}&read_later=${newReadLaterState}`, {
+    await fetch(`/api/articles/toggle-read-later?id=${article.id}`, {
       method: 'POST',
     });
-    article.is_read_later = newReadLaterState;
+    await store.fetchUnreadCounts();
     await store.fetchFilterCounts();
   } catch (e) {
     console.error('Error toggling read later:', e);
+    // Revert on error
+    article.is_read_later = !newReadLaterState;
+    if (storeArticle) {
+      storeArticle.is_read_later = !newReadLaterState;
+    }
   }
 }
 
