@@ -650,13 +650,26 @@ async function cardModalToggleRead(): Promise<void> {
   const article = cardModalArticle.value;
   const newReadState = !article.is_read;
 
+  // Update modal article state
+  article.is_read = newReadState;
+
+  // Also update the article in store's articles array for proper state sync
+  const storeArticle = store.articles.find((a) => a.id === article.id);
+  if (storeArticle) {
+    storeArticle.is_read = newReadState;
+  }
+
   try {
     await fetch(`/api/articles/read?id=${article.id}&read=${newReadState}`, { method: 'POST' });
-    article.is_read = newReadState;
     await store.fetchUnreadCounts();
     await store.fetchFilterCounts();
   } catch (e) {
     console.error('Error toggling read state:', e);
+    // Revert on error
+    article.is_read = !newReadState;
+    if (storeArticle) {
+      storeArticle.is_read = !newReadState;
+    }
   }
 }
 
@@ -665,14 +678,27 @@ async function cardModalToggleFavorite(): Promise<void> {
   const article = cardModalArticle.value;
   const newFavoriteState = !article.is_favorite;
 
+  // Update modal article state
+  article.is_favorite = newFavoriteState;
+
+  // Also update the article in store's articles array for proper state sync
+  const storeArticle = store.articles.find((a) => a.id === article.id);
+  if (storeArticle) {
+    storeArticle.is_favorite = newFavoriteState;
+  }
+
   try {
     await fetch(`/api/articles/favorite?id=${article.id}&favorite=${newFavoriteState}`, {
       method: 'POST',
     });
-    article.is_favorite = newFavoriteState;
     await store.fetchFilterCounts();
   } catch (e) {
     console.error('Error toggling favorite:', e);
+    // Revert on error
+    article.is_favorite = !newFavoriteState;
+    if (storeArticle) {
+      storeArticle.is_favorite = !newFavoriteState;
+    }
   }
 }
 
