@@ -27,7 +27,7 @@
     "check:unused:fix": "knip --fix"
   },
   "dependencies": {
-    "@eslint/js": "^9.39.2",
+    "@eslint/js": "^10.0.1",
     "@phosphor-icons/vue": "^2.2.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.28",
