@@ -48,7 +48,7 @@
     "@wailsio/runtime": "^3.0.0-alpha.79",
     "autoprefixer": "^10.4.24",
     "cypress": "^15.10.0",
-    "eslint": "^9.39.2",
+    "eslint": "^10.0.2",
     "eslint-plugin-vue": "^10.8.0",
     "husky": "^9.1.7",
     "jsdom": "^28.1.0",
