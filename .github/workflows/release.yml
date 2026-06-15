@@ -104,7 +104,7 @@ jobs:
           echo "==============================="
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           name: MrRSS ${{ steps.get_version.outputs.tag }}
@@ -598,7 +598,7 @@ jobs:
 
       - name: Upload Release Assets
         if: steps.check_artifacts.outputs.skip_build == 'false'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
           files: |
