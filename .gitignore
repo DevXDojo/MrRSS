@@ -66,6 +66,14 @@ package.json.md5
 *.syso
 unused-files.json
 
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+flutter_app/.metadata
+flutter_app/build/
+flutter_app/.dart_tool/
+
 # Cypress
 frontend/cypress/videos/
 frontend/cypress/screenshots/

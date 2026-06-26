@@ -86,6 +86,137 @@ func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 	}
 }
 
+func TestHandleArticles_JSONContractForFlutterClient(t *testing.T) {
+	h := setupHandler(t)
+
+	feedID, err := h.DB.AddFeed(&models.Feed{
+		Title:    "Contract Feed",
+		URL:      "https://example.com/feed.xml",
+		Category: "Tech",
+	})
+	if err != nil {
+		t.Fatalf("AddFeed: %v", err)
+	}
+
+	publishedAt := time.Date(2026, 6, 25, 9, 45, 0, 0, time.UTC)
+	articleModel := &models.Article{
+		FeedID:          feedID,
+		Title:           "Contract Article",
+		URL:             "https://example.com/article",
+		ImageURL:        "https://example.com/image.png",
+		AudioURL:        "https://example.com/audio.mp3",
+		VideoURL:        "https://example.com/video.mp4",
+		PublishedAt:     publishedAt,
+		IsRead:          true,
+		IsFavorite:      true,
+		IsReadLater:     true,
+		Author:          "Writer",
+		TranslatedTitle: "Translated Contract Article",
+		Summary:         "Short summary",
+	}
+	if err := h.DB.SaveArticles(context.Background(), []*models.Article{articleModel}); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/articles?filter=all&feed_id="+fmt.Sprint(feedID)+"&page=1&limit=20", nil)
+	w := httptest.NewRecorder()
+
+	article.HandleArticles(h, w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var payload []map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one article, got %d", len(payload))
+	}
+
+	got := payload[0]
+	assertJSONNumber(t, got, "feed_id", float64(feedID))
+	assertJSONString(t, got, "title", "Contract Article")
+	assertJSONString(t, got, "url", "https://example.com/article")
+	assertJSONString(t, got, "image_url", "https://example.com/image.png")
+	assertJSONString(t, got, "audio_url", "https://example.com/audio.mp3")
+	assertJSONString(t, got, "video_url", "https://example.com/video.mp4")
+	assertJSONBool(t, got, "is_read", true)
+	assertJSONBool(t, got, "is_favorite", true)
+	assertJSONBool(t, got, "is_hidden", false)
+	assertJSONBool(t, got, "is_read_later", true)
+	assertJSONString(t, got, "feed_title", "Contract Feed")
+	assertJSONString(t, got, "author", "Writer")
+	assertJSONString(t, got, "translated_title", "Translated Contract Article")
+	assertJSONString(t, got, "summary", "Short summary")
+	assertJSONString(t, got, "freshrss_item_id", "")
+
+	published, ok := got["published_at"].(string)
+	if !ok || published == "" {
+		t.Fatalf("published_at must be a non-empty string, got %#v", got["published_at"])
+	}
+	parsedPublished, err := time.Parse(time.RFC3339Nano, published)
+	if err != nil {
+		t.Fatalf("published_at must be RFC3339-compatible for Flutter DateTime parsing, got %q: %v", published, err)
+	}
+	if !parsedPublished.Equal(publishedAt) {
+		t.Fatalf("published_at = %s, want %s", parsedPublished, publishedAt)
+	}
+}
+
+func TestHandleGetArticleContent_JSONContractForFlutterClient(t *testing.T) {
+	h := setupHandler(t)
+
+	feedID, err := h.DB.AddFeed(&models.Feed{
+		Title: "Content Feed",
+		URL:   "https://example.com/feed.xml",
+	})
+	if err != nil {
+		t.Fatalf("AddFeed: %v", err)
+	}
+
+	articleModel := &models.Article{
+		FeedID:      feedID,
+		Title:       "Content Article",
+		URL:         "https://example.com/article",
+		PublishedAt: time.Date(2026, 6, 25, 10, 0, 0, 0, time.UTC),
+	}
+	if err := h.DB.SaveArticles(context.Background(), []*models.Article{articleModel}); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	articles, err := h.DB.GetArticles("all", feedID, "", false, 10, 0)
+	if err != nil || len(articles) != 1 {
+		t.Fatalf("GetArticles: len=%d err=%v", len(articles), err)
+	}
+
+	content := `<p>Hello <strong>Flutter</strong> reader.</p>`
+	if err := h.DB.SetArticleContent(articles[0].ID, content); err != nil {
+		t.Fatalf("SetArticleContent: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/articles/content?id="+fmt.Sprint(articles[0].ID), nil)
+	w := httptest.NewRecorder()
+
+	article.HandleGetArticleContent(h, w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+
+	assertJSONString(t, payload, "content", content)
+	assertJSONString(t, payload, "feed_url", "https://example.com/feed.xml")
+	assertJSONBool(t, payload, "cached", true)
+}
+
 func TestArticleActions_MarkRead_Favorite_Hide_ReadLater(t *testing.T) {
 	h := setupHandler(t)
 	feedID, _ := h.DB.AddFeed(&models.Feed{Title: "F2", URL: "http://y"})
@@ -139,6 +270,111 @@ func TestArticleActions_MarkRead_Favorite_Hide_ReadLater(t *testing.T) {
 	article.HandleToggleReadLater(h, w5, req5)
 	if w5.Result().StatusCode != http.StatusOK {
 		t.Fatalf("toggle read later failed: %d", w5.Result().StatusCode)
+	}
+}
+
+func TestArticleReadFavorite_JSONContractForFlutterClient(t *testing.T) {
+	h := setupHandler(t)
+	feedID, err := h.DB.AddFeed(&models.Feed{Title: "Status Feed", URL: "https://example.com/feed.xml"})
+	if err != nil {
+		t.Fatalf("AddFeed: %v", err)
+	}
+
+	articleModel := &models.Article{
+		FeedID:      feedID,
+		Title:       "Status Article",
+		URL:         "https://example.com/status",
+		PublishedAt: time.Date(2026, 6, 25, 11, 0, 0, 0, time.UTC),
+	}
+	if err := h.DB.SaveArticles(context.Background(), []*models.Article{articleModel}); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	articles, err := h.DB.GetArticles("all", feedID, "", true, 10, 0)
+	if err != nil || len(articles) != 1 {
+		t.Fatalf("GetArticles: len=%d err=%v", len(articles), err)
+	}
+	articleID := articles[0].ID
+
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/read?id="+fmt.Sprint(articleID)+"&read=true", nil)
+	w := httptest.NewRecorder()
+	article.HandleMarkReadWithImmediateSync(h, w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected read status 200 OK, got %d", w.Result().StatusCode)
+	}
+
+	updated, err := h.DB.GetArticleByID(articleID)
+	if err != nil {
+		t.Fatalf("GetArticleByID after read: %v", err)
+	}
+	if !updated.IsRead {
+		t.Fatalf("expected article to be marked read")
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/articles/read?id="+fmt.Sprint(articleID)+"&read=false", nil)
+	w = httptest.NewRecorder()
+	article.HandleMarkReadWithImmediateSync(h, w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected unread status 200 OK, got %d", w.Result().StatusCode)
+	}
+
+	updated, err = h.DB.GetArticleByID(articleID)
+	if err != nil {
+		t.Fatalf("GetArticleByID after unread: %v", err)
+	}
+	if updated.IsRead {
+		t.Fatalf("expected article to be marked unread")
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/articles/favorite?id="+fmt.Sprint(articleID), nil)
+	w = httptest.NewRecorder()
+	article.HandleToggleFavoriteWithImmediateSync(h, w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected favorite status 200 OK, got %d", w.Result().StatusCode)
+	}
+
+	updated, err = h.DB.GetArticleByID(articleID)
+	if err != nil {
+		t.Fatalf("GetArticleByID after favorite: %v", err)
+	}
+	if !updated.IsFavorite {
+		t.Fatalf("expected article favorite to be toggled on")
+	}
+}
+
+func assertJSONString(t *testing.T, object map[string]any, key, want string) {
+	t.Helper()
+
+	got, ok := object[key].(string)
+	if !ok {
+		t.Fatalf("%s must be a string, got %#v", key, object[key])
+	}
+	if got != want {
+		t.Fatalf("%s = %q, want %q", key, got, want)
+	}
+}
+
+func assertJSONNumber(t *testing.T, object map[string]any, key string, want float64) {
+	t.Helper()
+
+	got, ok := object[key].(float64)
+	if !ok {
+		t.Fatalf("%s must be a number, got %#v", key, object[key])
+	}
+	if got != want {
+		t.Fatalf("%s = %v, want %v", key, got, want)
+	}
+}
+
+func assertJSONBool(t *testing.T, object map[string]any, key string, want bool) {
+	t.Helper()
+
+	got, ok := object[key].(bool)
+	if !ok {
+		t.Fatalf("%s must be a bool, got %#v", key, object[key])
+	}
+	if got != want {
+		t.Fatalf("%s = %v, want %v", key, got, want)
 	}
 }
 

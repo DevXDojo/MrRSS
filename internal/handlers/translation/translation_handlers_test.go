@@ -52,6 +52,56 @@ func TestHandleTranslateText_Success(t *testing.T) {
 	}
 }
 
+func TestHandleTranslateText_JSONContractForFlutterClient(t *testing.T) {
+	db := setupDB(t)
+	h := &corepkg.Handler{DB: db, Translator: transpkg.NewMockTranslator()}
+
+	body := map[string]interface{}{
+		"text":            "This is a longer English paragraph for Flutter translation",
+		"target_language": "de",
+		"force":           true,
+	}
+	b, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/translate-text", bytes.NewReader(b))
+	rr := httptest.NewRecorder()
+
+	HandleTranslateText(h, rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", rr.Code)
+	}
+
+	var resp map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	if resp["translated_text"] != "[DE] This is a longer English paragraph for Flutter translation" {
+		t.Fatalf("unexpected translated_text: %q", resp["translated_text"])
+	}
+	if resp["html"] == "" {
+		t.Fatalf("expected html response")
+	}
+	if resp["skipped"] != "false" {
+		t.Fatalf("skipped = %q, want false", resp["skipped"])
+	}
+}
+
+func TestHandleTranslateText_BadRequestForFlutterClient(t *testing.T) {
+	db := setupDB(t)
+	h := &corepkg.Handler{DB: db, Translator: transpkg.NewMockTranslator()}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/translate-text", bytes.NewReader([]byte(`{"text":""}`)))
+	rr := httptest.NewRecorder()
+
+	HandleTranslateText(h, rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 got %d", rr.Code)
+	}
+}
+
 func TestHandleTranslateArticle_SuccessAndDBUpdate(t *testing.T) {
 	db := setupDB(t)
 
@@ -110,13 +160,20 @@ func TestHandleClearTranslations(t *testing.T) {
 
 	h := &corepkg.Handler{DB: db, Translator: transpkg.NewMockTranslator()}
 
-	req := httptest.NewRequest(http.MethodPost, "/translate/clear", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/clear-translations", nil)
 	rr := httptest.NewRecorder()
 
 	HandleClearTranslations(h, rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200 got %d", rr.Code)
+	}
+	var resp map[string]bool
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !resp["success"] {
+		t.Fatalf("expected success true response")
 	}
 
 	// verify cleared

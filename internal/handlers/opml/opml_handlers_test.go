@@ -62,6 +62,53 @@ func TestHandleOPMLImport_RawBody(t *testing.T) {
 	f.GetCleanupManager().Stop()
 }
 
+func TestHandleOPMLImport_APIPathRawBodyContractForFlutterClient(t *testing.T) {
+	xmlData := `<?xml version="1.0"?>
+<opml version="1.0">
+  <body>
+    <outline type="rss" text="Flutter Feed" title="Flutter Feed" xmlUrl="https://example.com/flutter.xml" />
+  </body>
+</opml>`
+
+	db := func() *database.DB {
+		db, err := database.NewDB("file:TestHandleOPMLImport_APIPathRawBodyContractForFlutterClient?mode=memory&cache=shared")
+		if err != nil {
+			t.Fatalf("failed to create db: %v", err)
+		}
+		if err := db.Init(); err != nil {
+			t.Fatalf("failed to init db: %v", err)
+		}
+		return db
+	}()
+
+	f := feed.NewFetcher(db)
+	h := &corepkg.Handler{DB: db, Fetcher: f}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/opml/import", strings.NewReader(xmlData))
+	req.Header.Set("Content-Type", "text/xml")
+	rr := httptest.NewRecorder()
+
+	HandleOPMLImport(h, rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d body %s", rr.Code, rr.Body.String())
+	}
+
+	feeds, err := db.GetFeeds()
+	if err != nil {
+		t.Fatalf("GetFeeds failed: %v", err)
+	}
+	if len(feeds) != 1 {
+		t.Fatalf("expected 1 feed in DB, got %d", len(feeds))
+	}
+	if feeds[0].Title != "Flutter Feed" {
+		t.Fatalf("expected imported feed title Flutter Feed, got %q", feeds[0].Title)
+	}
+
+	f.GetTaskManager().Stop()
+	f.GetCleanupManager().Stop()
+}
+
 func TestHandleOPMLImport_XPathFeed(t *testing.T) {
 	xmlData := `<?xml version="1.0"?>
 <opml version="1.0">
@@ -165,5 +212,42 @@ func TestHandleOPMLExport(t *testing.T) {
 	body := rr.Body.String()
 	if !strings.Contains(body, "http://f1") {
 		t.Fatalf("exported OPML missing feed URL: %s", body)
+	}
+}
+
+func TestHandleOPMLExport_APIPathContractForFlutterClient(t *testing.T) {
+	db := func() *database.DB {
+		db, err := database.NewDB("file:TestHandleOPMLExport_APIPathContractForFlutterClient?mode=memory&cache=shared")
+		if err != nil {
+			t.Fatalf("failed to create db: %v", err)
+		}
+		if err := db.Init(); err != nil {
+			t.Fatalf("failed to init db: %v", err)
+		}
+		return db
+	}()
+
+	_, _ = db.Exec("INSERT INTO feeds (title, url, description, last_updated) VALUES (?, ?, ?, datetime('now'))", "Flutter Feed", "https://example.com/flutter.xml", "")
+
+	h := &corepkg.Handler{DB: db}
+	req := httptest.NewRequest(http.MethodGet, "/api/opml/export", nil)
+	rr := httptest.NewRecorder()
+
+	HandleOPMLExport(h, rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d body %s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("Content-Type"); !strings.Contains(got, "text/xml") {
+		t.Fatalf("expected text/xml content type, got %q", got)
+	}
+	if got := rr.Header().Get("Content-Disposition"); !strings.Contains(got, "subscriptions.opml") {
+		t.Fatalf("expected OPML attachment filename, got %q", got)
+	}
+	body := rr.Body.String()
+	for _, want := range []string{"<opml", "Flutter Feed", "https://example.com/flutter.xml"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("exported OPML missing %q: %s", want, body)
+		}
 	}
 }
