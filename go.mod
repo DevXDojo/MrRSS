@@ -10,7 +10,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/abadojack/whatlanggo v1.0.1
 	github.com/antchfx/htmlquery v1.3.6
-	github.com/antchfx/xmlquery v1.5.0
+	github.com/antchfx/xmlquery v1.5.1
 	github.com/chromedp/chromedp v0.14.2
 	github.com/emersion/go-imap v1.2.1
 	github.com/emersion/go-imap-id v0.0.0-20190926060100-f94a56b9ecde
