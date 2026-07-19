@@ -30,7 +30,7 @@
     "@eslint/js": "^9.39.2",
     "@phosphor-icons/vue": "^2.2.1",
     "highlight.js": "^11.11.1",
-    "katex": "^0.17.0",
+    "katex": "^0.18.1",
     "pinia": "^3.0.4",
     "tailwindcss": "^3.4.17",
     "vue": "^3.5.39",
