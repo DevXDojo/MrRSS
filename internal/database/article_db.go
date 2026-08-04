@@ -67,7 +67,7 @@ func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) erro
 			image_url = excluded.image_url,
 			audio_url = excluded.audio_url,
 			video_url = excluded.video_url,
-			published_at = excluded.published_at,
+			published_at = CASE WHEN ? THEN excluded.published_at ELSE articles.published_at END,
 			translated_title = excluded.translated_title,
 			is_read = excluded.is_read,
 			is_favorite = excluded.is_favorite,
@@ -92,23 +92,49 @@ func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) erro
 		// Generate unique_id for deduplication
 		uniqueID := urlutil.GenerateArticleUniqueID(article.Title, article.FeedID, article.PublishedAt, article.HasValidPublishedTime)
 
-		// Preserve user-controlled status fields when refreshing an existing article.
-		// Check if article exists to preserve its status
+		// Fetch the existing row to preserve user-controlled status fields and to
+		// detect whether the article actually changed (for no-pubDate feeds).
 		var existingIsRead, existingIsFavorite, existingIsHidden, existingIsReadLater int
-		err := tx.QueryRowContext(ctx, "SELECT is_read, is_favorite, is_hidden, is_read_later FROM articles WHERE unique_id = ?", uniqueID).Scan(&existingIsRead, &existingIsFavorite, &existingIsHidden, &existingIsReadLater)
+		var existingTitle, existingURL, existingImageURL, existingAudioURL, existingVideoURL, existingOriginalSummary, existingAuthor string
+		err := tx.QueryRowContext(ctx, `
+			SELECT is_read, is_favorite, is_hidden, is_read_later,
+				COALESCE(title, ''), COALESCE(url, ''), COALESCE(image_url, ''),
+				COALESCE(audio_url, ''), COALESCE(video_url, ''),
+				COALESCE(original_summary, ''), COALESCE(author, '')
+			FROM articles WHERE unique_id = ?`, uniqueID).Scan(
+			&existingIsRead, &existingIsFavorite, &existingIsHidden, &existingIsReadLater,
+			&existingTitle, &existingURL, &existingImageURL, &existingAudioURL, &existingVideoURL,
+			&existingOriginalSummary, &existingAuthor)
 		isRead := article.IsRead
 		isFavorite := article.IsFavorite
 		isHidden := article.IsHidden
 		isReadLater := article.IsReadLater
+		// Articles with a real pubDate always update their published_at.
+		updatePublishedAt := article.HasValidPublishedTime
 		if err == nil {
 			// Article exists, preserve its status
 			isRead = existingIsRead == 1
 			isFavorite = existingIsFavorite == 1
 			isHidden = existingIsHidden == 1
 			isReadLater = existingIsReadLater == 1
+			// For articles without a pubDate, only move published_at to the current
+			// time when the article actually changed (e.g. edited content); otherwise
+			// keep the original time so it doesn't jump to the top on every refresh.
+			articleChanged := article.Title != existingTitle ||
+				article.URL != existingURL ||
+				article.ImageURL != existingImageURL ||
+				article.AudioURL != existingAudioURL ||
+				article.VideoURL != existingVideoURL ||
+				article.OriginalSummary != existingOriginalSummary ||
+				article.Author != existingAuthor
+			updatePublishedAt = article.HasValidPublishedTime || articleChanged
 		}
 
-		_, err = stmt.ExecContext(ctx, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, isRead, isFavorite, isHidden, isReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author)
+		updateTime := 0
+		if updatePublishedAt {
+			updateTime = 1
+		}
+		_, err = stmt.ExecContext(ctx, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, isRead, isFavorite, isHidden, isReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author, updateTime)
 		if err != nil {
 			log.Println("Error saving article in batch:", err)
 			// Continue even if one fails

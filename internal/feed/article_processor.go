@@ -51,7 +51,12 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 			published = *item.PublishedParsed
 			hasValidPublishedTime = true
 		} else {
-			published = time.Now() // Still set for database storage
+			// No publish date in the feed. Use the current time as a fallback so the
+			// DB always has a value. The upsert in SaveArticles only writes this to
+			// published_at when the article actually changed; for unchanged articles
+			// it keeps the originally stored time, so no-pubDate items don't get
+			// bumped to "now" on every refresh and stay ordered by first appearance.
+			published = time.Now()
 			hasValidPublishedTime = false
 		}
 
