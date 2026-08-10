@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -143,9 +144,40 @@ func (h *OpenAIHandler) ValidateResponse(statusCode int, body []byte) error {
 	}
 }
 
-// FormatEndpoint returns the endpoint as-is for OpenAI format
+// FormatEndpoint normalizes OpenAI-compatible base URLs to the chat completions path.
+// Many local servers (llama.cpp, vLLM, LocalAI, Ollama OpenAI mode) document the base
+// as http://host:port/v1; the actual POST target is /v1/chat/completions.
 func (h *OpenAIHandler) FormatEndpoint(endpoint, model string) string {
-	return strings.TrimSuffix(endpoint, "/")
+	if endpoint == "" {
+		return "https://api.openai.com/v1/chat/completions"
+	}
+
+	endpoint = strings.TrimSuffix(endpoint, "/")
+	parsedURL, err := url.Parse(endpoint)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return endpoint
+	}
+
+	path := strings.TrimSuffix(parsedURL.Path, "/")
+	switch path {
+	case "", "/v1":
+		parsedURL.Path = "/v1/chat/completions"
+		return parsedURL.String()
+	case "/v1/chat/completions":
+		return parsedURL.String()
+	default:
+		// If the path already ends with chat/completions (or a custom gateway route), keep it.
+		if strings.HasSuffix(path, "/chat/completions") {
+			return parsedURL.String()
+		}
+		// Common OpenAI-compatible base: .../compatible-mode/v1, .../openai/v1, etc.
+		if strings.HasSuffix(path, "/v1") {
+			parsedURL.Path = path + "/chat/completions"
+			return parsedURL.String()
+		}
+		// Full custom paths are used as-is.
+		return endpoint
+	}
 }
 
 // IsOpenAIError checks if an error message indicates an OpenAI API format
