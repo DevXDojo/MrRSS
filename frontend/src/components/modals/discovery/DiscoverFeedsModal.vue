@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import { watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PhX } from '@phosphor-icons/vue';
 import type { Feed } from '@/types/models';
 import DiscoveredFeedItem from './DiscoveredFeedItem.vue';
 import DiscoveryProgress from './DiscoveryProgress.vue';
@@ -53,19 +52,14 @@ function close() {
   emit('close');
 }
 
-// Computed subscribe button text
-const subscribeButtonText = computed(() => {
+// Computed subscribe button label with count
+const subscribeButtonLabel = computed(() => {
   if (isSubscribing.value) {
     return t('modal.feed.subscribing');
   }
-  return t('modal.feed.subscribeSelected');
-});
-
-// Computed subscribe button label with count
-const subscribeButtonLabel = computed(() => {
-  const baseText = subscribeButtonText.value;
-  if (hasSelection.value && !isSubscribing.value) {
-    return `${baseText} (${selectedFeeds.size})`;
+  const baseText = t('modal.feed.subscribeSelected');
+  if (hasSelection.value) {
+    return `${baseText} (${selectedFeeds.value.size})`;
   }
   return baseText;
 });
@@ -97,23 +91,13 @@ onUnmounted(() => {
   <BaseModal v-if="show" size="4xl" :z-index="50" @close="close">
     <!-- Custom Header with gradient background -->
     <template #header>
-      <div
-        class="flex justify-between items-center bg-gradient-to-r from-accent/5 to-transparent -m-3 sm:-m-5 p-3 sm:p-5 mb-3 sm:mb-0"
-      >
-        <div class="min-w-0 flex-1">
-          <h2 class="text-base sm:text-xl font-bold text-text-primary">
-            {{ t('modal.discovery.discoverFeeds') }}
-          </h2>
-          <p class="text-xs sm:text-sm text-text-secondary mt-1 truncate">
-            {{ t('modal.filter.fromFeed') }}: {{ feed.title }}
-          </p>
-        </div>
-        <button
-          class="p-1.5 sm:p-2 hover:bg-bg-tertiary rounded-lg transition-colors shrink-0 ml-2"
-          @click="close"
-        >
-          <PhX :size="20" class="sm:w-6 sm:h-6 text-text-secondary" />
-        </button>
+      <div class="bg-gradient-to-r from-accent/5 to-transparent -m-3 sm:-m-5 p-3 sm:p-5 mb-3 sm:mb-0">
+        <h2 class="text-base sm:text-xl font-bold text-text-primary">
+          {{ t('modal.discovery.discoverFeeds') }}
+        </h2>
+        <p class="text-xs sm:text-sm text-text-secondary mt-1 truncate">
+          {{ t('modal.filter.fromFeed') }}: {{ feed.title }}
+        </p>
       </div>
     </template>
 
@@ -188,35 +172,7 @@ onUnmounted(() => {
           loading: isSubscribing,
           onClick: subscribeSelected,
         }"
-      >
-        <template #right>
-          <button
-            :disabled="!hasSelection || isSubscribing"
-            :class="[
-              'btn-primary flex items-center justify-center gap-2 text-sm sm:text-base',
-              (!hasSelection || isSubscribing) && 'opacity-50 cursor-not-allowed',
-            ]"
-            @click="subscribeSelected"
-          >
-            <div
-              v-if="isSubscribing"
-              class="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
-            ></div>
-            {{ subscribeButtonText }}
-            <span
-              v-if="hasSelection && !isSubscribing"
-              class="bg-white/20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs sm:text-sm"
-              >({{ selectedFeeds.size }})</span
-            >
-          </button>
-        </template>
-      </ModalFooter>
+      />
     </template>
   </BaseModal>
 </template>
-
-<style scoped>
-.btn-primary {
-  @apply px-4 sm:px-6 py-2 sm:py-2.5 bg-accent text-white rounded-lg hover:bg-accent-hover transition-all font-medium shadow-sm hover:shadow-md;
-}
-</style>
