@@ -92,6 +92,7 @@ func (c *Client) RequestWithMessages(messages []map[string]string) (ResponseResu
 // RequestWithConfig makes an AI request with full configuration
 func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error) {
 	provider := DetectAPIProvider(c.config.Endpoint)
+	var lastErr error
 
 	// Try provider-specific format first based on endpoint detection
 	switch provider {
@@ -100,6 +101,7 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 		if err == nil {
 			return result, nil
 		}
+		lastErr = err
 		// Fall through to other formats
 
 	case "anthropic":
@@ -107,6 +109,7 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 		if err == nil {
 			return result, nil
 		}
+		lastErr = err
 		// Fall through to other formats
 
 	case "deepseek":
@@ -114,6 +117,7 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 		if err == nil {
 			return result, nil
 		}
+		lastErr = err
 		// Fall through to other formats
 
 	case "ollama":
@@ -121,6 +125,7 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 		if err == nil {
 			return result, nil
 		}
+		lastErr = err
 		// Fall through to other formats
 	}
 
@@ -129,6 +134,7 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 	if err == nil {
 		return result, nil
 	}
+	lastErr = err
 
 	// Try other formats as fallback
 	if provider != "gemini" {
@@ -136,6 +142,7 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 		if err == nil {
 			return result, nil
 		}
+		lastErr = err
 	}
 
 	if provider != "ollama" {
@@ -143,9 +150,13 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 		if err == nil {
 			return result, nil
 		}
+		lastErr = err
 	}
 
-	// All formats failed
+	// All formats failed — surface the last error for troubleshooting
+	if lastErr != nil {
+		return ResponseResult{}, fmt.Errorf("all API formats failed: %w", lastErr)
+	}
 	return ResponseResult{}, fmt.Errorf("all API formats failed")
 }
 
