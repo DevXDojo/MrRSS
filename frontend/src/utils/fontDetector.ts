@@ -110,6 +110,34 @@ const COMMON_FONTS = {
   ],
 };
 
+export const SYSTEM_FONT_STACK =
+  'Inter, "Noto Sans CJK SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+/**
+ * Resolve a saved font setting to a complete CSS font-family value.
+ * Returning an explicit stack for "system" prevents article content from
+ * inheriting a separately configured interface font.
+ */
+export function resolveFontFamily(fontFamily: unknown): string {
+  const value = typeof fontFamily === 'string' ? fontFamily.trim() : '';
+
+  switch (value) {
+    case 'serif':
+      return 'Georgia, "Times New Roman", Times, serif';
+    case 'sans-serif':
+      return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+    case 'monospace':
+      return '"Courier New", Courier, monospace';
+    case 'system':
+    case '':
+      return SYSTEM_FONT_STACK;
+    default: {
+      const escapedValue = value.replace(/["\\]/g, '\\$&');
+      return `"${escapedValue}", ${SYSTEM_FONT_STACK}`;
+    }
+  }
+}
+
 /**
  * Check if a specific font is available on the system
  */

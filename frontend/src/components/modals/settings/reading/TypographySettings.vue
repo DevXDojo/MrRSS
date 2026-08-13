@@ -36,6 +36,9 @@ const availableFonts = ref<{
 const displayContentSize = computed(() => {
   return parseInt(props.settings.content_font_size as any) || 16;
 });
+const displayUiSize = computed(() => {
+  return parseInt(props.settings.ui_font_size as any) || 16;
+});
 const displayLineHeight = computed(() => {
   return parseFloat(props.settings.content_line_height as any) || 1.6;
 });
@@ -136,10 +139,52 @@ function updateSetting(key: keyof SettingsData, value: any) {
     [key]: value,
   });
 }
+
+function updateUiFontSize(value: number) {
+  const nextValue = Number.isFinite(value) ? Math.min(20, Math.max(12, value)) : 16;
+  updateSetting('ui_font_size', nextValue);
+}
 </script>
 
 <template>
   <SettingGroup :icon="PhTextT" :title="t('setting.tab.typography')">
+    <!-- Interface Font Family -->
+    <SettingItem :icon="PhTextT" :title="t('setting.typography.uiFontFamily')">
+      <template #description>
+        <div class="text-xs text-text-secondary hidden sm:block">
+          {{ t('setting.typography.uiFontFamilyDesc') }}
+        </div>
+      </template>
+      <BaseSelect
+        :model-value="settings.ui_font_family"
+        :options="fontOptions"
+        :searchable="true"
+        width="w-36 sm:w-48"
+        max-height="max-h-60"
+        @update:model-value="updateSetting('ui_font_family', $event)"
+      >
+        <template #option="{ option }">
+          <span :style="option.style">{{ option.label }}</span>
+        </template>
+      </BaseSelect>
+    </SettingItem>
+
+    <!-- Interface Font Size -->
+    <SettingItem :icon="PhTextAa" :title="t('setting.typography.uiFontSize')">
+      <template #description>
+        <div class="text-xs text-text-secondary hidden sm:block">
+          {{ t('setting.typography.uiFontSizeDesc') }}
+        </div>
+      </template>
+      <NumberControl
+        :model-value="displayUiSize"
+        :min="12"
+        :max="20"
+        suffix="px"
+        @update:model-value="updateUiFontSize"
+      />
+    </SettingItem>
+
     <!-- Content Font Family -->
     <SettingItem :icon="PhTextT" :title="t('setting.typography.contentFontFamily')">
       <template #description>
