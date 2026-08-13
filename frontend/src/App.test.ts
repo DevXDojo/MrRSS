@@ -6,6 +6,7 @@ import { createI18n } from 'vue-i18n';
 import en from './i18n/locales/en';
 import App from './App.vue';
 import { setSettingsFromRawData } from './composables/core/useSettings';
+import { getRecommendedFonts } from './utils/fontDetector';
 
 // Create stub components for complex child components
 const createStub = (name: string) => ({
@@ -83,7 +84,59 @@ describe('App', () => {
     expect(document.documentElement.style.getPropertyValue('--ui-font-size')).toBe('20px');
     expect(document.documentElement.style.getPropertyValue('--ui-font-scale')).toBe('1.25');
 
+    setSettingsFromRawData({
+      ui_font_family: 'Noto Sans SC',
+      ui_font_size: '16',
+    });
+    await nextTick();
+
+    expect(document.documentElement.style.getPropertyValue('--ui-font-family')).toContain(
+      '"Noto Sans SC"'
+    );
+    expect(document.documentElement.style.getPropertyValue('--ui-font-family')).toContain(
+      'system-ui'
+    );
+
     wrapper.unmount();
     expect(document.documentElement.style.getPropertyValue('--ui-font-family')).toBe('');
+  });
+
+  it('detects the expanded Chinese font catalog in the expected groups', () => {
+    let currentFont = '';
+    const context = {
+      get font() {
+        return currentFont;
+      },
+      set font(value: string) {
+        currentFont = value;
+      },
+      measureText: () => ({ width: currentFont === '100px sans-serif' ? 100 : 200 }),
+    };
+    const getContextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue(context as unknown as CanvasRenderingContext2D);
+
+    const fonts = getRecommendedFonts();
+
+    expect(fonts.sansSerif).toEqual(
+      expect.arrayContaining([
+        'Noto Sans SC',
+        'Source Han Sans CN',
+        'Sarasa Gothic SC',
+        'Sarasa UI SC',
+      ])
+    );
+    expect(fonts.serif).toEqual(
+      expect.arrayContaining([
+        'Noto Serif SC',
+        'Source Han Serif CN',
+        'LXGW WenKai',
+        'LXGW WenKai GB',
+        'LXGW WenKai Lite',
+        'LXGW WenKai Screen',
+      ])
+    );
+
+    getContextSpy.mockRestore();
   });
 });

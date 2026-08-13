@@ -294,10 +294,29 @@ describe('Settings Persistence', () => {
       });
 
     cy.get('button[title="Settings"]').click();
-    cy.contains('button', /^Reading$/).click();
+    cy.contains('button', /^General$/).click();
+
+    cy.get('.setting-item').then(($items) => {
+      const labels = [...$items].map((item) => item.textContent || '');
+      const languageIndex = labels.findIndex((label) => label.includes('Language'));
+      const interfaceFontIndex = labels.findIndex((label) =>
+        label.includes('Interface Font Family')
+      );
+      const interfaceSizeIndex = labels.findIndex((label) => label.includes('Interface Font Size'));
+
+      expect(languageIndex).to.be.greaterThan(-1);
+      expect(interfaceFontIndex).to.equal(languageIndex + 1);
+      expect(interfaceSizeIndex).to.equal(interfaceFontIndex + 1);
+    });
+
+    let interfaceFontOptions: string[] = [];
 
     cy.contains('.setting-item', 'Interface Font Family').within(() => {
       cy.get('button.select-trigger').click();
+    });
+    cy.get('.select-option').then(($options) => {
+      interfaceFontOptions = [...$options].map((option) => option.textContent?.trim() || '');
+      expect(interfaceFontOptions).to.include('System Default');
     });
     cy.contains('.select-option', 'Default Serif').click({ force: true });
     cy.wait('@saveTypographySettings').its('request.body.ui_font_family').should('eq', 'serif');
@@ -330,13 +349,25 @@ describe('Settings Persistence', () => {
     });
 
     cy.get('button[title="Settings"]').click();
-    cy.contains('button', /^Reading$/).click();
+    cy.contains('button', /^General$/).click();
     cy.contains('.setting-item', 'Interface Font Family')
       .find('button.select-trigger')
       .should('contain.text', 'Default Serif');
     cy.contains('.setting-item', 'Interface Font Size')
       .find('input[type="number"]')
       .should('have.value', '20');
+
+    cy.contains('button', /^Reading$/).click();
+    cy.contains('.setting-item', 'Interface Font Family').should('not.exist');
+    cy.contains('.setting-item', 'Interface Font Size').should('not.exist');
+    cy.contains('.setting-item', 'Content Font Family').within(() => {
+      cy.get('button.select-trigger').click();
+    });
+    cy.get('.select-option').then(($options) => {
+      const contentFontOptions = [...$options].map((option) => option.textContent?.trim() || '');
+      expect(contentFontOptions).to.deep.equal(interfaceFontOptions);
+    });
+    cy.contains('.select-option', 'System Default').click({ force: true });
 
     cy.get('body').type('{esc}');
     cy.reload();

@@ -17,9 +17,19 @@ const COMMON_FONTS = {
     'STKaiti',
     'STFangsong',
     'Noto Sans CJK SC',
+    'Noto Sans SC',
     'Noto Serif CJK SC',
+    'Noto Serif SC',
     'Source Han Sans SC',
+    'Source Han Sans CN',
     'Source Han Serif SC',
+    'Source Han Serif CN',
+    'Sarasa Gothic SC',
+    'Sarasa UI SC',
+    'LXGW WenKai',
+    'LXGW WenKai GB',
+    'LXGW WenKai Lite',
+    'LXGW WenKai Screen',
     'WenQuanYi Micro Hei',
     'WenQuanYi Zen Hei',
   ],
@@ -113,6 +123,14 @@ const COMMON_FONTS = {
 export const SYSTEM_FONT_STACK =
   'Inter, "Noto Sans CJK SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
+export interface RecommendedFonts {
+  serif: string[];
+  sansSerif: string[];
+  monospace: string[];
+}
+
+let cachedRecommendedFonts: RecommendedFonts | null = null;
+
 /**
  * Resolve a saved font setting to a complete CSS font-family value.
  * Returning an explicit stack for "system" prevents article content from
@@ -205,11 +223,11 @@ export function getSystemFonts(): {
 /**
  * Get recommended fonts based on system availability
  */
-export function getRecommendedFonts(): {
-  serif: string[];
-  sansSerif: string[];
-  monospace: string[];
-} {
+export function getRecommendedFonts(): RecommendedFonts {
+  if (cachedRecommendedFonts) {
+    return cachedRecommendedFonts;
+  }
+
   const systemFonts = getSystemFonts();
 
   // Categorize fonts (simplified categorization)
@@ -235,8 +253,11 @@ export function getRecommendedFonts(): {
     'Yu Mincho',
     'Batang',
     'Noto Serif CJK SC',
+    'Noto Serif SC',
     'Noto Serif CJK JP',
     'Noto Serif CJK KR',
+    'Source Han Serif',
+    'LXGW WenKai',
   ];
 
   const knownSansSerif = [
@@ -269,8 +290,12 @@ export function getRecommendedFonts(): {
     'Apple SD Gothic Neo',
     'Noto Sans',
     'Noto Sans CJK SC',
+    'Noto Sans SC',
     'Noto Sans CJK JP',
     'Noto Sans CJK KR',
+    'Source Han Sans',
+    'Sarasa Gothic',
+    'Sarasa UI',
   ];
 
   systemFonts.all.forEach((font) => {
@@ -286,9 +311,11 @@ export function getRecommendedFonts(): {
     }
   });
 
-  return {
+  cachedRecommendedFonts = {
     serif: Array.from(serifFonts),
     sansSerif: Array.from(sansSerifFonts),
     monospace: Array.from(monospaceFonts),
   };
+
+  return cachedRecommendedFonts;
 }
