@@ -22,7 +22,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/MrRSS.git`
-3. Add upstream remote: `git remote add upstream https://github.com/WCY-dt/MrRSS.git`
+3. Add upstream remote: `git remote add upstream https://github.com/DevXDojo/MrRSS.git`
 4. Create a new branch: `git checkout -b feature/your-feature-name`
 
 ## Development Setup
@@ -266,8 +266,8 @@ Use the [Feature Request template](.github/ISSUE_TEMPLATE/feature_request.md) an
 
 ## Questions?
 
-- Check existing [Issues](https://github.com/WCY-dt/MrRSS/issues)
-- Start a [Discussion](https://github.com/WCY-dt/MrRSS/discussions)
+- Check existing [Issues](https://github.com/DevXDojo/MrRSS/issues)
+- Start a [Discussion](https://github.com/DevXDojo/MrRSS/discussions)
 - Read the [README](README.md) and other documentation
 
 ## License

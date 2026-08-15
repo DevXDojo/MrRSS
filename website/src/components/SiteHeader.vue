@@ -50,10 +50,10 @@ onUnmounted(() => {
       <nav class="header-nav">
         <a href="#features" class="nav-link">Features</a>
         <a href="#download" class="nav-link">Download</a>
-        <a href="https://github.com/WCY-dt/MrRSS/blob/main/README.md" class="nav-link"
+        <a href="https://github.com/DevXDojo/MrRSS/blob/main/README.md" class="nav-link"
           >Documentation</a
         >
-        <a href="https://github.com/WCY-dt/MrRSS" target="_blank" class="nav-link">GitHub</a>
+        <a href="https://github.com/DevXDojo/MrRSS" target="_blank" class="nav-link">GitHub</a>
       </nav>
 
       <!-- CTA Button -->

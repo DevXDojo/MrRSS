@@ -109,7 +109,7 @@ onUnmounted(() => {
       <p v-if="!updateInfo.download_url" class="text-text-secondary text-xs mt-4">
         {{ t('setting.update.noInstallerAvailable') }}
         <a
-          href="https://github.com/WCY-dt/MrRSS/releases/latest"
+          href="https://github.com/DevXDojo/MrRSS/releases/latest"
           target="_blank"
           class="text-accent hover:underline"
         >

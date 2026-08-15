@@ -987,7 +987,7 @@ MrRSS follows [Semantic Versioning](https://semver.org/):
 
 ### Download
 
-Downloads for all platforms are available on the [GitHub Releases](https://github.com/WCY-dt/MrRSS/releases) page.
+Downloads for all platforms are available on the [GitHub Releases](https://github.com/DevXDojo/MrRSS/releases) page.
 
 ### Upgrade Notes
 
@@ -999,6 +999,6 @@ When upgrading from a previous version:
 
 ### Support
 
-- Report bugs: [GitHub Issues](https://github.com/WCY-dt/MrRSS/issues)
-- Feature requests: [GitHub Issues](https://github.com/WCY-dt/MrRSS/issues)
+- Report bugs: [GitHub Issues](https://github.com/DevXDojo/MrRSS/issues)
+- Feature requests: [GitHub Issues](https://github.com/DevXDojo/MrRSS/issues)
 - Documentation: [README](README.md)
