@@ -120,12 +120,7 @@ onUnmounted(() => {
 
 // Sorting state
 type SortField =
-  | 'name'
-  | 'date'
-  | 'category'
-  | 'latest_article'
-  | 'articles_per_month'
-  | 'update_status';
+  'name' | 'date' | 'category' | 'latest_article' | 'articles_per_month' | 'update_status';
 type SortDirection = 'asc' | 'desc';
 const sortField = ref<SortField>('name');
 const sortDirection = ref<SortDirection>('asc');

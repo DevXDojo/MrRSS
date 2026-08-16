@@ -44,12 +44,7 @@ interface ImageViewerState {
  * Context menu action types for images
  */
 type ImageAction =
-  | 'toggleRead'
-  | 'toggleFavorite'
-  | 'copyTitle'
-  | 'copyLink'
-  | 'downloadImage'
-  | 'openBrowser';
+  'toggleRead' | 'toggleFavorite' | 'copyTitle' | 'copyLink' | 'downloadImage' | 'openBrowser';
 
 /**
  * Navigation direction for image viewer

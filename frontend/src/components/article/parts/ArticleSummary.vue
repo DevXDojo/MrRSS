@@ -118,9 +118,9 @@ const shouldShowSummaryContainer = computed(() => {
 const shouldShowTranslatedSummary = computed(() => {
   return Boolean(
     props.translationEnabled &&
-      props.summaryProvider === 'rss' &&
-      props.translatedSummary?.text &&
-      props.translatedSummary.text !== props.summaryResult?.summary
+    props.summaryProvider === 'rss' &&
+    props.translatedSummary?.text &&
+    props.translatedSummary.text !== props.summaryResult?.summary
   );
 });
 
@@ -295,10 +295,7 @@ async function handleSummaryLinkClick(event: MouseEvent) {
           </Transition>
 
           <!-- Summary Content -->
-          <div
-            v-if="shouldShowTranslatedSummary || isTranslatingSummary"
-            class="mb-3"
-          >
+          <div v-if="shouldShowTranslatedSummary || isTranslatingSummary" class="mb-3">
             <div class="mb-1 text-[11px] text-text-secondary">
               {{ t('article.summary.translatedSummary') }}
             </div>
