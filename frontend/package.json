@@ -55,7 +55,7 @@
     "jsdom": "^28.1.0",
     "knip": "^6.3.0",
     "lint-staged": "^17.0.8",
-    "postcss": "^8.5.16",
+    "postcss": "^8.5.26",
     "prettier": "^3.8.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
