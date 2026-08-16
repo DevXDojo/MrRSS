@@ -5,24 +5,21 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [1.3.26] - 2026-08-16
 
 ### Added
 
-- Added configurable interface typography settings for application fonts and sizes while preserving article content typography. (#998)
+- Added configurable interface typography settings for application fonts and sizes while preserving article content typography. (#998) (@marcomarcogd)
 
 ### Changed
 
-- Updated backend and frontend dependencies, including Wails v3 beta and Tailwind CSS 4. (#1001, #1002)
+- Updated backend and frontend dependencies, including Wails v3 beta and Tailwind CSS 4.
 
 ### Fixed
 
-- Fixed the first-fetched timestamp for articles without a publication date. (#992)
-- Fixed switching away from card article layout without redundant per-article settings requests. (#997)
-- Fixed article content mismatches for feed entries without links. (#1000)
-- Fixed the Tailwind CSS 4 PostCSS integration and frontend build compatibility. (#1002)
+- Fixed the first-fetched timestamp for articles without a publication date. (#992) (@cos-y)
+- Fixed switching away from card article layout without redundant per-article settings requests. (#997) (@marcomarcogd)
+- Fixed article content mismatches for feed entries without links. (#1000) (@marcomarcogd)
 
 ## [1.3.25] - 2026-07-19
 
