@@ -593,14 +593,14 @@ function handleFilterDragEnd() {
   >
     <div
       v-if="isExpanded || isPinned"
-      class="w-[280px] min-w-[280px] max-w-[80vw] md:w-[280px] md:min-w-[280px] flex flex-col h-full flex-shrink-0 relative border-r border-border feed-drawer-width z-20"
-      :class="[isPinned ? 'bg-bg-primary' : 'bg-bg-secondary shadow-2xl']"
+      class="feed-drawer-width max-w-[80vw] flex flex-col h-full flex-shrink-0 relative border-r border-border z-20"
+      :class="[isPinned ? '' : 'shadow-xl']"
     >
       <!-- Drawer Header -->
       <div
-        class="p-2 sm:p-4 border-b border-border flex items-center justify-between flex-shrink-0 bg-bg-primary"
+        class="feed-drawer-header border-b border-border flex items-center justify-between flex-shrink-0"
       >
-        <h3 class="m-0 text-base sm:text-lg font-semibold">{{ drawerTitle }}</h3>
+        <h3 class="m-0 text-[15px] font-semibold">{{ drawerTitle }}</h3>
         <div class="flex items-center gap-1 sm:gap-2">
           <!-- Pin/Unpin Button -->
           <button
@@ -829,6 +829,18 @@ function handleFilterDragEnd() {
 </template>
 
 <style scoped>
+.feed-drawer-width {
+  width: 244px;
+  min-width: 244px;
+  background: var(--sidebar-bg);
+}
+
+.feed-drawer-header {
+  min-height: 48px;
+  padding: 8px 10px;
+  background: var(--sidebar-bg);
+}
+
 .sidebar-hover-scrollbar {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
@@ -865,8 +877,8 @@ function handleFilterDragEnd() {
 /* Responsive width for feed drawer on medium screens */
 @media (max-width: 1400px) {
   .feed-drawer-width {
-    width: 240px !important;
-    min-width: 240px !important;
+    width: 228px;
+    min-width: 228px;
   }
 }
 </style>

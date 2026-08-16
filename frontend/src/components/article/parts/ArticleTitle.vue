@@ -61,9 +61,9 @@ function selectArticleFeed() {
 
 <template>
   <!-- Title Section - Bilingual when translation enabled -->
-  <div class="mb-3 sm:mb-4">
+  <div class="article-heading mb-4 sm:mb-6">
     <!-- Original Title -->
-    <h1 class="text-xl sm:text-3xl font-bold leading-tight text-text-primary select-text">
+    <h1 class="reader-article-title text-text-primary select-text">
       {{ article.title }}
     </h1>
     <!-- Translated Title (shown below if different from original) -->
@@ -124,3 +124,23 @@ function selectArticleFeed() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.reader-article-title {
+  max-width: 22ch;
+  margin: 0;
+  font-family: var(--reader-title-font-family);
+  font-size: clamp(2rem, 3.25vw, 3rem);
+  font-weight: 700;
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+@media (max-width: 640px) {
+  .reader-article-title {
+    font-size: clamp(1.75rem, 8vw, 2.25rem);
+    letter-spacing: -0.025em;
+  }
+}
+</style>

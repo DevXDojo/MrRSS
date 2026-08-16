@@ -25,6 +25,7 @@ import { openInBrowser } from '@/utils/browser';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { estimateReadingTime } from '@/utils/readingTime';
 import { READER_MAX_WIDTH, clampReaderSetting } from '@/constants/reader';
+import { resolveFontFamily } from '@/utils/fontDetector';
 import './ArticleContent.css';
 
 interface SummaryResult {
@@ -164,6 +165,13 @@ const displayContent = computed(() => {
   return fullArticleContent.value || props.articleContent;
 });
 const readingMinutes = computed(() => estimateReadingTime(displayContent.value).minutes);
+const readerTitleFontFamily = computed(() =>
+  resolveFontFamily(
+    appSettings.value.content_font_family === 'system'
+      ? 'serif'
+      : appSettings.value.content_font_family
+  )
+);
 const readerStyle = computed(() => ({
   '--reader-max-width': `${clampReaderSetting(
     appSettings.value.reader_max_width,
@@ -171,6 +179,7 @@ const readerStyle = computed(() => ({
     READER_MAX_WIDTH.max,
     READER_MAX_WIDTH.default
   )}px`,
+  '--reader-title-font-family': readerTitleFontFamily.value,
 }));
 
 // Use composables for summary and translation

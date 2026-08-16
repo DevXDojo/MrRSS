@@ -194,7 +194,7 @@ defineExpose({
   <Transition name="activity-bar-slide">
     <div
       v-if="!props.isCollapsed"
-      class="smart-activity-bar flex flex-col items-center py-3 bg-bg-tertiary border-r border-border h-full select-none shrink-0 relative z-30"
+      class="smart-activity-bar flex flex-col items-center py-3 border-r border-border h-full select-none shrink-0 relative z-30"
     >
       <!-- Logo -->
       <div class="mb-6">
@@ -214,10 +214,9 @@ defineExpose({
             v-show="item.id !== 'imageGallery' || imageGalleryEnabled"
             :key="item.id"
             :class="[
-              'relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent',
+              'activity-button relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent',
               store.currentFilter === item.filterType ? 'text-accent' : '',
             ]"
-            style="width: 44px; height: 44px"
             :title="item.label"
             @click="handleNavClick(item)"
           >
@@ -226,7 +225,7 @@ defineExpose({
               :is="
                 store.currentFilter === item.filterType ? item.activeIcon || item.icon : item.icon
               "
-              :size="24"
+              :size="20"
               :weight="store.currentFilter === item.filterType ? 'fill' : 'regular'"
               :class="[
                 store.currentFilter === item.filterType ? 'text-accent scale-105' : '',
@@ -249,18 +248,16 @@ defineExpose({
       <!-- Bottom Actions -->
       <div class="flex flex-col items-center gap-1 mt-auto w-full">
         <button
-          class="relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
-          style="width: 44px; height: 44px"
+          class="activity-button relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
           :title="t('sidebar.activity.addFeed')"
           @click="emit('add-feed')"
         >
-          <PhPlus :size="24" weight="regular" class="transition-all" />
+          <PhPlus :size="20" weight="regular" class="transition-all" />
         </button>
 
         <!-- Feed List Button -->
         <button
-          class="relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
-          style="width: 44px; height: 44px"
+          class="activity-button relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
           :title="
             isFeedListExpanded
               ? t('sidebar.activity.collapseFeedList')
@@ -268,16 +265,15 @@ defineExpose({
           "
           @click="toggleFeedList"
         >
-          <PhSidebar :size="24" :weight="isFeedListExpanded ? 'fill' : 'regular'" />
+          <PhSidebar :size="20" :weight="isFeedListExpanded ? 'fill' : 'regular'" />
         </button>
 
         <button
-          class="relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
-          style="width: 44px; height: 44px"
+          class="activity-button relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
           :title="t('setting.tab.settings')"
           @click="emit('settings')"
         >
-          <PhGear :size="24" weight="regular" class="transition-all" />
+          <PhGear :size="20" weight="regular" class="transition-all" />
         </button>
 
         <!-- Divider -->
@@ -285,12 +281,11 @@ defineExpose({
 
         <!-- Collapse Button (at the bottom) -->
         <button
-          class="relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
-          style="width: 44px; height: 44px"
+          class="activity-button relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
           :title="t('sidebar.activity.collapseActivityBar')"
           @click="emit('toggle-activity-bar')"
         >
-          <PhTextOutdent :size="24" weight="regular" class="transition-all" />
+          <PhTextOutdent :size="20" weight="regular" class="transition-all" />
         </button>
       </div>
     </div>
@@ -330,8 +325,9 @@ defineExpose({
 }
 
 .smart-activity-bar {
-  width: 56px;
-  min-width: 56px;
+  width: 48px;
+  min-width: 48px;
+  background: var(--sidebar-bg);
   position: absolute;
   left: 0;
   top: 0;
@@ -340,6 +336,16 @@ defineExpose({
   /* Prevent layout shift during animations */
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+.activity-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.activity-button:hover {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
 /* Navigation items smooth transitions */
@@ -420,14 +426,9 @@ defineExpose({
 
 /* Smaller screens (laptops, tablets) */
 @media (max-width: 1400px) {
-  .smart-activity-bar {
-    width: 48px;
-    min-width: 48px;
-  }
-
-  button[style*='width: 44px'] {
-    width: 40px !important;
-    height: 40px !important;
+  .activity-button {
+    width: 34px;
+    height: 34px;
   }
 }
 
@@ -438,9 +439,9 @@ defineExpose({
     min-width: 44px;
   }
 
-  button[style*='width: 44px'] {
-    width: 36px !important;
-    height: 36px !important;
+  .activity-button {
+    width: 32px;
+    height: 32px;
   }
 }
 </style>
