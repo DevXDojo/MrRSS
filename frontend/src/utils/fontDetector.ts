@@ -141,7 +141,9 @@ export function resolveFontFamily(fontFamily: unknown): string {
 
   switch (value) {
     case 'serif':
-      return 'Georgia, "Times New Roman", Times, serif';
+      return '"Iowan Old Style", "Noto Serif CJK SC", "Source Han Serif SC", Georgia, "Times New Roman", serif';
+    case 'hyperlegible':
+      return '"Atkinson Hyperlegible", "Noto Sans CJK SC", "Source Han Sans SC", Verdana, system-ui, sans-serif';
     case 'sans-serif':
       return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
     case 'monospace':

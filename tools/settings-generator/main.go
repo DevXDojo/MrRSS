@@ -5,10 +5,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"go/format"
 	"os"
 	"sort"
 	"strings"
 )
+
+func writeGoFile(path string, content string) error {
+	formatted, err := format.Source([]byte(content))
+	if err != nil {
+		return fmt.Errorf("format generated Go source %s: %w", path, err)
+	}
+	return os.WriteFile(path, formatted, 0644)
+}
 
 // SettingsSchema defines the structure of settings schema
 type SettingsSchema struct {
@@ -246,7 +255,7 @@ func GetString(key string) string {
 		strings.Join(structFields, "\n"),
 		strings.Join(switchCases, "\n"))
 
-	return os.WriteFile("internal/config/config.go", []byte(content), 0644)
+	return writeGoFile("internal/config/config.go", content)
 }
 
 func generateSettingsKeysGo(schema *SettingsSchema) error {
@@ -275,7 +284,7 @@ func SettingsKeys() []string {
 `
 
 	content := fmt.Sprintf(tmpl, strings.Join(keyStrings, ", "))
-	return os.WriteFile("internal/config/settings_keys.go", []byte(content), 0644)
+	return writeGoFile("internal/config/settings_keys.go", content)
 }
 
 func generateSettingsBaseGo(schema *SettingsSchema) error {
@@ -371,7 +380,7 @@ func IsEncryptedSetting(key string) bool {
 `
 
 	content := fmt.Sprintf(tmpl, strings.Join(settingDefs, "\n"))
-	return os.WriteFile("internal/handlers/settings/settings_base.go", []byte(content), 0644)
+	return writeGoFile("internal/handlers/settings/settings_base.go", content)
 }
 
 func generateFrontendTypes(schema *SettingsSchema) error {

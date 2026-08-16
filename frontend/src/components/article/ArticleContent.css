@@ -89,6 +89,21 @@
   word-break: break-word;
 }
 
+.reader-scroll {
+  background: var(--paper-bg);
+  overscroll-behavior: contain;
+}
+.reader-content-container {
+  width: min(100%, var(--reader-max-width));
+  max-width: var(--reader-max-width);
+  padding: clamp(1rem, 2.5vw, 2.5rem) 0 4rem;
+  background: transparent;
+}
+
+.reader-content-container .prose {
+  font-size: var(--reader-font-size, 17px);
+}
+
 /* Enhanced heading typography with proper hierarchy */
 .prose h1 {
   color: var(--text-primary);
@@ -179,6 +194,35 @@
   max-width: 100%;
 }
 
+.prose blockquote {
+  margin: 1.8em 0;
+  padding: 0.15em 0 0.15em 1.25em;
+  border-left: 2px solid color-mix(in srgb, var(--accent-color) 72%, transparent);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.prose figure {
+  margin: 2em 0;
+}
+.prose figcaption {
+  margin-top: -0.75em;
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 0.8em;
+}
+.prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.prose hr {
+  margin: 2.5em 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .prose a:hover {
   color: var(--accent-hover);
   text-decoration-thickness: 2px;
@@ -198,9 +242,7 @@
   margin: 1.5em auto;
   cursor: pointer;
   transition: all 0.3s ease-in-out;
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(50 35 20 / 8%);
 }
 
 /* Only treat very small images as inline (emojis, icons) */

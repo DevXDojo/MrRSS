@@ -23,6 +23,8 @@ import { useSettings } from '@/composables/core/useSettings';
 import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
+import { estimateReadingTime } from '@/utils/readingTime';
+import { READER_MAX_WIDTH, clampReaderSetting } from '@/constants/reader';
 import './ArticleContent.css';
 
 interface SummaryResult {
@@ -161,6 +163,15 @@ const showFullTextButton = computed(() => {
 const displayContent = computed(() => {
   return fullArticleContent.value || props.articleContent;
 });
+const readingMinutes = computed(() => estimateReadingTime(displayContent.value).minutes);
+const readerStyle = computed(() => ({
+  '--reader-max-width': `${clampReaderSetting(
+    appSettings.value.reader_max_width,
+    READER_MAX_WIDTH.min,
+    READER_MAX_WIDTH.max,
+    READER_MAX_WIDTH.default
+  )}px`,
+}));
 
 // Use composables for summary and translation
 const {
@@ -1101,12 +1112,13 @@ onBeforeUnmount(() => {
   <div class="relative flex-1 overflow-hidden bg-bg-primary">
     <div
       ref="articleScrollContainer"
-      class="h-full overflow-y-scroll p-3 sm:p-6 scroll-smooth"
+      class="reader-scroll h-full overflow-y-scroll p-3 sm:p-6 scroll-smooth"
       @click="handleContainerClick"
       @scroll="scheduleSaveArticleScrollPosition"
     >
       <div
-        class="max-w-3xl mx-auto bg-bg-primary [container-type:inline-size]"
+        class="reader-content-container mx-auto [container-type:inline-size]"
+        :style="readerStyle"
         :class="{
           'hide-translations': !showTranslations,
           'translation-only-mode': translationSettings.translationOnlyMode,
@@ -1119,6 +1131,8 @@ onBeforeUnmount(() => {
           :translation-enabled="translationEnabled"
           :translation-skipped="translationSkipped"
           :is-translating-content="isTranslatingContent"
+          :reading-minutes="readingMinutes"
+          :show-reading-time="appSettings.show_reading_time"
           @force-translate="forceTranslateContent"
         />
 

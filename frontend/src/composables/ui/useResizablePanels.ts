@@ -1,8 +1,8 @@
 import { ref, onBeforeUnmount } from 'vue';
 
 export function useResizablePanels() {
-  const sidebarWidth = ref<number>(256);
-  const articleListWidth = ref<number>(400);
+  const sidebarWidth = ref<number>(248);
+  const articleListWidth = ref<number>(388);
   const isResizingSidebar = ref<boolean>(false);
   const isResizingArticleList = ref<boolean>(false);
   const compactMode = ref<boolean>(false);
@@ -12,7 +12,7 @@ export function useResizablePanels() {
 
   // Track initial mouse position when starting resize
   const initialMouseX = ref<number>(0);
-  const initialArticleListWidth = ref<number>(400);
+  const initialArticleListWidth = ref<number>(388);
 
   // Set compact mode state (doesn't change width by itself)
   function setCompactMode(enabled: boolean): void {
@@ -38,7 +38,7 @@ export function useResizablePanels() {
   function handleResizeSidebar(): void {
     if (!isResizingSidebar.value) return;
     const newWidth = (window.event as MouseEvent).clientX;
-    if (newWidth >= 180 && newWidth <= 450) {
+    if (newWidth >= 200 && newWidth <= 420) {
       sidebarWidth.value = newWidth;
     }
   }
@@ -70,8 +70,8 @@ export function useResizablePanels() {
     const deltaX = currentMouseX - initialMouseX.value;
     const newWidth = initialArticleListWidth.value + deltaX;
     // In compact mode, allow wider range (300-800), in normal mode (250-600)
-    const minWidth = compactMode.value ? 300 : 280;
-    const maxWidth = compactMode.value ? 800 : 600;
+    const minWidth = 300;
+    const maxWidth = compactMode.value ? 700 : 560;
     if (newWidth >= minWidth && newWidth <= maxWidth) {
       articleListWidth.value = newWidth;
       // Mark that user has manually resized

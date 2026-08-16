@@ -737,35 +737,49 @@
       "default": "system",
       "category": "reading",
       "encrypted": false,
-      "frontend_key": "contentFontFamily"
+      "frontend_key": "content_font_family"
     },
     "content_font_size": {
       "type": "int",
-      "default": 16,
+      "default": 17,
       "category": "reading",
       "encrypted": false,
-      "frontend_key": "contentFontSize"
+      "frontend_key": "content_font_size"
     },
     "content_line_height": {
       "type": "string",
-      "default": "1.6",
+      "default": "1.65",
       "category": "reading",
       "encrypted": false,
-      "frontend_key": "contentLineHeight"
+      "frontend_key": "content_line_height"
+    },
+    "reader_max_width": {
+      "type": "int",
+      "default": 680,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "reader_max_width"
+    },
+    "show_reading_time": {
+      "type": "bool",
+      "default": true,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "show_reading_time"
     },
     "ui_font_family": {
       "type": "string",
       "default": "system",
       "category": "reading",
       "encrypted": false,
-      "frontend_key": "uiFontFamily"
+      "frontend_key": "ui_font_family"
     },
     "ui_font_size": {
       "type": "int",
       "default": 16,
       "category": "reading",
       "encrypted": false,
-      "frontend_key": "uiFontSize"
+      "frontend_key": "ui_font_size"
     },
     "ai_translation_profile_id": {
       "type": "string",

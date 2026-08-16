@@ -13,11 +13,15 @@ interface Props {
   translationEnabled: boolean;
   translationSkipped?: boolean;
   isTranslatingContent?: boolean;
+  readingMinutes?: number;
+  showReadingTime?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   translationSkipped: false,
   isTranslatingContent: false,
+  readingMinutes: 1,
+  showReadingTime: true,
 });
 
 const emit = defineEmits<{
@@ -96,6 +100,9 @@ function selectArticleFeed() {
     </div>
     <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
       <span class="text-text-secondary">{{ formatDateWithI18n(article.published_at) }}</span>
+      <span v-if="showReadingTime" class="text-text-secondary">
+        {{ t('article.content.readingTime', { minutes: readingMinutes }) }}
+      </span>
       <span
         v-if="translationEnabled"
         class="flex items-center gap-1.5 sm:gap-2"

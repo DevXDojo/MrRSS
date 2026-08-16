@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhArticle, PhImage, PhListNumbers, PhSquaresFour } from '@phosphor-icons/vue';
+import { PhArticle, PhImage, PhListNumbers, PhSquaresFour, PhClock } from '@phosphor-icons/vue';
 import { SettingGroup, SettingWithToggle, SettingWithSelect } from '@/components/settings';
 import '@/components/settings/styles.css';
 import type { SettingsData } from '@/types/settings';
@@ -39,6 +39,14 @@ function updateSetting(key: keyof SettingsData, value: any) {
       ]"
       width="md"
       @update:model-value="updateSetting('default_view_mode', $event)"
+    />
+
+    <SettingWithToggle
+      :icon="PhClock"
+      :title="t('setting.reading.showReadingTime')"
+      :description="t('setting.reading.showReadingTimeDesc')"
+      :model-value="settings.show_reading_time"
+      @update:model-value="updateSetting('show_reading_time', $event)"
     />
 
     <SettingWithToggle
