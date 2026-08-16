@@ -90,6 +90,7 @@ export function generateInitialSettings(): SettingsData {
     proxy_port: settingsDefaults.proxy_port,
     proxy_type: settingsDefaults.proxy_type,
     proxy_username: settingsDefaults.proxy_username,
+    reader_max_width: settingsDefaults.reader_max_width,
     refresh_mode: settingsDefaults.refresh_mode,
     retry_timeout_seconds: settingsDefaults.retry_timeout_seconds,
     rsshub_api_key: settingsDefaults.rsshub_api_key,
@@ -101,6 +102,7 @@ export function generateInitialSettings(): SettingsData {
     show_article_preview_images: settingsDefaults.show_article_preview_images,
     show_floating_toc: settingsDefaults.show_floating_toc,
     show_hidden_articles: settingsDefaults.show_hidden_articles,
+    show_reading_time: settingsDefaults.show_reading_time,
     startup_on_boot: settingsDefaults.startup_on_boot,
     summary_enabled: settingsDefaults.summary_enabled,
     summary_length: settingsDefaults.summary_length,
@@ -228,6 +230,7 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     proxy_port: data.proxy_port || settingsDefaults.proxy_port,
     proxy_type: data.proxy_type || settingsDefaults.proxy_type,
     proxy_username: data.proxy_username || settingsDefaults.proxy_username,
+    reader_max_width: parseInt(data.reader_max_width) || settingsDefaults.reader_max_width,
     refresh_mode: data.refresh_mode || settingsDefaults.refresh_mode,
     retry_timeout_seconds:
       parseInt(data.retry_timeout_seconds) || settingsDefaults.retry_timeout_seconds,
@@ -240,6 +243,7 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     show_article_preview_images: data.show_article_preview_images === 'true',
     show_floating_toc: data.show_floating_toc === 'true',
     show_hidden_articles: data.show_hidden_articles === 'true',
+    show_reading_time: data.show_reading_time === 'true',
     startup_on_boot: data.startup_on_boot === 'true',
     summary_enabled: data.summary_enabled === 'true',
     summary_length: data.summary_length || settingsDefaults.summary_length,
@@ -413,6 +417,9 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     proxy_port: settingsRef.value.proxy_port ?? settingsDefaults.proxy_port,
     proxy_type: settingsRef.value.proxy_type ?? settingsDefaults.proxy_type,
     proxy_username: settingsRef.value.proxy_username ?? settingsDefaults.proxy_username,
+    reader_max_width: (
+      settingsRef.value.reader_max_width ?? settingsDefaults.reader_max_width
+    ).toString(),
     refresh_mode: settingsRef.value.refresh_mode ?? settingsDefaults.refresh_mode,
     retry_timeout_seconds: (
       settingsRef.value.retry_timeout_seconds ?? settingsDefaults.retry_timeout_seconds
@@ -435,6 +442,9 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ).toString(),
     show_hidden_articles: (
       settingsRef.value.show_hidden_articles ?? settingsDefaults.show_hidden_articles
+    ).toString(),
+    show_reading_time: (
+      settingsRef.value.show_reading_time ?? settingsDefaults.show_reading_time
     ).toString(),
     startup_on_boot: (
       settingsRef.value.startup_on_boot ?? settingsDefaults.startup_on_boot

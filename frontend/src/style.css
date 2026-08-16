@@ -3,14 +3,21 @@
 
 @layer base {
   :root {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8f9fa;
-    --bg-tertiary: #e9ecef;
-    --text-primary: #212529;
-    --text-secondary: #6c757d;
-    --accent-color: #007bff;
-    --accent-hover: #0056b3;
-    --border-color: #dee2e6;
+    --paper-bg: #fcfaf6;
+    --surface-bg: #fffdf9;
+    --surface-muted: #f5f2ec;
+    --panel-bg: #faf7f1;
+    --border-subtle: #e8e2d9;
+    --selected-bg: #f8dfcf;
+    --hover-bg: #f3eee7;
+    --bg-primary: var(--paper-bg);
+    --bg-secondary: var(--panel-bg);
+    --bg-tertiary: var(--hover-bg);
+    --text-primary: #28241f;
+    --text-secondary: #7b746a;
+    --accent-color: #bd6545;
+    --accent-hover: #9e4f34;
+    --border-color: var(--border-subtle);
     --mark-bg-color: rgba(255, 220, 100, 0.4);
     --table-stripe-color: rgba(0, 0, 0, 0.04);
     --code-bg-color: #f6f8fa;
@@ -18,22 +25,49 @@
     --ui-font-family: Inter, 'Noto Sans CJK SC', system-ui, sans-serif;
     --ui-font-size: 16px;
     --ui-font-scale: 1;
+    --reader-max-width: 680px;
   }
 
   .dark-mode {
-    --bg-primary: #1e1e1e;
-    --bg-secondary: #252526;
-    --bg-tertiary: #2d2d2d;
-    --text-primary: #e0e0e0;
-    --text-secondary: #a0a0a0;
-    --accent-color: #4daafc;
-    --accent-hover: #2b87d9;
-    --border-color: #3e3e42;
+    --paper-bg: #1c1a18;
+    --surface-bg: #23201d;
+    --surface-muted: #292622;
+    --panel-bg: #211f1c;
+    --border-subtle: #3a3530;
+    --selected-bg: #493126;
+    --hover-bg: #2d2925;
+    --bg-primary: var(--paper-bg);
+    --bg-secondary: var(--panel-bg);
+    --bg-tertiary: var(--hover-bg);
+    --text-primary: #ece7df;
+    --text-secondary: #aaa197;
+    --accent-color: #d38465;
+    --accent-hover: #e29a7e;
+    --border-color: var(--border-subtle);
     --mark-bg-color: rgba(255, 220, 100, 0.25);
     --table-stripe-color: rgba(255, 255, 255, 0.06);
     --code-bg-color: #1e1e1e;
     --code-border-color: #3e3e42;
   }
+}
+
+.app-container > main,
+.app-container > section,
+.app-container > aside {
+  min-width: 0;
+}
+
+.resizer {
+  width: 4px;
+  margin-left: -2px;
+  margin-right: -2px;
+  z-index: 35;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.resizer:hover {
+  background: color-mix(in srgb, var(--accent-color) 35%, transparent);
 }
 
 body {

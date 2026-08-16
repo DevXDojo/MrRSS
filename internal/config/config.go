@@ -95,6 +95,7 @@ type Defaults struct {
 	ProxyPort                     string `json:"proxy_port"`
 	ProxyType                     string `json:"proxy_type"`
 	ProxyUsername                 string `json:"proxy_username"`
+	ReaderMaxWidth                int    `json:"reader_max_width"`
 	RefreshMode                   string `json:"refresh_mode"`
 	RetryTimeoutSeconds           int    `json:"retry_timeout_seconds"`
 	RsshubAPIKey                  string `json:"rsshub_api_key"`
@@ -106,6 +107,7 @@ type Defaults struct {
 	ShowArticlePreviewImages      bool   `json:"show_article_preview_images"`
 	ShowFloatingToc               bool   `json:"show_floating_toc"`
 	ShowHiddenArticles            bool   `json:"show_hidden_articles"`
+	ShowReadingTime               bool   `json:"show_reading_time"`
 	StartupOnBoot                 bool   `json:"startup_on_boot"`
 	SummaryEnabled                bool   `json:"summary_enabled"`
 	SummaryLength                 string `json:"summary_length"`
@@ -303,6 +305,8 @@ func GetString(key string) string {
 		return defaults.ProxyType
 	case "proxy_username":
 		return defaults.ProxyUsername
+	case "reader_max_width":
+		return strconv.Itoa(defaults.ReaderMaxWidth)
 	case "refresh_mode":
 		return defaults.RefreshMode
 	case "retry_timeout_seconds":
@@ -325,6 +329,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.ShowFloatingToc)
 	case "show_hidden_articles":
 		return strconv.FormatBool(defaults.ShowHiddenArticles)
+	case "show_reading_time":
+		return strconv.FormatBool(defaults.ShowReadingTime)
 	case "startup_on_boot":
 		return strconv.FormatBool(defaults.StartupOnBoot)
 	case "summary_enabled":

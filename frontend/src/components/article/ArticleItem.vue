@@ -389,7 +389,8 @@ onUnmounted(() => {
 <style scoped>
 @reference "../../style.css";
 .article-card {
-  @apply py-2 px-1.5 sm:p-3 border-b border-border cursor-pointer transition-colors flex gap-2 sm:gap-3 relative border-l-2 sm:border-l-[3px] border-l-transparent;
+  @apply py-2 px-1.5 sm:p-3 border-b border-border cursor-pointer transition-colors flex gap-2 sm:gap-3 relative;
+  border-left: 0;
 }
 
 /* Compact mode: reduce padding */
@@ -398,11 +399,11 @@ onUnmounted(() => {
 }
 
 .article-card:hover {
-  @apply bg-bg-tertiary;
+  background: var(--hover-bg);
 }
 
 .article-card.active {
-  @apply bg-bg-tertiary border-l-accent;
+  background: var(--selected-bg);
 }
 
 .article-card.read h4 {

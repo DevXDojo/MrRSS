@@ -137,7 +137,7 @@ onMounted(async () => {
     isCardMode.value = layoutMode === 'card';
     // First set the compact mode, then set the width (order matters)
     setCompactMode(isCompactModeLayout);
-    setArticleListWidth(isCompactModeLayout ? 500 : 350);
+    setArticleListWidth(isCompactModeLayout ? 500 : 388);
 
     // Notify all components that settings have been loaded
     window.dispatchEvent(new CustomEvent('settings-loaded'));
