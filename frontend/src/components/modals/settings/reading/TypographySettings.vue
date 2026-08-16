@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhTextT, PhTextIndent, PhTextAa } from '@phosphor-icons/vue';
 import { SettingGroup, SettingItem, NumberControl } from '@/components/settings';
-import BaseSelect from '@/components/common/BaseSelect.vue';
-import type { SelectOption, SelectOptionGroup } from '@/types/select';
+import FontFamilySelect from '@/components/settings/FontFamilySelect.vue';
 import '@/components/settings/styles.css';
 import type { SettingsData } from '@/types/settings';
-import { getRecommendedFonts } from '@/utils/fontDetector';
 
 const { t } = useI18n();
 
@@ -21,113 +19,12 @@ const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
 }>();
 
-// Font categories
-const availableFonts = ref<{
-  serif: string[];
-  sansSerif: string[];
-  monospace: string[];
-}>({
-  serif: [],
-  sansSerif: [],
-  monospace: [],
-});
-
 // Computed values for display (handle string/number conversion)
 const displayContentSize = computed(() => {
   return parseInt(props.settings.content_font_size as any) || 16;
 });
 const displayLineHeight = computed(() => {
   return parseFloat(props.settings.content_line_height as any) || 1.6;
-});
-
-// Build font options with groups
-const fontOptions = computed<SelectOptionGroup[]>(() => {
-  const groups: SelectOptionGroup[] = [];
-
-  // System fonts
-  groups.push({
-    label: t('setting.typography.fontSystem'),
-    options: [
-      {
-        value: 'system',
-        label: t('setting.typography.fontSystemDefault'),
-      },
-    ],
-  });
-
-  // Serif fonts
-  if (availableFonts.value.serif.length > 0) {
-    const serifOptions: SelectOption[] = [
-      {
-        value: 'serif',
-        label: t('setting.typography.fontSerifDefault'),
-      },
-    ];
-    for (const font of availableFonts.value.serif) {
-      serifOptions.push({
-        value: font,
-        label: font,
-        style: { fontFamily: font + ', serif' }, // Custom style for font preview
-      });
-    }
-    groups.push({
-      label: t('setting.typography.fontSerif'),
-      options: serifOptions,
-    });
-  }
-
-  // Sans-serif fonts
-  if (availableFonts.value.sansSerif.length > 0) {
-    const sansSerifOptions: SelectOption[] = [
-      {
-        value: 'sans-serif',
-        label: t('setting.typography.fontSansSerifDefault'),
-      },
-    ];
-    for (const font of availableFonts.value.sansSerif) {
-      sansSerifOptions.push({
-        value: font,
-        label: font,
-        style: { fontFamily: font + ', sans-serif' }, // Custom style for font preview
-      });
-    }
-    groups.push({
-      label: t('setting.typography.fontSansSerif'),
-      options: sansSerifOptions,
-    });
-  }
-
-  // Monospace fonts
-  if (availableFonts.value.monospace.length > 0) {
-    const monospaceOptions: SelectOption[] = [
-      {
-        value: 'monospace',
-        label: t('setting.typography.fontMonospaceDefault'),
-      },
-    ];
-    for (const font of availableFonts.value.monospace) {
-      monospaceOptions.push({
-        value: font,
-        label: font,
-        style: { fontFamily: font + ', monospace' }, // Custom style for font preview
-      });
-    }
-    groups.push({
-      label: t('setting.typography.fontMonospace'),
-      options: monospaceOptions,
-    });
-  }
-
-  return groups;
-});
-
-// Load system fonts on mount
-onMounted(() => {
-  try {
-    availableFonts.value = getRecommendedFonts();
-  } catch (error) {
-    console.error('Failed to detect system fonts:', error);
-  }
 });
 
 function updateSetting(key: keyof SettingsData, value: any) {
@@ -147,18 +44,10 @@ function updateSetting(key: keyof SettingsData, value: any) {
           {{ t('setting.typography.contentFontFamilyDesc') }}
         </div>
       </template>
-      <BaseSelect
+      <FontFamilySelect
         :model-value="settings.content_font_family"
-        :options="fontOptions"
-        :searchable="true"
-        width="w-36 sm:w-48"
-        max-height="max-h-60"
         @update:model-value="updateSetting('content_font_family', $event)"
-      >
-        <template #option="{ option }">
-          <span :style="option.style">{{ option.label }}</span>
-        </template>
-      </BaseSelect>
+      />
     </SettingItem>
 
     <!-- Content Font Size -->

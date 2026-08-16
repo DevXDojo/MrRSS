@@ -288,7 +288,7 @@ onUnmounted(() => {
             {{ article.translated_title }}
           </h4>
           <div
-            class="text-[9px] sm:text-xs text-text-secondary italic mb-0.5 sm:mb-1 article-title"
+            class="article-original-title sm:text-xs text-text-secondary italic mb-0.5 sm:mb-1 article-title"
           >
             {{ article.title }}
           </div>
@@ -439,7 +439,12 @@ onUnmounted(() => {
 
 .article-title.compact-title {
   -webkit-line-clamp: 1;
-  font-size: 0.875rem; /* 14px, smaller than normal */
+  font-size: calc(0.875rem * var(--ui-font-scale, 1)); /* 14px at the default scale */
+}
+
+.article-original-title {
+  font-size: calc(0.5625rem * var(--ui-font-scale, 1));
+  line-height: calc(0.75rem * var(--ui-font-scale, 1));
 }
 
 /* Compact mode: read article title styling */
@@ -509,16 +514,16 @@ onUnmounted(() => {
 
   /* Smaller title font */
   .article-card .article-title {
-    font-size: 0.938rem !important; /* 15px, increased from 14px */
+    font-size: calc(0.938rem * var(--ui-font-scale, 1)) !important;
   }
 
   /* Smaller metadata font */
   .article-card .text-xs {
-    font-size: 0.688rem !important; /* 11px */
+    font-size: calc(0.688rem * var(--ui-font-scale, 1)) !important;
   }
 
   .article-card .text-\[11px\] {
-    font-size: 0.688rem !important; /* 11px */
+    font-size: calc(0.688rem * var(--ui-font-scale, 1)) !important;
   }
 
   /* Tighter spacing */
@@ -529,15 +534,15 @@ onUnmounted(() => {
 
   /* Smaller icon sizes */
   .article-card .text-sm {
-    font-size: 0.75rem !important; /* 12px */
+    font-size: calc(0.75rem * var(--ui-font-scale, 1)) !important;
   }
 
-  .article-card .text-\[9px\] {
-    font-size: 0.563rem !important; /* 9px */
+  .article-card .article-original-title {
+    font-size: calc(0.563rem * var(--ui-font-scale, 1)) !important;
   }
 
   .article-card .text-\[11px\] {
-    font-size: 0.688rem !important; /* 11px */
+    font-size: calc(0.688rem * var(--ui-font-scale, 1)) !important;
   }
 }
 </style>

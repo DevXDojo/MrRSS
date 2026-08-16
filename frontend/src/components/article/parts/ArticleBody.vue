@@ -4,6 +4,7 @@ import { ref, onMounted, watch, computed, nextTick } from 'vue';
 import { PhSpinnerGap, PhArticle, PhArrowClockwise } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
 import { useSettings } from '@/composables/core/useSettings';
+import { resolveFontFamily } from '@/utils/fontDetector';
 
 const { t } = useI18n();
 const { settings, fetchSettings } = useSettings();
@@ -36,24 +37,8 @@ const contentStyle = computed(() => {
   const fontSize = parseInt(settings.value.content_font_size as any) || 16;
   const lineHeight = settings.value.content_line_height || '1.6';
 
-  let fontFamilyCss = '';
-  if (fontFamily === 'system') {
-    // Use system default stack - let CSS handle it
-    fontFamilyCss = '';
-  } else if (fontFamily === 'serif') {
-    fontFamilyCss = 'Georgia, "Times New Roman", Times, serif';
-  } else if (fontFamily === 'sans-serif') {
-    fontFamilyCss =
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-  } else if (fontFamily === 'monospace') {
-    fontFamilyCss = '"Courier New", Courier, monospace';
-  } else {
-    // Use the specific font name selected by user
-    fontFamilyCss = `"${fontFamily}"`;
-  }
-
   const style = {
-    fontFamily: fontFamilyCss || undefined,
+    fontFamily: resolveFontFamily(fontFamily),
     fontSize: `${fontSize}px`, // Always apply font size
     lineHeight: lineHeight,
     '--content-line-height': lineHeight,

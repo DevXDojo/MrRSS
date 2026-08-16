@@ -119,6 +119,8 @@ type Defaults struct {
 	TranslationEnabled            bool   `json:"translation_enabled"`
 	TranslationOnlyMode           bool   `json:"translation_only_mode"`
 	TranslationProvider           string `json:"translation_provider"`
+	UiFontFamily                  string `json:"ui_font_family"`
+	UiFontSize                    int    `json:"ui_font_size"`
 	UpdateCheckEnabled            bool   `json:"update_check_enabled"`
 	UpdateInterval                int    `json:"update_interval"`
 	WindowHeight                  string `json:"window_height"`
@@ -349,6 +351,10 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.TranslationOnlyMode)
 	case "translation_provider":
 		return defaults.TranslationProvider
+	case "ui_font_family":
+		return defaults.UiFontFamily
+	case "ui_font_size":
+		return strconv.Itoa(defaults.UiFontSize)
 	case "update_check_enabled":
 		return strconv.FormatBool(defaults.UpdateCheckEnabled)
 	case "update_interval":

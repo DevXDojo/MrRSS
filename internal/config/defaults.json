@@ -100,6 +100,8 @@
   "translation_enabled": false,
   "translation_only_mode": false,
   "translation_provider": "google",
+  "ui_font_family": "system",
+  "ui_font_size": 16,
   "update_check_enabled": true,
   "update_interval": 30,
   "window_height": "768",
