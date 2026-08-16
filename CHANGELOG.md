@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added configurable interface typography settings for application fonts and sizes while preserving article content typography. (#998) (@marcomarcogd)
+- Added configurable interface typography settings for application fonts and sizes while preserving article content typography. (@marcomarcogd)
 - Supported translation of article summarys. (#983)
 
 ### Changed
@@ -19,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed the first-fetched timestamp for articles without a publication date. (#992) (@cos-y)
-- Fixed switching away from card article layout without redundant per-article settings requests. (#997) (@marcomarcogd)
-- Fixed article content mismatches for feed entries without links. (#1000) (@marcomarcogd)
+- Fixed the first-fetched timestamp for articles without a publication date. (@cos-y)
+- Fixed switching away from card article layout without redundant per-article settings requests. (#974, #987, #988) (@marcomarcogd)
+- Fixed article content mismatches for feed entries without links. (#999) (@marcomarcogd)
 - Fixed activity bar icons not being centered consistently. (#975)
 - Fixed Windows shortcut modifier labels and replaced the unset shortcut dash with a clear placeholder. (#976, #977)
 - Fixed the mark-all-as-read shortcut so it respects the current feed/category, uses the same confirmation dialog as the toolbar, and handles uncategorized feeds correctly. (#978)
