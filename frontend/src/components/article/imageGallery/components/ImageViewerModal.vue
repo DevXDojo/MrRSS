@@ -96,8 +96,8 @@ const viewer = useImageViewer(
 // Cover images (article.image_url) are always cached
 // Other images (from article content) are cached only if global media cache is enabled
 const currentImageUrl = computed(() => {
-  let originalUrl = '';
-  let isCoverImage = false;
+  let originalUrl: string;
+  let isCoverImage: boolean;
 
   if (props.allImages.length > 0 && localImageIndex.value < props.allImages.length) {
     originalUrl = props.allImages[localImageIndex.value];

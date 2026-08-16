@@ -470,7 +470,7 @@ export const useAppStore = defineStore('app', () => {
         await refreshRes.json();
       } catch (e) {
         console.error('Invalid JSON response from /api/refresh:', e);
-        throw new Error(`Invalid JSON response from refresh API: ${e}`);
+        throw new Error(`Invalid JSON response from refresh API: ${e}`, { cause: e });
       }
 
       // Also trigger FreshRSS sync if enabled
