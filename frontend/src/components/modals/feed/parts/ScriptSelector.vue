@@ -42,8 +42,8 @@ function openScriptsFolder() {
 
 function openDocumentation() {
   const docUrl = locale.value.startsWith('zh')
-    ? 'https://github.com/WCY-dt/MrRSS/blob/main/docs/CUSTOM_SCRIPT_MODE.zh.md'
-    : 'https://github.com/WCY-dt/MrRSS/blob/main/docs/CUSTOM_SCRIPT_MODE.md';
+    ? 'https://github.com/DevXDojo/MrRSS/blob/main/docs/CUSTOM_SCRIPT_MODE.zh.md'
+    : 'https://github.com/DevXDojo/MrRSS/blob/main/docs/CUSTOM_SCRIPT_MODE.md';
   openInBrowser(docUrl);
 }
 </script>

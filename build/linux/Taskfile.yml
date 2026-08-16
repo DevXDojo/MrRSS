@@ -124,7 +124,7 @@ tasks:
     cmds:
       - cd {{.BIN_DIR}} && tar -czf {{.APP_NAME}}-{{.VERSION}}-linux-{{.ARCH}}.tar.gz {{.APP_NAME}}
     vars:
-      VERSION: '1.3.25'
+      VERSION: '1.3.26'
       ARCH: '{{.ARCH | default "amd64"}}'
 
   generate:dotdesktop:

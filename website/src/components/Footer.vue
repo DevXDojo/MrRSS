@@ -19,9 +19,9 @@
               <li><a href="#features">Features</a></li>
               <li><a href="#download">Download</a></li>
               <li>
-                <a href="https://github.com/WCY-dt/MrRSS/blob/main/CHANGELOG.md">Changelog</a>
+                <a href="https://github.com/DevXDojo/MrRSS/blob/main/CHANGELOG.md">Changelog</a>
               </li>
-              <li><a href="https://github.com/users/WCY-dt/projects/2">Roadmap</a></li>
+              <li><a href="https://github.com/users/DevXDojo/projects/2">Roadmap</a></li>
             </ul>
           </div>
 
@@ -29,19 +29,19 @@
             <h4 class="link-title">Resources</h4>
             <ul class="link-list">
               <li>
-                <a href="https://github.com/WCY-dt/MrRSS/blob/main/README.md">Documentation</a>
+                <a href="https://github.com/DevXDojo/MrRSS/blob/main/README.md">Documentation</a>
               </li>
               <li>
-                <a href="https://github.com/WCY-dt/MrRSS/blob/main/CODE_OF_CONDUCT.md"
+                <a href="https://github.com/DevXDojo/MrRSS/blob/main/CODE_OF_CONDUCT.md"
                   >User Guide</a
                 >
               </li>
               <li>
-                <a href="https://github.com/WCY-dt/MrRSS/blob/main/docs/SERVER_MODE.md"
+                <a href="https://github.com/DevXDojo/MrRSS/blob/main/docs/SERVER_MODE.md"
                   >API Reference</a
                 >
               </li>
-              <li><a href="https://github.com/WCY-dt/MrRSS/discussions">Community</a></li>
+              <li><a href="https://github.com/DevXDojo/MrRSS/discussions">Community</a></li>
             </ul>
           </div>
 
@@ -49,10 +49,10 @@
             <h4 class="link-title">Legal</h4>
             <ul class="link-list">
               <li>
-                <a href="https://github.com/WCY-dt/MrRSS/blob/main/SECURITY.md">Security Policy</a>
+                <a href="https://github.com/DevXDojo/MrRSS/blob/main/SECURITY.md">Security Policy</a>
               </li>
-              <li><a href="https://github.com/WCY-dt/MrRSS/blob/main/LICENSE">License</a></li>
-              <li><a href="https://github.com/WCY-dt/MrRSS/issues">Contact</a></li>
+              <li><a href="https://github.com/DevXDojo/MrRSS/blob/main/LICENSE">License</a></li>
+              <li><a href="https://github.com/DevXDojo/MrRSS/issues">Contact</a></li>
             </ul>
           </div>
 
@@ -60,7 +60,7 @@
             <h4 class="link-title">Connect</h4>
             <ul class="link-list">
               <li>
-                <a href="https://github.com/WCY-dt/MrRSS" class="social-link">
+                <a href="https://github.com/DevXDojo/MrRSS" class="social-link">
                   <PhGithubLogo :size="20" />
                   GitHub
                 </a>

@@ -11,7 +11,7 @@ info:
   description: "A modern, standalone RSS reader" # The application description
   copyright: "Copyright © 2026" # Copyright text
   comments: "Built with Wails" # Comments
-  version: "1.3.25" # The application version
+  version: "1.3.26" # The application version
 
 # iOS build configuration (uncomment to customise iOS project generation)
 # Note: Keys under `ios` OVERRIDE values under `info` when set.
@@ -21,7 +21,7 @@ info:
 #   # The display name shown under the app icon (CFBundleDisplayName/CFBundleName)
 #   displayName: "MrRSS"
 #   # The app version to embed in Info.plist (CFBundleShortVersionString/CFBundleVersion)
-#   version: "1.3.25"
+#   version: "1.3.26"
 #   # The company/organisation name for templates and project settings
 #   company: "Ch3nyang"
 #   # Additional comments to embed in Info.plist metadata

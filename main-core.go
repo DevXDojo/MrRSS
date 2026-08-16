@@ -31,11 +31,11 @@ import (
 )
 
 // @title           MrRSS API
-// @version         1.3.25
+// @version         1.3.26
 // @description     MrRSS is a modern, cross-platform desktop RSS reader with auto-translation, smart feed discovery, and AI-powered summarization.
 
 // @contact.name   API Support
-// @contact.url    https://github.com/WCY-dt/MrRSS
+// @contact.url    https://github.com/DevXDojojo/MrRSS
 // @contact.email  mail@ch3nyang.top
 
 // @license.name  GPL-3.0

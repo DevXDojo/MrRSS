@@ -314,6 +314,6 @@ npm run build
 
 For issues:
 
-1. Check [GitHub Issues](https://github.com/WCY-dt/MrRSS/issues)
+1. Check [GitHub Issues](https://github.com/DevXDojo/MrRSS/issues)
 2. Review [Build Requirements](../docs/BUILD_REQUIREMENTS.md)
 3. Check [Wails Discord](https://discord.gg/wails)
