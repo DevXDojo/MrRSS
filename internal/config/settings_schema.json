@@ -753,6 +753,20 @@
       "encrypted": false,
       "frontend_key": "contentLineHeight"
     },
+    "ui_font_family": {
+      "type": "string",
+      "default": "system",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "uiFontFamily"
+    },
+    "ui_font_size": {
+      "type": "int",
+      "default": 16,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "uiFontSize"
+    },
     "ai_translation_profile_id": {
       "type": "string",
       "default": "",

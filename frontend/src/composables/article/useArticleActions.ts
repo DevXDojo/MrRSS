@@ -91,7 +91,7 @@ export function useArticleActions(
     } else if (effectiveMode === 'rendered') {
       // When mode is rendered, show "View Original" option
       menuItems.push({
-        label: t('setting.reading.showOriginal'),
+        label: t('article.action.viewOriginal'),
         action: 'renderContent',
         icon: 'ph-globe',
       });
@@ -117,14 +117,14 @@ export function useArticleActions(
       },
       { separator: true },
       {
-        label: t('common.contextMenu.copyLink'),
-        action: 'copyLink',
-        icon: 'ph-link',
-      },
-      {
         label: t('common.contextMenu.copyTitle'),
         action: 'copyTitle',
         icon: 'ph-text-t',
+      },
+      {
+        label: t('common.contextMenu.copyLink'),
+        action: 'copyLink',
+        icon: 'ph-link-simple',
       }
     );
 

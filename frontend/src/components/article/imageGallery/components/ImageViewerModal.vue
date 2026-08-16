@@ -5,7 +5,7 @@ import {
   PhX,
   PhCopy,
   PhDownloadSimple,
-  PhHeart,
+  PhStar,
   PhMagnifyingGlassPlus,
   PhMagnifyingGlassMinus,
 } from '@phosphor-icons/vue';
@@ -96,8 +96,8 @@ const viewer = useImageViewer(
 // Cover images (article.image_url) are always cached
 // Other images (from article content) are cached only if global media cache is enabled
 const currentImageUrl = computed(() => {
-  let originalUrl = '';
-  let isCoverImage = false;
+  let originalUrl: string;
+  let isCoverImage: boolean;
 
   if (props.allImages.length > 0 && localImageIndex.value < props.allImages.length) {
     originalUrl = props.allImages[localImageIndex.value];
@@ -297,10 +297,10 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
           "
           @click="handleViewerAction('toggleFavorite')"
         >
-          <PhHeart
+          <PhStar
             :size="20"
             :weight="article?.is_favorite ? 'fill' : 'regular'"
-            :class="article?.is_favorite ? 'text-red-500' : 'text-white'"
+            :class="article?.is_favorite ? 'text-yellow-500' : 'text-white'"
           />
         </button>
       </div>

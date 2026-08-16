@@ -15,17 +15,39 @@ import ConfirmDialog from './components/modals/common/ConfirmDialog.vue';
 import InputDialog from './components/modals/common/InputDialog.vue';
 import MultiSelectDialog from './components/modals/common/MultiSelectDialog.vue';
 import Toast from './components/common/Toast.vue';
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watchEffect } from 'vue';
 import { useNotifications } from './composables/ui/useNotifications';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
 import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
 import { useWindowState } from './composables/core/useWindowState';
 import { useAppUpdates } from './composables/core/useAppUpdates';
+import { useSettings } from './composables/core/useSettings';
+import { resolveFontFamily } from './utils/fontDetector';
 import type { Feed } from './types/models';
 
 const store = useAppStore();
 const { t } = useI18n();
+const { settings } = useSettings();
+
+const uiFontSize = computed(() => {
+  const value = Number(settings.value.ui_font_size);
+  return Number.isFinite(value) ? Math.min(20, Math.max(12, value)) : 16;
+});
+
+watchEffect(() => {
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty('--ui-font-family', resolveFontFamily(settings.value.ui_font_family));
+  rootStyle.setProperty('--ui-font-size', `${uiFontSize.value}px`);
+  rootStyle.setProperty('--ui-font-scale', String(uiFontSize.value / 16));
+});
+
+onUnmounted(() => {
+  const rootStyle = document.documentElement.style;
+  rootStyle.removeProperty('--ui-font-family');
+  rootStyle.removeProperty('--ui-font-size');
+  rootStyle.removeProperty('--ui-font-scale');
+});
 
 const showAddFeed = ref(false);
 const showEditFeed = ref(false);
@@ -87,8 +109,9 @@ const { shortcuts } = useKeyboardShortcuts({
     showAddFeed.value = true;
   },
   onMarkAllRead: async () => {
-    await store.markAllAsRead();
-    window.showToast(t('article.action.markedAllAsRead'), 'success');
+    // Reuse the article-list action so the shortcut has the same scope,
+    // confirmation dialog, and filtered-article handling as the toolbar button.
+    window.dispatchEvent(new CustomEvent('mark-all-as-read'));
   },
 });
 

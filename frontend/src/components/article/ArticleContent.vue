@@ -122,6 +122,12 @@ onMounted(async () => {
 
   // Listen for summary settings changes
   window.addEventListener('summary-settings-changed', onSummarySettingsChanged as EventListener);
+
+  // Listen for translation settings changes so RSS summaries follow the new target language.
+  window.addEventListener(
+    'translation-settings-changed',
+    onTranslationSettingsChanged as EventListener
+  );
 });
 
 // Computed to check if chat should be shown
@@ -186,10 +192,13 @@ const isLoadingSummary = computed(() =>
 // Additional state for translation
 const translatedTitle = ref('');
 const isTranslatingTitle = ref(false);
+const translatedSummary = ref<{ text: string; html: string } | null>(null);
+const isTranslatingSummary = ref(false);
 const isTranslatingContent = ref(false);
 const lastTranslatedArticleId = ref<number | null>(null);
 const lastTranslatedContentHash = ref<string>(''); // Track translated content by hash
 const translationSkipped = ref(false);
+let summaryTranslationRequestId = 0;
 
 function loadArticleScrollPositions(): Record<string, number> {
   try {
@@ -272,7 +281,8 @@ async function loadSettings() {
 // Translate text using the API
 async function translateText(
   text: string,
-  force: boolean = false
+  force: boolean = false,
+  updateTranslationStatus: boolean = true
 ): Promise<{ text: string; html: string }> {
   if (!text || !translationEnabled.value) {
     return { text: '', html: '' };
@@ -295,11 +305,11 @@ async function translateText(
       const data = await res.json();
 
       // Check if translation was skipped
-      if (data.skipped === 'true' || data.skipped === true) {
+      if (updateTranslationStatus && (data.skipped === 'true' || data.skipped === true)) {
         if (data.reason === 'already_target_language') {
           translationSkipped.value = true;
         }
-      } else {
+      } else if (updateTranslationStatus) {
         // Reset skip flags on successful translation
         translationSkipped.value = false;
       }
@@ -315,6 +325,40 @@ async function translateText(
     window.showToast(t('common.errors.translating'), 'error');
   }
   return { text: '', html: '' };
+}
+
+function clearTranslatedSummary() {
+  summaryTranslationRequestId += 1;
+  translatedSummary.value = null;
+  isTranslatingSummary.value = false;
+}
+
+// RSS summaries are already available in the source feed, so translate them
+// after they are loaded instead of sending them through the summarizer again.
+async function translateSummary(result: SummaryResult | null) {
+  clearTranslatedSummary();
+
+  if (
+    !translationEnabled.value ||
+    summaryProvider.value !== 'rss' ||
+    !result?.summary ||
+    result.is_too_short
+  ) {
+    return;
+  }
+
+  const requestId = summaryTranslationRequestId;
+  isTranslatingSummary.value = true;
+  const translation = await translateText(result.summary, false, false);
+
+  if (requestId !== summaryTranslationRequestId) {
+    return;
+  }
+
+  isTranslatingSummary.value = false;
+  if (!translation.text) return;
+
+  translatedSummary.value = translation;
 }
 
 // Force translate content
@@ -406,6 +450,7 @@ async function generateSummary(article: Article, force: boolean = false) {
 
   // Set summary result
   summaryResult.value = result;
+  await translateSummary(result);
 }
 
 // Check if should auto-generate summary
@@ -772,6 +817,7 @@ async function onSummarySettingsChanged(): Promise<void> {
   // Clear cached summary when settings change
   if (props.article) {
     summaryResult.value = null;
+    clearTranslatedSummary();
     // Auto-generate summary if newly enabled
     // But wait for full content if both conditions are met:
     // 1. Summary uses AI auto trigger OR local algorithm
@@ -787,6 +833,29 @@ async function onSummarySettingsChanged(): Promise<void> {
       // If we should wait but full content doesn't exist yet,
       // it will be generated after fetchFullArticle completes
     }
+  }
+}
+
+// Re-translate the RSS summary when translation settings or the target language change.
+async function onTranslationSettingsChanged(): Promise<void> {
+  await loadTranslationSettings();
+  clearTranslatedSummary();
+
+  if (!props.article) return;
+
+  if (translationEnabled.value) {
+    translateTitle(props.article);
+    if (summaryResult.value) {
+      await translateSummary(summaryResult.value);
+    }
+    if (displayContent.value) {
+      lastTranslatedArticleId.value = null;
+      await nextTick();
+      translateContentParagraphs(displayContent.value);
+    }
+  } else {
+    translatedTitle.value = '';
+    lastTranslatedArticleId.value = null;
   }
 }
 
@@ -812,6 +881,7 @@ watch(
       }
 
       summaryResult.value = null;
+      clearTranslatedSummary();
       translatedTitle.value = '';
       lastTranslatedArticleId.value = null; // Reset translation tracking
       fullArticleContent.value = ''; // Reset full article content when switching articles
@@ -826,6 +896,7 @@ watch(
           // Set summary result
           if (result) {
             summaryResult.value = result;
+            await translateSummary(result);
           }
         } else if (shouldAutoGenerateSummary()) {
           // Only auto-generate if no cached summary exists
@@ -936,6 +1007,7 @@ onMounted(async () => {
       // Set summary result
       if (result) {
         summaryResult.value = result;
+        await translateSummary(result);
       }
     } else if (shouldAutoGenerateSummary() && props.articleContent) {
       // Only auto-generate if no cached summary exists
@@ -1018,6 +1090,10 @@ onBeforeUnmount(() => {
   );
 
   window.removeEventListener('summary-settings-changed', onSummarySettingsChanged as EventListener);
+  window.removeEventListener(
+    'translation-settings-changed',
+    onTranslationSettingsChanged as EventListener
+  );
 });
 </script>
 
@@ -1064,6 +1140,8 @@ onBeforeUnmount(() => {
           v-if="summaryEnabled"
           :summary-result="summaryResult"
           :is-loading-summary="isLoadingSummary"
+          :translated-summary="translatedSummary"
+          :is-translating-summary="isTranslatingSummary"
           :translation-enabled="translationEnabled"
           :summary-provider="summaryProvider"
           :summary-trigger-mode="summaryTriggerMode"
@@ -1119,6 +1197,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 .btn-secondary {
   @apply bg-bg-tertiary border border-border text-text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-medium hover:bg-bg-secondary transition-colors;
 }

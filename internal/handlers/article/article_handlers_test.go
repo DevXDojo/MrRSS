@@ -86,6 +86,66 @@ func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 	}
 }
 
+func TestHandleMarkAllAsRead_EmptyCategoryScopesUncategorized(t *testing.T) {
+	h := setupHandler(t)
+
+	uncategorizedFeedID, err := h.DB.AddFeed(&models.Feed{Title: "Uncategorized", URL: "http://uncategorized"})
+	if err != nil {
+		t.Fatalf("AddFeed uncategorized: %v", err)
+	}
+	categorizedFeedID, err := h.DB.AddFeed(&models.Feed{Title: "Tech", URL: "http://tech", Category: "Tech"})
+	if err != nil {
+		t.Fatalf("AddFeed categorized: %v", err)
+	}
+
+	uncategorized := &models.Article{
+		FeedID:      uncategorizedFeedID,
+		Title:       "uncategorized",
+		URL:         "http://uncategorized/article",
+		PublishedAt: time.Now(),
+	}
+	categorized := &models.Article{
+		FeedID:      categorizedFeedID,
+		Title:       "categorized",
+		URL:         "http://tech/article",
+		PublishedAt: time.Now(),
+	}
+	if err := h.DB.SaveArticles(context.Background(), []*models.Article{uncategorized, categorized}); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	uncategorizedArticles, err := h.DB.GetArticles("", uncategorizedFeedID, "", true, 10, 0)
+	if err != nil || len(uncategorizedArticles) != 1 {
+		t.Fatalf("Get uncategorized article: %v", err)
+	}
+	categorizedArticles, err := h.DB.GetArticles("", categorizedFeedID, "", true, 10, 0)
+	if err != nil || len(categorizedArticles) != 1 {
+		t.Fatalf("Get categorized article: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/mark-all-read?category=", nil)
+	w := httptest.NewRecorder()
+	article.HandleMarkAllAsRead(h, w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Result().StatusCode)
+	}
+
+	uncategorizedAfter, err := h.DB.GetArticleByID(uncategorizedArticles[0].ID)
+	if err != nil {
+		t.Fatalf("Get uncategorized article after mark: %v", err)
+	}
+	categorizedAfter, err := h.DB.GetArticleByID(categorizedArticles[0].ID)
+	if err != nil {
+		t.Fatalf("Get categorized article after mark: %v", err)
+	}
+	if !uncategorizedAfter.IsRead {
+		t.Fatal("uncategorized article should be marked as read")
+	}
+	if categorizedAfter.IsRead {
+		t.Fatal("categorized article should remain unread")
+	}
+}
+
 func TestArticleActions_MarkRead_Favorite_Hide_ReadLater(t *testing.T) {
 	h := setupHandler(t)
 	feedID, _ := h.DB.AddFeed(&models.Feed{Title: "F2", URL: "http://y"})

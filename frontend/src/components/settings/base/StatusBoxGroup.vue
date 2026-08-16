@@ -77,7 +77,7 @@ defineOptions({
 </template>
 
 <style scoped>
-@import '../styles.css';
+@reference "../../../style.css";
 
 @keyframes spin {
   from {

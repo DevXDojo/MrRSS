@@ -183,6 +183,7 @@ watch(
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .btn-primary {
   @apply px-4 sm:px-6 py-2 sm:py-2.5 bg-accent text-white rounded-lg hover:bg-accent-hover transition-all font-medium shadow-sm hover:shadow-md;
 }

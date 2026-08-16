@@ -25,6 +25,11 @@ interface Props {
     error?: string;
   } | null;
   isLoadingSummary: boolean;
+  translatedSummary?: {
+    text: string;
+    html?: string;
+  } | null;
+  isTranslatingSummary?: boolean;
   translationEnabled: boolean;
   summaryProvider?: string;
   summaryTriggerMode?: string;
@@ -35,6 +40,8 @@ const props = withDefaults(defineProps<Props>(), {
   summaryProvider: 'local',
   summaryTriggerMode: 'auto',
   isLoadingContent: false,
+  translatedSummary: null,
+  isTranslatingSummary: false,
 });
 
 const emit = defineEmits<{
@@ -105,6 +112,15 @@ const shouldShowSummaryContainer = computed(() => {
     props.isLoadingSummary ||
     shouldShowManualTrigger.value ||
     shouldReserveAutoSummary.value
+  );
+});
+
+const shouldShowTranslatedSummary = computed(() => {
+  return Boolean(
+    props.translationEnabled &&
+    props.summaryProvider === 'rss' &&
+    props.translatedSummary?.text &&
+    props.translatedSummary.text !== props.summaryResult?.summary
   );
 });
 
@@ -279,6 +295,25 @@ async function handleSummaryLinkClick(event: MouseEvent) {
           </Transition>
 
           <!-- Summary Content -->
+          <div v-if="shouldShowTranslatedSummary || isTranslatingSummary" class="mb-3">
+            <div class="mb-1 text-[11px] text-text-secondary">
+              {{ t('article.summary.translatedSummary') }}
+            </div>
+            <div
+              v-if="shouldShowTranslatedSummary"
+              class="text-xs text-text-primary leading-snug select-text prose prose-xs max-w-none"
+              @click="handleSummaryLinkClick"
+              v-html="translatedSummary?.html || translatedSummary?.text"
+            ></div>
+            <div v-else class="flex items-center gap-1 text-xs text-text-secondary">
+              <PhSpinnerGap :size="12" class="animate-spin" />
+              <span>{{ t('article.summary.translatingSummary') }}</span>
+            </div>
+          </div>
+
+          <div v-if="shouldShowTranslatedSummary" class="mt-1 text-[11px] text-text-secondary">
+            {{ t('article.summary.originalSummary') }}
+          </div>
           <div
             class="text-xs text-text-primary leading-snug select-text prose prose-xs max-w-none"
             @click="handleSummaryLinkClick"

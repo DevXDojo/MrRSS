@@ -34,38 +34,8 @@ const compactMode = computed(() => {
   return settings.value.layout_mode === 'compact';
 });
 
-// Listen for layout mode changes and initial settings load
-let handleLayoutModeChange: (() => void) | null = null;
-
-// Function to load layout mode settings
-function loadLayoutModeSettings() {
-  fetch('/api/settings')
-    .then((res) => res.json())
-    .then((data) => {
-      settings.value = {
-        ...settings.value,
-        layout_mode: data.layout_mode || 'normal',
-      };
-    })
-    .catch((err) => console.error('Error loading settings in ArticleItem:', err));
-}
-
-onMounted(() => {
-  // Load settings immediately when component mounts
-  loadLayoutModeSettings();
-
-  // Listen for layout mode changes
-  handleLayoutModeChange = () => {
-    loadLayoutModeSettings();
-  };
-
-  window.addEventListener('layout-mode-changed', handleLayoutModeChange);
-});
-
-onUnmounted(() => {
-  if (handleLayoutModeChange) {
-    window.removeEventListener('layout-mode-changed', handleLayoutModeChange);
-  }
+const hoverMarkAsRead = computed(() => {
+  return settings.value.hover_mark_as_read;
 });
 
 // Check if article is from RSSHub feed - O(1) lookup using feedMap
@@ -84,7 +54,6 @@ const formatDateWithI18n = (dateStr: string): string => {
 };
 
 const mediaCacheEnabled = ref(false);
-const hoverMarkAsRead = ref(false);
 let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const imageUrl = computed(() => {
@@ -231,21 +200,6 @@ async function markAsRead() {
   }
 }
 
-async function loadSettings() {
-  try {
-    const res = await fetch('/api/settings');
-    const data = await res.json();
-    hoverMarkAsRead.value = data.hover_mark_as_read === 'true';
-  } catch (e) {
-    console.error('Error loading hover mark as read setting:', e);
-  }
-}
-
-onMounted(async () => {
-  mediaCacheEnabled.value = await isMediaCacheEnabled();
-  await loadSettings();
-});
-
 onUnmounted(() => {
   if (hoverTimeout) {
     clearTimeout(hoverTimeout);
@@ -334,7 +288,7 @@ onUnmounted(() => {
             {{ article.translated_title }}
           </h4>
           <div
-            class="text-[9px] sm:text-xs text-text-secondary italic mb-0.5 sm:mb-1 article-title"
+            class="article-original-title sm:text-xs text-text-secondary italic mb-0.5 sm:mb-1 article-title"
           >
             {{ article.title }}
           </div>
@@ -433,6 +387,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 .article-card {
   @apply py-2 px-1.5 sm:p-3 border-b border-border cursor-pointer transition-colors flex gap-2 sm:gap-3 relative border-l-2 sm:border-l-[3px] border-l-transparent;
 }
@@ -485,7 +440,12 @@ onUnmounted(() => {
 
 .article-title.compact-title {
   -webkit-line-clamp: 1;
-  font-size: 0.875rem; /* 14px, smaller than normal */
+  font-size: calc(0.875rem * var(--ui-font-scale, 1)); /* 14px at the default scale */
+}
+
+.article-original-title {
+  font-size: calc(0.5625rem * var(--ui-font-scale, 1));
+  line-height: calc(0.75rem * var(--ui-font-scale, 1));
 }
 
 /* Compact mode: read article title styling */
@@ -555,16 +515,16 @@ onUnmounted(() => {
 
   /* Smaller title font */
   .article-card .article-title {
-    font-size: 0.938rem !important; /* 15px, increased from 14px */
+    font-size: calc(0.938rem * var(--ui-font-scale, 1)) !important;
   }
 
   /* Smaller metadata font */
   .article-card .text-xs {
-    font-size: 0.688rem !important; /* 11px */
+    font-size: calc(0.688rem * var(--ui-font-scale, 1)) !important;
   }
 
   .article-card .text-\[11px\] {
-    font-size: 0.688rem !important; /* 11px */
+    font-size: calc(0.688rem * var(--ui-font-scale, 1)) !important;
   }
 
   /* Tighter spacing */
@@ -575,15 +535,15 @@ onUnmounted(() => {
 
   /* Smaller icon sizes */
   .article-card .text-sm {
-    font-size: 0.75rem !important; /* 12px */
+    font-size: calc(0.75rem * var(--ui-font-scale, 1)) !important;
   }
 
-  .article-card .text-\[9px\] {
-    font-size: 0.563rem !important; /* 9px */
+  .article-card .article-original-title {
+    font-size: calc(0.563rem * var(--ui-font-scale, 1)) !important;
   }
 
   .article-card .text-\[11px\] {
-    font-size: 0.688rem !important; /* 11px */
+    font-size: calc(0.688rem * var(--ui-font-scale, 1)) !important;
   }
 }
 </style>

@@ -114,6 +114,8 @@ export function generateInitialSettings(): SettingsData {
     translation_enabled: settingsDefaults.translation_enabled,
     translation_only_mode: settingsDefaults.translation_only_mode,
     translation_provider: settingsDefaults.translation_provider,
+    ui_font_family: settingsDefaults.ui_font_family,
+    ui_font_size: settingsDefaults.ui_font_size,
     update_check_enabled: settingsDefaults.update_check_enabled,
     update_interval: settingsDefaults.update_interval,
     window_height: settingsDefaults.window_height,
@@ -251,6 +253,8 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     translation_enabled: data.translation_enabled === 'true',
     translation_only_mode: data.translation_only_mode === 'true',
     translation_provider: data.translation_provider || settingsDefaults.translation_provider,
+    ui_font_family: data.ui_font_family || settingsDefaults.ui_font_family,
+    ui_font_size: parseInt(data.ui_font_size) || settingsDefaults.ui_font_size,
     update_check_enabled: data.update_check_enabled === 'true',
     update_interval: parseInt(data.update_interval) || settingsDefaults.update_interval,
     window_height: data.window_height || settingsDefaults.window_height,
@@ -455,6 +459,8 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ).toString(),
     translation_provider:
       settingsRef.value.translation_provider ?? settingsDefaults.translation_provider,
+    ui_font_family: settingsRef.value.ui_font_family ?? settingsDefaults.ui_font_family,
+    ui_font_size: (settingsRef.value.ui_font_size ?? settingsDefaults.ui_font_size).toString(),
     update_check_enabled: (
       settingsRef.value.update_check_enabled ?? settingsDefaults.update_check_enabled
     ).toString(),

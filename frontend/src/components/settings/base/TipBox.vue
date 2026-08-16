@@ -53,6 +53,7 @@ const boxClass = computed(() => {
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .tip-box {
   @apply py-2.5 px-3 rounded-lg border;
 }

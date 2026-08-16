@@ -221,4 +221,263 @@ describe('Settings Persistence', () => {
     cy.contains(/general|常规/i).click({ force: true });
     cy.contains(/dark|深色/i).should('exist');
   });
+
+  it('should apply and persist interface typography without changing article content typography', () => {
+    let settingsState: Record<string, string> = {
+      language: 'en-US',
+      theme: 'light',
+      layout_mode: 'normal',
+      ui_font_family: 'system',
+      ui_font_size: '16',
+      content_font_family: 'system',
+      content_font_size: '16',
+      content_line_height: '1.6',
+      update_check_enabled: 'false',
+      update_interval: '10',
+      last_global_refresh: new Date().toISOString(),
+    };
+
+    const feed = {
+      id: 1,
+      url: 'https://example.com/feed.xml',
+      title: 'Typography Test Feed',
+      category: '',
+      last_fetched_at: '2026-08-13T00:00:00Z',
+    };
+    const article = {
+      id: 1,
+      feed_id: 1,
+      feed_title: feed.title,
+      title: 'Typography Test Article',
+      url: 'https://example.com/article',
+      published_at: '2026-08-13T00:00:00Z',
+      is_read: false,
+      is_favorite: false,
+      is_hidden: false,
+      is_read_later: false,
+    };
+
+    cy.intercept('/api/**', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/settings', (req) => {
+      req.reply({ statusCode: 200, body: settingsState });
+    }).as('typographySettings');
+    cy.intercept('POST', '/api/settings', (req) => {
+      settingsState = { ...settingsState, ...req.body };
+      req.reply({ statusCode: 200, body: { success: true } });
+    }).as('saveTypographySettings');
+    cy.intercept('GET', '/api/feeds', { statusCode: 200, body: [feed] }).as('typographyFeeds');
+    cy.intercept(
+      { method: 'GET', pathname: '/api/articles' },
+      { statusCode: 200, body: [article] }
+    ).as('typographyArticles');
+    cy.intercept('GET', '/api/tags', { statusCode: 200, body: [] });
+    cy.intercept('GET', '/api/articles/unread-counts', {
+      statusCode: 200,
+      body: { total: 1, feed_counts: { 1: 1 } },
+    });
+    cy.intercept('GET', '/api/articles/filter-counts', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/progress', { statusCode: 200, body: { is_running: false } });
+    cy.intercept('GET', '/api/articles/content*', {
+      statusCode: 200,
+      body: { content: '<p>Independent article content</p>', cached: true },
+    });
+
+    cy.reload();
+    cy.wait('@typographyFeeds');
+    cy.wait('@typographyArticles');
+
+    let initialArticleTitleSize = 0;
+    cy.get('.article-card .article-title')
+      .should('be.visible')
+      .then(($title) => {
+        initialArticleTitleSize = parseFloat(getComputedStyle($title[0]).fontSize);
+      });
+
+    cy.get('button[title="Settings"]').click();
+    cy.contains('button', /^General$/).click();
+
+    cy.get('.setting-item').then(($items) => {
+      const labels = [...$items].map((item) => item.textContent || '');
+      const languageIndex = labels.findIndex((label) => label.includes('Language'));
+      const interfaceFontIndex = labels.findIndex((label) =>
+        label.includes('Interface Font Family')
+      );
+      const interfaceSizeIndex = labels.findIndex((label) => label.includes('Interface Font Size'));
+
+      expect(languageIndex).to.be.greaterThan(-1);
+      expect(interfaceFontIndex).to.equal(languageIndex + 1);
+      expect(interfaceSizeIndex).to.equal(interfaceFontIndex + 1);
+    });
+
+    let interfaceFontOptions: string[] = [];
+
+    cy.contains('.setting-item', 'Interface Font Family').within(() => {
+      cy.get('button.select-trigger').click();
+    });
+    cy.get('.select-option').then(($options) => {
+      interfaceFontOptions = [...$options].map((option) => option.textContent?.trim() || '');
+      expect(interfaceFontOptions).to.include('System Default');
+    });
+    cy.contains('.select-option', 'Default Serif').click({ force: true });
+    cy.wait('@saveTypographySettings').its('request.body.ui_font_family').should('eq', 'serif');
+
+    cy.contains('.setting-item', 'Interface Font Size').within(() => {
+      cy.get('input[type="number"]').invoke('val', '20').trigger('input').trigger('change');
+    });
+    cy.wait('@saveTypographySettings').its('request.body.ui_font_size').should('eq', '20');
+
+    cy.document().then((doc) => {
+      expect(doc.documentElement.style.getPropertyValue('--ui-font-size')).to.equal('20px');
+      expect(doc.documentElement.style.getPropertyValue('--ui-font-scale')).to.equal('1.25');
+      expect(doc.documentElement.style.getPropertyValue('--ui-font-family')).to.contain('Georgia');
+    });
+    cy.get('.feed-item').should(($feedItem) => {
+      expect(getComputedStyle($feedItem[0]).fontFamily).to.contain('Georgia');
+    });
+    cy.get('.article-card .article-title').should(($title) => {
+      expect(parseFloat(getComputedStyle($title[0]).fontSize)).to.be.greaterThan(
+        initialArticleTitleSize
+      );
+    });
+
+    cy.get('body').type('{esc}');
+    cy.get('.article-card').first().click();
+    cy.get('.prose-content').should(($content) => {
+      const style = getComputedStyle($content[0]);
+      expect(style.fontSize).to.equal('16px');
+      expect(style.fontFamily).not.to.contain('Georgia');
+    });
+
+    cy.get('button[title="Settings"]').click();
+    cy.contains('button', /^General$/).click();
+    cy.contains('.setting-item', 'Interface Font Family')
+      .find('button.select-trigger')
+      .should('contain.text', 'Default Serif');
+    cy.contains('.setting-item', 'Interface Font Size')
+      .find('input[type="number"]')
+      .should('have.value', '20');
+
+    cy.contains('button', /^Reading$/).click();
+    cy.contains('.setting-item', 'Interface Font Family').should('not.exist');
+    cy.contains('.setting-item', 'Interface Font Size').should('not.exist');
+    cy.contains('.setting-item', 'Content Font Family').within(() => {
+      cy.get('button.select-trigger').click();
+    });
+    cy.get('.select-option').then(($options) => {
+      const contentFontOptions = [...$options].map((option) => option.textContent?.trim() || '');
+      expect(contentFontOptions).to.deep.equal(interfaceFontOptions);
+    });
+    cy.contains('.select-option', 'System Default').click({ force: true });
+
+    cy.get('body').type('{esc}');
+    cy.reload();
+    cy.wait('@typographyFeeds');
+    cy.document().then((doc) => {
+      expect(doc.documentElement.style.getPropertyValue('--ui-font-size')).to.equal('20px');
+      expect(doc.documentElement.style.getPropertyValue('--ui-font-family')).to.contain('Georgia');
+    });
+  });
+
+  it('should switch away from card layout without per-article settings requests', () => {
+    let layoutMode = 'card';
+    let settingsGetCount = 0;
+    let settingsRequestsBeforeSwitch = 0;
+
+    const settingsResponse = () => ({
+      language: 'en-US',
+      layout_mode: layoutMode,
+      update_check_enabled: 'false',
+      update_interval: '10',
+      last_global_refresh: new Date().toISOString(),
+    });
+
+    const articles = Array.from({ length: 24 }, (_, index) => ({
+      id: index + 1,
+      feed_id: 1,
+      feed_title: 'Test Feed',
+      title: `Test Article ${index + 1}`,
+      url: `https://example.com/articles/${index + 1}`,
+      published_at: '2026-08-13T00:00:00Z',
+      image_url: '',
+      translated_title: '',
+    }));
+
+    // Reload with deterministic API state so the regression does not depend on local data.
+    cy.intercept('/api/**', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/feeds', { statusCode: 200, body: [] }).as('layoutFeeds');
+    cy.intercept('GET', '/api/tags', { statusCode: 200, body: [] });
+    cy.intercept('GET', '/api/saved-filters', { statusCode: 200, body: [] });
+    cy.intercept(
+      { method: 'GET', pathname: '/api/articles' },
+      {
+        statusCode: 200,
+        body: articles,
+      }
+    ).as('layoutArticles');
+    cy.intercept('GET', '/api/articles/unread-counts', {
+      statusCode: 200,
+      body: { total: 0, feeds: {}, categories: {} },
+    });
+    cy.intercept('GET', '/api/articles/filter-counts', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/progress', { statusCode: 200, body: { is_running: false } });
+    cy.intercept('GET', '/api/settings', (req) => {
+      settingsGetCount += 1;
+      req.reply({ statusCode: 200, body: settingsResponse() });
+    }).as('layoutSettings');
+    cy.intercept('POST', '/api/settings', (req) => {
+      layoutMode = req.body.layout_mode;
+      req.reply({ statusCode: 200, body: { success: true } });
+    }).as('saveLayoutSettings');
+
+    const layoutSelector = () =>
+      cy.contains('.setting-item', 'Article List Layout').find('button.select-trigger');
+
+    const selectLayout = (label: string) => {
+      layoutSelector().click();
+      cy.contains('.select-option', label).click({ force: true });
+    };
+
+    cy.reload();
+    cy.wait('@layoutFeeds');
+    cy.wait('@layoutArticles');
+
+    cy.get('button[title="Settings"]').click();
+    cy.contains('button', /^Reading$/).click();
+    layoutSelector().should('contain.text', 'Card');
+    cy.wait(150);
+
+    cy.then(() => {
+      settingsRequestsBeforeSwitch = settingsGetCount;
+    });
+
+    selectLayout('Normal');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'normal');
+    layoutSelector().should('contain.text', 'Normal');
+    cy.then(() => {
+      expect(settingsGetCount - settingsRequestsBeforeSwitch).to.be.at.most(5);
+    });
+
+    selectLayout('Compact');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'compact');
+    layoutSelector().should('contain.text', 'Compact');
+
+    selectLayout('Card');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'card');
+    layoutSelector().should('contain.text', 'Card');
+
+    selectLayout('Normal');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'normal');
+    layoutSelector().should('contain.text', 'Normal');
+
+    cy.get('body').type('{esc}');
+    cy.reload();
+    cy.wait('@layoutFeeds');
+    cy.wait('@layoutArticles');
+    cy.get('button[title="Settings"]').click();
+    cy.contains('button', /^Reading$/).click();
+    layoutSelector().should('contain.text', 'Normal');
+    cy.then(() => {
+      expect(layoutMode).to.eq('normal');
+    });
+  });
 });

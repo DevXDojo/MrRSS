@@ -118,6 +118,8 @@ var AllSettings = []SettingDef{
 	{Key: "translation_enabled", Encrypted: false},
 	{Key: "translation_only_mode", Encrypted: false},
 	{Key: "translation_provider", Encrypted: false},
+	{Key: "ui_font_family", Encrypted: false},
+	{Key: "ui_font_size", Encrypted: false},
 	{Key: "update_check_enabled", Encrypted: false},
 	{Key: "update_interval", Encrypted: false},
 	{Key: "window_height", Encrypted: false},

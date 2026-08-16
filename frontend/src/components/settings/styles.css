@@ -1,4 +1,4 @@
-/* Global styles for settings components */
+@reference "../../style.css";
 
 /* Theme number - highlights numbers in settings */
 .theme-number {

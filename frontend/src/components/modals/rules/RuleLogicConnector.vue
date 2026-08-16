@@ -37,6 +37,7 @@ const logicOptions: Array<{ value: 'and' | 'or'; labelKey: string }> = [
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .logic-connector {
   @apply flex items-center gap-1 bg-bg-tertiary rounded-full p-1;
 }

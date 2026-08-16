@@ -8,7 +8,7 @@
    <strong>English</strong> | <a href="README_zh.md">简体中文</a>
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.3.25-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
+[![Version](https://img.shields.io/badge/version-1.3.26-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
 [![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
@@ -231,8 +231,8 @@ go build -tags server -o mrrss-server .
 Pre-built server images based on ghcr.io are also available:
 
 ```bash
-docker run -d -p 1234:1234 ghcr.io/DevXDojo/mrrss:latest-amd64
-docker run -d -p 1234:1234 ghcr.io/DevXDojo/mrrss:latest-arm64
+docker run -d -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-amd64
+docker run -d -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-arm64
 ```
 
 Please refer to the [Server Mode API Documentation](docs/SERVER_MODE/swagger.json) for a complete API reference.

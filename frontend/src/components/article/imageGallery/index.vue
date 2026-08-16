@@ -331,7 +331,7 @@ function handleContextMenu(event: MouseEvent, article: Article): void {
     {
       label: t('common.contextMenu.copyLink'),
       action: 'copyLink',
-      icon: 'ph-link',
+      icon: 'ph-link-simple',
     },
     { separator: true },
     {
@@ -342,7 +342,7 @@ function handleContextMenu(event: MouseEvent, article: Article): void {
     {
       label: t('article.action.openInBrowser'),
       action: 'openBrowser',
-      icon: 'ph-globe',
+      icon: 'ph-arrow-square-out',
     },
   ];
 

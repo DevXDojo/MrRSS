@@ -108,6 +108,9 @@ const zh: TranslationMessages = {
       articleSummary: '文章摘要',
       articleTooShort: '文章内容过短',
       generatingSummaryTime: '生成摘要耗时 {time}',
+      originalSummary: '原文摘要',
+      translatedSummary: '翻译后的摘要',
+      translatingSummary: '正在翻译摘要...',
     },
     toolbar: {
       addToFavorite: '添加到收藏',
@@ -837,6 +840,10 @@ const zh: TranslationMessages = {
       language: '语言',
       languageDesc: '选择界面语言',
       light: '亮色',
+      uiFontFamily: '界面字体',
+      uiFontFamilyDesc: '订阅列表、文章列表、设置和弹窗使用的字体',
+      uiFontSize: '界面字号',
+      uiFontSizeDesc: '应用界面的基础字体大小',
       startupOnBoot: '开机自启动',
       startupOnBootDesc: '在电脑启动时自动启动 MrRSS',
       theme: '主题',
@@ -1042,6 +1049,7 @@ const zh: TranslationMessages = {
       shortcutsEnabled: '启用快捷键',
       shortcutsEnabledDesc: '启用或禁用键盘快捷键',
       shortcutsUpdated: '快捷键已更新',
+      notSet: '未设置',
     },
     statistic: {
       aiChats: 'AI 对话',

@@ -146,6 +146,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .btn-primary {
   @apply bg-accent text-white border-none px-5 py-2.5 rounded-lg cursor-pointer font-semibold hover:bg-accent-hover transition-colors flex items-center gap-2;
 }

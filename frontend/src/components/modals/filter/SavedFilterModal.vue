@@ -235,6 +235,7 @@ function save() {
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .btn-secondary {
   @apply bg-bg-tertiary text-text-primary border border-border px-4 py-2.5 rounded-lg cursor-pointer font-medium hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
 }

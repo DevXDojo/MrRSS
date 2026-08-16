@@ -1,7 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PhPalette, PhMoon, PhTranslate, PhPower, PhArchiveTray } from '@phosphor-icons/vue';
-import { SettingGroup, SettingWithToggle, SettingWithSelect } from '@/components/settings';
+import {
+  PhPalette,
+  PhMoon,
+  PhTranslate,
+  PhPower,
+  PhArchiveTray,
+  PhTextT,
+  PhTextAa,
+} from '@phosphor-icons/vue';
+import {
+  SettingGroup,
+  SettingItem,
+  SettingWithToggle,
+  SettingWithSelect,
+  NumberControl,
+} from '@/components/settings';
+import FontFamilySelect from '@/components/settings/FontFamilySelect.vue';
 import type { SettingsData } from '@/types/settings';
 
 const { t } = useI18n();
@@ -16,11 +32,20 @@ const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
 }>();
 
+const displayUiSize = computed(() => {
+  return parseInt(props.settings.ui_font_size as any) || 16;
+});
+
 function updateSetting(key: keyof SettingsData, value: any) {
   emit('update:settings', {
     ...props.settings,
     [key]: value,
   });
+}
+
+function updateUiFontSize(value: number) {
+  const nextValue = Number.isFinite(value) ? Math.min(20, Math.max(12, value)) : 16;
+  updateSetting('ui_font_size', nextValue);
 }
 </script>
 
@@ -68,6 +93,33 @@ function updateSetting(key: keyof SettingsData, value: any) {
       width="md"
       @update:model-value="updateSetting('language', $event)"
     />
+
+    <SettingItem :icon="PhTextT" :title="t('setting.general.uiFontFamily')">
+      <template #description>
+        <div class="text-xs text-text-secondary hidden sm:block">
+          {{ t('setting.general.uiFontFamilyDesc') }}
+        </div>
+      </template>
+      <FontFamilySelect
+        :model-value="settings.ui_font_family"
+        @update:model-value="updateSetting('ui_font_family', $event)"
+      />
+    </SettingItem>
+
+    <SettingItem :icon="PhTextAa" :title="t('setting.general.uiFontSize')">
+      <template #description>
+        <div class="text-xs text-text-secondary hidden sm:block">
+          {{ t('setting.general.uiFontSizeDesc') }}
+        </div>
+      </template>
+      <NumberControl
+        :model-value="displayUiSize"
+        :min="12"
+        :max="20"
+        suffix="px"
+        @update:model-value="updateUiFontSize"
+      />
+    </SettingItem>
   </SettingGroup>
 </template>
 

@@ -6,7 +6,7 @@
 name: "MrRSS"
 arch: ${GOARCH}
 platform: "linux"
-version: "1.3.25"
+version: "1.3.26"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>

@@ -6,7 +6,7 @@ Generated from `docs/SERVER_MODE/swagger.json`. Regenerate with:
 python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
 ```
 
-- API version: `1.3.25`
+- API version: `1.3.26`
 - API root: `{base_url}/api`
 - Endpoint paths below are relative to the API root unless they already start with `/api/`.
 

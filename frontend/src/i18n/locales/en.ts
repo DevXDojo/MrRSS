@@ -111,6 +111,9 @@ const en: TranslationMessages = {
       articleSummary: 'Article Summary',
       articleTooShort: 'Article content is too short',
       generatingSummaryTime: 'Generating summary took {time}',
+      originalSummary: 'Original summary',
+      translatedSummary: 'Translated summary',
+      translatingSummary: 'Translating summary...',
     },
     toolbar: {
       addToFavorite: 'Add to Favorites',
@@ -855,6 +858,10 @@ const en: TranslationMessages = {
       language: 'Language',
       languageDesc: 'Select interface language',
       light: 'Light',
+      uiFontFamily: 'Interface Font Family',
+      uiFontFamilyDesc: 'Font family for lists, controls, settings, and dialogs',
+      uiFontSize: 'Interface Font Size',
+      uiFontSizeDesc: 'Base font size for the application interface',
       startupOnBoot: 'Start on System Boot',
       startupOnBootDesc: 'Automatically start MrRSS when the computer starts',
       theme: 'Theme',
@@ -1063,6 +1070,7 @@ const en: TranslationMessages = {
       shortcutsEnabled: 'Enable Shortcuts',
       shortcutsEnabledDesc: 'Enable or disable keyboard shortcuts',
       shortcutsUpdated: 'Shortcut updated',
+      notSet: 'Not set',
     },
     statistic: {
       aiChats: 'AI Chats',

@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@config "../tailwind.config.js";
 
 @layer base {
   :root {
@@ -16,6 +15,9 @@
     --table-stripe-color: rgba(0, 0, 0, 0.04);
     --code-bg-color: #f6f8fa;
     --code-border-color: #d1d9e0;
+    --ui-font-family: Inter, 'Noto Sans CJK SC', system-ui, sans-serif;
+    --ui-font-size: 16px;
+    --ui-font-scale: 1;
   }
 
   .dark-mode {
@@ -35,7 +37,9 @@
 }
 
 body {
-  @apply bg-bg-primary text-text-primary font-sans overflow-hidden h-screen;
+  @apply bg-bg-primary text-text-primary overflow-hidden h-screen;
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
 }
 
 /* Disable selection and dragging for UI elements and images */

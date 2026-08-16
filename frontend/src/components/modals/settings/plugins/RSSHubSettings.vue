@@ -161,6 +161,7 @@ async function testConnection() {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .toggle {
   @apply w-10 h-5 appearance-none bg-bg-tertiary rounded-full relative cursor-pointer border border-border transition-colors checked:bg-accent checked:border-accent shrink-0;
 }

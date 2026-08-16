@@ -44,6 +44,7 @@ withDefaults(defineProps<Props>(), {
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .setting-item {
   @apply flex items-center sm:items-start justify-between gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg bg-bg-secondary border border-border;
 }

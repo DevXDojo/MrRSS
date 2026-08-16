@@ -586,3 +586,146 @@ func TestArticleDifferentTitlesNotDeduplicated(t *testing.T) {
 		t.Fatalf("expected 2 articles with different titles, got %d", len(articles))
 	}
 }
+
+// TestSaveArticlesNoPubDateKeepsFirstSeenTime verifies that articles without a
+// valid pubDate keep their originally stored published_at on refresh when the
+// article is unchanged, instead of being bumped to the current time every save.
+func TestSaveArticlesNoPubDateKeepsFirstSeenTime(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	firstSeen := time.Now()
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "No pubDate article",
+		URL:                   "https://example.com/no-pubdate",
+		PublishedAt:           firstSeen,
+		HasValidPublishedTime: false, // feed item had no pubDate
+	}
+
+	// First save: article is inserted with the first-seen time
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("initial SaveArticles error: %v", err)
+	}
+
+	// Simulate the next feed refresh: processArticles stamps a NEW time.Now()
+	// but the article content is unchanged.
+	later := firstSeen.Add(2 * time.Hour)
+	article.PublishedAt = later
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("refresh SaveArticles error: %v", err)
+	}
+
+	// Only one article must exist (dedup by title+feedID, no date part)
+	articles, err := db.GetArticles("all", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles error: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 article, got %d", len(articles))
+	}
+
+	stored := articles[0].PublishedAt
+	// Must stay at the first-seen time, NOT be bumped to the refresh time
+	if diff := stored.Sub(firstSeen); diff < 0 || diff > time.Minute {
+		t.Fatalf("published_at bumped to refresh time: got %v, want ≈ %v (diff %v)", stored, firstSeen, diff)
+	}
+}
+
+// TestSaveArticlesNoPubDateBumpsOnContentChange verifies that an article without
+// a valid pubDate DOES move to the new time when its content actually changed
+// (e.g. the source entry was edited).
+func TestSaveArticlesNoPubDateBumpsOnContentChange(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	firstSeen := time.Now()
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "Edited no-pubDate article",
+		URL:                   "https://example.com/edited/1",
+		PublishedAt:           firstSeen,
+		OriginalSummary:       "old summary",
+		HasValidPublishedTime: false,
+	}
+
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("initial SaveArticles error: %v", err)
+	}
+
+	// Next refresh: content changed (summary updated) and processArticles stamped
+	// a new time — published_at should move to the new time.
+	editedAt := firstSeen.Add(2 * time.Hour)
+	article.PublishedAt = editedAt
+	article.OriginalSummary = "updated summary"
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("refresh SaveArticles error: %v", err)
+	}
+
+	articles, err := db.GetArticles("all", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles error: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 article, got %d", len(articles))
+	}
+
+	stored := articles[0].PublishedAt
+	if diff := stored.Sub(editedAt); diff < 0 || diff > time.Minute {
+		t.Fatalf("changed article time not bumped: got %v, want ≈ %v (diff %v)", stored, editedAt, diff)
+	}
+}
+
+// TestSaveArticlesValidPubDateStillUpdatesTime guards the CASE expression:
+// articles WITH a valid pubDate must still get their real published time on refresh.
+func TestSaveArticlesValidPubDateStillUpdatesTime(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	// Same calendar date so the unique_id (title+feedID+date) matches and the
+	// second save hits the ON CONFLICT update path.
+	t1 := time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 7, 13, 20, 0, 0, 0, time.UTC)
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "With pubDate article",
+		URL:                   "https://example.com/with-pubdate",
+		PublishedAt:           t1,
+		HasValidPublishedTime: true,
+	}
+
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("initial SaveArticles error: %v", err)
+	}
+
+	// Refresh with a new (valid) published time on the same day
+	article.PublishedAt = t2
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("refresh SaveArticles error: %v", err)
+	}
+
+	articles, err := db.GetArticles("all", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles error: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 article, got %d", len(articles))
+	}
+
+	stored := articles[0].PublishedAt
+	if diff := stored.Sub(t2); diff < 0 || diff > time.Minute {
+		t.Fatalf("valid pubDate not honored on refresh: got %v, want %v (diff %v)", stored, t2, diff)
+	}
+}

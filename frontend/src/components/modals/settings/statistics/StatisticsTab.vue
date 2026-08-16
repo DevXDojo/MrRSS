@@ -380,6 +380,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .period-btn {
   @apply flex items-center gap-1.5 px-3 py-2 border rounded-lg cursor-pointer text-xs font-medium transition-all;
 }

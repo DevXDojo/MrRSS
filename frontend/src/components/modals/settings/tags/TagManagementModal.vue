@@ -207,6 +207,7 @@ function close() {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .btn-primary {
   @apply bg-accent text-white border-none px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg cursor-pointer font-semibold hover:bg-accent-hover transition-colors disabled:opacity-70;
 }

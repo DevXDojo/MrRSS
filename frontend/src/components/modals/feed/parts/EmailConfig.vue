@@ -252,6 +252,7 @@ defineExpose({
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .input-field {
   @apply p-2.5 border border-border rounded-md bg-bg-tertiary text-text-primary text-sm focus:border-accent focus:outline-none transition-colors;
 }

@@ -108,6 +108,7 @@ function handleKeyDown(e: KeyboardEvent) {
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .input-field {
   @apply px-3 py-2 rounded-lg border border-border bg-bg-secondary text-text-primary;
   @apply focus:outline-none focus:ring-2 focus:ring-accent;

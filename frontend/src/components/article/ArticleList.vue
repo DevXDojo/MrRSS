@@ -249,6 +249,8 @@ onMounted(async () => {
   window.addEventListener('refresh-articles', onRefreshArticles);
   // Listen for toggle filter events (from keyboard shortcut)
   window.addEventListener('toggle-filter', onToggleFilter);
+  // Listen for mark-all-read events (from keyboard shortcut)
+  window.addEventListener('mark-all-as-read', onMarkAllAsRead);
 });
 
 // Watch for articles array length changes (list content changes)
@@ -329,6 +331,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('settings-loaded', onSettingsLoaded as EventListener);
   window.removeEventListener('refresh-articles', onRefreshArticles);
   window.removeEventListener('toggle-filter', onToggleFilter);
+  window.removeEventListener('mark-all-as-read', onMarkAllAsRead);
 });
 
 interface CustomEventDetail {
@@ -356,6 +359,10 @@ function onTranslationSettingsChanged(e: Event): void {
       setupIntersectionObserver(listRef.value, store.articles);
     }
   }
+}
+
+function onMarkAllAsRead(): void {
+  void markAllAsRead();
 }
 
 function onShowPreviewImagesChanged(e: Event): void {
@@ -568,9 +575,9 @@ async function markAllAsRead(): Promise<void> {
     // Use store's markAllAsRead which handles feed and category
     const params: { feed_id?: number; category?: string } = {};
 
-    if (store.currentFeedId) {
+    if (store.currentFeedId !== null) {
       params.feed_id = store.currentFeedId;
-    } else if (store.currentCategory) {
+    } else if (store.currentCategory !== null) {
       params.category = store.currentCategory;
     }
 
@@ -1097,6 +1104,7 @@ async function markAllVisibleAsRead(): Promise<void> {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 @media (min-width: 768px) {
   .article-list {
     width: var(--article-list-width, 400px);
