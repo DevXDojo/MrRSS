@@ -3,7 +3,8 @@
 
 @layer base {
   :root {
-    --paper-bg: #fcfaf6;
+    --paper-bg: #fbf9f3;
+    --sidebar-bg: #f2f0ea;
     --surface-bg: #fffdf9;
     --surface-muted: #f5f2ec;
     --panel-bg: #faf7f1;
@@ -26,10 +27,13 @@
     --ui-font-size: 16px;
     --ui-font-scale: 1;
     --reader-max-width: 680px;
+    --reader-title-font-family:
+      'Iowan Old Style', 'Noto Serif CJK SC', 'Source Han Serif SC', Georgia, serif;
   }
 
   .dark-mode {
     --paper-bg: #1c1a18;
+    --sidebar-bg: #211f1c;
     --surface-bg: #23201d;
     --surface-muted: #292622;
     --panel-bg: #211f1c;

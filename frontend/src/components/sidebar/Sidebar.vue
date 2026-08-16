@@ -181,8 +181,8 @@ function toggleActivityBar() {
 /* Container for both ActivityBar and Edge Toggle - uses absolute positioning */
 .sidebar-toggle-container {
   position: relative;
-  width: 56px;
-  min-width: 56px;
+  width: 48px;
+  min-width: 48px;
   height: 100%;
   flex-shrink: 0;
   /* Width transition happens after button animations */
@@ -267,7 +267,7 @@ function toggleActivityBar() {
 
 .feed-drawer-wrapper:not(.pinned) {
   position: absolute;
-  left: 56px;
+  left: 48px;
   top: 0;
   bottom: 0;
   z-index: 20;

@@ -226,8 +226,8 @@ function handleCaretClick() {
       @dragover="handleCategoryDragOver"
     >
       <span class="flex-1 flex items-center gap-2">
-        <PhFolderDashed v-if="isUncategorized" :size="20" />
-        <PhFolder v-else :size="20" :weight="'fill'" />
+        <PhFolderDashed v-if="isUncategorized" :size="16" />
+        <PhFolder v-else :size="16" :weight="'fill'" />
         {{ name }}
         <!-- FreshRSS indicator on category -->
         <!-- Only show if ALL feeds in this category are from FreshRSS -->
@@ -241,7 +241,7 @@ function handleCaretClick() {
       </span>
       <span v-if="unreadCount > 0" class="unread-badge mr-1">{{ unreadCount }}</span>
       <PhCaretDown
-        :size="20"
+        :size="16"
         class="p-1 cursor-pointer transition-transform text-text-secondary"
         :class="{ 'rotate-180': isOpen }"
         @click.stop="handleCaretClick"
@@ -337,8 +337,13 @@ function handleCaretClick() {
 <style scoped>
 @reference "../../style.css";
 .category-header {
-  @apply px-2 sm:px-3 py-1.5 sm:py-2 cursor-pointer font-semibold text-xs sm:text-sm text-text-secondary flex items-center justify-between hover:bg-bg-tertiary hover:text-text-primary transition-colors;
+  @apply cursor-pointer font-semibold text-text-secondary flex items-center justify-between hover:bg-bg-tertiary hover:text-text-primary transition-colors;
   @apply sticky z-10 bg-bg-secondary;
+  min-height: 30px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: 13px;
+  background: var(--sidebar-bg);
   top: -0.375rem; /* matches container's p-1.5 */
   margin-left: -0.375rem;
   margin-right: -0.375rem;

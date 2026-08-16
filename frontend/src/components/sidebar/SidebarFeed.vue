@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import {
   PhWarningCircle,
   PhEyeSlash,
@@ -35,6 +35,18 @@ const emit = defineEmits<{
 }>();
 
 const showErrorTooltip = ref(false);
+const iconFailed = ref(false);
+const iconSource = computed(() => props.feed.image_url || getFavicon(props.feed.url));
+
+const fallbackLabel = computed(() => props.feed.title.trim().charAt(0).toLocaleUpperCase() || 'R');
+const fallbackIconStyle = computed(() => {
+  const palette = ['#c65f3d', '#d04747', '#3f62bf', '#129485', '#7555c7', '#2f8748'];
+  const hash = Array.from(props.feed.title).reduce(
+    (sum, character) => sum + character.codePointAt(0)!,
+    0
+  );
+  return { backgroundColor: palette[hash % palette.length] };
+});
 
 function getFriendlyErrorMessage(error: string): string {
   if (!error) return '';
@@ -123,12 +135,17 @@ function handleDragEnd() {
       <PhLock :size="14" />
     </div>
 
-    <div class="w-4 h-4 flex items-center justify-center shrink-0">
+    <div class="feed-avatar flex items-center justify-center shrink-0">
       <img
-        :src="feed.image_url || getFavicon(feed.url)"
+        v-if="iconSource && !iconFailed"
+        :src="iconSource"
         class="w-full h-full object-contain"
-        @error="($event.target as HTMLElement).style.display = 'none'"
+        :alt="feed.title"
+        @error="iconFailed = true"
       />
+      <span v-else class="feed-avatar-fallback" :style="fallbackIconStyle" aria-hidden="true">
+        {{ fallbackLabel }}
+      </span>
     </div>
     <span class="truncate flex-1">{{ feed.title }}</span>
 
@@ -199,7 +216,12 @@ function handleDragEnd() {
 <style scoped>
 @reference "../../style.css";
 .feed-item {
-  @apply px-2 sm:px-3 py-1.5 sm:py-2 cursor-pointer rounded-md text-xs sm:text-sm text-text-primary flex items-center gap-1 hover:bg-bg-tertiary transition-colors;
+  @apply cursor-pointer rounded-md text-text-primary flex items-center hover:bg-bg-tertiary transition-colors;
+  min-height: 30px;
+  padding: 4px 8px;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 /* Compact mode: reduce padding and gap */
@@ -277,7 +299,28 @@ function handleDragEnd() {
   }
 }
 .feed-item.active {
-  @apply bg-bg-tertiary text-accent font-medium;
+  background: var(--selected-bg);
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.feed-avatar {
+  width: 18px;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 5px;
+}
+
+.feed-avatar-fallback {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* Dragging state styles */
