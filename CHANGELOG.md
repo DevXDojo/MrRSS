@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.26] - 2026-08-16
+
+### Added
+
+- Added configurable interface typography settings for application fonts and sizes while preserving article content typography. (#998)
+
+### Changed
+
+- Updated backend and frontend dependencies, including Wails v3 beta and Tailwind CSS 4. (#1001, #1002)
+
+### Fixed
+
+- Fixed the first-fetched timestamp for articles without a publication date. (#992)
+- Fixed switching away from card article layout without redundant per-article settings requests. (#997)
+- Fixed article content mismatches for feed entries without links. (#1000)
+- Fixed the Tailwind CSS 4 PostCSS integration and frontend build compatibility. (#1002)
+
 ## [1.3.25] - 2026-07-19
 
 ### Added
