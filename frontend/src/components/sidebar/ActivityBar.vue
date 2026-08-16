@@ -346,7 +346,8 @@ defineExpose({
 .nav-items-container {
   /* Smooth height transition when items are added/removed */
   transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  scrollbar-gutter: stable;
+  /* Reserve the scrollbar space on both sides so centered icons stay centered. */
+  scrollbar-gutter: stable both-edges;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }

@@ -109,8 +109,9 @@ const { shortcuts } = useKeyboardShortcuts({
     showAddFeed.value = true;
   },
   onMarkAllRead: async () => {
-    await store.markAllAsRead();
-    window.showToast(t('article.action.markedAllAsRead'), 'success');
+    // Reuse the article-list action so the shortcut has the same scope,
+    // confirmation dialog, and filtered-article handling as the toolbar button.
+    window.dispatchEvent(new CustomEvent('mark-all-as-read'));
   },
 });
 

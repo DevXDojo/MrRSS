@@ -5,7 +5,7 @@ import {
   PhX,
   PhCopy,
   PhDownloadSimple,
-  PhHeart,
+  PhStar,
   PhMagnifyingGlassPlus,
   PhMagnifyingGlassMinus,
 } from '@phosphor-icons/vue';
@@ -297,10 +297,10 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
           "
           @click="handleViewerAction('toggleFavorite')"
         >
-          <PhHeart
+          <PhStar
             :size="20"
             :weight="article?.is_favorite ? 'fill' : 'regular'"
-            :class="article?.is_favorite ? 'text-red-500' : 'text-white'"
+            :class="article?.is_favorite ? 'text-yellow-500' : 'text-white'"
           />
         </button>
       </div>

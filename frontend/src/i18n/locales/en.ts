@@ -111,6 +111,9 @@ const en: TranslationMessages = {
       articleSummary: 'Article Summary',
       articleTooShort: 'Article content is too short',
       generatingSummaryTime: 'Generating summary took {time}',
+      originalSummary: 'Original summary',
+      translatedSummary: 'Translated summary',
+      translatingSummary: 'Translating summary...',
     },
     toolbar: {
       addToFavorite: 'Add to Favorites',
@@ -1067,6 +1070,7 @@ const en: TranslationMessages = {
       shortcutsEnabled: 'Enable Shortcuts',
       shortcutsEnabledDesc: 'Enable or disable keyboard shortcuts',
       shortcutsUpdated: 'Shortcut updated',
+      notSet: 'Not set',
     },
     statistic: {
       aiChats: 'AI Chats',

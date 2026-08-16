@@ -108,6 +108,9 @@ const zh: TranslationMessages = {
       articleSummary: '文章摘要',
       articleTooShort: '文章内容过短',
       generatingSummaryTime: '生成摘要耗时 {time}',
+      originalSummary: '原文摘要',
+      translatedSummary: '翻译后的摘要',
+      translatingSummary: '正在翻译摘要...',
     },
     toolbar: {
       addToFavorite: '添加到收藏',
@@ -1046,6 +1049,7 @@ const zh: TranslationMessages = {
       shortcutsEnabled: '启用快捷键',
       shortcutsEnabledDesc: '启用或禁用键盘快捷键',
       shortcutsUpdated: '快捷键已更新',
+      notSet: '未设置',
     },
     statistic: {
       aiChats: 'AI 对话',

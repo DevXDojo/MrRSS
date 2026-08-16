@@ -317,15 +317,15 @@ export const useAppStore = defineStore('app', () => {
   async function markAllAsRead(feedId?: number, category?: string): Promise<void> {
     try {
       const params = new URLSearchParams();
-      if (feedId) params.append('feed_id', String(feedId));
-      if (category) params.append('category', category);
+      if (feedId !== undefined) params.append('feed_id', String(feedId));
+      if (category !== undefined) params.append('category', category);
 
       const url = params.toString()
         ? `/api/articles/mark-all-read?${params.toString()}`
         : '/api/articles/mark-all-read';
       await fetch(url, { method: 'POST' });
       articles.value = articles.value.map((article) => {
-        if (feedId && article.feed_id !== feedId) return article;
+        if (feedId !== undefined && article.feed_id !== feedId) return article;
         if (category !== undefined) {
           const feed = feedMap.value.get(article.feed_id);
           if ((feed?.category || '') !== category) return article;

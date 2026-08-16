@@ -141,8 +141,13 @@ func HandleGetFilterCounts(h *core.Handler, w http.ResponseWriter, r *http.Reque
 // @Failure      500  {object}  map[string]string  "Internal server error"
 // @Router       /articles/mark-all-read [post]
 func HandleMarkAllAsRead(h *core.Handler, w http.ResponseWriter, r *http.Request) {
-	feedIDStr := r.URL.Query().Get("feed_id")
-	category := r.URL.Query().Get("category")
+	query := r.URL.Query()
+	feedIDStr := query.Get("feed_id")
+	categoryValues, hasCategory := query["category"]
+	category := ""
+	if len(categoryValues) > 0 {
+		category = categoryValues[0]
+	}
 
 	var syncReqs []database.SyncRequest
 	var err error
@@ -155,7 +160,7 @@ func HandleMarkAllAsRead(h *core.Handler, w http.ResponseWriter, r *http.Request
 			return
 		}
 		syncReqs, err = h.DB.MarkAllAsReadForFeedWithSync(feedID)
-	} else if category != "" {
+	} else if hasCategory {
 		// Mark all as read for a specific category
 		syncReqs, err = h.DB.MarkAllAsReadForCategoryWithSync(category)
 	} else {

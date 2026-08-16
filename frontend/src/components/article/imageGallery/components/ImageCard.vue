@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhImage, PhHeart, PhPlay } from '@phosphor-icons/vue';
+import { PhImage, PhStar, PhPlay } from '@phosphor-icons/vue';
 import { computed } from 'vue';
 import type { Article } from '@/types/models';
 import { getProxiedMediaUrl } from '@/utils/mediaProxy';
@@ -168,10 +168,10 @@ function formatDate(dateString: string): string {
         class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 rounded-full p-1.5 hover:bg-black/70 z-10 pointer-events-auto"
         @click="handleFavoriteClick($event)"
       >
-        <PhHeart
+        <PhStar
           :size="20"
           :weight="article.is_favorite ? 'fill' : 'regular'"
-          :class="article.is_favorite ? 'text-red-500' : 'text-white'"
+          :class="article.is_favorite ? 'text-yellow-500' : 'text-white'"
         />
       </button>
 

@@ -19,7 +19,6 @@ import {
   PhMagnifyingGlass,
   PhListDashes,
   PhCircle,
-  PhHeart,
   PhArrowCounterClockwise,
   PhFunnel,
 } from '@phosphor-icons/vue';
@@ -142,7 +141,7 @@ const shortcutGroups = computed<Array<{ label: string; items: ShortcutItemData[]
         icon: PhListDashes,
       },
       { key: 'goToUnread', label: t('article.navigation.goToUnread'), icon: PhCircle },
-      { key: 'goToFavorites', label: t('article.navigation.goToFavorites'), icon: PhHeart },
+      { key: 'goToFavorites', label: t('article.navigation.goToFavorites'), icon: PhStar },
       {
         key: 'goToReadLater',
         label: t('article.navigation.goToReadLater'),
@@ -186,7 +185,7 @@ const shortcutGroups = computed<Array<{ label: string; items: ShortcutItemData[]
       { key: 'focusSearch', label: t('setting.shortcut.focusFeedSearch'), icon: PhMagnifyingGlass },
       { key: 'toggleFilter', label: t('shortcut.toggle.filter'), icon: PhFunnel },
       { key: 'toggleUnreadFilter', label: t('shortcut.toggle.unreadFilter'), icon: PhCircle },
-      { key: 'toggleFavoritesFilter', label: t('shortcut.toggle.favoritesFilter'), icon: PhHeart },
+      { key: 'toggleFavoritesFilter', label: t('shortcut.toggle.favoritesFilter'), icon: PhStar },
       {
         key: 'toggleReadLaterFilter',
         label: t('shortcut.toggle.readLaterFilter'),

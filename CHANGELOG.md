@@ -10,16 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added configurable interface typography settings for application fonts and sizes while preserving article content typography. (#998) (@marcomarcogd)
+- Supported translation of article summarys. (#983)
 
 ### Changed
 
 - Updated backend and frontend dependencies, including Wails v3 beta and Tailwind CSS 4.
+- Standardized article and image gallery icons for favorites, copy link, and opening articles in the browser. (#980)
 
 ### Fixed
 
 - Fixed the first-fetched timestamp for articles without a publication date. (#992) (@cos-y)
 - Fixed switching away from card article layout without redundant per-article settings requests. (#997) (@marcomarcogd)
 - Fixed article content mismatches for feed entries without links. (#1000) (@marcomarcogd)
+- Fixed activity bar icons not being centered consistently. (#975)
+- Fixed Windows shortcut modifier labels and replaced the unset shortcut dash with a clear placeholder. (#976, #977)
+- Fixed the mark-all-as-read shortcut so it respects the current feed/category, uses the same confirmation dialog as the toolbar, and handles uncategorized feeds correctly. (#978)
+- Fixed article context menu ordering and renamed the original-content action to "View Original". (#979)
 
 ## [1.3.25] - 2026-07-19
 
