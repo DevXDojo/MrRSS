@@ -286,6 +286,7 @@ function handleDiscoverAll() {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 .sidebar-tab-btn {
   @apply w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-transparent text-text-secondary font-medium cursor-pointer transition-all relative;
 }

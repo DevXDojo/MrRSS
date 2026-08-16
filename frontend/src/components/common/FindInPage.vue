@@ -310,6 +310,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 .find-in-page-bar {
   @apply fixed top-[4.5rem] right-4 z-50 flex items-center gap-2 bg-bg-secondary border border-border rounded-lg shadow-lg p-2;
   width: auto;

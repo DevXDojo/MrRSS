@@ -46,6 +46,7 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .input-field {
   @apply p-1.5 sm:p-2.5 border border-border rounded-md bg-bg-secondary text-text-primary focus:border-accent focus:outline-none transition-colors;
 }

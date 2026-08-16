@@ -370,6 +370,7 @@ const imageStyle = computed<CSSProperties>(() => ({
 </template>
 
 <style scoped>
+@reference "../../style.css";
 /* Close button */
 .close-btn {
   @apply absolute top-4 right-4 w-8 h-8 bg-black/50 hover:bg-black/70;
@@ -381,7 +382,10 @@ const imageStyle = computed<CSSProperties>(() => ({
 .image-counter {
   @apply absolute top-4 left-4 px-2 py-1 rounded;
   @apply text-white text-sm font-medium min-w-[60px] text-center;
-  @apply z-10 text-shadow;
+  @apply z-10;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 /* Navigation buttons */
@@ -389,7 +393,10 @@ const imageStyle = computed<CSSProperties>(() => ({
   @apply absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded;
   @apply text-white text-4xl;
   @apply flex items-center justify-center transition-all duration-200;
-  @apply z-10 text-shadow;
+  @apply z-10;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .nav-btn-prev {

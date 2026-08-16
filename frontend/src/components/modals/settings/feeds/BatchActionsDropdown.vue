@@ -125,6 +125,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .batch-more-btn {
   @apply py-2.5 px-3 sm:py-3 sm:px-4 rounded-md flex items-center justify-center gap-1.5 sm:gap-2 font-medium transition-colors shrink-0 bg-bg-tertiary border border-border text-text-primary hover:bg-bg-secondary cursor-pointer;
 }

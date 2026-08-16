@@ -347,6 +347,7 @@ async function handleClose(checkUnsaved = false): Promise<void> {
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .input-field {
   @apply p-2 border border-border rounded-md bg-bg-primary text-text-primary text-sm focus:border-accent focus:outline-none transition-colors;
   height: 38px;

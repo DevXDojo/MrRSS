@@ -271,6 +271,7 @@ function getTestStatus(profileId: number): 'success' | 'error' | 'unknown' {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 /* Profile item styling - similar to RuleItem */
 .profile-item {
   @apply p-2 sm:p-3 rounded-lg bg-bg-secondary border border-border transition-all;

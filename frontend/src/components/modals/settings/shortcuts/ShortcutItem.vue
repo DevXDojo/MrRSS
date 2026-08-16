@@ -64,6 +64,7 @@ function formatKey(key: string): string {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .shortcut-row {
   @apply flex items-center justify-between gap-3 p-2 rounded-lg bg-bg-secondary border border-border;
 }

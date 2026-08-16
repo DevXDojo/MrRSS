@@ -320,6 +320,7 @@ function handleRefreshModeChange(value: string | number) {
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .input-field {
   @apply w-full p-2 sm:p-2.5 border border-border rounded-md bg-bg-tertiary text-text-primary text-xs sm:text-sm focus:border-accent focus:outline-none transition-colors;
 }

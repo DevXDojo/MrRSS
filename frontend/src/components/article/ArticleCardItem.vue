@@ -210,6 +210,7 @@ function handleImageError(event: Event) {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 .article-card-item {
   @apply bg-bg-primary border border-border rounded-lg overflow-hidden cursor-pointer;
   transition: all 0.2s ease;

@@ -52,6 +52,7 @@ function toggleCollapse() {
 </template>
 
 <style scoped>
+@reference "../../../style.css";
 .setting-group {
   @apply mb-4 sm:mb-6;
 }

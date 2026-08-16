@@ -440,6 +440,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 .select-container {
   position: relative;
 }

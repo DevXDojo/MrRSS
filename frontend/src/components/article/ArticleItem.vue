@@ -387,6 +387,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+@reference "../../style.css";
 .article-card {
   @apply py-2 px-1.5 sm:p-3 border-b border-border cursor-pointer transition-colors flex gap-2 sm:gap-3 relative border-l-2 sm:border-l-[3px] border-l-transparent;
 }
