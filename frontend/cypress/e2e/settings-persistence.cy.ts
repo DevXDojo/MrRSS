@@ -221,4 +221,111 @@ describe('Settings Persistence', () => {
     cy.contains(/general|常规/i).click({ force: true });
     cy.contains(/dark|深色/i).should('exist');
   });
+
+  it('should switch away from card layout without per-article settings requests', () => {
+    let layoutMode = 'card';
+    let settingsGetCount = 0;
+    let settingsRequestsBeforeSwitch = 0;
+
+    const settingsResponse = () => ({
+      language: 'en-US',
+      layout_mode: layoutMode,
+      update_check_enabled: 'false',
+      update_interval: '10',
+      last_global_refresh: new Date().toISOString(),
+    });
+
+    const articles = Array.from({ length: 24 }, (_, index) => ({
+      id: index + 1,
+      feed_id: 1,
+      feed_title: 'Test Feed',
+      title: `Test Article ${index + 1}`,
+      url: `https://example.com/articles/${index + 1}`,
+      published_at: '2026-08-13T00:00:00Z',
+      image_url: '',
+      translated_title: '',
+      is_read: false,
+      is_favorite: false,
+      is_hidden: false,
+      is_read_later: false,
+    }));
+
+    // Reload with deterministic API state so the regression does not depend on local data.
+    cy.intercept('/api/**', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/feeds', { statusCode: 200, body: [] }).as('layoutFeeds');
+    cy.intercept('GET', '/api/tags', { statusCode: 200, body: [] });
+    cy.intercept('GET', '/api/saved-filters', { statusCode: 200, body: [] });
+    cy.intercept(
+      { method: 'GET', pathname: '/api/articles' },
+      {
+        statusCode: 200,
+        body: articles,
+      }
+    ).as('layoutArticles');
+    cy.intercept('GET', '/api/articles/unread-counts', {
+      statusCode: 200,
+      body: { total: 0, feeds: {}, categories: {} },
+    });
+    cy.intercept('GET', '/api/articles/filter-counts', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/progress', { statusCode: 200, body: { is_running: false } });
+    cy.intercept('GET', '/api/settings', (req) => {
+      settingsGetCount += 1;
+      req.reply({ statusCode: 200, body: settingsResponse() });
+    }).as('layoutSettings');
+    cy.intercept('POST', '/api/settings', (req) => {
+      layoutMode = req.body.layout_mode;
+      req.reply({ statusCode: 200, body: { success: true } });
+    }).as('saveLayoutSettings');
+
+    const layoutSelector = () =>
+      cy.contains('.setting-item', 'Article List Layout').find('button.select-trigger');
+
+    const selectLayout = (label: string) => {
+      layoutSelector().click();
+      cy.contains('.select-option', label).click({ force: true });
+    };
+
+    cy.reload();
+    cy.wait('@layoutFeeds');
+    cy.wait('@layoutArticles');
+
+    cy.get('button[title="Settings"]').click();
+    cy.contains('button', /^Reading$/).click();
+    layoutSelector().should('contain.text', 'Card');
+    cy.wait(150);
+
+    cy.then(() => {
+      settingsRequestsBeforeSwitch = settingsGetCount;
+    });
+
+    selectLayout('Normal');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'normal');
+    layoutSelector().should('contain.text', 'Normal');
+    cy.then(() => {
+      expect(settingsGetCount - settingsRequestsBeforeSwitch).to.be.at.most(5);
+    });
+
+    selectLayout('Compact');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'compact');
+    layoutSelector().should('contain.text', 'Compact');
+
+    selectLayout('Card');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'card');
+    layoutSelector().should('contain.text', 'Card');
+
+    selectLayout('Normal');
+    cy.wait('@saveLayoutSettings').its('request.body.layout_mode').should('eq', 'normal');
+    layoutSelector().should('contain.text', 'Normal');
+
+    cy.get('body').type('{esc}');
+    cy.reload();
+    cy.wait('@layoutFeeds');
+    cy.wait('@layoutArticles');
+    cy.get('button[title="Settings"]').click();
+    cy.contains('button', /^Reading$/).click();
+    layoutSelector().should('contain.text', 'Normal');
+    cy.then(() => {
+      expect(layoutMode).to.eq('normal');
+    });
+  });
 });
