@@ -262,23 +262,24 @@ func (h *Handler) globalProxyURL() string {
 
 // findMatchingFeedItem finds the best matching feed item for an article using multiple criteria
 func (h *Handler) findMatchingFeedItem(article *models.Article, items []*gofeed.Item) *gofeed.Item {
-	// First pass: exact URL match
+	// First pass: URL + title match. Empty URLs are not valid identifiers and
+	// must never match each other, otherwise the first item in the feed wins.
 	for _, item := range items {
-		if urlutil.URLsMatch(item.Link, article.URL) {
+		if nonEmptyURLsMatch(item.Link, article.URL) && h.titlesMatch(item.Title, article.Title) {
 			return item
 		}
 	}
 
-	// Second pass: URL + title match (for script-based feeds that might have URL variations)
-	for _, item := range items {
-		if urlutil.URLsMatch(item.Link, article.URL) && h.titlesMatch(item.Title, article.Title) {
-			return item
-		}
-	}
-
-	// Third pass: title + published time match (fallback for when URLs don't match)
+	// Second pass: title + published time match (fallback for missing or changed URLs)
 	for _, item := range items {
 		if h.titlesMatch(item.Title, article.Title) && h.publishedTimesMatch(item.PublishedParsed, &article.PublishedAt) {
+			return item
+		}
+	}
+
+	// Third pass: URL-only match for feeds whose titles change between refreshes
+	for _, item := range items {
+		if nonEmptyURLsMatch(item.Link, article.URL) {
 			return item
 		}
 	}
@@ -291,6 +292,12 @@ func (h *Handler) findMatchingFeedItem(article *models.Article, items []*gofeed.
 	}
 
 	return nil
+}
+
+func nonEmptyURLsMatch(url1, url2 string) bool {
+	url1 = strings.TrimSpace(url1)
+	url2 = strings.TrimSpace(url2)
+	return url1 != "" && url2 != "" && urlutil.URLsMatch(url1, url2)
 }
 
 // titlesMatch checks if two titles match, allowing for minor differences
