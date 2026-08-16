@@ -40,7 +40,7 @@ cp -R ./mrrss-assistant ~/.codex/skills/
 Server 模式示例：
 
 ```bash
-docker run -p 1234:1234 ghcr.io/wcy-dt/mrrss:latest-amd64
+docker run -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-amd64
 ```
 
 然后在 Codex 中输入：

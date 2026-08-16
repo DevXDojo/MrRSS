@@ -33,7 +33,7 @@ func TestHandleDownloadUpdate_InvalidURLPrefix(t *testing.T) {
 }
 
 func TestHandleDownloadUpdate_InvalidAssetName(t *testing.T) {
-	body := bytes.NewReader([]byte(`{"download_url":"https://github.com/WCY-dt/MrRSS/releases/download/v1/app.zip","asset_name":"../secret"}`))
+	body := bytes.NewReader([]byte(`{"download_url":"https://github.com/DevXDojo/MrRSS/releases/download/v1/app.zip","asset_name":"../secret"}`))
 	req := httptest.NewRequest(http.MethodPost, "/update/download", body)
 	rr := httptest.NewRecorder()
 

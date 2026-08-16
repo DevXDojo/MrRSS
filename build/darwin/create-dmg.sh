@@ -5,7 +5,7 @@
 # Name: MrRSS
 # Description: A Modern, Cross-Platform Desktop RSS Reader
 # Publisher: Ch3nyang
-# URL: https://github.com/WCY-dt/MrRSS
+# URL: https://github.com/DevXDojo/MrRSS
 # Copyright: Copyright © Ch3nyang
 
 set -e
@@ -14,7 +14,7 @@ APP_NAME="MrRSS"
 # Get version from frontend/package.json if available, otherwise use default
 VERSION=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' frontend/package.json 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)".*/\1/' || echo "1.3.24")
 APP_PUBLISHER="Ch3nyang"
-APP_URL="https://github.com/WCY-dt/MrRSS"
+APP_URL="https://github.com/DevXDojo/MrRSS"
 APP_DESCRIPTION="A Modern, Cross-Platform Desktop RSS Reader"
 BUILD_DIR="build/bin"
 DMG_DIR="build/dmg"

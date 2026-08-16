@@ -121,7 +121,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.create-release.outputs.tag }}
 
@@ -470,7 +470,7 @@ jobs:
 
           To run: Double-click MrRSS.exe
 
-          For more information, visit: https://github.com/WCY-dt/MrRSS
+          For more information, visit: https://github.com/DevXDojo/MrRSS
           "@ | Out-File -FilePath "$portableDir/README.txt" -Encoding UTF8
 
           # Create zip file
@@ -530,7 +530,7 @@ jobs:
 
           To run: Double-click MrRSS.app
 
-          For more information, visit: https://github.com/WCY-dt/MrRSS
+          For more information, visit: https://github.com/DevXDojo/MrRSS
           EOF
 
           # Create zip file
@@ -577,7 +577,7 @@ jobs:
 
           To run: ./MrRSS
 
-          For more information, visit: https://github.com/WCY-dt/MrRSS
+          For more information, visit: https://github.com/DevXDojo/MrRSS
           EOF
 
           # Create tar.gz file

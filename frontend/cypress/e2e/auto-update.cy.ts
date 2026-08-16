@@ -5,7 +5,7 @@ describe('Auto Update Feature', () => {
     has_update: true,
     current_version: '1.3.12',
     latest_version: '1.3.13',
-    download_url: 'https://github.com/WCY-dt/MrRSS/releases/download/v1.3.13/MrRSS-1.3.13-windows-amd64-installer.exe',
+    download_url: 'https://github.com/DevXDojo/MrRSS/releases/download/v1.3.13/MrRSS-1.3.13-windows-amd64-installer.exe',
     asset_name: 'MrRSS-1.3.13-windows-amd64-installer.exe',
   };
 

@@ -40,7 +40,7 @@ Start MrRSS in server mode or run the desktop app with its local API available.
 Server mode:
 
 ```bash
-docker run -p 1234:1234 ghcr.io/wcy-dt/mrrss:latest-amd64
+docker run -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-amd64
 ```
 
 Then ask Codex:

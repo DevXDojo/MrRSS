@@ -34,38 +34,8 @@ const compactMode = computed(() => {
   return settings.value.layout_mode === 'compact';
 });
 
-// Listen for layout mode changes and initial settings load
-let handleLayoutModeChange: (() => void) | null = null;
-
-// Function to load layout mode settings
-function loadLayoutModeSettings() {
-  fetch('/api/settings')
-    .then((res) => res.json())
-    .then((data) => {
-      settings.value = {
-        ...settings.value,
-        layout_mode: data.layout_mode || 'normal',
-      };
-    })
-    .catch((err) => console.error('Error loading settings in ArticleItem:', err));
-}
-
-onMounted(() => {
-  // Load settings immediately when component mounts
-  loadLayoutModeSettings();
-
-  // Listen for layout mode changes
-  handleLayoutModeChange = () => {
-    loadLayoutModeSettings();
-  };
-
-  window.addEventListener('layout-mode-changed', handleLayoutModeChange);
-});
-
-onUnmounted(() => {
-  if (handleLayoutModeChange) {
-    window.removeEventListener('layout-mode-changed', handleLayoutModeChange);
-  }
+const hoverMarkAsRead = computed(() => {
+  return settings.value.hover_mark_as_read;
 });
 
 // Check if article is from RSSHub feed - O(1) lookup using feedMap
@@ -84,7 +54,6 @@ const formatDateWithI18n = (dateStr: string): string => {
 };
 
 const mediaCacheEnabled = ref(false);
-const hoverMarkAsRead = ref(false);
 let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const imageUrl = computed(() => {
@@ -230,21 +199,6 @@ async function markAsRead() {
     console.error('Error marking as read on hover:', e);
   }
 }
-
-async function loadSettings() {
-  try {
-    const res = await fetch('/api/settings');
-    const data = await res.json();
-    hoverMarkAsRead.value = data.hover_mark_as_read === 'true';
-  } catch (e) {
-    console.error('Error loading hover mark as read setting:', e);
-  }
-}
-
-onMounted(async () => {
-  mediaCacheEnabled.value = await isMediaCacheEnabled();
-  await loadSettings();
-});
 
 onUnmounted(() => {
   if (hoverTimeout) {

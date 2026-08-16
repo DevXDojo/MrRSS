@@ -5,7 +5,7 @@
 # Name: MrRSS
 # Description: A Modern, Cross-Platform Desktop RSS Reader
 # Publisher: Ch3nyang
-# URL: https://github.com/WCY-dt/MrRSS
+# URL: https://github.com/DevXDojo/MrRSS
 # Copyright: Copyright © Ch3nyang
 
 # Exit on error, but allow some commands to fail gracefully
@@ -19,7 +19,7 @@ ARCH=${ARCH:-amd64}
 echo "Target architecture: ${ARCH}"
 echo "System architecture: $(uname -m)"
 APP_PUBLISHER="Ch3nyang"
-APP_URL="https://github.com/WCY-dt/MrRSS"
+APP_URL="https://github.com/DevXDojo/MrRSS"
 APP_DESCRIPTION="A Modern, Cross-Platform Desktop RSS Reader"
 BUILD_DIR="build/bin"
 APPDIR="build/appimage/${APP_NAME}.AppDir"
