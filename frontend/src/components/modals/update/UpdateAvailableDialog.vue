@@ -52,6 +52,10 @@ const updateButtonText = computed(() => {
   }
 });
 
+const normalizedDownloadProgress = computed(() =>
+  Math.min(100, Math.max(0, props.downloadProgress))
+);
+
 function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault();
@@ -106,6 +110,18 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <div v-if="props.downloadingUpdate" class="mt-4" data-testid="update-download-progress">
+        <div class="mb-1 flex items-center justify-between text-xs text-text-secondary">
+          <span>{{ t('common.action.downloading') }}</span>
+          <span>{{ Math.round(normalizedDownloadProgress) }}%</span>
+        </div>
+        <progress
+          class="download-progress block h-2 w-full overflow-hidden rounded-full"
+          :value="normalizedDownloadProgress"
+          max="100"
+        ></progress>
+      </div>
+
       <p v-if="!updateInfo.download_url" class="text-text-secondary text-xs mt-4">
         {{ t('setting.update.noInstallerAvailable') }}
         <a
@@ -152,6 +168,21 @@ onUnmounted(() => {
 }
 .btn-primary:disabled {
   @apply opacity-50 cursor-not-allowed;
+}
+
+.download-progress {
+  appearance: none;
+  border: 0;
+  background: var(--bg-tertiary);
+}
+
+.download-progress::-webkit-progress-bar {
+  background: var(--bg-tertiary);
+}
+
+.download-progress::-webkit-progress-value,
+.download-progress::-moz-progress-bar {
+  background: var(--accent-color);
 }
 
 .animate-spin {
