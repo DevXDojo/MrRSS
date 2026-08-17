@@ -761,6 +761,8 @@ const en: TranslationMessages = {
       contentFontFamilyDesc: 'Font family for article content',
       contentFontSize: 'Content Font Size',
       contentFontSizeDesc: 'Font size for article content',
+      articleTitleFontSize: 'Article Title Size',
+      articleTitleFontSizeDesc: 'Set the article title size independently from the body text',
       contentLineHeight: 'Content Line Height',
       contentLineHeightDesc: 'Line spacing for article content',
       fontMonospace: 'Monospace',

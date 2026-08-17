@@ -5,6 +5,13 @@ export const READER_FONT_SIZE = {
   default: 17,
 } as const;
 
+export const READER_TITLE_FONT_SIZE = {
+  min: 24,
+  max: 56,
+  step: 1,
+  default: 38,
+} as const;
+
 export const READER_LINE_HEIGHT = {
   min: 130,
   max: 200,

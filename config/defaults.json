@@ -13,6 +13,7 @@
   "ai_translation_prompt": "You are a translator. Translate the given text accurately. Output ONLY the translated text, nothing else.",
   "ai_usage_limit": "20000",
   "ai_usage_tokens": "0",
+  "article_title_font_size": 38,
   "auto_cleanup_enabled": true,
   "auto_show_all_content": false,
   "baidu_app_id": "",

@@ -33,6 +33,7 @@ export interface Article {
 export interface Feed {
   id: number;
   url: string;
+  link?: string;
   title: string;
   category: string;
   last_fetched_at: string;

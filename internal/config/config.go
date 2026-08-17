@@ -32,6 +32,7 @@ type Defaults struct {
 	AITranslationPrompt           string `json:"ai_translation_prompt"`
 	AIUsageLimit                  string `json:"ai_usage_limit"`
 	AIUsageTokens                 string `json:"ai_usage_tokens"`
+	ArticleTitleFontSize          int    `json:"article_title_font_size"`
 	AutoCleanupEnabled            bool   `json:"auto_cleanup_enabled"`
 	AutoShowAllContent            bool   `json:"auto_show_all_content"`
 	BaiduAppId                    string `json:"baidu_app_id"`
@@ -179,6 +180,8 @@ func GetString(key string) string {
 		return defaults.AIUsageLimit
 	case "ai_usage_tokens":
 		return defaults.AIUsageTokens
+	case "article_title_font_size":
+		return strconv.Itoa(defaults.ArticleTitleFontSize)
 	case "auto_cleanup_enabled":
 		return strconv.FormatBool(defaults.AutoCleanupEnabled)
 	case "auto_show_all_content":

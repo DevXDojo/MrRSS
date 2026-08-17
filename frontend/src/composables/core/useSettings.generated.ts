@@ -27,6 +27,7 @@ export function generateInitialSettings(): SettingsData {
     ai_translation_prompt: settingsDefaults.ai_translation_prompt,
     ai_usage_limit: settingsDefaults.ai_usage_limit,
     ai_usage_tokens: settingsDefaults.ai_usage_tokens,
+    article_title_font_size: settingsDefaults.article_title_font_size,
     auto_cleanup_enabled: settingsDefaults.auto_cleanup_enabled,
     auto_show_all_content: settingsDefaults.auto_show_all_content,
     baidu_app_id: settingsDefaults.baidu_app_id,
@@ -152,6 +153,8 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     ai_translation_prompt: data.ai_translation_prompt || settingsDefaults.ai_translation_prompt,
     ai_usage_limit: data.ai_usage_limit || settingsDefaults.ai_usage_limit,
     ai_usage_tokens: data.ai_usage_tokens || settingsDefaults.ai_usage_tokens,
+    article_title_font_size:
+      parseInt(data.article_title_font_size) || settingsDefaults.article_title_font_size,
     auto_cleanup_enabled: data.auto_cleanup_enabled === 'true',
     auto_show_all_content: data.auto_show_all_content === 'true',
     baidu_app_id: data.baidu_app_id || settingsDefaults.baidu_app_id,
@@ -300,6 +303,9 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
       settingsRef.value.ai_translation_prompt ?? settingsDefaults.ai_translation_prompt,
     ai_usage_limit: settingsRef.value.ai_usage_limit ?? settingsDefaults.ai_usage_limit,
     ai_usage_tokens: settingsRef.value.ai_usage_tokens ?? settingsDefaults.ai_usage_tokens,
+    article_title_font_size: (
+      settingsRef.value.article_title_font_size ?? settingsDefaults.article_title_font_size
+    ).toString(),
     auto_cleanup_enabled: (
       settingsRef.value.auto_cleanup_enabled ?? settingsDefaults.auto_cleanup_enabled
     ).toString(),

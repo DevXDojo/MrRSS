@@ -746,6 +746,13 @@
       "encrypted": false,
       "frontend_key": "content_font_size"
     },
+    "article_title_font_size": {
+      "type": "int",
+      "default": 38,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "article_title_font_size"
+    },
     "content_line_height": {
       "type": "string",
       "default": "1.65",

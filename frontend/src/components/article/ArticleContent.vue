@@ -24,7 +24,7 @@ import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { estimateReadingTime } from '@/utils/readingTime';
-import { READER_MAX_WIDTH, clampReaderSetting } from '@/constants/reader';
+import { READER_MAX_WIDTH, READER_TITLE_FONT_SIZE, clampReaderSetting } from '@/constants/reader';
 import { resolveFontFamily } from '@/utils/fontDetector';
 import './ArticleContent.css';
 
@@ -180,6 +180,12 @@ const readerStyle = computed(() => ({
     READER_MAX_WIDTH.default
   )}px`,
   '--reader-title-font-family': readerTitleFontFamily.value,
+  '--reader-title-font-size': `${clampReaderSetting(
+    appSettings.value.article_title_font_size,
+    READER_TITLE_FONT_SIZE.min,
+    READER_TITLE_FONT_SIZE.max,
+    READER_TITLE_FONT_SIZE.default
+  )}px`,
 }));
 
 // Use composables for summary and translation
