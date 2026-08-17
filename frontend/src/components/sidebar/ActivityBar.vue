@@ -346,37 +346,13 @@ defineExpose({
 .nav-items-container {
   /* Smooth height transition when items are added/removed */
   transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Reserve the scrollbar space on both sides so centered icons stay centered. */
-  scrollbar-gutter: stable both-edges;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-.nav-items-container:hover,
-.nav-items-container:focus-within {
-  scrollbar-color: var(--border-color) transparent;
+  /* Keep scrolling without reserving a native gutter in WKWebView. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .nav-items-container::-webkit-scrollbar {
-  width: 4px;
-}
-
-.nav-items-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.nav-items-container::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 2px;
-}
-
-.nav-items-container:hover::-webkit-scrollbar-thumb,
-.nav-items-container:focus-within::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-}
-
-.nav-items-container::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  display: none;
 }
 
 /* Nav item enter/leave transitions */
