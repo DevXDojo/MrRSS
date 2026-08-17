@@ -19,6 +19,8 @@ const emit = defineEmits<{
 const tags = ref<Tag[]>([]);
 const editingTag = ref<Tag | null>(null);
 const showAddForm = ref(false);
+const tagsLoading = ref(true);
+const tagsLoadError = ref(false);
 
 // Fetch tags on mount
 onMounted(async () => {
@@ -26,11 +28,24 @@ onMounted(async () => {
 });
 
 async function fetchTags() {
+  tagsLoading.value = true;
+  tagsLoadError.value = false;
+
   try {
     const res = await fetch('/api/tags');
-    tags.value = await res.json();
+    if (!res.ok) {
+      throw new Error(`Failed to fetch tags: HTTP ${res.status}`);
+    }
+
+    const data: unknown = await res.json();
+    tags.value = Array.isArray(data) ? (data as Tag[]) : [];
   } catch (e) {
     console.error('Failed to fetch tags:', e);
+    tags.value = [];
+    tagsLoadError.value = true;
+    window.showToast(t('modal.tag.loadFailed'), 'error');
+  } finally {
+    tagsLoading.value = false;
   }
 }
 
@@ -126,8 +141,29 @@ function close() {
   <BaseModal :title="t('modal.tag.manageTags')" size="2xl" :z-index="100" @close="close">
     <!-- Content -->
     <div class="p-4 sm:p-6">
+      <!-- Loading state -->
+      <div v-if="tagsLoading" class="space-y-3 py-4" data-testid="tag-management-loading">
+        <div v-for="index in 3" :key="index" class="h-9 animate-pulse rounded bg-bg-tertiary" />
+      </div>
+
+      <!-- Error state -->
+      <div
+        v-else-if="tagsLoadError"
+        class="flex flex-col items-center py-12 text-center text-text-secondary"
+        data-testid="tag-management-error"
+      >
+        <p>{{ t('modal.tag.loadFailed') }}</p>
+        <button
+          type="button"
+          class="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
+          @click="fetchTags"
+        >
+          {{ t('modal.tag.retry') }}
+        </button>
+      </div>
+
       <!-- Tag List -->
-      <div v-if="tags.length > 0">
+      <div v-else-if="tags.length > 0">
         <!-- Tags displayed in a flex wrap layout -->
         <div class="flex flex-wrap gap-2">
           <div
@@ -172,7 +208,7 @@ function close() {
       </div>
 
       <!-- Empty state -->
-      <div v-else class="text-center py-12 text-text-secondary">
+      <div v-else class="text-center py-12 text-text-secondary" data-testid="tag-management-empty">
         <div class="text-4xl mb-4">🏷️</div>
         <p>{{ t('modal.tag.noTags') }}</p>
         <button

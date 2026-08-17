@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -49,6 +50,37 @@ func TestDatabaseInitialization(t *testing.T) {
 	}
 
 	// Schema version table removed in development - skip version check
+}
+
+func TestGetTagsReturnsEmptyJSONArray(t *testing.T) {
+	db, err := NewDB(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Init(); err != nil {
+		t.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	tags, err := db.GetTags()
+	if err != nil {
+		t.Fatalf("Failed to get tags: %v", err)
+	}
+	if tags == nil {
+		t.Fatal("Expected an empty tag slice, got nil")
+	}
+	if len(tags) != 0 {
+		t.Fatalf("Expected no tags, got %d", len(tags))
+	}
+
+	encoded, err := json.Marshal(tags)
+	if err != nil {
+		t.Fatalf("Failed to encode tags: %v", err)
+	}
+	if string(encoded) != "[]" {
+		t.Fatalf("Expected empty JSON array, got %s", encoded)
+	}
 }
 
 func TestDatabasePerformanceWithIndexes(t *testing.T) {
