@@ -103,9 +103,9 @@ tasks:
         EOF
 
   package:
-    summary: Packages the application into a DMG
+    summary: Signs and packages the application into a DMG
     deps:
-      - task: build
+      - task: sign:dev
     cmds:
       - task: create:dmg
 
@@ -193,7 +193,7 @@ tasks:
         fi
 
         # Verify signature
-        codesign --verify --verbose {{.BIN_DIR}}/{{.APP_NAME}}.app
+        codesign --verify --deep --strict --verbose=2 {{.BIN_DIR}}/{{.APP_NAME}}.app
   build:server:
     summary: Builds the server version using Docker
     deps:
