@@ -237,9 +237,13 @@ jobs:
       - name: Create installer (macOS)
         if: matrix.platform == 'darwin'
         run: |
+          codesign --deep --force --verify --verbose \
+            --sign - \
+            --entitlements build/darwin/entitlements.plist \
+            build/bin/MrRSS.app
+          codesign --verify --deep --strict --verbose=2 build/bin/MrRSS.app
           chmod +x build/darwin/create-dmg.sh
           ./build/darwin/create-dmg.sh
-        continue-on-error: true
 
       - name: Package application (Linux - tar.gz fallback)
         if: matrix.platform == 'linux'
