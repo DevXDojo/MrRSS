@@ -247,6 +247,74 @@ func TestHandleReloadArticleContentClearsOnlyArticleContent(t *testing.T) {
 	}
 }
 
+func TestHandleCleanupArticlesPreservesProtectedArticles(t *testing.T) {
+	h := setupHandler(t)
+	feedID, err := h.DB.AddFeed(&models.Feed{Title: "Cleanup Feed", URL: "http://example.com/cleanup"})
+	if err != nil {
+		t.Fatalf("AddFeed: %v", err)
+	}
+
+	articles := []*models.Article{
+		{FeedID: feedID, Title: "Delete", URL: "http://example.com/delete", PublishedAt: time.Now()},
+		{FeedID: feedID, Title: "Read", URL: "http://example.com/read", PublishedAt: time.Now(), IsRead: true},
+		{FeedID: feedID, Title: "Favorite", URL: "http://example.com/favorite", PublishedAt: time.Now(), IsFavorite: true},
+		{FeedID: feedID, Title: "Read Later", URL: "http://example.com/read-later", PublishedAt: time.Now(), IsReadLater: true},
+	}
+	if err := h.DB.SaveArticles(context.Background(), articles); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	savedArticles, err := h.DB.GetArticles("", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles: %v", err)
+	}
+	for _, savedArticle := range savedArticles {
+		if err := h.DB.SetArticleContent(savedArticle.ID, "cached "+savedArticle.Title); err != nil {
+			t.Fatalf("SetArticleContent: %v", err)
+		}
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/articles/cleanup", nil)
+	getRecorder := httptest.NewRecorder()
+	article.HandleCleanupArticles(h, getRecorder, getReq)
+	if getRecorder.Result().StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("expected GET cleanup to return 405, got %d", getRecorder.Result().StatusCode)
+	}
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/articles/cleanup", nil)
+	postRecorder := httptest.NewRecorder()
+	article.HandleCleanupArticles(h, postRecorder, postReq)
+	if postRecorder.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected cleanup to return 200, got %d: %s", postRecorder.Result().StatusCode, postRecorder.Body.String())
+	}
+
+	var result struct {
+		Deleted  int64  `json:"deleted"`
+		Articles int64  `json:"articles"`
+		Contents int64  `json:"contents"`
+		Type     string `json:"type"`
+	}
+	if err := json.NewDecoder(postRecorder.Result().Body).Decode(&result); err != nil {
+		t.Fatalf("decode cleanup response: %v", err)
+	}
+	if result.Deleted != 1 || result.Articles != 1 || result.Contents != 0 || result.Type != "unimportant" {
+		t.Fatalf("unexpected cleanup response: %+v", result)
+	}
+
+	remaining, err := h.DB.GetArticles("", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles after cleanup: %v", err)
+	}
+	if len(remaining) != 3 {
+		t.Fatalf("expected 3 protected articles, got %d", len(remaining))
+	}
+	for _, remainingArticle := range remaining {
+		if _, found, err := h.DB.GetArticleContent(remainingArticle.ID); err != nil || !found {
+			t.Fatalf("expected cached content for %q to remain, found=%v, err=%v", remainingArticle.Title, found, err)
+		}
+	}
+}
+
 func TestHandleExportToObsidian(t *testing.T) {
 	h := setupHandler(t)
 

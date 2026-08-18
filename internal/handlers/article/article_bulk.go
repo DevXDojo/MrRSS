@@ -225,10 +225,10 @@ func HandleRefresh(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, map[string]string{"status": "refreshing"})
 }
 
-// HandleCleanupArticles triggers manual cleanup of articles.
-// This clears ALL articles and article contents, but keeps feeds and settings.
-// @Summary      Cleanup all articles
-// @Description  Delete all articles and article contents (keeps feeds and settings)
+// HandleCleanupArticles triggers manual cleanup of unimportant articles.
+// It preserves read, favorited, and read-later articles and their cached content.
+// @Summary      Cleanup unimportant articles
+// @Description  Delete unread articles that are neither favorited nor saved for later
 // @Tags         articles
 // @Accept       json
 // @Produce      json
@@ -241,29 +241,19 @@ func HandleCleanupArticles(h *core.Handler, w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Manual cleanup: clear ALL articles and article contents, but keep feeds
-	// Step 1: Delete all article contents
-	contentCount, err := h.DB.CleanupAllArticleContents()
+	articleCount, err := h.DB.CleanupUnimportantArticles()
 	if err != nil {
-		log.Printf("Error cleaning up article contents: %v", err)
+		log.Printf("Error cleaning up unimportant articles: %v", err)
 		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
-	// Step 2: Delete all articles (but keep feeds and settings)
-	articleCount, err := h.DB.DeleteAllArticles()
-	if err != nil {
-		log.Printf("Error deleting all articles: %v", err)
-		response.Error(w, err, http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("Manual cleanup: cleared %d article contents and %d articles", contentCount, articleCount)
+	log.Printf("Manual cleanup: deleted %d unimportant articles", articleCount)
 	response.JSON(w, map[string]interface{}{
-		"deleted":  contentCount + articleCount,
+		"deleted":  articleCount,
 		"articles": articleCount,
-		"contents": contentCount,
-		"type":     "all",
+		"contents": int64(0),
+		"type":     "unimportant",
 	})
 }
 

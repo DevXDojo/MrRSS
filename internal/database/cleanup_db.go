@@ -116,10 +116,6 @@ func (db *DB) CleanupUnimportantArticles() (int64, error) {
 
 	count, _ := result.RowsAffected()
 
-	// Also cleanup related caches (remove entries older than 7 days)
-	_, _ = db.CleanupTranslationCache(7)
-	_, _ = db.CleanupOldArticleContents(7)
-
 	// Reclaim freelist pages
 	if count > 0 {
 		_, _ = db.IncrementalVacuum()

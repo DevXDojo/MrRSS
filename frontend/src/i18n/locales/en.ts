@@ -798,7 +798,7 @@ const en: TranslationMessages = {
       clean: 'Clean',
       cleanDatabase: 'Clean Database',
       cleanDatabaseMessage:
-        'This will delete all articles except read and favorited ones. Continue?',
+        'This will delete unread articles that are neither favorited nor saved for later. Read, favorited, and read-later articles will be preserved. Continue?',
       cleanDatabaseTitle: 'Clean Database',
       cleaning: 'Cleaning...',
       cleanupArticleContentCache: 'Clean Now',
