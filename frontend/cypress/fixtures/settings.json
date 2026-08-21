@@ -3,7 +3,7 @@
   "refresh_mode": "fixed",
   "language": "en-US",
   "theme": "light",
-  "auto_update": false,
+  "update_check_enabled": "false",
   "default_view_mode": "rendered",
   "startup_on_boot": false,
   "close_to_tray": true,

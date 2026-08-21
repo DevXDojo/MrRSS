@@ -40,7 +40,7 @@ describe('Auto Update Feature', () => {
   });
 
   describe('Auto Update Setting UI', () => {
-    it('should display auto update toggle in settings', () => {
+    it('should display the startup update-check toggle in settings', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings modal
@@ -52,14 +52,14 @@ describe('Auto Update Feature', () => {
       // Navigate to General tab
       cy.contains(/general|常规/i).click({ force: true });
 
-      // Verify auto update toggle exists (in Application section)
-      cy.contains(/auto update|自动更新/i).should('be.visible');
-
-      // Verify the toggle/checkbox exists
-      cy.get('input[type="checkbox"]').should('exist');
+      cy.contains('.setting-item', /check for updates on startup|启动时检查更新/i)
+        .scrollIntoView()
+        .should('be.visible')
+        .find('input[type="checkbox"]')
+        .should('exist');
     });
 
-    it('should toggle auto update setting', () => {
+    it('should toggle the startup update-check setting', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings modal
@@ -68,32 +68,27 @@ describe('Auto Update Feature', () => {
       cy.contains(/general|常规/i).click({ force: true });
       cy.wait('@getSettings');
 
-      // Find the auto update toggle (below "startup on boot")
-      cy.contains(/startup on boot|开机自启动/i)
-        .parent()
-        .parent()
-        .next()
-        .contains(/auto update|自动更新/i)
-        .parent()
+      cy.contains('.setting-item', /check for updates on startup|启动时检查更新/i)
+        .scrollIntoView()
         .find('input[type="checkbox"]')
-        .as('autoUpdateToggle');
+        .as('updateCheckToggle');
 
       // Get initial state
-      cy.get('@autoUpdateToggle').then(($checkbox) => {
+      cy.get('@updateCheckToggle').then(($checkbox) => {
         const initialState = $checkbox.prop('checked');
 
         // Click the toggle to change state
-        cy.get('@autoUpdateToggle').click();
+        cy.get('@updateCheckToggle').click();
 
         // Wait for settings to be saved (auto-save)
         cy.wait('@saveSettings', { timeout: 5000 });
 
         // Verify the state changed
-        cy.get('@autoUpdateToggle').should('not.have.prop', 'checked', initialState);
+        cy.get('@updateCheckToggle').should('not.have.prop', 'checked', initialState);
       });
     });
 
-    it('should persist auto update setting after closing and reopening settings', () => {
+    it('should persist the startup update-check setting after reopening settings', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings and enable auto update
@@ -102,15 +97,10 @@ describe('Auto Update Feature', () => {
       cy.contains(/general|常规/i).click({ force: true });
       cy.wait('@getSettings');
 
-      // Find and toggle the auto update setting
-      cy.contains(/startup on boot|开机自启动/i)
-        .parent()
-        .parent()
-        .next()
-        .contains(/auto update|自动更新/i)
-        .parent()
+      cy.contains('.setting-item', /check for updates on startup|启动时检查更新/i)
+        .scrollIntoView()
         .find('input[type="checkbox"]')
-        .as('autoUpdateToggle')
+        .as('updateCheckToggle')
         .click();
 
       cy.wait('@saveSettings', { timeout: 5000 });
@@ -126,19 +116,21 @@ describe('Auto Update Feature', () => {
       // Navigate to general tab
       cy.contains(/general|常规/i).click({ force: true });
 
-      // Verify the setting is still there
-      cy.contains(/auto update|自动更新/i).should('be.visible');
-      cy.get('input[type="checkbox"]').should('exist');
+      cy.contains('.setting-item', /check for updates on startup|启动时检查更新/i)
+        .scrollIntoView()
+        .should('be.visible')
+        .find('input[type="checkbox"]')
+        .should('exist');
     });
   });
 
   describe('Update Available Dialog', () => {
-    it('should show update dialog when update is available and auto-update is disabled', () => {
-      // Mock settings with auto_update disabled
+    it('should show an update dialog when startup update checks are enabled', () => {
+      // Enable startup update checks.
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: false,
+          update_check_enabled: 'true',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
@@ -166,53 +158,43 @@ describe('Auto Update Feature', () => {
       cy.contains(/update now|立即更新/i).should('be.visible');
     });
 
-    it('should not show dialog when auto-update is enabled', () => {
-      // Mock settings with auto_update enabled
+    it('should not check or show a dialog when startup update checks are disabled', () => {
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: true,
+          update_check_enabled: 'false',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
         },
       }).as('getSettings');
 
-      // Mock update check and download/install APIs
-      cy.intercept('GET', '/api/check-updates', {
-        statusCode: 200,
-        body: mockUpdateInfo,
-      }).as('checkUpdates');
-
-      cy.intercept('POST', '/api/download-update', {
-        statusCode: 200,
-        body: { success: true, file_path: '/path/to/update.exe' },
-      }).as('downloadUpdate');
-
-      cy.intercept('POST', '/api/install-update', {
-        statusCode: 200,
-        body: { success: true },
-      }).as('installUpdate');
+      let updateCheckCount = 0;
+      cy.intercept('GET', '/api/check-updates', (req) => {
+        updateCheckCount += 1;
+        req.reply({ statusCode: 200, body: mockUpdateInfo });
+      });
 
       cy.visit('/');
       cy.wait('@getFeeds');
 
-      // Wait for automatic update check and download
-      cy.wait(5000);
+      // Wait beyond the three-second startup timer.
+      cy.wait(4000);
 
       // Verify dialog is NOT shown
       cy.contains(/update available|有可用更新/i).should('not.exist');
 
-      // Verify download was triggered
-      cy.wait('@downloadUpdate', { timeout: 10000 });
+      cy.then(() => {
+        expect(updateCheckCount).to.equal(0);
+      });
     });
 
     it('should close update dialog when clicking "Not Now"', () => {
-      // Mock settings with auto_update disabled
+      // Enable startup update checks.
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: false,
+          update_check_enabled: 'true',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
@@ -240,11 +222,11 @@ describe('Auto Update Feature', () => {
     });
 
     it('should trigger update when clicking "Update Now"', () => {
-      // Mock settings with auto_update disabled
+      // Enable startup update checks.
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: false,
+          update_check_enabled: 'true',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
@@ -285,11 +267,11 @@ describe('Auto Update Feature', () => {
     });
 
     it('should not show dialog when no update is available', () => {
-      // Mock settings with auto_update disabled
+      // Enable startup update checks.
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: false,
+          update_check_enabled: 'true',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
@@ -362,17 +344,17 @@ describe('Auto Update Feature', () => {
       cy.wait('@checkUpdates');
 
       // Verify up to date message is displayed
-      cy.contains(/up to date|最新版本/i).should('be.visible');
+      cy.contains(/up to date|latest version|最新版本/i).should('be.visible');
     });
   });
 
   describe('Update Progress Display', () => {
     it('should show download progress in dialog', () => {
-      // Mock settings with auto_update disabled
+      // Enable startup update checks.
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: false,
+          update_check_enabled: 'true',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
@@ -406,15 +388,15 @@ describe('Auto Update Feature', () => {
       cy.contains(/downloading|正在下载/i).should('be.visible');
 
       // Verify progress bar exists
-      cy.get('.bg-accent.h-full.transition-all').should('exist');
+      cy.get('[data-testid="update-download-progress"]').should('be.visible');
     });
 
     it('should show installing message after download completes', () => {
-      // Mock settings with auto_update disabled
+      // Enable startup update checks.
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: false,
+          update_check_enabled: 'true',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
@@ -462,11 +444,11 @@ describe('Auto Update Feature', () => {
 
   describe('Error Handling', () => {
     it('should handle download failure gracefully', () => {
-      // Mock settings with auto_update disabled
+      // Enable startup update checks.
       cy.intercept('GET', '/api/settings', {
         statusCode: 200,
         body: {
-          auto_update: false,
+          update_check_enabled: 'true',
           theme: 'light',
           language: 'en-US',
           update_interval: '30',
