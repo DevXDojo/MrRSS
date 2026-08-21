@@ -26,17 +26,11 @@ describe('Settings Persistence', () => {
     // Ensure we're on the general tab (or navigate to it)
     cy.contains(/general|常规/i).click({ force: true });
 
-    // Find the theme selector - try to find dark theme option
-    cy.get('body').then(($body) => {
-      if ($body.find(/dark|深色/i).length > 0) {
-        cy.contains(/dark|深色/i).click({ force: true });
-
-        // Wait for settings to be saved
-        cy.wait('@saveSettings', { timeout: 5000 });
-      } else {
-        cy.log('Dark theme option not found');
-      }
-    });
+    cy.contains('.setting-item', /theme|主题/i)
+      .find('button.select-trigger')
+      .click();
+    cy.contains('.select-option', /dark|暗色|深色/i).click({ force: true });
+    cy.wait('@saveSettings', { timeout: 5000 }).its('request.body.theme').should('eq', 'dark');
 
     // Close the settings modal
     cy.get('body').type('{esc}');
@@ -50,8 +44,11 @@ describe('Settings Persistence', () => {
     // Wait for settings to load again
     cy.wait('@getSettings');
 
-    // Verify dark theme option exists
-    cy.contains(/dark|深色/i).should('exist');
+    cy.contains('.setting-item', /theme|主题/i)
+      .find('button.select-trigger')
+      .should(($button) => {
+        expect($button.text()).to.match(/dark|暗色|深色/i);
+      });
   });
 
   it('should persist language changes', () => {
@@ -67,24 +64,23 @@ describe('Settings Persistence', () => {
     // Wait for settings to load
     cy.wait('@getSettings');
 
-    // Look for language selector and change it
-    cy.get('body').then(($body) => {
-      if ($body.find('select').length > 0) {
-        // If there's a select dropdown
-        cy.get('select').first().select(1);
-
-        // Wait for settings to be saved
-        cy.wait('@saveSettings', { timeout: 5000 });
-      } else if ($body.find('[role="radiogroup"]').length > 0) {
-        // If there are radio buttons
-        cy.get('[role="radio"]').last().click({ force: true });
-
-        // Wait for settings to be saved
-        cy.wait('@saveSettings', { timeout: 5000 });
-      } else {
-        cy.log('Language selector not found');
-      }
-    });
+    let expectedLanguage = '';
+    cy.contains('.setting-item', /language|语言/i)
+      .find('button.select-trigger')
+      .invoke('text')
+      .then((currentLanguage) => {
+        const chooseChinese = /english|英语/i.test(currentLanguage);
+        expectedLanguage = chooseChinese ? 'zh-CN' : 'en-US';
+        cy.contains('.setting-item', /language|语言/i)
+          .find('button.select-trigger')
+          .click();
+        cy.contains('.select-option', chooseChinese ? /chinese|中文/i : /english|英语/i).click({
+          force: true,
+        });
+        cy.wait('@saveSettings', { timeout: 5000 })
+          .its('request.body.language')
+          .should('eq', expectedLanguage);
+      });
 
     // Close settings
     cy.get('body').type('{esc}');
@@ -94,8 +90,12 @@ describe('Settings Persistence', () => {
     cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
     cy.wait('@getSettings');
 
-    // Verify language selector exists
-    cy.get('select, [role="radiogroup"]').should('exist');
+    cy.contains('.setting-item', /language|语言/i)
+      .find('button.select-trigger')
+      .should(($button) => {
+        const expectedLabel = expectedLanguage === 'zh-CN' ? /chinese|中文/i : /english|英语/i;
+        expect($button.text()).to.match(expectedLabel);
+      });
   });
 
   it('should persist update interval changes', () => {
@@ -111,40 +111,39 @@ describe('Settings Persistence', () => {
     // Wait for settings to load
     cy.wait('@getSettings');
 
-    // Look for update interval input (it only appears when refresh mode is 'fixed')
-    // Use data-testid to find the refresh mode selector
-    cy.get('[data-testid="refresh-mode-selector"]').then(($select) => {
-      if ($select.length > 0) {
-        // Set refresh mode to 'fixed' to show the interval input
-        cy.wrap($select).select('fixed');
-        cy.wait(500);
+    cy.contains('.setting-item', /refresh mode|刷新模式/i)
+      .scrollIntoView()
+      .find('button.select-trigger')
+      .click();
+    cy.contains('.select-option', /fixed interval|固定间隔/i).click({ force: true });
 
-        // Now look for the number input
-        cy.get('input[type="number"]').then(($input) => {
-          if ($input.length > 0) {
-            cy.wrap($input).first().clear().type('30');
+    let expectedInterval = '';
+    cy.contains('.sub-setting-item', /auto update interval|自动更新间隔/i)
+      .scrollIntoView()
+      .find('input[type="number"]')
+      .invoke('val')
+      .then((currentValue) => {
+        expectedInterval = String(currentValue) === '31' ? '30' : '31';
+        cy.contains('.sub-setting-item', /auto update interval|自动更新间隔/i)
+          .find('input[type="number"]')
+          .invoke('val', expectedInterval)
+          .trigger('input')
+          .trigger('change');
+        cy.wait('@saveSettings', { timeout: 5000 })
+          .its('request.body.update_interval')
+          .should('eq', expectedInterval);
+      });
 
-            // Wait for auto-save
-            cy.wait(2000);
-
-            // Close settings
-            cy.get('body').type('{esc}');
-            cy.wait(500);
-
-            // Reopen to verify
-            cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
-            cy.wait('@getSettings');
-
-            // Verify the input exists
-            cy.get('input[type="number"]').first().should('exist');
-          } else {
-            cy.log('Update interval input not found after setting refresh mode');
-          }
-        });
-      } else {
-        cy.log('Refresh mode selector not found - skipping test');
-      }
-    });
+    cy.get('body').type('{esc}');
+    cy.wait(500);
+    cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+    cy.wait('@getSettings');
+    cy.contains('.sub-setting-item', /auto update interval|自动更新间隔/i)
+      .scrollIntoView()
+      .find('input[type="number"]')
+      .should(($input) => {
+        expect($input.val()).to.equal(expectedInterval);
+      });
   });
 
   it('should handle multiple setting changes in sequence', () => {
@@ -194,21 +193,25 @@ describe('Settings Persistence', () => {
     cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
     cy.wait('@getSettings');
 
-    // Make a change in general tab
+    let expectedTheme = '';
     cy.contains(/general|常规/i).click({ force: true });
-    cy.get('body').then(($body) => {
-      if ($body.find(/dark|深色/i).length > 0) {
-        cy.contains(/dark|深色/i).click({ force: true });
-
-        // Switch to feeds tab - settings should auto-save
-        cy.get('body').then(($body2) => {
-          if ($body2.find(/feeds|订阅/i).length > 0) {
-            cy.contains(/feeds|订阅/i).click({ force: true });
-            cy.wait('@saveSettings', { timeout: 5000 });
-          }
+    cy.contains('.setting-item', /theme|主题/i)
+      .find('button.select-trigger')
+      .invoke('text')
+      .then((currentTheme) => {
+        const chooseDark = !/dark|暗色|深色/i.test(currentTheme);
+        expectedTheme = chooseDark ? 'dark' : 'light';
+        cy.contains('.setting-item', /theme|主题/i)
+          .find('button.select-trigger')
+          .click();
+        cy.contains('.select-option', chooseDark ? /dark|暗色|深色/i : /light|亮色/i).click({
+          force: true,
         });
-      }
-    });
+        cy.contains('button', /^(Feeds|订阅)$/i).click({ force: true });
+        cy.wait('@saveSettings', { timeout: 5000 })
+          .its('request.body.theme')
+          .should('eq', expectedTheme);
+      });
 
     // Close settings
     cy.get('body').type('{esc}');
@@ -400,6 +403,10 @@ describe('Settings Persistence', () => {
       published_at: '2026-08-13T00:00:00Z',
       image_url: '',
       translated_title: '',
+      is_read: false,
+      is_favorite: false,
+      is_hidden: false,
+      is_read_later: false,
     }));
 
     // Reload with deterministic API state so the regression does not depend on local data.
