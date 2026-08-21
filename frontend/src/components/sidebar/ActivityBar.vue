@@ -15,7 +15,6 @@ import { ref, onMounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { useArticleFilter } from '@/composables/article/useArticleFilter';
-import LogoSvg from '../../../public/assets/logo.svg';
 
 const store = useAppStore();
 const { t } = useI18n();
@@ -196,14 +195,6 @@ defineExpose({
       v-if="!props.isCollapsed"
       class="smart-activity-bar flex flex-col items-center py-3 bg-bg-tertiary border-r border-border h-full select-none shrink-0 relative z-30"
     >
-      <!-- Logo -->
-      <div class="mb-6">
-        <img :src="LogoSvg" alt="MrRSS" class="w-6 h-6" />
-      </div>
-
-      <!-- Divider -->
-      <div class="w-8 h-px bg-border mb-3"></div>
-
       <!-- Navigation Items -->
       <div
         class="flex-1 flex flex-col items-center gap-1 w-full overflow-y-auto overflow-x-hidden nav-items-container"
@@ -346,37 +337,13 @@ defineExpose({
 .nav-items-container {
   /* Smooth height transition when items are added/removed */
   transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Reserve the scrollbar space on both sides so centered icons stay centered. */
-  scrollbar-gutter: stable both-edges;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-.nav-items-container:hover,
-.nav-items-container:focus-within {
-  scrollbar-color: var(--border-color) transparent;
+  /* Keep scrolling without reserving a native gutter in WKWebView. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .nav-items-container::-webkit-scrollbar {
-  width: 4px;
-}
-
-.nav-items-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.nav-items-container::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 2px;
-}
-
-.nav-items-container:hover::-webkit-scrollbar-thumb,
-.nav-items-container:focus-within::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-}
-
-.nav-items-container::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  display: none;
 }
 
 /* Nav item enter/leave transitions */

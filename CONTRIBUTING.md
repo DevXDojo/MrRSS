@@ -29,7 +29,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 ### Prerequisites
 
-- Go 1.25 or higher
+- Go 1.27 or higher
 - Node.js (LTS version)
 - Wails CLI: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`
 

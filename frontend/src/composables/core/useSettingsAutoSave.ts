@@ -249,6 +249,7 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
     if (saveTimeout) {
       clearTimeout(saveTimeout);
       saveTimeout = null;
+      void autoSave();
     }
   });
 

@@ -122,7 +122,7 @@ pre-commit run --all-files
 
 ### High-Level Structure
 
-- **Backend**: Go 1.25+ with Wails v3, SQLite database
+- **Backend**: Go 1.27+ with Wails v3, SQLite database
 - **Frontend**: Vue 3.5+ Composition API, Pinia state management, TypeScript
 - **Communication**: HTTP API (primary) + Wails bindings (system integration)
 - **Build System**: Wails v3 + Task runner + Vite

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { PhChatCircleText } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
 
 interface Props {
@@ -13,10 +12,10 @@ const { t } = useI18n();
 
 <template>
   <button
-    class="js-article-chat-button fixed bottom-12 right-6 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-40"
+    class="js-article-chat-button fixed bottom-12 right-6 w-14 h-14 rounded-full shadow-lg transition-all hover:scale-110 z-40 overflow-hidden"
     :title="t('article.chat.aiChat')"
     @click="onClick"
   >
-    <PhChatCircleText :size="28" />
+    <img src="/assets/logo-circle.png" alt="" class="w-full h-full object-cover" />
   </button>
 </template>

@@ -19,7 +19,7 @@ func (db *DB) GetTags() ([]models.Tag, error) {
 	}
 	defer rows.Close()
 
-	var tags []models.Tag
+	tags := make([]models.Tag, 0)
 	for rows.Next() {
 		var tag models.Tag
 		err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.Position)

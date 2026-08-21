@@ -11,10 +11,10 @@ Use the MrRSS HTTP API as the source of truth for user data. Prefer read-only in
 
 ## Connection Workflow
 
-1. Determine the base URL. Default to `http://localhost:1234` for server mode unless the user provides another host or port. Desktop development builds may use a different local port; ask the user or inspect their running command if the API is unreachable.
+1. Determine the base URL. Default to `http://localhost:1234` for desktop and server mode unless the user provides another host or port. Released desktop builds listen on the loopback interface only while MrRSS is running.
 2. Set the API root to `{base_url}/api`.
 3. Verify connectivity with `GET {api_root}/version`, then `GET {api_root}/feeds`.
-4. If both fail, explain that MrRSS or `mrrss-server` must be running and stop before attempting data operations.
+4. If both fail, explain that MrRSS or `mrrss-server` must be running. For the desktop app, also note that another process may be occupying port `1234`. Stop before attempting data operations.
 5. Use `references/api.md` for supported endpoints and request shapes. If the repo is available and API details may have changed, regenerate it with `scripts/generate_api_reference.py`.
 
 ## Safety

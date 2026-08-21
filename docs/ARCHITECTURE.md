@@ -15,7 +15,7 @@
 
 MrRSS is built with a modern, modular architecture using:
 
-- **Backend**: Go 1.25+ with Wails v3 (alpha) framework
+- **Backend**: Go 1.27+ with Wails v3 (beta) framework
 - **Frontend**: Vue 3.5+ Composition API with TypeScript
 - **Database**: SQLite with pure Go implementation (`modernc.org/sqlite`)
 - **Communication**: HTTP REST API (not Wails bindings)

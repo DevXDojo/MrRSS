@@ -5,6 +5,26 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Exposed the desktop REST API to local integrations on `127.0.0.1:1234`, with loopback and cross-origin request protections. (#1022)
+
+### Changed
+
+- Changed the icon and banner for the desktop application to reflect the new branding.
+- Updated go version to 1.27.
+
+### Fixed
+
+- Flush a pending debounced settings save when a settings tab unmounts. (#1011) (@marcomarcogd)
+- Render the download progress value already tracked by the update flow and passed to `UpdateAvailableDialog`. (#1010) (@marcomarcogd)
+- Keep the scrollable activity-bar navigation aligned with the fixed logo and bottom actions in macOS WKWebView. (#1008) (@marcomarcogd)
+- Sign and strictly verify the completed macOS app bundle before creating a DMG. (#1009) (@marcomarcogd)
+- Fixed the Manage Tags dialog when the tag database is empty. (#1016) (@marcomarcogd)
+- Preserve protected articles during manual cleanup. (#1006) (@marcomarcogd)
+
 ## [1.3.26] - 2026-08-16
 
 ### Added
