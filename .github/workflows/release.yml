@@ -501,9 +501,13 @@ jobs:
       - name: Create installer (macOS)
         if: steps.check_artifacts.outputs.skip_build == 'false' && matrix.platform == 'darwin'
         run: |
+          codesign --deep --force --verify --verbose \
+            --sign - \
+            --entitlements build/darwin/entitlements.plist \
+            build/bin/MrRSS.app
+          codesign --verify --deep --strict --verbose=2 build/bin/MrRSS.app
           chmod +x build/darwin/create-dmg.sh
           ./build/darwin/create-dmg.sh
-        continue-on-error: true
 
       - name: Create portable package (macOS)
         if: steps.check_artifacts.outputs.skip_build == 'false' && matrix.platform == 'darwin'

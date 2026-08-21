@@ -2,61 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- ============================================================ -->
-    <!-- App Sandbox Configuration                                   -->
-    <!-- ============================================================ -->
-    <!-- NOTE: For non-Mac App Store distribution, you can disable   -->
-    <!-- the sandbox. If publishing to Mac App Store, enable it      -->
-    <!-- and add more specific entitlements below.                   -->
-    <!-- ============================================================ -->
-
-    <!-- Disable App Sandbox for standalone distribution -->
-    <!-- Remove this comment block if you need sandbox enabled -->
-    <!--
-    <key>com.apple.security.app-sandbox</key>
-    <false/>
-    -->
-
-    <!-- ============================================================ -->
-    <!-- Apple Events - Required for opening URLs in browser        -->
-    <!-- ============================================================ -->
-    <key>com.apple.security.automation.apple-events</key>
-    <true/>
-
-    <!-- ============================================================ -->
-    <!-- Network Access - Required for RSS feed fetching             -->
-    <!-- ============================================================ -->
-    <key>com.apple.security.network.client</key>
-    <true/>
-
-    <key>com.apple.security.network.server</key>
-    <true/>
-
-    <!-- ============================================================ -->
-    <!-- File Access - Required for data storage and imports         -->
-    <!-- ============================================================ -->
-    <!-- Allow read/write access to user-selected files -->
-    <key>com.apple.security.files.user-selected.read-write</key>
-    <true/>
-
-    <!-- Allow read/write access to Downloads folder -->
-    <key>com.apple.security.files.downloads.read-write</key>
-    <true/>
-
-    <!-- Allow read/write access to specific app directories -->
-    <key>com.apple.security.files.user-selected.read-only</key>
-    <false/>
-
-    <!-- ============================================================ -->
-    <!-- Optional: Hardware and Media Access                         -->
-    <!-- ============================================================ -->
-    <!-- Uncomment if needed for future features -->
-    <!--
-    <key>com.apple.security.device.camera</key>
-    <false/>
-
-    <key>com.apple.security.device.microphone</key>
-    <false/>
-    -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<false/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
 </dict>
 </plist>
