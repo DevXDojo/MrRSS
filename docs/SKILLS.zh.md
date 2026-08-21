@@ -35,9 +35,12 @@ cp -R ./mrrss-assistant ~/.codex/skills/
 
 ## 使用
 
-启动 MrRSS server 模式，或运行带本地 API 的桌面版。
+启动 MrRSS 桌面版。当前桌面版会在应用运行期间通过本机回环接口提供
+`http://localhost:1234/api`。该 API 不会暴露给局域网中的其他计算机。如果端口
+`1234` 已被占用，MrRSS 会继续运行，但本地 API 将不可用；释放端口并重启应用后
+即可恢复。
 
-Server 模式示例：
+也可以使用无界面的 server 模式：
 
 ```bash
 docker run -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-amd64

@@ -35,9 +35,13 @@ cp -R ./mrrss-assistant ~/.codex/skills/
 
 ## Use
 
-Start MrRSS in server mode or run the desktop app with its local API available.
+Start the MrRSS desktop app. Current desktop builds expose the API at
+`http://localhost:1234/api` on the loopback interface while the app is running.
+The API is not exposed to other computers on the network. If port `1234` is
+already occupied, MrRSS continues running but the local API is unavailable until
+the port is freed and the app is restarted.
 
-Server mode:
+Alternatively, run MrRSS in headless server mode:
 
 ```bash
 docker run -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-amd64

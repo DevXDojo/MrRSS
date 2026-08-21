@@ -268,7 +268,7 @@ jobs:
         if: steps.check_artifacts.outputs.skip_build == 'false'
         uses: actions/setup-go@v7
         with:
-          go-version: '1.25'
+          go-version: '1.27'
 
       - name: Set up Node.js
         if: steps.check_artifacts.outputs.skip_build == 'false'

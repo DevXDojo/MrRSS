@@ -10,7 +10,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.3.27-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
 [![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-3.5+-4FC08D?logo=vue.js)](https://vuejs.org/)
 
@@ -68,7 +68,7 @@ Download the latest installer for your platform from the [Releases](https://gith
 
 Before you begin, ensure you have the following installed:
 
-- [Go](https://go.dev/) (1.25 or higher)
+- [Go](https://go.dev/) (1.27 or higher)
 - [Node.js](https://nodejs.org/) (20 LTS or higher with npm)
 - [Wails v3](https://v3alpha.wails.io/getting-started/installation/) CLI
 
@@ -215,7 +215,10 @@ pre-commit run --all-files
 make test
 ```
 
-### Server Mode (API-only)
+### Local API and Server Mode
+
+The desktop app exposes its REST API at `http://localhost:1234/api` while it is
+running. The listener is restricted to the local computer.
 
 For server deployments and API integration, use the headless server version:
 

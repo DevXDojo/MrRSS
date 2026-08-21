@@ -10,7 +10,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.3.27-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
 [![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-3.5+-4FC08D?logo=vue.js)](https://vuejs.org/)
 
@@ -68,7 +68,7 @@
 
 在开始之前，请确保已安装以下环境：
 
-- [Go](https://go.dev/) (1.25 或更高版本)
+- [Go](https://go.dev/) (1.27 或更高版本)
 - [Node.js](https://nodejs.org/) (20 LTS 或更高版本，带 npm)
 - [Wails v3](https://v3alpha.wails.io/getting-started/installation/) CLI
 
@@ -215,7 +215,10 @@ pre-commit run --all-files
 make test
 ```
 
-### 服务器模式（仅限 API）
+### 本地 API 与服务器模式
+
+桌面应用运行时会在 `http://localhost:1234/api` 提供 REST API。该监听器仅允许
+本机访问。
 
 对于服务器部署和 API 集成，请使用无界面服务器版本：
 

@@ -10,13 +10,13 @@
 
 - **Privacy-First**: No external analytics, all data stored locally
 - **Cross-Platform**: Native desktop experience on Windows, macOS, and Linux
-- **Modern Tech Stack**: Go 1.25+ + Wails v3 + Vue 3.5+ with TypeScript
+- **Modern Tech Stack**: Go 1.27+ + Wails v3 + Vue 3.5+ with TypeScript
 - **AI-Enhanced**: Local algorithms (TF-IDF + TextRank) and cloud AI integration
 - **Performance-Optimized**: Concurrent processing, intelligent caching, WAL mode SQLite
 
 ### Tech Stack
 
-- **Backend**: Go 1.25+ with Wails v3 (alpha) framework, SQLite with `modernc.org/sqlite`
+- **Backend**: Go 1.27+ with Wails v3 (beta) framework, SQLite with `modernc.org/sqlite`
 - **Frontend**: Vue 3.5+ Composition API, Pinia, Tailwind CSS 3.3+, Vite 5+, TypeScript
 - **Communication**: HTTP REST API (not Wails bindings) for data operations
 - **Icons**: Phosphor Icons | **I18n**: vue-i18n (English/Chinese)
@@ -102,7 +102,7 @@ MrRSS/
 
 ## Key Technologies & Patterns
 
-### Backend Architecture (Go 1.25+)
+### Backend Architecture (Go 1.27+)
 
 #### Framework & Communication
 - **Wails v3**: Desktop application framework with HTTP API
@@ -233,7 +233,7 @@ The main store (`stores/app.ts`) manages:
 
 ### Getting Started
 
-1. **Prerequisites**: Go 1.25+, Node.js 18+, Wails CLI v3
+1. **Prerequisites**: Go 1.27+, Node.js 18+, Wails CLI v3
 2. **Setup**: `go mod download && cd frontend && npm install`
 3. **Development**: `wails3 dev` (hot reload enabled)
 4. **Build**: Use `task build` or `wails3 build`
