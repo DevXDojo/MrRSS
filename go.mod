@@ -1,6 +1,8 @@
 module MrRSS
 
-go 1.26
+go 1.25.0
+
+toolchain go1.25.6
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.2
