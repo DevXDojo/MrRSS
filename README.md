@@ -1,4 +1,4 @@
-# MrRSS
+<h1><img src="imgs/logo-rounded.png" alt="MrRSS logo" style="height: 40px;"/>&nbsp;MrRSS</h1>
 
 <a href="https://trendshift.io/repositories/15731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15731" alt="DevXDojo%2FMrRSS | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -277,8 +277,6 @@ This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) 
 - **Issues**: [GitHub Issues](https://github.com/DevXDojo/MrRSS/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/DevXDojo/MrRSS/discussions)
 - **Repository**: [github.com/DevXDojo/MrRSS](https://github.com/DevXDojo/MrRSS)
-
----
 
 <div align="center">
   <img src="imgs/sponsor.png" alt="Sponsor MrRSS"/>
