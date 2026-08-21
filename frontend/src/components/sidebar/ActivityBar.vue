@@ -15,7 +15,6 @@ import { ref, onMounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { useArticleFilter } from '@/composables/article/useArticleFilter';
-import LogoSvg from '../../../public/assets/logo.svg';
 
 const store = useAppStore();
 const { t } = useI18n();
@@ -196,14 +195,6 @@ defineExpose({
       v-if="!props.isCollapsed"
       class="smart-activity-bar flex flex-col items-center py-3 bg-bg-tertiary border-r border-border h-full select-none shrink-0 relative z-30"
     >
-      <!-- Logo -->
-      <div class="mb-6">
-        <img :src="LogoSvg" alt="MrRSS" class="w-6 h-6" />
-      </div>
-
-      <!-- Divider -->
-      <div class="w-8 h-px bg-border mb-3"></div>
-
       <!-- Navigation Items -->
       <div
         class="flex-1 flex flex-col items-center gap-1 w-full overflow-y-auto overflow-x-hidden nav-items-container"
