@@ -786,7 +786,8 @@ const zh: TranslationMessages = {
       autoCleanupDesc: '自动删除旧文章以节省空间',
       clean: '清理',
       cleanDatabase: '清理数据库',
-      cleanDatabaseMessage: '这将删除所有文章，除了已读和收藏的文章。继续吗？',
+      cleanDatabaseMessage:
+        '这将删除未读、未收藏且未加入稍后阅读的文章。已读、收藏和稍后阅读的文章会保留。继续吗？',
       cleanDatabaseTitle: '清理数据库',
       cleaning: '清理中...',
       cleanupArticleContentCache: '立即清理',
