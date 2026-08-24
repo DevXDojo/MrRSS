@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct MrRSSApp: App {
-    @NSApplicationDelegateAdaptor(BackendManager.self) private var backendManager
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var viewModel = AppViewModel(autoLoad: false)
 
     var body: some Scene {

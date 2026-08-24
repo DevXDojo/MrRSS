@@ -1,15 +1,50 @@
 import AppKit
 import Foundation
 
-final class BackendManager: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private var process: Process?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        presentAsForegroundApplication()
         startBundledBackendIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         stopBundledBackend()
+    }
+
+    /// A SwiftPM executable is not an application bundle, so AppKit launches it
+    /// with the `.prohibited` activation policy. Such a process has no Dock icon
+    /// and never owns the menu bar, which also leaves the standard Edit
+    /// shortcuts such as Command-V and Command-A without any effect inside text
+    /// fields. The packaged application already launches as a regular
+    /// application and is left untouched.
+    private func presentAsForegroundApplication() {
+        guard NSApp.activationPolicy() != .regular else { return }
+
+        NSApp.setActivationPolicy(.regular)
+        if let iconURL = AppDelegate.repositoryIconURL(startingAt: Bundle.main.bundleURL),
+           let icon = NSImage(contentsOf: iconURL) {
+            NSApp.applicationIconImage = icon
+        }
+        NSApp.activate()
+    }
+
+    /// Looks for the repository icon by walking up from the executable, so an
+    /// unbundled run shows the real icon instead of a generic placeholder.
+    static func repositoryIconURL(startingAt directory: URL) -> URL? {
+        var current = directory
+        for _ in 0..<8 {
+            let candidate = current.appendingPathComponent("build/darwin/icons.icns")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+
+            let parent = current.deletingLastPathComponent()
+            guard parent.path != current.path else { return nil }
+            current = parent
+        }
+        return nil
     }
 
     private func startBundledBackendIfNeeded() {
