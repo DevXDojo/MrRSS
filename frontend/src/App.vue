@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n';
 import Sidebar from './components/sidebar/Sidebar.vue';
 import ArticleList from './components/article/ArticleList.vue';
 import ArticleDetail from './components/article/ArticleDetail.vue';
-import ImageGalleryView from './components/article/ImageGalleryView.vue';
+import ImageGalleryView from './components/article/imageGallery/index.vue';
 import AddFeedModal from './components/modals/feed/AddFeedModal.vue';
 import EditFeedModal from './components/modals/feed/EditFeedModal.vue';
 import SettingsModal from './components/modals/SettingsModal.vue';
@@ -13,18 +13,41 @@ import UpdateAvailableDialog from './components/modals/update/UpdateAvailableDia
 import ContextMenu from './components/common/ContextMenu.vue';
 import ConfirmDialog from './components/modals/common/ConfirmDialog.vue';
 import InputDialog from './components/modals/common/InputDialog.vue';
+import MultiSelectDialog from './components/modals/common/MultiSelectDialog.vue';
 import Toast from './components/common/Toast.vue';
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watchEffect } from 'vue';
 import { useNotifications } from './composables/ui/useNotifications';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
 import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
 import { useWindowState } from './composables/core/useWindowState';
 import { useAppUpdates } from './composables/core/useAppUpdates';
+import { useSettings } from './composables/core/useSettings';
+import { resolveFontFamily } from './utils/fontDetector';
 import type { Feed } from './types/models';
 
 const store = useAppStore();
 const { t } = useI18n();
+const { settings } = useSettings();
+
+const uiFontSize = computed(() => {
+  const value = Number(settings.value.ui_font_size);
+  return Number.isFinite(value) ? Math.min(20, Math.max(12, value)) : 16;
+});
+
+watchEffect(() => {
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty('--ui-font-family', resolveFontFamily(settings.value.ui_font_family));
+  rootStyle.setProperty('--ui-font-size', `${uiFontSize.value}px`);
+  rootStyle.setProperty('--ui-font-scale', String(uiFontSize.value / 16));
+});
+
+onUnmounted(() => {
+  const rootStyle = document.documentElement.style;
+  rootStyle.removeProperty('--ui-font-family');
+  rootStyle.removeProperty('--ui-font-size');
+  rootStyle.removeProperty('--ui-font-scale');
+});
 
 const showAddFeed = ref(false);
 const showEditFeed = ref(false);
@@ -37,17 +60,38 @@ const isSidebarOpen = ref(true);
 // Check if we're in image gallery mode
 const isImageGalleryMode = computed(() => store.currentFilter === 'imageGallery');
 
+// Check if we're in card mode
+const isCardMode = ref(false);
+
 // Use composables
-const { confirmDialog, inputDialog, toasts, removeToast, installGlobalHandlers } =
-  useNotifications();
+const {
+  confirmDialog,
+  inputDialog,
+  multiSelectDialog,
+  toasts,
+  removeToast,
+  installGlobalHandlers,
+} = useNotifications();
 
 const { contextMenu, openContextMenu, handleContextMenuAction } = useContextMenu();
 
-const { sidebarWidth, articleListWidth, startResizeSidebar, startResizeArticleList } =
-  useResizablePanels();
+const {
+  sidebarWidth,
+  articleListWidth,
+  startResizeArticleList,
+  setArticleListWidth,
+  setCompactMode,
+} = useResizablePanels();
 
 // Use app updates composable
-const { updateInfo, checkForUpdates, downloadAndInstallUpdate } = useAppUpdates();
+const {
+  updateInfo,
+  checkForUpdates,
+  downloadAndInstallUpdate,
+  downloadingUpdate,
+  installingUpdate,
+  downloadProgress,
+} = useAppUpdates();
 
 // Update dialog state
 const showUpdateDialog = ref(false);
@@ -65,8 +109,9 @@ const { shortcuts } = useKeyboardShortcuts({
     showAddFeed.value = true;
   },
   onMarkAllRead: async () => {
-    await store.markAllAsRead();
-    window.showToast(t('markedAllAsRead'), 'success');
+    // Reuse the article-list action so the shortcut has the same scope,
+    // confirmation dialog, and filtered-article handling as the toolbar button.
+    window.dispatchEvent(new CustomEvent('mark-all-as-read'));
   },
 });
 
@@ -80,11 +125,22 @@ onMounted(async () => {
   // Load remaining settings (theme and other settings are already loaded in main.ts)
   let updateInterval = 10;
   let lastGlobalRefresh = '';
-  let autoUpdate = false;
+  let updateCheckEnabled = true;
 
   try {
     const res = await fetch('/api/settings');
     const data = await res.json();
+
+    // Set initial article list width based on layout mode setting
+    const layoutMode = data.layout_mode || 'normal';
+    const isCompactModeLayout = layoutMode === 'compact';
+    isCardMode.value = layoutMode === 'card';
+    // First set the compact mode, then set the width (order matters)
+    setCompactMode(isCompactModeLayout);
+    setArticleListWidth(isCompactModeLayout ? 500 : 350);
+
+    // Notify all components that settings have been loaded
+    window.dispatchEvent(new CustomEvent('settings-loaded'));
 
     // Apply saved theme preference (already applied in main.ts, but ensure it's set)
     if (data.theme) {
@@ -101,10 +157,7 @@ onMounted(async () => {
       lastGlobalRefresh = data.last_global_refresh;
     }
 
-    // Get auto_update setting
-    if (data.auto_update !== undefined) {
-      autoUpdate = data.auto_update;
-    }
+    updateCheckEnabled = data.update_check_enabled !== 'false';
 
     // Load saved shortcuts
     if (data.shortcuts) {
@@ -119,22 +172,21 @@ onMounted(async () => {
     console.error('Error loading initial settings:', e);
   }
 
-  // Check for updates on startup
-  setTimeout(async () => {
-    try {
-      await checkForUpdates();
+  if (updateCheckEnabled) {
+    // Check for updates on startup (silent mode - don't show toast if up to date)
+    setTimeout(async () => {
+      try {
+        await checkForUpdates(true);
 
-      // If update is available and auto-update is disabled, show dialog
-      if (updateInfo.value && updateInfo.value.has_update && !autoUpdate) {
-        showUpdateDialog.value = true;
-      } else if (updateInfo.value && updateInfo.value.has_update && autoUpdate) {
-        // If auto-update is enabled, automatically download and install
-        await downloadAndInstallUpdate();
+        // If update is available, show dialog for user to manually confirm
+        if (updateInfo.value && updateInfo.value.has_update) {
+          showUpdateDialog.value = true;
+        }
+      } catch (e) {
+        console.error('Error checking for updates:', e);
       }
-    } catch (e) {
-      console.error('Error checking for updates:', e);
-    }
-  }, 3000); // Check 3 seconds after startup
+    }, 3000); // Check 3 seconds after startup
+  }
 
   // Defer heavy operations to allow UI to render first
   setTimeout(() => {
@@ -151,8 +203,8 @@ onMounted(async () => {
 
         if (progressData.is_running) {
           // Backend is already refreshing, start polling
-          store.refreshProgress.value = {
-            ...store.refreshProgress.value,
+          store.refreshProgress = {
+            ...store.refreshProgress,
             isRunning: true,
             pool_task_count: progressData.pool_task_count,
             article_click_count: progressData.article_click_count,
@@ -187,25 +239,41 @@ onMounted(async () => {
       }
     }, 500);
   }, 100);
+});
 
-  // Listen for events from Sidebar
-  window.addEventListener('show-add-feed', () => (showAddFeed.value = true));
-  window.addEventListener('show-edit-feed', (e: Event) => {
-    const customEvent = e as CustomEvent;
-    feedToEdit.value = customEvent.detail;
-    showEditFeed.value = true;
-  });
-  window.addEventListener('show-settings', () => (showSettings.value = true));
-  window.addEventListener('show-discover-blogs', (e: Event) => {
-    const customEvent = e as CustomEvent;
-    feedToDiscover.value = customEvent.detail;
-    showDiscoverBlogs.value = true;
-  });
+// Listen for events from Sidebar (moved outside onMounted to ensure proper capture)
+window.addEventListener('show-add-feed', () => {
+  showAddFeed.value = true;
+});
+window.addEventListener('show-edit-feed', (e) => {
+  const customEvent = e as CustomEvent<any>;
+  feedToEdit.value = customEvent.detail;
+  showEditFeed.value = true;
+});
+window.addEventListener('show-settings', () => {
+  showSettings.value = true;
+});
+window.addEventListener('show-discover-blogs', (e) => {
+  const customEvent = e as CustomEvent<any>;
+  feedToDiscover.value = customEvent.detail;
+  showDiscoverBlogs.value = true;
+});
 
-  // Global Context Menu Event Listener
-  window.addEventListener('open-context-menu', (e: Event) => {
-    openContextMenu(e as CustomEvent);
-  });
+// Listen for compact mode changes to update article list width
+window.addEventListener('layout-mode-changed', (e) => {
+  const customEvent = e as CustomEvent<{ mode: string }>;
+  const mode = customEvent.detail.mode;
+  const isCompactModeLayout = mode === 'compact';
+  isCardMode.value = mode === 'card';
+  setCompactMode(isCompactModeLayout);
+  if (!isCardMode.value) {
+    setArticleListWidth(isCompactModeLayout ? 600 : 400);
+  }
+});
+
+// Global Context Menu Event Listener
+window.addEventListener('open-context-menu', (e) => {
+  openContextMenu(e as CustomEvent<any>);
 });
 
 // Check if we should trigger refresh based on last update time and interval
@@ -230,10 +298,16 @@ function toggleSidebar(): void {
   isSidebarOpen.value = !isSidebarOpen.value;
 }
 
-function onFeedAdded(): void {
-  store.fetchFeeds();
+async function onFeedAdded(feedId?: number): Promise<void> {
+  await store.fetchFeeds();
+  if (feedId) {
+    await store.setFilter('all');
+    store.setFeed(feedId);
+  }
   // Start polling for progress as the backend is now fetching articles for the new feed
-  store.pollProgress();
+  if (!feedId) {
+    store.pollProgress();
+  }
 }
 
 function onFeedUpdated(): void {
@@ -253,8 +327,6 @@ function onFeedUpdated(): void {
   >
     <Sidebar :is-open="isSidebarOpen" @toggle="toggleSidebar" />
 
-    <div class="resizer hidden md:block" @mousedown="startResizeSidebar"></div>
-
     <!-- Show ImageGalleryView when in image gallery mode -->
     <template v-if="isImageGalleryMode">
       <ImageGalleryView :is-sidebar-open="isSidebarOpen" @toggle-sidebar="toggleSidebar" />
@@ -264,9 +336,12 @@ function onFeedUpdated(): void {
     <template v-else>
       <ArticleList :is-sidebar-open="isSidebarOpen" @toggle-sidebar="toggleSidebar" />
 
-      <div class="resizer hidden md:block" @mousedown="startResizeArticleList"></div>
+      <!-- Hide resizer and ArticleDetail when in card mode -->
+      <template v-if="!isCardMode">
+        <div class="resizer hidden md:block" @mousedown="startResizeArticleList"></div>
 
-      <ArticleDetail />
+        <ArticleDetail />
+      </template>
     </template>
 
     <AddFeedModal v-if="showAddFeed" @close="showAddFeed = false" @added="onFeedAdded" />
@@ -287,9 +362,9 @@ function onFeedUpdated(): void {
     <UpdateAvailableDialog
       v-if="showUpdateDialog && updateInfo"
       :update-info="updateInfo"
-      :downloading-update="false"
-      :installing-update="false"
-      :download-progress="0"
+      :downloading-update="downloadingUpdate"
+      :installing-update="installingUpdate"
+      :download-progress="downloadProgress"
       @close="showUpdateDialog = false"
       @update="downloadAndInstallUpdate"
     />
@@ -324,9 +399,22 @@ function onFeedUpdated(): void {
       :default-value="inputDialog.defaultValue"
       :confirm-text="inputDialog.confirmText"
       :cancel-text="inputDialog.cancelText"
+      :suggestions="inputDialog.suggestions"
       @confirm="inputDialog.onConfirm"
       @cancel="inputDialog.onCancel"
       @close="inputDialog = null"
+    />
+
+    <MultiSelectDialog
+      v-if="multiSelectDialog"
+      :title="multiSelectDialog.title"
+      :message="multiSelectDialog.message"
+      :options="multiSelectDialog.options"
+      :confirm-text="multiSelectDialog.confirmText"
+      :cancel-text="multiSelectDialog.cancelText"
+      @confirm="multiSelectDialog.onConfirm"
+      @cancel="multiSelectDialog.onCancel"
+      @close="multiSelectDialog = null"
     />
 
     <div class="toast-container">

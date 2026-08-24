@@ -17,6 +17,7 @@ export interface FieldOption {
   labelKey: string;
   multiSelect: boolean;
   booleanField?: boolean;
+  numberField?: boolean;
 }
 
 export interface OperatorOption {
@@ -27,4 +28,16 @@ export interface OperatorOption {
 export interface LogicOption {
   value: 'and' | 'or';
   labelKey: string;
+}
+
+/**
+ * Saved filter - a user-saved collection of filter conditions
+ */
+export interface SavedFilter {
+  id: number;
+  name: string;
+  conditions: string; // JSON string of FilterCondition[]
+  position: number;
+  created_at: string;
+  updated_at: string;
 }

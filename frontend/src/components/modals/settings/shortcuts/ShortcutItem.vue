@@ -4,6 +4,10 @@ import type { Component } from 'vue';
 
 const { t } = useI18n();
 
+const isMacOS =
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+
 interface ShortcutItem {
   key: string;
   label: string;
@@ -24,17 +28,17 @@ const emit = defineEmits<{
 
 // Format key for display
 function formatKey(key: string): string {
-  if (!key) return '—';
+  if (!key) return t('setting.shortcut.notSet');
 
   // Convert key combinations to display format
   const parts = key.split('+');
   return parts
     .map((part: string) => {
       // Special key symbols
-      if (part === 'Shift') return '⇧';
-      if (part === 'Control' || part === 'Ctrl') return '⌃';
-      if (part === 'Alt') return '⌥';
-      if (part === 'Meta' || part === 'Cmd') return '⌘';
+      if (part === 'Shift') return isMacOS ? '⇧' : 'Shift';
+      if (part === 'Control' || part === 'Ctrl') return isMacOS ? '⌃' : 'Ctrl';
+      if (part === 'Alt') return isMacOS ? '⌥' : 'Alt';
+      if (part === 'Meta' || part === 'Cmd') return isMacOS ? '⌘' : 'Win';
       if (part === 'Enter') return '↵';
       if (part === 'Escape') return 'Esc';
       if (part === 'ArrowUp') return '↑';
@@ -56,7 +60,7 @@ function formatKey(key: string): string {
     </div>
     <button :class="['shortcut-key', isEditing ? 'recording' : '']" @click="emit('edit')">
       <span v-if="isEditing" class="text-accent animate-pulse text-xs sm:text-sm">
-        {{ t('pressKey') }}
+        {{ t('shortcut.pressKey') }}
       </span>
       <span v-else>{{ formatKey(shortcutValue) }}</span>
     </button>
@@ -65,7 +69,6 @@ function formatKey(key: string): string {
 
 <style scoped>
 @reference "../../../../style.css";
-
 .shortcut-row {
   @apply flex items-center justify-between gap-3 p-2 rounded-lg bg-bg-secondary border border-border;
 }

@@ -26,8 +26,8 @@ func setupHandler(t *testing.T) *core.Handler {
 	if err := db.Init(); err != nil {
 		t.Fatalf("db Init error: %v", err)
 	}
-	f := ff.NewFetcher(db, nil)
-	return core.NewHandler(db, f, nil)
+	f := ff.NewFetcher(db)
+	return core.NewHandler(db, f, nil, nil)
 }
 
 func TestHandleArticles_ListAndImageGallery(t *testing.T) {
@@ -86,6 +86,66 @@ func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 	}
 }
 
+func TestHandleMarkAllAsRead_EmptyCategoryScopesUncategorized(t *testing.T) {
+	h := setupHandler(t)
+
+	uncategorizedFeedID, err := h.DB.AddFeed(&models.Feed{Title: "Uncategorized", URL: "http://uncategorized"})
+	if err != nil {
+		t.Fatalf("AddFeed uncategorized: %v", err)
+	}
+	categorizedFeedID, err := h.DB.AddFeed(&models.Feed{Title: "Tech", URL: "http://tech", Category: "Tech"})
+	if err != nil {
+		t.Fatalf("AddFeed categorized: %v", err)
+	}
+
+	uncategorized := &models.Article{
+		FeedID:      uncategorizedFeedID,
+		Title:       "uncategorized",
+		URL:         "http://uncategorized/article",
+		PublishedAt: time.Now(),
+	}
+	categorized := &models.Article{
+		FeedID:      categorizedFeedID,
+		Title:       "categorized",
+		URL:         "http://tech/article",
+		PublishedAt: time.Now(),
+	}
+	if err := h.DB.SaveArticles(context.Background(), []*models.Article{uncategorized, categorized}); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	uncategorizedArticles, err := h.DB.GetArticles("", uncategorizedFeedID, "", true, 10, 0)
+	if err != nil || len(uncategorizedArticles) != 1 {
+		t.Fatalf("Get uncategorized article: %v", err)
+	}
+	categorizedArticles, err := h.DB.GetArticles("", categorizedFeedID, "", true, 10, 0)
+	if err != nil || len(categorizedArticles) != 1 {
+		t.Fatalf("Get categorized article: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/mark-all-read?category=", nil)
+	w := httptest.NewRecorder()
+	article.HandleMarkAllAsRead(h, w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Result().StatusCode)
+	}
+
+	uncategorizedAfter, err := h.DB.GetArticleByID(uncategorizedArticles[0].ID)
+	if err != nil {
+		t.Fatalf("Get uncategorized article after mark: %v", err)
+	}
+	categorizedAfter, err := h.DB.GetArticleByID(categorizedArticles[0].ID)
+	if err != nil {
+		t.Fatalf("Get categorized article after mark: %v", err)
+	}
+	if !uncategorizedAfter.IsRead {
+		t.Fatal("uncategorized article should be marked as read")
+	}
+	if categorizedAfter.IsRead {
+		t.Fatal("categorized article should remain unread")
+	}
+}
+
 func TestArticleActions_MarkRead_Favorite_Hide_ReadLater(t *testing.T) {
 	h := setupHandler(t)
 	feedID, _ := h.DB.AddFeed(&models.Feed{Title: "F2", URL: "http://y"})
@@ -102,17 +162,17 @@ func TestArticleActions_MarkRead_Favorite_Hide_ReadLater(t *testing.T) {
 	id := arts[0].ID
 
 	// Mark unread -> read
-	req := httptest.NewRequest(http.MethodPost, "/api/articles/mark_read?id="+fmt.Sprint(id)+"&read=true", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/mark-read-sync?id="+fmt.Sprint(id)+"&read=true", nil)
 	w := httptest.NewRecorder()
-	article.HandleMarkRead(h, w, req)
+	article.HandleMarkReadWithImmediateSync(h, w, req)
 	if w.Result().StatusCode != http.StatusOK {
 		t.Fatalf("mark read failed: %d", w.Result().StatusCode)
 	}
 
 	// Toggle favorite
-	req2 := httptest.NewRequest(http.MethodPost, "/api/articles/toggle_fav?id="+fmt.Sprint(id), nil)
+	req2 := httptest.NewRequest(http.MethodPost, "/api/articles/toggle-favorite-sync?id="+fmt.Sprint(id), nil)
 	w2 := httptest.NewRecorder()
-	article.HandleToggleFavorite(h, w2, req2)
+	article.HandleToggleFavoriteWithImmediateSync(h, w2, req2)
 	if w2.Result().StatusCode != http.StatusOK {
 		t.Fatalf("toggle fav failed: %d", w2.Result().StatusCode)
 	}
@@ -139,6 +199,119 @@ func TestArticleActions_MarkRead_Favorite_Hide_ReadLater(t *testing.T) {
 	article.HandleToggleReadLater(h, w5, req5)
 	if w5.Result().StatusCode != http.StatusOK {
 		t.Fatalf("toggle read later failed: %d", w5.Result().StatusCode)
+	}
+}
+
+func TestHandleReloadArticleContentClearsOnlyArticleContent(t *testing.T) {
+	h := setupHandler(t)
+	feedID, err := h.DB.AddFeed(&models.Feed{Title: "Reload Feed", URL: "http://example.com/feed"})
+	if err != nil {
+		t.Fatalf("AddFeed: %v", err)
+	}
+
+	articleModel := &models.Article{
+		FeedID:      feedID,
+		Title:       "Reload Article",
+		URL:         "http://example.com/article",
+		PublishedAt: time.Now(),
+	}
+	if err := h.DB.SaveArticles(context.Background(), []*models.Article{articleModel}); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	articles, err := h.DB.GetArticles("", feedID, "", true, 10, 0)
+	if err != nil || len(articles) == 0 {
+		t.Fatalf("GetArticles: %v", err)
+	}
+	articleID := articles[0].ID
+	if err := h.DB.SetArticleContent(articleID, "<p>cached</p>"); err != nil {
+		t.Fatalf("SetArticleContent: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/reload-content?id="+fmt.Sprint(articleID), nil)
+	w := httptest.NewRecorder()
+	article.HandleReloadArticleContent(h, w, req)
+
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", w.Result().StatusCode, w.Body.String())
+	}
+
+	if _, found, err := h.DB.GetArticleContent(articleID); err != nil {
+		t.Fatalf("GetArticleContent: %v", err)
+	} else if found {
+		t.Fatalf("expected article content cache to be cleared")
+	}
+
+	if _, err := h.DB.GetArticleByID(articleID); err != nil {
+		t.Fatalf("article should remain after content reload: %v", err)
+	}
+}
+
+func TestHandleCleanupArticlesPreservesProtectedArticles(t *testing.T) {
+	h := setupHandler(t)
+	feedID, err := h.DB.AddFeed(&models.Feed{Title: "Cleanup Feed", URL: "http://example.com/cleanup"})
+	if err != nil {
+		t.Fatalf("AddFeed: %v", err)
+	}
+
+	articles := []*models.Article{
+		{FeedID: feedID, Title: "Delete", URL: "http://example.com/delete", PublishedAt: time.Now()},
+		{FeedID: feedID, Title: "Read", URL: "http://example.com/read", PublishedAt: time.Now(), IsRead: true},
+		{FeedID: feedID, Title: "Favorite", URL: "http://example.com/favorite", PublishedAt: time.Now(), IsFavorite: true},
+		{FeedID: feedID, Title: "Read Later", URL: "http://example.com/read-later", PublishedAt: time.Now(), IsReadLater: true},
+	}
+	if err := h.DB.SaveArticles(context.Background(), articles); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+
+	savedArticles, err := h.DB.GetArticles("", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles: %v", err)
+	}
+	for _, savedArticle := range savedArticles {
+		if err := h.DB.SetArticleContent(savedArticle.ID, "cached "+savedArticle.Title); err != nil {
+			t.Fatalf("SetArticleContent: %v", err)
+		}
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/articles/cleanup", nil)
+	getRecorder := httptest.NewRecorder()
+	article.HandleCleanupArticles(h, getRecorder, getReq)
+	if getRecorder.Result().StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("expected GET cleanup to return 405, got %d", getRecorder.Result().StatusCode)
+	}
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/articles/cleanup", nil)
+	postRecorder := httptest.NewRecorder()
+	article.HandleCleanupArticles(h, postRecorder, postReq)
+	if postRecorder.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected cleanup to return 200, got %d: %s", postRecorder.Result().StatusCode, postRecorder.Body.String())
+	}
+
+	var result struct {
+		Deleted  int64  `json:"deleted"`
+		Articles int64  `json:"articles"`
+		Contents int64  `json:"contents"`
+		Type     string `json:"type"`
+	}
+	if err := json.NewDecoder(postRecorder.Result().Body).Decode(&result); err != nil {
+		t.Fatalf("decode cleanup response: %v", err)
+	}
+	if result.Deleted != 1 || result.Articles != 1 || result.Contents != 0 || result.Type != "unimportant" {
+		t.Fatalf("unexpected cleanup response: %+v", result)
+	}
+
+	remaining, err := h.DB.GetArticles("", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles after cleanup: %v", err)
+	}
+	if len(remaining) != 3 {
+		t.Fatalf("expected 3 protected articles, got %d", len(remaining))
+	}
+	for _, remainingArticle := range remaining {
+		if _, found, err := h.DB.GetArticleContent(remainingArticle.ID); err != nil || !found {
+			t.Fatalf("expected cached content for %q to remain, found=%v, err=%v", remainingArticle.Title, found, err)
+		}
 	}
 }
 

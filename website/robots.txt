@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://wcy-dt.github.io/MrRSS/sitemap.xml
+Sitemap: https://DevXDojo.github.io/MrRSS/sitemap.xml

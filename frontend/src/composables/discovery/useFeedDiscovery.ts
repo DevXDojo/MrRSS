@@ -26,7 +26,7 @@ export function useFeedDiscovery(feed: Feed) {
     isDiscovering.value = true;
     errorMessage.value = '';
     discoveredFeeds.value = [];
-    progressMessage.value = t('fetchingHomepage');
+    progressMessage.value = t('modal.discovery.fetchingHomepage');
     progressDetail.value = '';
     progressCounts.value = { current: 0, total: 0, found: 0 };
 
@@ -72,31 +72,33 @@ export function useFeedDiscovery(feed: Feed) {
             const progress = state.progress;
             switch (progress.stage) {
               case 'fetching_homepage':
-                progressMessage.value = t('fetchingHomepage');
+                progressMessage.value = t('modal.discovery.fetchingHomepage');
                 progressDetail.value = progress.detail ? getHostname(progress.detail) : '';
                 break;
               case 'finding_friend_links':
-                progressMessage.value = t('searchingFriendLinks');
+                progressMessage.value = t('modal.discovery.searchingFriendLinks');
                 progressDetail.value = progress.detail ? getHostname(progress.detail) : '';
                 break;
               case 'fetching_friend_page':
-                progressMessage.value = t('fetchingFriendPage');
+                progressMessage.value = t('modal.discovery.fetchingFriendPage');
                 progressDetail.value = progress.detail ? getHostname(progress.detail) : '';
                 break;
               case 'found_links':
-                progressMessage.value = t('foundPotentialLinks', { count: progress.total });
+                progressMessage.value = t('modal.discovery.foundPotentialLinks', {
+                  count: progress.total,
+                });
                 progressDetail.value = '';
                 progressCounts.value.total = progress.total || 0;
                 break;
               case 'checking_rss':
-                progressMessage.value = t('checkingRssFeed');
+                progressMessage.value = t('modal.discovery.checkingRssFeed');
                 progressDetail.value = progress.detail ? getHostname(progress.detail) : '';
                 progressCounts.value.current = progress.current || 0;
                 progressCounts.value.total = progress.total || 0;
                 progressCounts.value.found = progress.found_count || 0;
                 break;
               default:
-                progressMessage.value = progress.message || t('discovering');
+                progressMessage.value = progress.message || t('modal.discovery.discovering');
                 progressDetail.value = progress.detail ? getHostname(progress.detail) : '';
             }
           }
@@ -109,11 +111,11 @@ export function useFeedDiscovery(feed: Feed) {
             }
 
             if (state.error) {
-              errorMessage.value = t('discoveryFailed') + ': ' + state.error;
+              errorMessage.value = t('modal.discovery.discoveryFailed') + ': ' + state.error;
             } else {
               discoveredFeeds.value = state.feeds || [];
               if (discoveredFeeds.value.length === 0) {
-                errorMessage.value = t('noFriendLinksFound');
+                errorMessage.value = t('modal.discovery.noFriendLinksFound');
               }
             }
 
@@ -131,7 +133,7 @@ export function useFeedDiscovery(feed: Feed) {
       }, 500); // Poll every 500ms
     } catch (error) {
       console.error('Discovery error:', error);
-      errorMessage.value = t('discoveryFailed') + ': ' + (error as Error).message;
+      errorMessage.value = t('modal.discovery.discoveryFailed') + ': ' + (error as Error).message;
       isDiscovering.value = false;
       progressMessage.value = '';
       progressDetail.value = '';

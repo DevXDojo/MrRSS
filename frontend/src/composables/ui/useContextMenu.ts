@@ -1,21 +1,5 @@
 import { ref } from 'vue';
-
-export interface ContextMenuItem {
-  label: string;
-  icon?: string;
-  action: string;
-  danger?: boolean;
-}
-
-export interface ContextMenuState {
-  show: boolean;
-  x: number;
-  y: number;
-  items: ContextMenuItem[];
-  data: unknown;
-
-  callback?: (string, unknown) => void;
-}
+import type { ContextMenuItem, ContextMenuState } from '@/types/context-menu';
 
 export function useContextMenu() {
   const contextMenu = ref<ContextMenuState>({
@@ -41,9 +25,9 @@ export function useContextMenu() {
     contextMenu.value.show = false;
   }
 
-  function handleContextMenuAction(action: string): void {
+  async function handleContextMenuAction(action: string): Promise<void> {
     if (contextMenu.value.callback) {
-      contextMenu.value.callback(action, contextMenu.value.data);
+      await contextMenu.value.callback(action, contextMenu.value.data);
     }
   }
 

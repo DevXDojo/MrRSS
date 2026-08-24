@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhInfo } from '@phosphor-icons/vue';
 import { computed } from 'vue';
 import type { SettingsData } from '@/types/settings';
 import { useSettingsAutoSave } from '@/composables/core/useSettingsAutoSave';
-import AISettings from './AISettings.vue';
-import AITestSettings from './AITestSettings.vue';
+import { TipBox } from '@/components/settings';
+import AIProfileList from './AIProfileList.vue';
 import AIUsageSettings from './AIUsageSettings.vue';
 import AIFeatureSettings from './AIFeatureSettings.vue';
 
@@ -35,21 +34,11 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
 
 <template>
   <div class="space-y-4 sm:space-y-6">
-    <div class="tip-box">
-      <PhInfo :size="16" class="text-accent shrink-0 sm:w-5 sm:h-5" />
-      <span class="text-xs sm:text-sm">{{ t('aiIsDanger') }}</span>
-    </div>
-    <AISettings :settings="settings" @update:settings="handleUpdateSettings" />
-    <AITestSettings :settings="settings" @update:settings="handleUpdateSettings" />
+    <TipBox type="info" :title="t('setting.ai.isDanger')" />
+    <AIProfileList />
     <AIUsageSettings :settings="settings" @update:settings="handleUpdateSettings" />
     <AIFeatureSettings :settings="settings" @update:settings="handleUpdateSettings" />
   </div>
 </template>
 
-<style scoped>
-.tip-box {
-  @apply flex items-center gap-2 sm:gap-3 py-2 sm:py-2.5 px-2.5 sm:px-3 rounded-lg;
-  background-color: rgba(59, 130, 246, 0.05);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-</style>
+<style scoped></style>

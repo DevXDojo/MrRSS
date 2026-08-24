@@ -4,7 +4,6 @@ package opml
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"strings"
 
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/jsonimport"
 	"MrRSS/internal/models"
 	"MrRSS/internal/opml"
@@ -20,7 +20,65 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+// saveFeedTags creates or finds tags by name and associates them with the feed
+func saveFeedTags(h *core.Handler, feedID int64, tags []models.Tag) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	var tagIDs []int64
+	for _, tag := range tags {
+		// Check if tag already exists by name
+		existingTags, err := h.DB.GetTags()
+		if err != nil {
+			log.Printf("Error fetching tags: %v", err)
+			continue
+		}
+
+		var foundTagID int64
+		for _, existingTag := range existingTags {
+			if strings.EqualFold(existingTag.Name, tag.Name) {
+				foundTagID = existingTag.ID
+				break
+			}
+		}
+
+		// If tag doesn't exist, create it
+		if foundTagID == 0 {
+			newTag := &models.Tag{
+				Name:  tag.Name,
+				Color: tag.Color,
+			}
+			id, err := h.DB.AddTag(newTag)
+			if err != nil {
+				log.Printf("Error creating tag %s: %v", tag.Name, err)
+				continue
+			}
+			foundTagID = id
+		}
+
+		tagIDs = append(tagIDs, foundTagID)
+	}
+
+	// Associate tags with feed
+	if len(tagIDs) > 0 {
+		return h.DB.SetFeedTags(feedID, tagIDs)
+	}
+
+	return nil
+}
+
 // HandleOPMLImport handles OPML/JSON file import based on file extension.
+// @Summary      Import subscriptions from OPML/JSON
+// @Description  Import RSS feed subscriptions from an OPML or JSON file
+// @Tags         opml
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file  formData  file  false  "OPML or JSON file to import"
+// @Success      200  {object}  map[string]string  "Import successful"
+// @Failure      400  {object}  map[string]string  "Bad request"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /opml/import [post]
 func HandleOPMLImport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	log.Printf("HandleOPMLImport: ContentLength: %d", r.ContentLength)
 	contentType := r.Header.Get("Content-Type")
@@ -33,7 +91,7 @@ func HandleOPMLImport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		f, header, err := r.FormFile("file")
 		if err != nil {
 			log.Printf("Error getting form file: %v", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			response.Error(w, err, http.StatusBadRequest)
 			return
 		}
 		defer f.Close()
@@ -41,7 +99,7 @@ func HandleOPMLImport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		log.Printf("HandleOPMLImport: Received file %s, size: %d", filename, header.Size)
 
 		if header.Size == 0 {
-			http.Error(w, "Uploaded file is empty", http.StatusBadRequest)
+			response.Error(w, nil, http.StatusBadRequest)
 			return
 		}
 		file = f
@@ -68,7 +126,7 @@ func HandleOPMLImport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("Error parsing file: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -94,6 +152,15 @@ func HandleOPMLImport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error importing feed %s: %v", f.Title, err)
 			continue
 		}
+
+		// Save tags for the feed
+		if len(f.Tags) > 0 {
+			if err := saveFeedTags(h, feedID, f.Tags); err != nil {
+				log.Printf("Error saving tags for feed %s: %v", f.Title, err)
+				// Continue even if tag saving fails
+			}
+		}
+
 		feedIDs = append(feedIDs, feedID)
 	}
 
@@ -108,10 +175,18 @@ func HandleOPMLImport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleOPMLExport handles OPML file export.
+// @Summary      Export subscriptions to OPML
+// @Description  Export all local RSS feed subscriptions to an OPML file (excludes FreshRSS feeds)
+// @Tags         opml
+// @Accept       json
+// @Produce      text/xml
+// @Success      200  {string}  string  "OPML file content"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /opml/export [get]
 func HandleOPMLExport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	feeds, err := h.DB.GetFeeds()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -128,7 +203,7 @@ func HandleOPMLExport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 	data, err := opml.Generate(localFeeds)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -138,12 +213,21 @@ func HandleOPMLExport(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleOPMLImportDialog opens a file dialog to select OPML file for import.
+// @Summary      Import dialog (desktop mode)
+// @Description  Open a file dialog to select an OPML or JSON file for import (desktop mode only)
+// @Tags         opml
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "Import success (status, feedCount, filePath)"
+// @Success      501  {object}  map[string]string  "Not implemented in server mode"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /opml/import/dialog [post]
 func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if h.App == nil {
 		log.Printf("File dialog not available")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotImplemented)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "File dialog not available. Use /api/opml/import endpoint with file upload instead.",
 		})
 		return
@@ -155,7 +239,7 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		log.Printf("File dialog not available: app is not *application.App type")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotImplemented)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "File dialog not available. Use /api/opml/import endpoint with file upload instead.",
 		})
 		return
@@ -184,20 +268,23 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		CanChooseFiles:       true,
 		AllowsOtherFileTypes: true,
 	}).PromptForSingleSelection()
+
+	// Treat empty filePath as user cancellation (no error should be shown)
+	if filePath == "" {
+		log.Printf("Import dialog cancelled by user")
+		w.Header().Set("Content-Type", "application/json")
+		response.JSON(w, map[string]string{"status": "cancelled"})
+		return
+	}
+
+	// Only show error for actual failures, not cancellations
 	if err != nil {
 		log.Printf("Error opening file dialog: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "Failed to open file dialog",
 		})
-		return
-	}
-
-	if filePath == "" {
-		// User cancelled the dialog
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
 		return
 	}
 
@@ -207,7 +294,7 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		log.Printf("Error opening selected file: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "Failed to open selected file",
 		})
 		return
@@ -232,7 +319,7 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		log.Printf("Error parsing file: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": err.Error(),
 		})
 		return
@@ -260,6 +347,15 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 			log.Printf("Error importing feed %s: %v", f.Title, err)
 			continue
 		}
+
+		// Save tags for the feed
+		if len(f.Tags) > 0 {
+			if err := saveFeedTags(h, feedID, f.Tags); err != nil {
+				log.Printf("Error saving tags for feed %s: %v", f.Title, err)
+				// Continue even if tag saving fails
+			}
+		}
+
 		feedIDs = append(feedIDs, feedID)
 	}
 
@@ -271,7 +367,7 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"status":    "success",
 		"feedCount": len(feeds),
 		"filePath":  filePath,
@@ -279,12 +375,21 @@ func HandleOPMLImportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 }
 
 // HandleOPMLExportDialog opens a save dialog to export OPML file.
+// @Summary      Export dialog (desktop mode)
+// @Description  Open a save dialog to export subscriptions to OPML or JSON file (desktop mode only)
+// @Tags         opml
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "Export success (status, filePath)"
+// @Success      501  {object}  map[string]string  "Not implemented in server mode"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /opml/export/dialog [post]
 func HandleOPMLExportDialog(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if h.App == nil {
 		log.Printf("File dialog not available")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotImplemented)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "File dialog not available. Use the direct export endpoint instead.",
 		})
 		return
@@ -295,7 +400,7 @@ func HandleOPMLExportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": err.Error(),
 		})
 		return
@@ -318,7 +423,7 @@ func HandleOPMLExportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		log.Printf("File dialog not available: app is not *application.App type")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotImplemented)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "File dialog not available. Use /api/opml/export endpoint with direct download instead.",
 		})
 		return
@@ -347,20 +452,23 @@ func HandleOPMLExportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		},
 		AllowOtherFileTypes: true,
 	}).PromptForSingleSelection()
+
+	// Treat empty filePath as user cancellation (no error should be shown)
+	if filePath == "" {
+		log.Printf("Export dialog cancelled by user")
+		w.Header().Set("Content-Type", "application/json")
+		response.JSON(w, map[string]string{"status": "cancelled"})
+		return
+	}
+
+	// Only show error for actual failures, not cancellations
 	if err != nil {
 		log.Printf("Error opening save dialog: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "Failed to open save dialog",
 		})
-		return
-	}
-
-	if filePath == "" {
-		// User cancelled the dialog
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
 		return
 	}
 
@@ -381,7 +489,7 @@ func HandleOPMLExportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		log.Printf("Error generating export data: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": err.Error(),
 		})
 		return
@@ -393,14 +501,13 @@ func HandleOPMLExportDialog(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		log.Printf("Error writing file: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"error": "Failed to write file",
 		})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"status":   "success",
 		"filePath": filePath,
 	})

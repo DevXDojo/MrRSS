@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { PhLink, PhUser, PhKey, PhArrowClockwise, PhCloudCheck } from '@phosphor-icons/vue';
 import type { SettingsData } from '@/types/settings';
 import { useAppStore } from '@/stores/app';
+import { NestedSettingsContainer, SubSettingItem, InputControl } from '@/components/settings';
 
 const { t } = useI18n();
 const appStore = useAppStore();
@@ -18,6 +19,13 @@ const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
   'settings-changed': [];
 }>();
+
+function updateSetting(key: keyof SettingsData, value: any) {
+  emit('update:settings', {
+    ...props.settings,
+    [key]: value,
+  });
+}
 
 const isSyncing = ref(false);
 const syncStatus = ref<{
@@ -82,25 +90,51 @@ async function syncNow() {
     });
 
     if (response.ok) {
-      window.showToast(t('freshrssSyncStarted'), 'success');
+      window.showToast(t('setting.freshrss.syncStarted'), 'success');
       // Sync status polling will detect completion and refresh data automatically
     } else {
-      throw new Error(t('freshrssSyncFailed'));
+      throw new Error(t('setting.freshrss.syncFailed'));
     }
   } catch (error) {
-    window.showToast(error instanceof Error ? error.message : t('freshrssSyncFailed'), 'error');
+    window.showToast(
+      error instanceof Error ? error.message : t('setting.freshrss.syncFailed'),
+      'error'
+    );
   } finally {
     isSyncing.value = false;
   }
+}
+
+// Handle FreshRSS enabled toggle with confirmation
+async function handleFreshRSSToggle(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const newEnabled = target.checked;
+
+  // If disabling, show confirmation dialog
+  if (!newEnabled && props.settings.freshrss_enabled) {
+    const confirmed = await window.showConfirm({
+      title: t('setting.freshrss.enabled'),
+      message: t('setting.freshrss.disableConfirm'),
+      isDanger: true,
+    });
+    if (!confirmed) {
+      // Revert the checkbox
+      target.checked = true;
+      return;
+    }
+  }
+
+  // Emit the change
+  updateSetting('freshrss_enabled', newEnabled);
 }
 
 // Watch for FreshRSS enabled changes and refresh data accordingly
 watch(
   () => props.settings.freshrss_enabled,
   async (newVal, oldVal) => {
-    // Convert string values to boolean for comparison
-    const oldBool = oldVal === 'true' || oldVal === true;
-    const newBool = newVal === 'true' || newVal === true;
+    // Use boolean values directly (settings system ensures these are booleans)
+    const oldBool = oldVal;
+    const newBool = newVal;
 
     // When FreshRSS is disabled, refresh feeds and unread counts
     if (oldBool && !newBool) {
@@ -123,41 +157,20 @@ watch(
   }
 );
 
-// Watch for FreshRSS connection settings changes
-watch(
-  () => [
-    props.settings.freshrss_server_url,
-    props.settings.freshrss_username,
-    props.settings.freshrss_api_password,
-  ],
-  async () => {
-    if (props.settings.freshrss_enabled) {
-      // Settings changed while FreshRSS is enabled
-      // Backend will handle cleanup and resync
-      // Wait for cleanup and resync to complete, then refresh
-      setTimeout(async () => {
-        await appStore.fetchFeeds();
-        await appStore.fetchArticles();
-        await appStore.fetchUnreadCounts();
-      }, 3000); // Wait longer for cleanup + resync
-    }
-  }
-);
-
 // Format sync time
 function formatSyncTime(timeStr: string | null): string {
-  if (!timeStr) return t('freshrssNever');
+  if (!timeStr) return t('setting.freshrss.never');
   const date = new Date(timeStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
 
-  if (diffMins < 1) return t('freshrssJustNow');
-  if (diffMins < 60) return t('freshrssMinsAgo', { n: diffMins });
+  if (diffMins < 1) return t('setting.freshrss.justNow');
+  if (diffMins < 60) return t('setting.freshrss.minsAgo', { n: diffMins });
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return t('freshrssHoursAgo', { n: diffHours });
+  if (diffHours < 24) return t('setting.freshrss.hoursAgo', { n: diffHours });
   const diffDays = Math.floor(diffHours / 24);
-  return t('freshrssDaysAgo', { n: diffDays });
+  return t('setting.freshrss.daysAgo', { n: diffDays });
 }
 </script>
 
@@ -172,10 +185,10 @@ function formatSyncTime(timeStr: string | null): string {
       />
       <div class="flex-1 min-w-0">
         <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-          {{ t('freshrssEnabled') }}
+          {{ t('setting.freshrss.enabled') }}
         </div>
         <div class="text-xs text-text-secondary hidden sm:block">
-          {{ t('freshrssEnabledDesc') }}
+          {{ t('setting.freshrss.enabledDesc') }}
         </div>
       </div>
     </div>
@@ -183,135 +196,81 @@ function formatSyncTime(timeStr: string | null): string {
       type="checkbox"
       :checked="props.settings.freshrss_enabled"
       class="toggle"
-      @change="
-        (e) =>
-          emit('update:settings', {
-            ...props.settings,
-            freshrss_enabled: (e.target as HTMLInputElement).checked,
-          })
-      "
+      @change="handleFreshRSSToggle"
     />
   </div>
-  <div
-    v-if="props.settings.freshrss_enabled"
-    class="ml-2 sm:ml-4 space-y-2 sm:space-y-3 border-l-2 border-border pl-2 sm:pl-4"
-  >
+  <NestedSettingsContainer v-if="props.settings.freshrss_enabled">
     <!-- Server URL -->
-    <div class="sub-setting-item">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhLink :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('freshrssServerUrl') }} <span class="text-red-500">*</span>
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('freshrssServerUrlDesc') }}
-          </div>
-        </div>
-      </div>
-      <input
+    <SubSettingItem
+      :icon="PhLink"
+      :title="t('setting.freshrss.serverUrl')"
+      :description="t('setting.freshrss.serverUrlDesc')"
+      required
+    >
+      <InputControl
         type="url"
-        :value="props.settings.freshrss_server_url"
-        :placeholder="t('freshrssServerUrlPlaceholder')"
-        class="input-field w-32 sm:w-48 text-xs sm:text-sm"
-        @input="
-          (e) =>
-            emit('update:settings', {
-              ...props.settings,
-              freshrss_server_url: (e.target as HTMLInputElement).value,
-            })
-        "
+        :model-value="props.settings.freshrss_server_url"
+        :placeholder="t('setting.freshrss.serverUrlPlaceholder')"
+        width="md"
+        @update:model-value="updateSetting('freshrss_server_url', $event)"
       />
-    </div>
+    </SubSettingItem>
 
     <!-- Username -->
-    <div class="sub-setting-item">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhUser :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('freshrssUsername') }} <span class="text-red-500">*</span>
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('freshrssUsernameDesc') }}
-          </div>
-        </div>
-      </div>
-      <input
-        type="text"
-        :value="props.settings.freshrss_username"
-        :placeholder="t('freshrssUsernamePlaceholder')"
-        class="input-field w-32 sm:w-48 text-xs sm:text-sm"
-        @input="
-          (e) =>
-            emit('update:settings', {
-              ...props.settings,
-              freshrss_username: (e.target as HTMLInputElement).value,
-            })
-        "
+    <SubSettingItem
+      :icon="PhUser"
+      :title="t('setting.freshrss.username')"
+      :description="t('setting.freshrss.usernameDesc')"
+      required
+    >
+      <InputControl
+        :model-value="props.settings.freshrss_username"
+        :placeholder="t('setting.freshrss.usernamePlaceholder')"
+        width="md"
+        @update:model-value="updateSetting('freshrss_username', $event)"
       />
-    </div>
+    </SubSettingItem>
 
     <!-- API Password -->
-    <div class="sub-setting-item">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhKey :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('freshrssApiPassword') }}
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('freshrssApiPasswordDesc') }}
-          </div>
-        </div>
-      </div>
-      <input
+    <SubSettingItem
+      :icon="PhKey"
+      :title="t('setting.freshrss.apiPassword')"
+      :description="t('setting.freshrss.apiPasswordDesc')"
+    >
+      <InputControl
         type="password"
-        :value="props.settings.freshrss_api_password"
-        :placeholder="t('freshrssApiPasswordPlaceholder')"
-        class="input-field w-32 sm:w-48 text-xs sm:text-sm"
-        @input="
-          (e) =>
-            emit('update:settings', {
-              ...props.settings,
-              freshrss_api_password: (e.target as HTMLInputElement).value,
-            })
-        "
+        :model-value="props.settings.freshrss_api_password"
+        :placeholder="t('setting.freshrss.apiPasswordPlaceholder')"
+        width="md"
+        @update:model-value="updateSetting('freshrss_api_password', $event)"
       />
-    </div>
+    </SubSettingItem>
 
     <!-- Sync Button -->
-    <div class="sub-setting-item">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhCloudCheck :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('freshrssSyncNow') }}
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('freshrssSyncNowDesc') }}
-          </div>
+    <SubSettingItem
+      :icon="PhCloudCheck"
+      :title="t('setting.freshrss.syncNow')"
+      :description="t('setting.freshrss.syncNowDesc')"
+    >
+      <template #description>
+        <div>
+          {{ t('setting.freshrss.syncNowDesc') }}
           <div class="text-xs text-text-secondary mt-1">
-            {{ t('freshrssLastSync') }}:
+            {{ t('setting.freshrss.lastSync') }}:
             <span class="theme-number">{{ formatSyncTime(syncStatus.last_sync_time) }}</span>
           </div>
         </div>
-      </div>
+      </template>
       <button class="btn-secondary" :disabled="isSyncing" @click="syncNow">
         <PhArrowClockwise :size="16" class="sm:w-5 sm:h-5" :class="{ 'animate-spin': isSyncing }" />
-        {{ isSyncing ? t('freshrssSyncing') : t('freshrssSync') }}
+        {{ isSyncing ? t('setting.freshrss.syncing') : t('setting.freshrss.sync') }}
       </button>
-    </div>
-  </div>
+    </SubSettingItem>
+  </NestedSettingsContainer>
 </template>
 
 <style scoped>
 @reference "../../../../style.css";
-
-.input-field {
-  @apply p-1.5 sm:p-2.5 border border-border rounded-md bg-bg-secondary text-text-primary focus:border-accent focus:outline-none transition-colors;
-}
-
 .toggle {
   @apply w-10 h-5 appearance-none bg-bg-tertiary rounded-full relative cursor-pointer border border-border transition-colors checked:bg-accent checked:border-accent shrink-0;
 }
@@ -327,20 +286,11 @@ function formatSyncTime(timeStr: string | null): string {
   @apply flex items-center sm:items-start justify-between gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg bg-bg-secondary border border-border;
 }
 
-.sub-setting-item {
-  @apply flex items-center sm:items-start justify-between gap-2 sm:gap-4 p-2 sm:p-2.5 rounded-md bg-bg-tertiary;
-}
-
 .btn-secondary {
   @apply bg-bg-tertiary border border-border text-text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-medium hover:bg-bg-secondary transition-colors;
 }
-
 .btn-secondary:disabled {
   @apply cursor-not-allowed opacity-50;
-}
-
-.setting-group {
-  @apply space-y-2 sm:space-y-3;
 }
 
 @keyframes spin {

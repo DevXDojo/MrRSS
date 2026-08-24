@@ -1,9 +1,5 @@
 package feed
 
-import (
-	"time"
-)
-
 // Progress tracks the state of feed fetching operations
 type Progress struct {
 	IsRunning bool             `json:"is_running"`
@@ -35,10 +31,4 @@ func (f *Fetcher) GetProgressWithStats() ProgressWithStats {
 		ArticleClickCount: stats.ArticleClickCount,
 		QueueTaskCount:    stats.QueueTaskCount,
 	}
-}
-
-// waitForProgressComplete waits for any running operation to complete with a timeout.
-// Returns true if the wait was successful, false if timeout occurred.
-func (f *Fetcher) waitForProgressComplete(timeout time.Duration) bool {
-	return f.taskManager.Wait(timeout)
 }

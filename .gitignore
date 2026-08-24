@@ -7,6 +7,7 @@
 *.dll
 *.so
 *.dylib
+*.pyc
 MrRSS
 mrrss
 MrRSS.exe
@@ -47,6 +48,7 @@ go.work.sum
 build/bin/
 build/dmg/
 build/appimage/
+build/skills/
 build/appimagetool-x86_64.AppImage
 dist/
 wailsjs/wailsjs/runtime/
@@ -63,6 +65,7 @@ node_modules/
 dist/
 package.json.md5
 *.syso
+unused-files.json
 
 # Cypress
 frontend/cypress/videos/
@@ -79,25 +82,20 @@ frontend/cypress/downloads/
 # Claude
 .claude/
 .plan/
+tmpclaude-*-cwd
 
-# Swift Frontend
-#
-# Packages
+# Tools
+i18n_usage_report.md
+__pycache__/
+.VSCodeCounter
+
+# Swift frontend
 .swiftpm
 .build
-
-# Xcode
-#
-# Any generated Xcode project or workspace
+DerivedData/
+Checkouts/
 *.xcodeproj
 *.xcworkspace
-# Derived data (includes intermediate build results)
-DerivedData/
-# Swift Package Manager checkouts (if managed by Xcode)
-Checkouts/
 
-# MacOS
+# macOS
 .DS_Store
-
-
-

@@ -9,9 +9,20 @@ import (
 	"MrRSS/internal/database"
 	"MrRSS/internal/freshrss"
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 )
 
 // HandleMarkReadWithImmediateSync marks an article as read/unread and immediately syncs to FreshRSS
+// @Summary      Mark article as read/unread with immediate FreshRSS sync
+// @Description  Mark a specific article as read or unread and immediately sync to FreshRSS if configured
+// @Tags         articles
+// @Accept       json
+// @Produce      json
+// @Param        id   query     int64   true  "Article ID"
+// @Param        read query     string  true  "Read status: 'true', '1', 'false', or '0'"  Enums(true, 1, false, 0)
+// @Success      200  {string}  string  "Article marked and sync triggered successfully"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /articles/mark-read-sync [post]
 func HandleMarkReadWithImmediateSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
@@ -25,7 +36,7 @@ func HandleMarkReadWithImmediateSync(h *core.Handler, w http.ResponseWriter, r *
 	// Mark as read and get sync request
 	syncReq, err := h.DB.MarkArticleReadWithSync(id, read)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -38,6 +49,15 @@ func HandleMarkReadWithImmediateSync(h *core.Handler, w http.ResponseWriter, r *
 }
 
 // HandleToggleFavoriteWithImmediateSync toggles favorite and immediately syncs to FreshRSS
+// @Summary      Toggle article favorite status with immediate FreshRSS sync
+// @Description  Toggle the favorite/starred status of an article and immediately sync to FreshRSS if configured
+// @Tags         articles
+// @Accept       json
+// @Produce      json
+// @Param        id   query     int64   true  "Article ID"
+// @Success      200  {string}  string  "Favorite toggled and sync triggered successfully"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /articles/toggle-favorite-sync [post]
 func HandleToggleFavoriteWithImmediateSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
@@ -45,7 +65,7 @@ func HandleToggleFavoriteWithImmediateSync(h *core.Handler, w http.ResponseWrite
 	// Toggle favorite and get sync request
 	syncReq, err := h.DB.ToggleFavoriteWithSync(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 

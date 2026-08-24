@@ -15,11 +15,13 @@ repos:
         entry: gofmt -w
         language: system
         files: \.go$
+        exclude: ^docs/SERVER_MODE/
       - id: go-imports
         name: go-imports
         entry: goimports -w
         language: system
         files: \.go$
+        exclude: ^docs/SERVER_MODE/
       - id: go-mod-tidy
         name: go-mod-tidy
         entry: go mod tidy

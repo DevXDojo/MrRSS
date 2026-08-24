@@ -48,6 +48,7 @@ export interface InstallResponse {
 
 export type TabName =
   | 'general'
+  | 'reading'
   | 'feeds'
   | 'content'
   | 'ai'
@@ -55,4 +56,5 @@ export type TabName =
   | 'network'
   | 'plugins'
   | 'shortcuts'
+  | 'statistics'
   | 'about';

@@ -1,10 +1,18 @@
 import { defineStore } from 'pinia';
-import { ref, type Ref } from 'vue';
-import type { Article, Feed, UnreadCounts, RefreshProgress } from '@/types/models';
+import { ref, computed, type Ref } from 'vue';
+import type { Article, Feed, Tag, UnreadCounts, RefreshProgress } from '@/types/models';
+import type { FilterCondition } from '@/types/filter';
+import { useSettings } from '@/composables/core/useSettings';
 
 export type Filter = 'all' | 'unread' | 'favorites' | 'readLater' | 'imageGallery' | '';
 export type ThemePreference = 'light' | 'dark' | 'auto';
 export type Theme = 'light' | 'dark';
+
+// Temporary selection state for feed drawer selections
+export interface TempSelection {
+  feedId: number | null;
+  category: string | null;
+}
 
 export interface AppState {
   articles: Ref<Article[]>;
@@ -14,6 +22,7 @@ export interface AppState {
   currentFeedId: Ref<number | null>;
   currentCategory: Ref<string | null>;
   currentArticleId: Ref<number | null>;
+  tempSelection: Ref<TempSelection>;
   isLoading: Ref<boolean>;
   page: Ref<number>;
   hasMore: Ref<boolean>;
@@ -22,17 +31,21 @@ export interface AppState {
   theme: Ref<Theme>;
   refreshProgress: Ref<RefreshProgress>;
   showOnlyUnread: Ref<boolean>;
+  activeFilters: Ref<FilterCondition[]>;
+  filteredArticlesFromServer: Ref<Article[]>;
+  isFilterLoading: Ref<boolean>;
 }
 
 export interface AppActions {
   setFilter: (filter: Filter) => void;
   setFeed: (feedId: number) => void;
+  selectFeedInArticleList: (feedId: number, articleId?: number) => void;
   setCategory: (category: string) => void;
   fetchArticles: (append?: boolean) => Promise<void>;
   loadMore: () => Promise<void>;
   fetchFeeds: () => Promise<void>;
   fetchUnreadCounts: () => Promise<void>;
-  markAllAsRead: (feedId?: number) => Promise<void>;
+  markAllAsRead: (feedId?: number, category?: string) => Promise<void>;
   updateArticleSummary: (articleId: number, summary: string) => void;
   toggleTheme: () => void;
   setTheme: (preference: ThemePreference) => void;
@@ -43,12 +56,29 @@ export interface AppActions {
   checkForAppUpdates: () => Promise<void>;
   startAutoRefresh: (minutes: number) => void;
   toggleShowOnlyUnread: () => void;
+  setActiveFilters: (filters: FilterCondition[]) => void;
 }
 
 export const useAppStore = defineStore('app', () => {
+  // Get settings composable once at store initialization
+  const { settings: settingsRef } = useSettings();
+
   // State
   const articles = ref<Article[]>([]);
   const feeds = ref<Feed[]>([]);
+  // Feed map for O(1) lookups - computed from feeds array
+  const feedMap = computed(() => {
+    const map = new Map<number, Feed>();
+    feeds.value.forEach((feed) => map.set(feed.id, feed));
+    return map;
+  });
+  const tags = ref<Tag[]>([]);
+  // Tag map for O(1) lookups - computed from tags array
+  const tagMap = computed(() => {
+    const map = new Map<number, Tag>();
+    tags.value.forEach((tag) => map.set(tag.id, tag));
+    return map;
+  });
   const unreadCounts = ref<UnreadCounts>({
     total: 0,
     feedCounts: {},
@@ -57,6 +87,7 @@ export const useAppStore = defineStore('app', () => {
   const currentFeedId = ref<number | null>(null);
   const currentCategory = ref<string | null>(null);
   const currentArticleId = ref<number | null>(null);
+  const tempSelection = ref<TempSelection>({ feedId: null, category: null });
   const isLoading = ref<boolean>(false);
   const page = ref<number>(1);
   const hasMore = ref<boolean>(true);
@@ -66,65 +97,105 @@ export const useAppStore = defineStore('app', () => {
   );
   const theme = ref<Theme>('light');
   const showOnlyUnread = ref<boolean>(localStorage.getItem('showOnlyUnread') === 'true');
+  const activeFilters = ref<FilterCondition[]>([]);
+  const filteredArticlesFromServer = ref<Article[]>([]);
+  const isFilterLoading = ref(false);
+
+  // Article view mode preferences (persisted across component mounts)
+  const articleViewModePreferences = ref<Map<number, 'original' | 'rendered'>>(new Map());
 
   // Refresh progress
   const refreshProgress = ref<RefreshProgress>({ isRunning: false });
   let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   // Actions - Article Management
-  function setFilter(filter: Filter): void {
+  async function setFilter(filter: Filter): Promise<void> {
     currentFilter.value = filter;
     currentFeedId.value = null;
     currentCategory.value = null;
-    page.value = 1;
-    articles.value = [];
-    hasMore.value = true;
+    tempSelection.value = { feedId: null, category: null };
+    // Refresh filter counts to ensure sidebar shows correct feeds
+    await fetchFilterCounts();
+    // Clear and reset will be handled by fetchArticles
     fetchArticles();
   }
 
   function setFeed(feedId: number): void {
-    // Check if this feed is an image mode feed
+    // Keep image gallery navigation inside the gallery, but don't force regular article views into it.
     const feed = feeds.value.find((f) => f.id === feedId);
-    if (feed?.is_image_mode) {
-      // Switch to image gallery mode for image mode feeds
-      currentFilter.value = 'imageGallery';
+    if (feed?.is_image_mode && currentFilter.value === 'imageGallery') {
       currentFeedId.value = feedId;
       currentCategory.value = null;
-      page.value = 1;
-      articles.value = [];
-      hasMore.value = true;
+      tempSelection.value = { feedId, category: null };
+      // Clear and reset will be handled by fetchArticles
     } else {
-      currentFilter.value = '';
       currentFeedId.value = feedId;
       currentCategory.value = null;
-      page.value = 1;
-      articles.value = [];
-      hasMore.value = true;
+      tempSelection.value = { feedId, category: null };
       fetchArticles();
     }
   }
 
-  function setCategory(category: string): void {
-    currentFilter.value = '';
-    currentFeedId.value = null;
-    currentCategory.value = category;
-    page.value = 1;
-    articles.value = [];
-    hasMore.value = true;
+  function selectFeedInArticleList(feedId: number, articleId?: number): void {
+    currentFilter.value = 'all';
+    currentFeedId.value = feedId;
+    currentCategory.value = null;
+    tempSelection.value = { feedId, category: null };
+    if (articleId !== undefined) {
+      currentArticleId.value = articleId;
+    }
     fetchArticles();
+  }
+
+  function setCategory(category: string): void {
+    // Check if this category contains only image mode feeds
+    const categoryFeeds = feeds.value.filter((f) => {
+      // Handle uncategorized category (empty string)
+      if (category === '') {
+        return !f.category || f.category === '';
+      }
+
+      // Handle nested categories by checking if the feed's category starts with the selected path
+      // For example, if category is "Tech", it should match "Tech", "Tech/AI", "Tech/AI/ML", etc.
+      const feedCategory = f.category || '';
+      return feedCategory === category || feedCategory.startsWith(category + '/');
+    });
+
+    const allImageMode = categoryFeeds.length > 0 && categoryFeeds.every((f) => f.is_image_mode);
+
+    // Keep image-only categories in the gallery only when the user is already browsing it.
+    if (allImageMode && currentFilter.value === 'imageGallery') {
+      currentFeedId.value = null;
+      currentCategory.value = category;
+      tempSelection.value = { feedId: null, category };
+      // Don't call fetchArticles here - ImageGalleryView will handle fetching
+    } else {
+      currentFeedId.value = null;
+      currentCategory.value = category;
+      tempSelection.value = { feedId: null, category };
+      fetchArticles();
+    }
   }
 
   async function fetchArticles(append: boolean = false): Promise<void> {
     if (isLoading.value) return;
-    if (!append && !hasMore.value) hasMore.value = true;
+
+    // If not appending, reset to page 1 and clear articles
+    if (!append) {
+      page.value = 1;
+      articles.value = [];
+      hasMore.value = true;
+    }
 
     isLoading.value = true;
     const limit = 50;
 
     let url = `/api/articles?page=${page.value}&limit=${limit}`;
     if (currentFilter.value) url += `&filter=${currentFilter.value}`;
+    if (showOnlyUnread.value && currentFilter.value !== 'unread') url += '&only_unread=true';
     if (currentFeedId.value) url += `&feed_id=${currentFeedId.value}`;
-    if (currentCategory.value) url += `&category=${encodeURIComponent(currentCategory.value)}`;
+    if (currentCategory.value !== null)
+      url += `&category=${encodeURIComponent(currentCategory.value)}`;
 
     try {
       const res = await fetch(url);
@@ -155,12 +226,9 @@ export const useAppStore = defineStore('app', () => {
 
   async function fetchFeeds(): Promise<void> {
     try {
-      console.log('[App Store] Fetching feeds...');
       const res = await fetch('/api/feeds');
-      console.log('[App Store] Response status:', res.status);
 
       const text = await res.text();
-      console.log('[App Store] Response length:', text.length);
 
       let data;
       try {
@@ -172,13 +240,26 @@ export const useAppStore = defineStore('app', () => {
       }
 
       feeds.value = data;
-      console.log('[App Store] Feeds loaded successfully, count:', data.length);
 
-      // Fetch unread counts after fetching feeds
+      // Fetch unread counts and filter counts after fetching feeds
       await fetchUnreadCounts();
+      await fetchFilterCounts();
+      // Fetch tags after fetching feeds
+      await fetchTags();
     } catch (e) {
       console.error('[App Store] Fetch feeds error:', e);
       feeds.value = [];
+    }
+  }
+
+  async function fetchTags(): Promise<void> {
+    try {
+      const res = await fetch('/api/tags');
+      const data = await res.json();
+      tags.value = data || [];
+    } catch (e) {
+      console.error('[App Store] Fetch tags error:', e);
+      tags.value = [];
     }
   }
 
@@ -195,19 +276,64 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  // Filter-specific counts for sidebar filtering
+  const filterCounts = ref<Record<string, Record<number | string, number>>>({
+    unread: {},
+    favorites: {},
+    favorites_unread: {},
+    read_later: {},
+    read_later_unread: {},
+    images: {},
+    images_unread: {},
+  });
+
+  async function fetchFilterCounts(): Promise<void> {
+    try {
+      const res = await fetch('/api/articles/filter-counts');
+      const data = await res.json();
+      filterCounts.value = {
+        unread: data.unread || {},
+        favorites: data.favorites || {},
+        favorites_unread: data.favorites_unread || {},
+        read_later: data.read_later || {},
+        read_later_unread: data.read_later_unread || {},
+        images: data.images || {},
+        images_unread: data.images_unread || {},
+      };
+    } catch (e) {
+      console.error('[App Store] Fetch filter counts error:', e);
+      filterCounts.value = {
+        unread: {},
+        favorites: {},
+        favorites_unread: {},
+        read_later: {},
+        read_later_unread: {},
+        images: {},
+        images_unread: {},
+      };
+    }
+  }
+
   async function markAllAsRead(feedId?: number, category?: string): Promise<void> {
     try {
       const params = new URLSearchParams();
-      if (feedId) params.append('feed_id', String(feedId));
-      if (category) params.append('category', category);
+      if (feedId !== undefined) params.append('feed_id', String(feedId));
+      if (category !== undefined) params.append('category', category);
 
       const url = params.toString()
         ? `/api/articles/mark-all-read?${params.toString()}`
         : '/api/articles/mark-all-read';
       await fetch(url, { method: 'POST' });
-      // Refresh articles and unread counts
-      await fetchArticles();
+      articles.value = articles.value.map((article) => {
+        if (feedId !== undefined && article.feed_id !== feedId) return article;
+        if (category !== undefined) {
+          const feed = feedMap.value.get(article.feed_id);
+          if ((feed?.category || '') !== category) return article;
+        }
+        return { ...article, is_read: true };
+      });
       await fetchUnreadCounts();
+      await fetchFilterCounts();
     } catch {
       // Error handled silently
     }
@@ -278,19 +404,83 @@ export const useAppStore = defineStore('app', () => {
     applyTheme();
   }
 
+  async function refreshSelectedFeeds(): Promise<boolean> {
+    let feedIds: number[] = [];
+
+    if (currentFeedId.value) {
+      feedIds = [currentFeedId.value];
+    } else if (currentCategory.value !== null) {
+      feedIds = feeds.value
+        .filter((feed) => {
+          const feedCategory = feed.category || '';
+          if (currentCategory.value === '') {
+            return feedCategory === '';
+          }
+          return (
+            feedCategory === currentCategory.value ||
+            feedCategory.startsWith(`${currentCategory.value}/`)
+          );
+        })
+        .map((feed) => feed.id);
+    }
+
+    const hasScopedSelection = currentFeedId.value !== null || currentCategory.value !== null;
+    if (feedIds.length === 0) {
+      if (hasScopedSelection) {
+        return true;
+      }
+      return false;
+    }
+
+    refreshProgress.value.isRunning = true;
+    try {
+      await Promise.all(
+        feedIds.map(async (id) => {
+          const res = await fetch(`/api/feeds/refresh?id=${id}`, { method: 'POST' });
+          if (!res.ok) {
+            throw new Error(`Feed refresh API returned ${res.status}: ${res.statusText}`);
+          }
+        })
+      );
+      await fetchProgressOnce();
+      pollProgress();
+      return true;
+    } catch (e) {
+      console.error('Error refreshing selected feeds:', e);
+      refreshProgress.value.isRunning = false;
+      return true;
+    }
+  }
+
   // Auto Refresh
   async function refreshFeeds(): Promise<void> {
+    if (await refreshSelectedFeeds()) {
+      return;
+    }
+
     refreshProgress.value.isRunning = true;
     try {
       // First, trigger standard refresh
-      await fetch('/api/refresh', { method: 'POST' });
+      const refreshRes = await fetch('/api/refresh', { method: 'POST' });
+      if (!refreshRes.ok) {
+        throw new Error(`Refresh API returned ${refreshRes.status}: ${refreshRes.statusText}`);
+      }
+      // Verify the response is valid JSON by consuming it
+      try {
+        await refreshRes.json();
+      } catch (e) {
+        console.error('Invalid JSON response from /api/refresh:', e);
+        throw new Error(`Invalid JSON response from refresh API: ${e}`, { cause: e });
+      }
 
       // Also trigger FreshRSS sync if enabled
-      try {
-        await fetch('/api/freshrss/sync', { method: 'POST' });
-      } catch (e) {
-        // If FreshRSS sync fails, it's okay - just log it
-        console.log('FreshRSS sync triggered (may not be enabled)');
+      if (settingsRef.value.freshrss_enabled === true) {
+        try {
+          await fetch('/api/freshrss/sync', { method: 'POST' });
+        } catch (e) {
+          // If FreshRSS sync fails, it's okay - just log it
+          console.log('FreshRSS sync failed:', e);
+        }
       }
 
       // Wait a moment to check if refresh is actually running
@@ -298,11 +488,13 @@ export const useAppStore = defineStore('app', () => {
 
       // Check progress to see if there are actually any tasks
       const progressRes = await fetch('/api/progress');
+      if (!progressRes.ok) {
+        throw new Error(`Progress API returned ${progressRes.status}: ${progressRes.statusText}`);
+      }
       const progressData = await progressRes.json();
 
       // If no tasks are running, mark as completed immediately
       if (!progressData.is_running) {
-        console.log('No feeds to refresh (all feeds are FreshRSS or no feeds exist)');
         refreshProgress.value.isRunning = false;
 
         // Still refresh feeds and articles to get any updates from FreshRSS sync
@@ -330,6 +522,9 @@ export const useAppStore = defineStore('app', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const res = await fetch('/api/progress');
+      if (!res.ok) {
+        throw new Error(`Progress API returned ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
       console.log('Initial progress update:', data);
       refreshProgress.value = {
@@ -354,6 +549,9 @@ export const useAppStore = defineStore('app', () => {
     const interval = setInterval(async () => {
       try {
         const res = await fetch('/api/progress');
+        if (!res.ok) {
+          throw new Error(`Progress API returned ${res.status}: ${res.statusText}`);
+        }
         const data = await res.json();
         refreshProgress.value = {
           ...refreshProgress.value, // Preserve existing pool_tasks and queue_tasks
@@ -399,6 +597,7 @@ export const useAppStore = defineStore('app', () => {
           // Users can see error status in the feed list sidebar
 
           // Check for app updates after initial refresh completes
+
           checkForAppUpdates();
         }
       } catch {
@@ -482,13 +681,21 @@ export const useAppStore = defineStore('app', () => {
 
         // Only proceed if there's an update available and a download URL
         if (data.has_update && data.download_url) {
-          // Show notification to user
-          if (window.showToast) {
-            window.showToast(`Update available: v${data.latest_version}`, 'info', 5000);
-          }
+          // Check if auto-update is enabled before downloading
+          const { settings } = useSettings();
 
-          // Auto download and install in background
-          autoDownloadAndInstall(data.download_url, data.asset_name);
+          console.log('[DEBUG] Update found, auto_update =', settings.value.auto_update);
+          if (settings.value.auto_update) {
+            console.log('[DEBUG] Auto-downloading update...');
+            // Auto download and install in background
+            autoDownloadAndInstall(data.download_url, data.asset_name);
+          } else {
+            console.log('[DEBUG] Auto-update disabled, showing notification only');
+            // Just show notification that update is available
+            if (window.showToast) {
+              window.showToast(`Update available: v${data.latest_version}`, 'info', 5000);
+            }
+          }
         }
       }
     } catch {
@@ -562,6 +769,21 @@ export const useAppStore = defineStore('app', () => {
   function toggleShowOnlyUnread(): void {
     showOnlyUnread.value = !showOnlyUnread.value;
     localStorage.setItem('showOnlyUnread', String(showOnlyUnread.value));
+    if (currentFilter.value !== 'imageGallery') {
+      void fetchArticles(false);
+    }
+  }
+
+  function setActiveFilters(filters: FilterCondition[]): void {
+    activeFilters.value = filters;
+  }
+
+  function setFilteredArticlesFromServer(articles: Article[]): void {
+    filteredArticlesFromServer.value = articles;
+  }
+
+  function setIsFilterLoading(loading: boolean): void {
+    isFilterLoading.value = loading;
   }
 
   async function fetchTaskDetails(): Promise<void> {
@@ -584,11 +806,16 @@ export const useAppStore = defineStore('app', () => {
     // State
     articles,
     feeds,
+    feedMap,
+    tags,
+    tagMap,
     unreadCounts,
+    filterCounts,
     currentFilter,
     currentFeedId,
     currentCategory,
     currentArticleId,
+    tempSelection,
     isLoading,
     page,
     hasMore,
@@ -597,15 +824,22 @@ export const useAppStore = defineStore('app', () => {
     theme,
     refreshProgress,
     showOnlyUnread,
+    activeFilters,
+    filteredArticlesFromServer,
+    isFilterLoading,
+    articleViewModePreferences,
 
     // Actions
     setFilter,
     setFeed,
+    selectFeedInArticleList,
     setCategory,
     fetchArticles,
     loadMore,
     fetchFeeds,
+    fetchTags,
     fetchUnreadCounts,
+    fetchFilterCounts,
     markAllAsRead,
     updateArticleSummary,
     toggleTheme,
@@ -619,6 +853,9 @@ export const useAppStore = defineStore('app', () => {
     checkForAppUpdates,
     startAutoRefresh,
     toggleShowOnlyUnread,
+    setActiveFilters,
+    setFilteredArticlesFromServer,
+    setIsFilterLoading,
     fetchTaskDetails,
   };
 });

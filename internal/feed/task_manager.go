@@ -198,14 +198,15 @@ func (tm *TaskManager) AddToQueueHead(ctx context.Context, feed models.Feed, rea
 	}
 	tm.progressMutex.Unlock()
 
-	// Remove existing task from queue if present
-	tm.queueMutex.Lock()
-	removed := removeFromQueue(&tm.queue, feed.ID)
-
-	// Check if already in pool
+	// Check if already in pool first (before acquiring queue lock)
 	tm.poolMutex.RLock()
 	inPool := tm.pool[feed.ID] != nil
 	tm.poolMutex.RUnlock()
+
+	// Then remove existing task from queue if present
+	// Lock order: always pool check first, then queue operations
+	tm.queueMutex.Lock()
+	removed := removeFromQueue(&tm.queue, feed.ID)
 
 	// Only add if not in pool
 	var added bool
@@ -263,14 +264,15 @@ func (tm *TaskManager) AddToQueueTail(ctx context.Context, feed models.Feed, rea
 	}
 	tm.progressMutex.Unlock()
 
-	// Check if already in queue or pool
-	tm.queueMutex.Lock()
+	// Check if already in pool first (before acquiring queue lock)
+	// Lock order: always check pool first, then queue
 	tm.poolMutex.RLock()
-
-	inQueue := containsInQueue(tm.queue, feed.ID)
 	inPool := tm.pool[feed.ID] != nil
-
 	tm.poolMutex.RUnlock()
+
+	// Check queue and add if needed
+	tm.queueMutex.Lock()
+	inQueue := containsInQueue(tm.queue, feed.ID)
 
 	// Only add if not in queue and not in pool
 	var added bool
@@ -356,24 +358,30 @@ func (tm *TaskManager) AddGlobalRefresh(ctx context.Context, feeds []models.Feed
 		log.Printf("ERROR: Failed to update last_global_refresh: %v", err)
 	}
 
+	// Track global refresh in statistics
+	if err := tm.fetcher.db.IncrementStat("feed_refresh"); err != nil {
+		log.Printf("ERROR: Failed to track feed refresh: %v", err)
+	}
+
 	// Clear all feed error marks in database
 	if err := tm.fetcher.db.ClearAllFeedErrors(); err != nil {
 		log.Printf("Failed to clear all feed errors: %v", err)
 	}
 
 	// Add feeds to queue tail with deduplication
-	tm.queueMutex.Lock()
-	tm.poolMutex.RLock()
-
+	// Lock order: always check pool first, then queue
 	existingFeedIDs := make(map[int64]bool)
-	for _, feedID := range tm.queue {
-		existingFeedIDs[feedID] = true
-	}
+
+	tm.poolMutex.RLock()
 	for feedID := range tm.pool {
 		existingFeedIDs[feedID] = true
 	}
-
 	tm.poolMutex.RUnlock()
+
+	tm.queueMutex.Lock()
+	for _, feedID := range tm.queue {
+		existingFeedIDs[feedID] = true
+	}
 
 	addedCount := 0
 	addedFeeds := make([]models.Feed, 0, len(feeds))
@@ -467,15 +475,12 @@ func (tm *TaskManager) ExecuteImmediately(ctx context.Context, feed models.Feed)
 			tm.checkCompletion()
 		}()
 
-		// Setup translator
-		tm.fetcher.setupTranslator()
-
 		// Execute with timeout and retry
 		var err error
 		var success bool
 
 		// Get retry timeout from settings
-		retryTimeoutSeconds := tm.getRetryTimeout()
+		retryTimeout := tm.getRetryTimeout()
 
 		// First attempt: 10 second timeout
 		ctx1, cancel1 := context.WithTimeout(ctx, 10*time.Second)
@@ -489,9 +494,9 @@ func (tm *TaskManager) ExecuteImmediately(ctx context.Context, feed models.Feed)
 
 		// Second attempt: use configured retry timeout if first attempt failed
 		if !success && err != nil {
-			log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeoutSeconds)
+			log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeout)
 
-			ctx2, cancel2 := context.WithTimeout(ctx, retryTimeoutSeconds)
+			ctx2, cancel2 := context.WithTimeout(ctx, retryTimeout)
 			defer cancel2()
 
 			err = tm.fetcher.fetchFeedWithContext(ctx2, task.Feed)
@@ -538,17 +543,17 @@ func (tm *TaskManager) processQueue(ctx context.Context) {
 		}
 
 		// Check if we can start a new task
-		tm.queueMutex.Lock()
+		// Lock order: always check pool first, then queue
 		tm.poolMutex.Lock()
+		poolAtCapacity := len(tm.pool) >= tm.poolCapacity
+		tm.poolMutex.Unlock()
 
-		// Get next task from queue
+		tm.queueMutex.Lock()
 		var feedID int64
-		if len(tm.queue) > 0 && len(tm.pool) < tm.poolCapacity {
+		if !poolAtCapacity && len(tm.queue) > 0 {
 			feedID = tm.queue[0]
 			tm.queue = tm.queue[1:]
 		}
-
-		tm.poolMutex.Unlock()
 		tm.queueMutex.Unlock()
 
 		if feedID == 0 {
@@ -616,15 +621,12 @@ func (tm *TaskManager) processTask(ctx context.Context, task *RefreshTask) {
 
 	log.Printf("Processing feed: %s (reason: %d)", task.Feed.Title, task.Reason)
 
-	// Setup translator
-	tm.fetcher.setupTranslator()
-
 	// Try fetching with timeout and retry
 	var err error
 	var success bool
 
 	// Get retry timeout from settings
-	retryTimeoutSeconds := tm.getRetryTimeout()
+	retryTimeout := tm.getRetryTimeout()
 
 	// First attempt: 60 second timeout (increased from 10s for large feeds)
 	// Many feeds have 100+ articles, and processing can take time
@@ -640,10 +642,10 @@ func (tm *TaskManager) processTask(ctx context.Context, task *RefreshTask) {
 
 	// Second attempt: use configured retry timeout if first attempt failed
 	if !success && err != nil {
-		log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeoutSeconds)
+		log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeout)
 		tm.logOperation("RT", task.Feed.Title)
 
-		ctx2, cancel2 := context.WithTimeout(ctx, retryTimeoutSeconds)
+		ctx2, cancel2 := context.WithTimeout(ctx, retryTimeout)
 		defer cancel2()
 
 		err = tm.fetcher.fetchFeedWithContext(ctx2, task.Feed)
@@ -1013,14 +1015,5 @@ func (tm *TaskManager) logOperation(operation string, feedName string) {
 
 	if _, err := tm.logFile.WriteString(logEntry); err != nil {
 		log.Printf("Failed to write to task log: %v", err)
-	}
-}
-
-// closeTaskLog closes the task log file
-func (tm *TaskManager) closeTaskLog() {
-	if tm.logFile != nil {
-		tm.logFile.Close()
-		tm.logFile = nil
-		tm.logEnabled = false
 	}
 }

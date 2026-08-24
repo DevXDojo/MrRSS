@@ -19,14 +19,13 @@ import {
   PhMagnifyingGlass,
   PhListDashes,
   PhCircle,
-  PhHeart,
   PhArrowCounterClockwise,
-  PhInfo,
   PhFunnel,
 } from '@phosphor-icons/vue';
 import ShortcutItem from './ShortcutItem.vue';
 import type { SettingsData } from '@/types/settings';
 import { useSettingsAutoSave } from '@/composables/core/useSettingsAutoSave';
+import { ButtonControl, SettingWithToggle, TipBox } from '@/components/settings';
 
 const { t } = useI18n();
 
@@ -46,18 +45,18 @@ const settingsRef = computed(() => props.settings);
 // Use composable for auto-save with reactivity
 useSettingsAutoSave(settingsRef);
 
-// Handle shortcuts enabled toggle change
-function handleToggleChange(event: Event) {
-  const target = event.target as HTMLInputElement;
+// Update settings and dispatch events
+function updateSetting(key: keyof SettingsData, value: any) {
   emit('update:settings', {
     ...props.settings,
-    shortcuts_enabled: target.checked,
+    [key]: value,
   });
-  // Dispatch event to notify keyboard shortcuts system
-  if (typeof window !== 'undefined') {
+
+  // Dispatch event to notify keyboard shortcuts system when toggling
+  if (key === 'shortcuts_enabled' && typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('shortcuts-enabled-changed', {
-        detail: { enabled: target.checked },
+        detail: { enabled: value },
       })
     );
   }
@@ -79,6 +78,9 @@ interface Shortcuts {
   addFeed: string;
   focusSearch: string;
   toggleFilter: string;
+  toggleUnreadFilter: string;
+  toggleFavoritesFilter: string;
+  toggleReadLaterFilter: string;
   goToAllArticles: string;
   goToUnread: string;
   goToFavorites: string;
@@ -108,6 +110,9 @@ const defaultShortcuts: Shortcuts = {
   addFeed: 'a',
   focusSearch: '/',
   toggleFilter: 'f',
+  toggleUnreadFilter: 'Alt+r',
+  toggleFavoritesFilter: 'Alt+s',
+  toggleReadLaterFilter: 'Alt+l',
   goToAllArticles: '1',
   goToUnread: '2',
   goToFavorites: '3',
@@ -124,37 +129,68 @@ const recordedKey = ref('');
 // Shortcut groups for display
 const shortcutGroups = computed<Array<{ label: string; items: ShortcutItemData[] }>>(() => [
   {
-    label: t('shortcutNavigation'),
+    label: t('shortcut.category.navigation'),
     items: [
-      { key: 'nextArticle', label: t('nextArticle'), icon: PhArrowDown },
-      { key: 'previousArticle', label: t('previousArticle'), icon: PhArrowUp },
-      { key: 'openArticle', label: t('openArticle'), icon: PhArrowRight },
-      { key: 'closeArticle', label: t('closeArticle'), icon: PhX },
-      { key: 'goToAllArticles', label: t('goToAllArticles'), icon: PhListDashes },
-      { key: 'goToUnread', label: t('goToUnread'), icon: PhCircle },
-      { key: 'goToFavorites', label: t('goToFavorites'), icon: PhHeart },
-      { key: 'goToReadLater', label: t('goToReadLater'), icon: PhClockCountdown },
+      { key: 'nextArticle', label: t('article.navigation.nextArticle'), icon: PhArrowDown },
+      { key: 'previousArticle', label: t('article.navigation.previousArticle'), icon: PhArrowUp },
+      { key: 'openArticle', label: t('article.action.openArticle'), icon: PhArrowRight },
+      { key: 'closeArticle', label: t('article.action.closeArticle'), icon: PhX },
+      {
+        key: 'goToAllArticles',
+        label: t('article.navigation.goToAllArticles'),
+        icon: PhListDashes,
+      },
+      { key: 'goToUnread', label: t('article.navigation.goToUnread'), icon: PhCircle },
+      { key: 'goToFavorites', label: t('article.navigation.goToFavorites'), icon: PhStar },
+      {
+        key: 'goToReadLater',
+        label: t('article.navigation.goToReadLater'),
+        icon: PhClockCountdown,
+      },
     ],
   },
   {
-    label: t('shortcutArticles'),
+    label: t('shortcut.category.articles'),
     items: [
-      { key: 'toggleReadStatus', label: t('toggleReadStatus'), icon: PhBookOpen },
-      { key: 'toggleFavoriteStatus', label: t('toggleFavoriteStatus'), icon: PhStar },
-      { key: 'toggleReadLaterStatus', label: t('toggleReadLaterStatus'), icon: PhClockCountdown },
-      { key: 'openInBrowser', label: t('openInBrowserShortcut'), icon: PhArrowSquareOut },
-      { key: 'toggleContentView', label: t('toggleContentView'), icon: PhArticle },
+      { key: 'toggleReadStatus', label: t('shortcut.toggle.readStatus'), icon: PhBookOpen },
+      {
+        key: 'toggleFavoriteStatus',
+        label: t('article.action.toggleFavoriteStatus'),
+        icon: PhStar,
+      },
+      {
+        key: 'toggleReadLaterStatus',
+        label: t('shortcut.toggle.readLaterStatus'),
+        icon: PhClockCountdown,
+      },
+      {
+        key: 'openInBrowser',
+        label: t('article.action.openInBrowserShortcut'),
+        icon: PhArrowSquareOut,
+      },
+      { key: 'toggleContentView', label: t('shortcut.toggle.contentView'), icon: PhArticle },
     ],
   },
   {
-    label: t('shortcutOther'),
+    label: t('shortcut.category.other'),
     items: [
-      { key: 'refreshFeeds', label: t('refreshFeedsShortcut'), icon: PhArrowClockwise },
-      { key: 'markAllRead', label: t('markAllReadShortcut'), icon: PhCheckCircle },
-      { key: 'openSettings', label: t('openSettingsShortcut'), icon: PhGear },
-      { key: 'addFeed', label: t('addFeedShortcut'), icon: PhPlus },
-      { key: 'focusSearch', label: t('focusFeedSearch'), icon: PhMagnifyingGlass },
-      { key: 'toggleFilter', label: t('toggleFilter'), icon: PhFunnel },
+      {
+        key: 'refreshFeeds',
+        label: t('article.action.refreshFeedsShortcut'),
+        icon: PhArrowClockwise,
+      },
+      { key: 'markAllRead', label: t('article.action.markAllReadShortcut'), icon: PhCheckCircle },
+      { key: 'openSettings', label: t('setting.shortcut.openSettingsShortcut'), icon: PhGear },
+      { key: 'addFeed', label: t('setting.shortcut.addFeedShortcut'), icon: PhPlus },
+      { key: 'focusSearch', label: t('setting.shortcut.focusFeedSearch'), icon: PhMagnifyingGlass },
+      { key: 'toggleFilter', label: t('shortcut.toggle.filter'), icon: PhFunnel },
+      { key: 'toggleUnreadFilter', label: t('shortcut.toggle.unreadFilter'), icon: PhCircle },
+      { key: 'toggleFavoritesFilter', label: t('shortcut.toggle.favoritesFilter'), icon: PhStar },
+      {
+        key: 'toggleReadLaterFilter',
+        label: t('shortcut.toggle.readLaterFilter'),
+        icon: PhClockCountdown,
+      },
     ],
   },
 ]);
@@ -206,7 +242,7 @@ function handleKeyRecord(e: KeyboardEvent) {
     // Clear the shortcut
     shortcuts.value[editingShortcut.value] = '';
     saveShortcuts();
-    window.showToast(t('shortcutCleared'), 'info');
+    window.showToast(t('setting.shortcut.shortcutsCleared'), 'info');
     stopEditing();
     return;
   }
@@ -238,7 +274,7 @@ function handleKeyRecord(e: KeyboardEvent) {
   );
 
   if (conflictKey) {
-    window.showToast(t('shortcutConflict'), 'warning');
+    window.showToast(t('setting.shortcut.shortcutsConflict'), 'warning');
     stopEditing();
     return;
   }
@@ -246,7 +282,7 @@ function handleKeyRecord(e: KeyboardEvent) {
   // Update the shortcut
   shortcuts.value[editingShortcut.value] = key;
   saveShortcuts();
-  window.showToast(t('shortcutUpdated'), 'success');
+  window.showToast(t('setting.shortcut.shortcutsUpdated'), 'success');
   stopEditing();
 }
 
@@ -273,7 +309,7 @@ async function saveShortcuts() {
 function resetToDefaults() {
   shortcuts.value = { ...defaultShortcuts };
   saveShortcuts();
-  window.showToast(t('shortcutUpdated'), 'success');
+  window.showToast(t('setting.shortcut.shortcutsUpdated'), 'success');
 }
 
 // Watch for settings changes from parent
@@ -299,42 +335,31 @@ watch(
       <div class="flex items-center gap-2 sm:gap-3">
         <PhKeyboard :size="20" class="text-text-secondary sm:w-6 sm:h-6" />
         <div>
-          <h3 class="font-semibold text-sm sm:text-base">{{ t('shortcuts') }}</h3>
-          <p class="text-xs text-text-secondary hidden sm:block">{{ t('shortcutsDesc') }}</p>
+          <h3 class="font-semibold text-sm sm:text-base">{{ t('setting.shortcut.shortcuts') }}</h3>
+          <p class="text-xs text-text-secondary hidden sm:block">
+            {{ t('setting.shortcut.shortcutsDesc') }}
+          </p>
         </div>
       </div>
-      <button class="btn-secondary" @click="resetToDefaults">
-        <PhArrowCounterClockwise :size="16" class="sm:w-5 sm:h-5" />
-        {{ t('resetToDefault') }}
-      </button>
-    </div>
-
-    <!-- Enable/Disable Shortcuts Toggle -->
-    <div class="setting-item">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhKeyboard :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('shortcutsEnabled') }}
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('shortcutsEnabledDesc') }}
-          </div>
-        </div>
-      </div>
-      <input
-        :checked="settings.shortcuts_enabled === true"
-        type="checkbox"
-        class="toggle"
-        @change="handleToggleChange"
+      <ButtonControl
+        :label="t('common.action.resetToDefault')"
+        :icon="PhArrowCounterClockwise"
+        type="secondary"
+        @click="resetToDefaults"
       />
     </div>
 
+    <!-- Enable/Disable Shortcuts Toggle -->
+    <SettingWithToggle
+      :icon="PhKeyboard"
+      :title="t('setting.shortcut.shortcutsEnabled')"
+      :description="t('setting.shortcut.shortcutsEnabledDesc')"
+      :model-value="settings.shortcuts_enabled === true"
+      @update:model-value="updateSetting('shortcuts_enabled', $event)"
+    />
+
     <!-- Tip moved to top with improved styling -->
-    <div class="tip-box">
-      <PhInfo :size="16" class="text-accent shrink-0 sm:w-5 sm:h-5" />
-      <span class="text-xs sm:text-sm">{{ t('escToClear') }}</span>
-    </div>
+    <TipBox type="tip" :title="t('common.action.escToClear')" />
 
     <div v-for="group in shortcutGroups" :key="group.label" class="setting-group">
       <label
@@ -357,33 +382,4 @@ watch(
   </div>
 </template>
 
-<style scoped>
-@reference "../../../../style.css";
-
-.btn-secondary {
-  @apply bg-bg-tertiary border border-border text-text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-medium hover:bg-bg-secondary transition-colors;
-}
-
-.setting-item {
-  @apply flex items-center sm:items-start justify-between gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg bg-bg-secondary border border-border;
-}
-
-.tip-box {
-  @apply flex items-center gap-2 sm:gap-3 py-2 sm:py-2.5 px-2.5 sm:px-3 rounded-lg;
-  background-color: rgba(59, 130, 246, 0.05);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.toggle {
-  @apply w-10 h-5 appearance-none bg-bg-tertiary rounded-full relative cursor-pointer border border-border transition-colors checked:bg-accent checked:border-accent shrink-0;
-}
-
-.toggle::after {
-  content: '';
-  @apply absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-transform;
-}
-
-.toggle:checked::after {
-  transform: translateX(20px);
-}
-</style>
+<style scoped></style>

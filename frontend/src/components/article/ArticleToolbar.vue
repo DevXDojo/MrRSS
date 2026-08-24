@@ -4,6 +4,7 @@ import { useSettings } from '@/composables/core/useSettings';
 import { onMounted } from 'vue';
 import {
   PhArrowLeft,
+  PhX,
   PhGlobe,
   PhArticle,
   PhEnvelopeOpen,
@@ -11,10 +12,12 @@ import {
   PhStar,
   PhClockCountdown,
   PhArrowSquareOut,
+  PhLinkSimple,
   PhTranslate,
-  PhShareNetwork,
+  PhArrowClockwise,
 } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
+import { copyArticleLink } from '@/utils/clipboard';
 
 const { t } = useI18n();
 const { settings, fetchSettings } = useSettings();
@@ -31,10 +34,12 @@ interface Props {
   article: Article;
   showContent: boolean;
   showTranslations?: boolean;
+  isModal?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
   showTranslations: true,
+  isModal: false,
 });
 
 defineEmits<{
@@ -45,34 +50,59 @@ defineEmits<{
   toggleReadLater: [];
   openOriginal: [];
   toggleTranslations: [];
+  reloadContent: [];
   exportToObsidian: [];
+  exportToNotion: [];
+  exportToZotero: [];
 }>();
+
+async function copyLink(article: Article) {
+  const success = await copyArticleLink(article.url);
+  if (success) {
+    window.showToast(t('common.toast.copiedToClipboard'), 'success');
+  }
+}
 </script>
 
 <template>
   <div
-    class="h-[44px] sm:h-[50px] px-3 sm:px-5 border-b border-border flex justify-between items-center bg-bg-primary shrink-0"
+    class="p-2 sm:p-4 border-b border-border flex justify-between items-center bg-bg-primary shrink-0"
   >
+    <!-- Modal mode: X button always visible -->
     <button
+      v-if="isModal"
+      class="flex items-center gap-1.5 sm:gap-2 text-text-secondary hover:text-text-primary text-sm sm:text-base"
+      :title="t('common.close')"
+      @click="$emit('close')"
+    >
+      <PhX :size="20" class="sm:w-5 sm:h-5" />
+    </button>
+    <!-- Normal mode: Back button on mobile -->
+    <button
+      v-else
       class="md:hidden flex items-center gap-1.5 sm:gap-2 text-text-secondary hover:text-text-primary text-sm sm:text-base"
       @click="$emit('close')"
     >
       <PhArrowLeft :size="18" class="sm:w-5 sm:h-5" />
-      <span class="hidden xs:inline">{{ t('back') }}</span>
+      <span class="hidden xs:inline">{{ t('common.back') }}</span>
     </button>
     <div class="flex gap-1 sm:gap-2 ml-auto">
       <button
         class="action-btn"
-        :title="showContent ? t('viewOriginal') : t('viewContent')"
+        :title="showContent ? t('article.action.viewOriginal') : t('article.action.viewContent')"
         @click="$emit('toggleContentView')"
       >
         <PhGlobe v-if="showContent" :size="18" class="sm:w-5 sm:h-5" />
         <PhArticle v-else :size="18" class="sm:w-5 sm:h-5" />
       </button>
       <button
-        v-if="showContent"
+        v-if="showContent && settings.translation_enabled && !settings.translation_only_mode"
         class="action-btn"
-        :title="showTranslations ? t('hideTranslations') : t('showTranslations')"
+        :title="
+          showTranslations
+            ? t('setting.reading.hideTranslations')
+            : t('setting.reading.showTranslations')
+        "
         @click="$emit('toggleTranslations')"
       >
         <PhTranslate
@@ -83,7 +113,7 @@ defineEmits<{
       </button>
       <button
         class="action-btn"
-        :title="article.is_read ? t('markAsUnread') : t('markAsRead')"
+        :title="article.is_read ? t('article.action.markAsUnread') : t('article.action.markAsRead')"
         @click="$emit('toggleRead')"
       >
         <PhEnvelopeOpen v-if="article.is_read" :size="18" class="sm:w-5 sm:h-5" />
@@ -94,7 +124,11 @@ defineEmits<{
           'action-btn',
           article.is_favorite ? 'text-yellow-500 hover:text-yellow-600' : 'hover:text-yellow-500',
         ]"
-        :title="article.is_favorite ? t('removeFromFavorite') : t('addToFavorite')"
+        :title="
+          article.is_favorite
+            ? t('article.action.removeFromFavorite')
+            : t('article.toolbar.addToFavorite')
+        "
         @click="$emit('toggleFavorite')"
       >
         <PhStar
@@ -108,7 +142,11 @@ defineEmits<{
           'action-btn',
           article.is_read_later ? 'text-blue-500 hover:text-blue-600' : 'hover:text-blue-500',
         ]"
-        :title="article.is_read_later ? t('removeFromReadLater') : t('addToReadLater')"
+        :title="
+          article.is_read_later
+            ? t('article.action.removeFromReadLater')
+            : t('article.toolbar.addToReadLater')
+        "
         @click="$emit('toggleReadLater')"
       >
         <PhClockCountdown
@@ -117,16 +155,62 @@ defineEmits<{
           :weight="article.is_read_later ? 'fill' : 'regular'"
         />
       </button>
-      <button class="action-btn" :title="t('openInBrowser')" @click="$emit('openOriginal')">
+      <button
+        class="action-btn"
+        :title="t('article.action.openInBrowser')"
+        @click="$emit('openOriginal')"
+      >
         <PhArrowSquareOut :size="18" class="sm:w-5 sm:h-5" />
+      </button>
+      <button
+        class="action-btn"
+        :title="t('common.contextMenu.copyLink')"
+        @click="copyLink(article)"
+      >
+        <PhLinkSimple :size="18" class="sm:w-5 sm:h-5" />
+      </button>
+      <button
+        class="action-btn"
+        :title="t('article.action.reloadContent')"
+        @click="$emit('reloadContent')"
+      >
+        <PhArrowClockwise :size="18" class="sm:w-5 sm:h-5" />
       </button>
       <button
         v-if="settings.obsidian_enabled"
         class="action-btn"
-        :title="t('exportToObsidian')"
+        :title="t('setting.plugins.obsidian.exportTo')"
         @click="$emit('exportToObsidian')"
       >
-        <PhShareNetwork :size="18" class="sm:w-5 sm:h-5" />
+        <img
+          src="/assets/plugin_icons/obsidian.svg"
+          class="w-[18px] h-[18px] sm:w-5 sm:h-5"
+          alt="Obsidian"
+        />
+      </button>
+      <button
+        v-if="settings.notion_enabled"
+        class="action-btn"
+        :title="t('setting.plugins.notion.exportTo')"
+        @click="$emit('exportToNotion')"
+      >
+        <img
+          src="/assets/plugin_icons/notion.svg"
+          class="w-[18px] h-[18px] sm:w-5 sm:h-5"
+          alt="Notion"
+        />
+      </button>
+      <button
+        v-if="settings.zotero_enabled"
+        class="action-btn"
+        :title="t('setting.plugins.zotero.exportTo')"
+        @click="$emit('exportToZotero')"
+      >
+        <img
+          src="/assets/plugin_icons/zotero.png"
+          class="w-[18px] h-[18px] sm:w-5 sm:h-5"
+          alt="Zotero"
+        />
       </button>
     </div>
   </div>
@@ -134,7 +218,6 @@ defineEmits<{
 
 <style scoped>
 @reference "../../style.css";
-
 .action-btn {
   @apply text-lg sm:text-xl cursor-pointer text-text-secondary p-1 sm:p-1.5 rounded-md transition-colors hover:bg-bg-tertiary hover:text-text-primary;
 }

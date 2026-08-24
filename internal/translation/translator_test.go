@@ -93,7 +93,8 @@ func TestGetLanguageName(t *testing.T) {
 		expected string
 	}{
 		{"en", "English"},
-		{"zh", "Chinese"},
+		{"zh", "Simplified Chinese"},
+		{"zh-TW", "Traditional Chinese"},
 		{"ja", "Japanese"},
 		{"unknown", "unknown"},
 	}

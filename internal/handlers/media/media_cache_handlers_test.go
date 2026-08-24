@@ -10,14 +10,15 @@ import (
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/utils/fileutil"
 )
 
 func TestHandleMediaCacheInfoAndCleanup(t *testing.T) {
 	tmp := t.TempDir()
 	// Ensure data dir resolves to temp dir
-	_ = os.Setenv("APPDATA", tmp)
-	_ = os.Setenv("HOME", tmp)
-	_ = os.Setenv("XDG_DATA_HOME", tmp)
+	t.Setenv("APPDATA", tmp)
+	t.Setenv("HOME", tmp)
+	t.Setenv("XDG_DATA_HOME", tmp)
 
 	db, err := database.NewDB(":memory:")
 	if err != nil {
@@ -27,7 +28,7 @@ func TestHandleMediaCacheInfoAndCleanup(t *testing.T) {
 		t.Fatalf("db Init failed: %v", err)
 	}
 
-	h := core.NewHandler(db, nil, nil)
+	h := core.NewHandler(db, nil, nil, nil)
 	// Enable media cache and set small thresholds
 	if err := h.DB.SetSetting("media_cache_enabled", "true"); err != nil {
 		t.Fatalf("SetSetting failed: %v", err)
@@ -40,9 +41,9 @@ func TestHandleMediaCacheInfoAndCleanup(t *testing.T) {
 	}
 
 	// Get the cache directory
-	cacheDir := filepath.Join(tmp, "MrRSS", "media_cache")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		t.Fatalf("Failed to create cache dir: %v", err)
+	cacheDir, err := fileutil.GetMediaCacheDir()
+	if err != nil {
+		t.Fatalf("GetMediaCacheDir failed: %v", err)
 	}
 
 	// Create some test cache files

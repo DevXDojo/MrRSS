@@ -223,13 +223,13 @@ func (db *DB) CleanupOldChatSessions(maxAgeDays int) (int64, error) {
 // DeleteAllChatSessions deletes all chat sessions and their messages
 func (db *DB) DeleteAllChatSessions() (int64, error) {
 	// First delete all messages
-	result, err := db.Exec(`DELETE FROM chat_messages`)
+	_, err := db.Exec(`DELETE FROM chat_messages`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete all chat messages: %w", err)
 	}
 
 	// Then delete all sessions
-	result, err = db.Exec(`DELETE FROM chat_sessions`)
+	result, err := db.Exec(`DELETE FROM chat_sessions`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete all chat sessions: %w", err)
 	}

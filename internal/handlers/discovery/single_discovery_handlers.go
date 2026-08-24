@@ -4,19 +4,30 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"MrRSS/internal/discovery"
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 )
 
 // HandleDiscoverBlogs discovers blogs from a feed's friend links.
+// @Summary      Discover blogs from feed
+// @Description  Discover new blogs by analyzing friend links from a specific feed's RSS content
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object  true  "Discovery request (feed_id)"
+// @Success      200  {array}   discovery.DiscoveredBlog  "List of discovered blogs"
+// @Failure      400  {object}  map[string]string  "Bad request"
+// @Failure      404  {object}  map[string]string  "Feed not found"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /discovery/blogs [post]
 func HandleDiscoverBlogs(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -25,7 +36,7 @@ func HandleDiscoverBlogs(h *core.Handler, w http.ResponseWriter, r *http.Request
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response.Error(w, err, http.StatusBadRequest)
 		return
 	}
 
@@ -33,9 +44,9 @@ func HandleDiscoverBlogs(h *core.Handler, w http.ResponseWriter, r *http.Request
 	targetFeed, err := h.DB.GetFeedByID(req.FeedID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.Error(w, "Feed not found", http.StatusNotFound)
+			response.Error(w, nil, http.StatusNotFound)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			response.Error(w, err, http.StatusInternalServerError)
 		}
 		return
 	}
@@ -55,7 +66,7 @@ func HandleDiscoverBlogs(h *core.Handler, w http.ResponseWriter, r *http.Request
 	discovered, err := h.DiscoveryService.DiscoverFromFeed(ctx, targetFeed.URL)
 	if err != nil {
 		log.Printf("Error discovering blogs: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to discover blogs: %v", err), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -75,13 +86,25 @@ func HandleDiscoverBlogs(h *core.Handler, w http.ResponseWriter, r *http.Request
 	}
 
 	log.Printf("Discovered %d blogs, %d after filtering", len(discovered), len(filtered))
-	json.NewEncoder(w).Encode(filtered)
+	response.JSON(w, filtered)
 }
 
 // HandleStartSingleDiscovery starts a single feed discovery in the background.
+// @Summary      Start single feed discovery
+// @Description  Start an asynchronous blog discovery process for a specific feed
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object  true  "Discovery request (feed_id)"
+// @Success      202  {object}  map[string]string  "Discovery started (status)"
+// @Failure      400  {object}  map[string]string  "Bad request"
+// @Failure      409  {object}  map[string]string  "Discovery already in progress"
+// @Failure      404  {object}  map[string]string  "Feed not found"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /discovery/single/start [post]
 func HandleStartSingleDiscovery(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -90,7 +113,7 @@ func HandleStartSingleDiscovery(h *core.Handler, w http.ResponseWriter, r *http.
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response.Error(w, err, http.StatusBadRequest)
 		return
 	}
 
@@ -98,7 +121,7 @@ func HandleStartSingleDiscovery(h *core.Handler, w http.ResponseWriter, r *http.
 	h.DiscoveryMu.Lock()
 	if h.SingleDiscoveryState != nil && h.SingleDiscoveryState.IsRunning {
 		h.DiscoveryMu.Unlock()
-		http.Error(w, "Discovery already in progress", http.StatusConflict)
+		response.Error(w, nil, http.StatusConflict)
 		return
 	}
 
@@ -121,7 +144,7 @@ func HandleStartSingleDiscovery(h *core.Handler, w http.ResponseWriter, r *http.
 		h.SingleDiscoveryState.IsComplete = true
 		h.SingleDiscoveryState.Error = "Feed not found"
 		h.DiscoveryMu.Unlock()
-		http.Error(w, "Feed not found", http.StatusNotFound)
+		response.Error(w, nil, http.StatusNotFound)
 		return
 	}
 
@@ -184,13 +207,20 @@ func HandleStartSingleDiscovery(h *core.Handler, w http.ResponseWriter, r *http.
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
+	response.JSON(w, map[string]string{"status": "started"})
 }
 
 // HandleGetSingleDiscoveryProgress returns the current progress of single feed discovery.
+// @Summary      Get single discovery progress
+// @Description  Get the current progress and status of the single feed discovery operation
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  core.DiscoveryState  "Discovery state (is_running, is_complete, progress, feeds, error)"
+// @Router       /discovery/single/progress [get]
 func HandleGetSingleDiscoveryProgress(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -199,20 +229,27 @@ func HandleGetSingleDiscoveryProgress(h *core.Handler, w http.ResponseWriter, r 
 	h.DiscoveryMu.RUnlock()
 
 	if state == nil {
-		json.NewEncoder(w).Encode(&core.DiscoveryState{
+		response.JSON(w, &core.DiscoveryState{
 			IsRunning:  false,
 			IsComplete: false,
 		})
 		return
 	}
 
-	json.NewEncoder(w).Encode(state)
+	response.JSON(w, state)
 }
 
 // HandleClearSingleDiscovery clears the single feed discovery state.
+// @Summary      Clear single discovery state
+// @Description  Clear the current single feed discovery state and results
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]string  "Clear status (status)"
+// @Router       /discovery/single/clear [post]
 func HandleClearSingleDiscovery(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -221,5 +258,5 @@ func HandleClearSingleDiscovery(h *core.Handler, w http.ResponseWriter, r *http.
 	h.DiscoveryMu.Unlock()
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "cleared"})
+	response.JSON(w, map[string]string{"status": "cleared"})
 }

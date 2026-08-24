@@ -29,13 +29,15 @@ type Body struct {
 
 // Outline represents an OPML outline element with various attribute formats
 // Different OPML exporters use different case for attributes (xmlUrl vs xmlurl vs XmlUrl)
+// Some like Miniflux use feedURL instead of xmlUrl
 type Outline struct {
 	Text     string     `xml:"text,attr"`
 	Title    string     `xml:"title,attr"`
 	Type     string     `xml:"type,attr"`
 	XMLURL   string     `xml:"xmlUrl,attr"`
 	HTMLURL  string     `xml:"htmlUrl,attr"`
-	Outlines []*Outline `xml:"outline"` // Nested outlines
+	FeedURL  string     `xml:"feedURL,attr"` // Miniflux uses this
+	Outlines []*Outline `xml:"outline"`      // Nested outlines
 	// Additional attributes for compatibility with various OPML formats
 	Description string `xml:"description,attr"`
 	Category    string `xml:"category,attr"`
@@ -53,7 +55,7 @@ type Outline struct {
 }
 
 // normalizeOPMLAttributes normalizes attribute names in OPML content to handle
-// case variations (xmlUrl, xmlurl, XmlUrl, etc.)
+// case variations (xmlUrl, xmlurl, XmlUrl, etc.) and alternative names (feedURL)
 func normalizeOPMLAttributes(content []byte) []byte {
 	// Common attribute name variations that need normalization
 	patterns := []struct {
@@ -64,6 +66,8 @@ func normalizeOPMLAttributes(content []byte) []byte {
 		{regexp.MustCompile(`(?i)\sxmlurl=`), ` xmlUrl=`},
 		// htmlUrl variations
 		{regexp.MustCompile(`(?i)\shtmlurl=`), ` htmlUrl=`},
+		// Miniflux uses feedURL, normalize to feedURL to bind to Outline struct FeedURL attribute
+		{regexp.MustCompile(`(?i)\sfeedurl=`), ` feedURL=`},
 	}
 
 	result := content
@@ -121,8 +125,13 @@ func Parse(r io.Reader) ([]models.Feed, error) {
 	var feeds []models.Feed
 	var extract func([]*Outline, string)
 	extract = func(outlines []*Outline, category string) {
-		for _, o := range outlines {
+		for i := 0; i < len(outlines); i++ {
+			o := outlines[i]
 			xmlURL := strings.TrimSpace(o.XMLURL)
+			// Miniflux and some other readers use feedURL instead of xmlUrl
+			if xmlURL == "" {
+				xmlURL = strings.TrimSpace(o.FeedURL)
+			}
 			if xmlURL != "" {
 				title := strings.TrimSpace(o.Title)
 				if title == "" {
@@ -133,13 +142,56 @@ func Parse(r io.Reader) ([]models.Feed, error) {
 				}
 				// Use outline's category attribute if present, otherwise use hierarchy
 				feedCategory := category
-				if o.Category != "" {
+				if o.Category != "" && !strings.HasPrefix(o.Category, "tag:") {
 					feedCategory = strings.TrimSpace(o.Category)
 				}
+
+				// Check if next outline is a tag (sibling element)
+				var tags []models.Tag
+				for j := i + 1; j < len(outlines); j++ {
+					nextOutline := outlines[j]
+					// Check if this is a tag (type="tag" or category starts with "tag:")
+					isTag := nextOutline.Type == "tag" || strings.HasPrefix(nextOutline.Category, "tag:")
+					// Stop if we hit another feed or category (non-tag outline with XMLURL or no XMLURL but not a tag)
+					nextXMLURL := strings.TrimSpace(nextOutline.XMLURL)
+					if nextXMLURL == "" {
+						nextXMLURL = strings.TrimSpace(nextOutline.FeedURL)
+					}
+					if nextXMLURL != "" {
+						break // Next feed found
+					}
+					if !isTag && nextXMLURL == "" && len(nextOutline.Outlines) == 0 {
+						// This might be a category folder, check if it has nested outlines
+						if len(nextOutline.Outlines) > 0 {
+							break // Category folder with children, not a tag
+						}
+					}
+					if isTag {
+						tagName := strings.TrimSpace(nextOutline.Text)
+						if tagName == "" {
+							tagName = strings.TrimSpace(nextOutline.Title)
+						}
+						// Extract tag name from category if it starts with "tag:"
+						if strings.HasPrefix(nextOutline.Category, "tag:") {
+							tagName = strings.TrimSpace(strings.TrimPrefix(nextOutline.Category, "tag:"))
+						}
+						if tagName != "" {
+							tags = append(tags, models.Tag{
+								Name:  tagName,
+								Color: "#3B82F6", // Default color for imported tags
+							})
+						}
+						i = j // Skip the tag outline in the main loop
+					} else {
+						break // Not a tag, stop processing
+					}
+				}
+
 				feeds = append(feeds, models.Feed{
 					Title:    title,
 					URL:      xmlURL,
 					Category: feedCategory,
+					Tags:     tags,
 					// XPath support
 					Type:                o.Type,
 					XPathItem:           o.XPathItem,
@@ -156,7 +208,11 @@ func Parse(r io.Reader) ([]models.Feed, error) {
 			}
 
 			newCategory := category
-			if o.XMLURL == "" {
+			xmlURL = strings.TrimSpace(o.XMLURL)
+			if xmlURL == "" {
+				xmlURL = strings.TrimSpace(o.FeedURL)
+			}
+			if xmlURL == "" {
 				text := strings.TrimSpace(o.Text)
 				if text == "" {
 					text = strings.TrimSpace(o.Title)
@@ -197,8 +253,8 @@ func fixCommonXMLIssues(content []byte) []byte {
 func fallbackParse(content []byte) []models.Feed {
 	var feeds []models.Feed
 
-	// Pattern to match xmlUrl attributes
-	xmlURLPattern := regexp.MustCompile(`(?i)xmlUrl\s*=\s*["']([^"']+)["']`)
+	// Pattern to match xmlUrl or feedURL attributes
+	urlPattern := regexp.MustCompile(`(?i)(?:xmlUrl|feedURL)\s*=\s*["']([^"']+)["']`)
 	// Pattern to match text or title attributes for feed names
 	textPattern := regexp.MustCompile(`(?i)(?:text|title)\s*=\s*["']([^"']+)["']`)
 
@@ -207,11 +263,11 @@ func fallbackParse(content []byte) []models.Feed {
 	outlines := outlinePattern.FindAll(content, -1)
 
 	for _, outline := range outlines {
-		xmlURLMatch := xmlURLPattern.FindSubmatch(outline)
-		if xmlURLMatch == nil {
+		urlMatch := urlPattern.FindSubmatch(outline)
+		if urlMatch == nil {
 			continue
 		}
-		xmlURL := string(xmlURLMatch[1])
+		url := string(urlMatch[1])
 
 		title := "Untitled Feed"
 		textMatch := textPattern.FindSubmatch(outline)
@@ -221,7 +277,7 @@ func fallbackParse(content []byte) []models.Feed {
 
 		feeds = append(feeds, models.Feed{
 			Title: title,
-			URL:   xmlURL,
+			URL:   url,
 		})
 	}
 
@@ -244,7 +300,11 @@ func Generate(feeds []models.Feed) ([]byte, error) {
 			for _, part := range parts {
 				var found *Outline
 				for _, o := range *currentOutlines {
-					if o.XMLURL == "" && o.Text == part {
+					xmlURL := strings.TrimSpace(o.XMLURL)
+					if xmlURL == "" {
+						xmlURL = strings.TrimSpace(o.FeedURL)
+					}
+					if xmlURL == "" && o.Text == part {
 						found = o
 						break
 					}
@@ -277,6 +337,16 @@ func Generate(feeds []models.Feed) ([]byte, error) {
 			XPathItemCategories: f.XPathItemCategories,
 			XPathItemUid:        f.XPathItemUid,
 		})
+
+		// Add tags as additional outline elements with "tag:" prefix in category
+		for _, tag := range f.Tags {
+			*currentOutlines = append(*currentOutlines, &Outline{
+				Text:     tag.Name,
+				Title:    tag.Name,
+				Type:     "tag",
+				Category: "tag:" + tag.Name,
+			})
+		}
 	}
 
 	return xml.MarshalIndent(doc, "", "  ")

@@ -14,27 +14,27 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Linux dependencies (Wails v3)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev \
             libsoup-3.0-dev \
             gcc \
             pkg-config
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.24'
+          go-version: '1.27'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -43,14 +43,6 @@ jobs:
         run: |
           npm ci
           npm run build
-
-      - name: Cache Go modules
-        uses: actions/cache@v5
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
 
       - name: Download dependencies
         run: go mod download
@@ -65,7 +57,7 @@ jobs:
         run: go test -v -timeout=5m -coverprofile=coverage.out -covermode=atomic ./internal/...
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.out
           flags: backend
@@ -76,12 +68,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -101,13 +93,34 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
+  validate-skills:
+    name: Validate Skills
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify MrRSS skill metadata
+        run: |
+          test -f skills/mrrss-assistant/SKILL.md
+          test -f skills/mrrss-assistant/agents/openai.yaml
+          grep -q '^name: mrrss-assistant$' skills/mrrss-assistant/SKILL.md
+          grep -q '^description: ' skills/mrrss-assistant/SKILL.md
+          grep -q 'Use $mrrss-assistant' skills/mrrss-assistant/agents/openai.yaml
+
+      - name: Verify generated skill API reference
+        run: |
+          python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
+          git diff --exit-code skills/mrrss-assistant/references/api.md
+
   test-swiftui-macos:
     name: Test SwiftUI macOS Client
     runs-on: macos-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Run Swift tests
         working-directory: ./frontend-swift
@@ -123,27 +136,27 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Linux dependencies (Wails v3)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev \
             libsoup-3.0-dev \
             gcc \
             pkg-config
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.24'
+          go-version: '1.27'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 

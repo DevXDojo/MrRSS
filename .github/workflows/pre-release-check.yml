@@ -40,20 +40,20 @@ jobs:
             ext: '.app'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.24'
+          go-version: '1.27'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Task (task runner)
-        uses: arduino/setup-task@v2
+        uses: arduino/setup-task@v3
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,34 +63,36 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev \
             libsoup-3.0-dev \
             gcc \
             pkg-config \
             wget \
             file
 
-          # Verify webkit2gtk-4.1 is properly installed
-          pkg-config --modversion webkit2gtk-4.1 || exit 1
-          echo "webkit2gtk-4.1 installed successfully for Wails v3"
+          # Verify GTK4/WebKitGTK 6.0 are available for current Wails v3
+          pkg-config --modversion gtk4 || exit 1
+          pkg-config --modversion webkitgtk-6.0 || exit 1
+          echo "GTK4 and WebKitGTK 6.0 installed successfully for Wails v3"
 
       - name: Install Linux dependencies (ARM64)
         if: matrix.platform == 'linux' && matrix.arch == 'arm64'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev \
             libsoup-3.0-dev \
             gcc \
             pkg-config \
             wget \
             file
 
-          # Verify webkit2gtk-4.1 is properly installed
-          pkg-config --modversion webkit2gtk-4.1 || exit 1
-          echo "webkit2gtk-4.1 installed successfully for Wails v3 ARM64"
+          # Verify GTK4/WebKitGTK 6.0 are available for current Wails v3
+          pkg-config --modversion gtk4 || exit 1
+          pkg-config --modversion webkitgtk-6.0 || exit 1
+          echo "GTK4 and WebKitGTK 6.0 installed successfully for Wails v3 ARM64"
 
       - name: Install Windows dependencies (AMD64)
         if: matrix.platform == 'windows' && matrix.arch == 'amd64'
@@ -107,7 +109,10 @@ jobs:
 
       - name: Install Wails CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        run: |
+          WAILS_VERSION=$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)
+          echo "Installing Wails CLI ${WAILS_VERSION}"
+          go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
 
       - name: Install frontend dependencies
         working-directory: ./frontend
@@ -232,9 +237,13 @@ jobs:
       - name: Create installer (macOS)
         if: matrix.platform == 'darwin'
         run: |
+          codesign --deep --force --verify --verbose \
+            --sign - \
+            --entitlements build/darwin/entitlements.plist \
+            build/bin/MrRSS.app
+          codesign --verify --deep --strict --verbose=2 build/bin/MrRSS.app
           chmod +x build/darwin/create-dmg.sh
           ./build/darwin/create-dmg.sh
-        continue-on-error: true
 
       - name: Package application (Linux - tar.gz fallback)
         if: matrix.platform == 'linux'

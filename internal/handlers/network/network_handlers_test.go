@@ -19,7 +19,7 @@ func setupHandler(t *testing.T) *corepkg.Handler {
 	if err := db.Init(); err != nil {
 		t.Fatalf("db Init error: %v", err)
 	}
-	return corepkg.NewHandler(db, nil, nil)
+	return corepkg.NewHandler(db, nil, nil, nil)
 }
 
 func TestHandleDetectNetwork_MethodNotAllowed(t *testing.T) {

@@ -3,9 +3,9 @@ import { useI18n } from 'vue-i18n';
 import type { Feed } from '@/types/models';
 import { useAppStore } from '@/stores/app';
 
-export type FeedType = 'url' | 'script' | 'xpath' | 'email';
-export type ProxyMode = 'global' | 'custom' | 'none';
-export type RefreshMode = 'global' | 'fixed' | 'intelligent' | 'custom';
+type FeedType = 'url' | 'script' | 'xpath' | 'email';
+type ProxyMode = 'global' | 'custom' | 'none';
+type RefreshMode = 'global' | 'fixed' | 'intelligent' | 'custom' | 'never';
 
 export function useFeedForm(feed?: Feed) {
   const { t } = useI18n();
@@ -45,8 +45,11 @@ export function useFeedForm(feed?: Feed) {
   const emailPassword = ref('');
   const emailFolder = ref('INBOX');
 
+  // Tags
+  const selectedTags = ref<number[]>([]);
+
   // Article view mode
-  const articleViewMode = ref<'global' | 'webpage' | 'rendered'>('global');
+  const articleViewMode = ref<'global' | 'webpage' | 'rendered' | 'external'>('global');
 
   // Auto expand content mode
   const autoExpandContent = ref<'global' | 'enabled' | 'disabled'>('global');
@@ -70,15 +73,35 @@ export function useFeedForm(feed?: Feed) {
   const availableScripts = ref<Array<{ name: string; path: string; type: string }>>([]);
   const scriptsDir = ref('');
 
-  // Get unique categories from existing feeds
+  // Get unique categories from existing feeds, excluding FreshRSS-only categories
   const existingCategories = computed(() => {
-    const categories = new Set<string>();
+    const categoryFeedsMap = new Map<string, boolean>();
+
+    // Build a map of category -> whether it has non-FreshRSS feeds
     store.feeds.forEach((feed) => {
       if (feed.category && feed.category.trim() !== '') {
-        categories.add(feed.category);
+        if (!categoryFeedsMap.has(feed.category)) {
+          categoryFeedsMap.set(feed.category, !feed.is_freshrss_source);
+        } else {
+          // Update if we find a non-FreshRSS feed in this category
+          if (!feed.is_freshrss_source) {
+            categoryFeedsMap.set(feed.category, true);
+          }
+        }
       }
     });
-    return Array.from(categories).sort();
+
+    // Filter out categories where all feeds are from FreshRSS
+    // or category name ends with " (FreshRSS)" or matches pattern " (FreshRSS \d+)$"
+    const categories = Array.from(categoryFeedsMap.entries())
+      .filter(([_, hasNonFreshRSS]) => hasNonFreshRSS)
+      .filter(([categoryName]) => {
+        return !categoryName.endsWith(' (FreshRSS)') && !categoryName.match(/ \(FreshRSS \d+\)$/);
+      })
+      .map(([categoryName]) => categoryName)
+      .sort();
+
+    return categories;
   });
 
   // Watch for category selection changes
@@ -169,12 +192,14 @@ export function useFeedForm(feed?: Feed) {
   }
 
   function getRefreshInterval(): number {
-    // Return 0 for global, -1 for intelligent, or the custom interval
+    // Return 0 for global, -1 for intelligent, -2 for never, or the custom interval
     switch (refreshMode.value) {
       case 'global':
         return 0;
       case 'intelligent':
         return -1;
+      case 'never':
+        return -2;
       case 'custom':
         return refreshInterval.value;
       default:
@@ -208,7 +233,7 @@ export function useFeedForm(feed?: Feed) {
 
     // Initialize article view mode
     articleViewMode.value =
-      (feed.article_view_mode as 'global' | 'webpage' | 'rendered') || 'global';
+      (feed.article_view_mode as 'global' | 'webpage' | 'rendered' | 'external') || 'global';
 
     // Initialize auto expand content mode
     autoExpandContent.value =
@@ -232,6 +257,11 @@ export function useFeedForm(feed?: Feed) {
       feedType.value = 'url';
     }
 
+    // Initialize tags
+    if (feed.tags) {
+      selectedTags.value = feed.tags.map((tag) => tag.id);
+    }
+
     // Initialize proxy settings
     if (feed.proxy_url) {
       proxyMode.value = 'custom';
@@ -246,7 +276,7 @@ export function useFeedForm(feed?: Feed) {
       } catch (e) {
         // Fallback for invalid URL format
         console.error('Failed to parse proxy URL:', e);
-        window.showToast(t('invalidProxyUrl'), 'error');
+        window.showToast(t('setting.network.invalidProxyUrl'), 'error');
       }
     } else if (feed.proxy_enabled) {
       proxyMode.value = 'global';
@@ -260,6 +290,8 @@ export function useFeedForm(feed?: Feed) {
       refreshMode.value = 'global';
     } else if (interval === -1) {
       refreshMode.value = 'intelligent';
+    } else if (interval === -2) {
+      refreshMode.value = 'never';
     } else {
       refreshMode.value = 'custom';
       refreshInterval.value = interval;
@@ -314,7 +346,7 @@ export function useFeedForm(feed?: Feed) {
   async function openScriptsFolder() {
     try {
       await fetch('/api/scripts/open', { method: 'POST' });
-      window.showToast(t('scriptsFolderOpened'), 'success');
+      window.showToast(t('setting.customization.scriptsFolderOpened'), 'success');
     } catch (e) {
       console.error('Failed to open scripts folder:', e);
     }
@@ -365,6 +397,8 @@ export function useFeedForm(feed?: Feed) {
     emailUsername,
     emailPassword,
     emailFolder,
+    // Tags
+    selectedTags,
     articleViewMode,
     autoExpandContent,
     proxyMode,

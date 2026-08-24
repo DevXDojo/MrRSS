@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@config "../tailwind.config.js";
 
 @layer base {
   :root {
@@ -16,6 +15,9 @@
     --table-stripe-color: rgba(0, 0, 0, 0.04);
     --code-bg-color: #f6f8fa;
     --code-border-color: #d1d9e0;
+    --ui-font-family: Inter, 'Noto Sans CJK SC', system-ui, sans-serif;
+    --ui-font-size: 16px;
+    --ui-font-scale: 1;
   }
 
   .dark-mode {
@@ -35,7 +37,9 @@
 }
 
 body {
-  @apply bg-bg-primary text-text-primary font-sans overflow-hidden h-screen;
+  @apply bg-bg-primary text-text-primary overflow-hidden h-screen;
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
 }
 
 /* Disable selection and dragging for UI elements and images */
@@ -126,4 +130,106 @@ textarea,
   background-color: var(--bg-primary) !important;
   color: var(--text-primary) !important;
   border-color: var(--border-color) !important;
+}
+
+/* Number input spinners styling for light and dark themes */
+input[type='number'] {
+  -webkit-appearance: textfield;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox number input spinners - light theme */
+input[type='number']::-moz-number-spin-box {
+  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+}
+
+/* Dark mode number input spinners */
+.dark-mode input[type='number']::-moz-number-spin-box {
+  border-right-color: var(--border-color);
+  background-color: var(--bg-secondary);
+}
+
+.dark-mode input[type='number']::-webkit-outer-spin-button,
+.dark-mode input[type='number']::-webkit-inner-spin-button {
+  opacity: 1;
+}
+
+/* Native checkbox styling (not .toggle) */
+input[type='checkbox']:not(.toggle) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.25rem;
+  background-color: var(--bg-primary);
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: white;
+  padding: 0;
+  line-height: 1;
+}
+
+input[type='checkbox']:not(.toggle):checked {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+input[type='checkbox']:not(.toggle):checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+input[type='checkbox']:not(.toggle):focus {
+  outline: none;
+}
+
+/* Dark mode checkbox (not .toggle) */
+.dark-mode input[type='checkbox']:not(.toggle) {
+  background-color: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode input[type='checkbox']:not(.toggle):checked {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+/* Remove focus outline from all interactive elements */
+button,
+a,
+input,
+textarea,
+select {
+  outline: none !important;
+}
+
+button:focus,
+a:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+}
+
+/* Fixed line height utility */
+.line-height-fixed-32 {
+  line-height: 32px !important;
 }

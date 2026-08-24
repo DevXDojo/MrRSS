@@ -84,7 +84,7 @@ function selectProvider(provider: (typeof providers)[0]) {
 // Test IMAP connection
 async function testConnection() {
   if (!imapServer.value || !username.value || !password.value) {
-    testMessage.value = t('fillRequiredFields');
+    testMessage.value = t('modal.feed.emailFillRequired');
     testResult.value = 'error';
     return;
   }
@@ -112,14 +112,14 @@ async function testConnection() {
 
     if (response.ok) {
       testResult.value = 'success';
-      testMessage.value = data.message || t('connectionSuccessful');
+      testMessage.value = data.message || t('common.connectionSuccessful');
     } else {
       testResult.value = 'error';
-      testMessage.value = data.error || t('connectionFailed');
+      testMessage.value = data.error || t('common.connectionFailed');
     }
   } catch {
     testResult.value = 'error';
-    testMessage.value = t('connectionError');
+    testMessage.value = t('modal.feed.emailConnectionError');
   } finally {
     isTesting.value = false;
   }
@@ -140,7 +140,7 @@ defineExpose({
     <!-- Email Address -->
     <div class="mb-3">
       <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary">
-        {{ t('emailAddress') }}
+        {{ t('modal.feed.emailAddress') }}
       </label>
       <input
         v-model="emailAddress"
@@ -148,13 +148,13 @@ defineExpose({
         placeholder="newsletter@example.com"
         class="input-field w-full"
       />
-      <div class="text-xs text-text-secondary mt-1">{{ t('emailAddressHint') }}</div>
+      <div class="text-xs text-text-secondary mt-1">{{ t('modal.feed.emailAddressHint') }}</div>
     </div>
 
     <!-- IMAP Server -->
     <div class="mb-3">
       <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary">
-        {{ t('imapServer') }} <span class="text-red-500">*</span>
+        {{ t('modal.feed.emailServer') }} <span class="text-red-500">*</span>
       </label>
 
       <!-- Quick select providers -->
@@ -189,7 +189,7 @@ defineExpose({
     <!-- Username -->
     <div class="mb-3">
       <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary">
-        {{ t('username') }} <span class="text-red-500">*</span>
+        {{ t('modal.feed.emailUsername') }} <span class="text-red-500">*</span>
       </label>
       <input
         v-model="username"
@@ -202,12 +202,12 @@ defineExpose({
     <!-- Password -->
     <div class="mb-3">
       <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary">
-        {{ t('password') }} <span class="text-red-500">*</span>
+        {{ t('modal.feed.emailPassword') }} <span class="text-red-500">*</span>
       </label>
       <input
         v-model="password"
         type="password"
-        :placeholder="t('passwordPlaceholder')"
+        :placeholder="t('modal.feed.emailPasswordPlaceholder')"
         class="input-field w-full"
       />
     </div>
@@ -215,7 +215,7 @@ defineExpose({
     <!-- Folder (Optional) -->
     <div class="mb-3">
       <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary">
-        {{ t('folder') }}
+        {{ t('modal.feed.emailFolder') }}
       </label>
       <input v-model="folder" type="text" placeholder="INBOX" class="input-field w-full" />
     </div>
@@ -232,7 +232,7 @@ defineExpose({
         <PhCheckCircle v-else-if="testResult === 'success'" :size="16" class="text-green-500" />
         <PhXCircle v-else-if="testResult === 'error'" :size="16" class="text-red-500" />
         <PhGlobe v-else :size="16" />
-        <span>{{ t('testConnection') }}</span>
+        <span>{{ t('modal.feed.emailTestConnection') }}</span>
       </button>
 
       <!-- Test result message -->
@@ -252,6 +252,7 @@ defineExpose({
 </template>
 
 <style scoped>
+@reference "../../../../style.css";
 .input-field {
   @apply p-2.5 border border-border rounded-md bg-bg-tertiary text-text-primary text-sm focus:border-accent focus:outline-none transition-colors;
 }

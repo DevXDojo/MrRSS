@@ -11,7 +11,7 @@ import (
 
 	"MrRSS/internal/database"
 	corepkg "MrRSS/internal/handlers/core"
-	"MrRSS/internal/utils"
+	"MrRSS/internal/utils/fileutil"
 )
 
 func setupHandler(t *testing.T) *corepkg.Handler {
@@ -23,7 +23,7 @@ func setupHandler(t *testing.T) *corepkg.Handler {
 	if err := db.Init(); err != nil {
 		t.Fatalf("db Init error: %v", err)
 	}
-	return corepkg.NewHandler(db, nil, nil)
+	return corepkg.NewHandler(db, nil, nil, nil)
 }
 
 func TestHandleGetScriptsDir_GET(t *testing.T) {
@@ -51,7 +51,7 @@ func TestHandleListScripts_IncludesCreatedScript(t *testing.T) {
 	h := setupHandler(t)
 
 	// Ensure scripts dir exists
-	scriptsDir, err := utils.GetScriptsDir()
+	scriptsDir, err := fileutil.GetScriptsDir()
 	if err != nil {
 		t.Fatalf("GetScriptsDir failed: %v", err)
 	}

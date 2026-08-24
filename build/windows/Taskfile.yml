@@ -118,7 +118,7 @@ tasks:
     generates:
       - "windows/icon.ico"
     cmds:
-      - wails3 generate icons -input windows/icon.png -windowsfilename windows/icon.ico
+      - wails3 generate icons -input windows/icon.png -windowsfilename windows/icon.ico -macfilename=
 
   create:nsis:installer:
     summary: Creates an NSIS installer

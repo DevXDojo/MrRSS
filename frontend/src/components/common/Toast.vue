@@ -53,7 +53,6 @@ function handleClose() {
 
 <style scoped>
 @reference "../../style.css";
-
 .toast {
   @apply z-[60] px-5 py-3 rounded-lg shadow-lg border min-w-[300px] max-w-md;
 }

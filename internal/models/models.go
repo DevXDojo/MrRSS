@@ -18,7 +18,7 @@ type Feed struct {
 	HideFromTimeline   bool      `json:"hide_from_timeline"`    // Hide articles from timeline views
 	ProxyURL           string    `json:"proxy_url,omitempty"`   // Custom proxy URL for this feed (overrides global)
 	ProxyEnabled       bool      `json:"proxy_enabled"`         // Whether to use proxy for this feed
-	RefreshInterval    int       `json:"refresh_interval"`      // Custom refresh interval in minutes (0 = use global, -1 = intelligent, >0 = custom minutes)
+	RefreshInterval    int       `json:"refresh_interval"`      // Custom refresh interval in minutes (0 = use global, -1 = intelligent, -2 = never, >0 = custom minutes)
 	IsImageMode        bool      `json:"is_image_mode"`         // Whether this feed is for image gallery mode
 	// XPath support for HTML/XML scraping
 	Type                string `json:"type"`                   // "HTML+XPath" or "XML+XPath"
@@ -49,6 +49,8 @@ type Feed struct {
 	LatestArticleTime *time.Time `json:"latest_article_time,omitempty"` // Latest article publish time
 	ArticlesPerMonth  float64    `json:"articles_per_month,omitempty"`  // Average articles per month (last 90 days / 3)
 	LastUpdateStatus  string     `json:"last_update_status,omitempty"`  // Last update status ("success" or "failed")
+	// Tags (populated by API handlers)
+	Tags []Tag `json:"tags,omitempty"` // Tags assigned to this feed
 }
 
 type Article struct {
@@ -66,8 +68,41 @@ type Article struct {
 	IsHidden              bool      `json:"is_hidden"`
 	IsReadLater           bool      `json:"is_read_later"`
 	FeedTitle             string    `json:"feed_title,omitempty"` // Joined field
+	Author                string    `json:"author,omitempty"`     // Article author
 	TranslatedTitle       string    `json:"translated_title"`
 	Summary               string    `json:"summary"`          // Cached AI-generated summary
+	OriginalSummary       string    `json:"original_summary"` // Summary/description provided by the RSS item
 	UniqueID              string    `json:"unique_id"`        // Unique identifier for deduplication (title+feed_id+published_date)
 	FreshRSSItemID        string    `json:"freshrss_item_id"` // FreshRSS/Google Reader item ID for API operations
+}
+
+// SavedFilter represents a user-saved article filter
+type SavedFilter struct {
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	Conditions string    `json:"conditions"` // JSON string of FilterCondition[]
+	Position   int       `json:"position"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// Tag represents a user-defined tag for organizing feeds
+type Tag struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Color    string `json:"color"`
+	Position int    `json:"position"`
+}
+
+// AIProfile represents an AI configuration profile
+type AIProfile struct {
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	APIKey        string    `json:"api_key,omitempty"` // Hidden in responses, only sent when needed
+	Endpoint      string    `json:"endpoint"`
+	Model         string    `json:"model"`
+	CustomHeaders string    `json:"custom_headers"` // JSON string of key-value pairs
+	IsDefault     bool      `json:"is_default"`     // Default profile for new features
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }

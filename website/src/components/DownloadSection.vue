@@ -36,7 +36,7 @@ const onBtnLeave = (event) => {
 
           <div class="download-buttons">
             <a
-              href="https://github.com/WCY-dt/MrRSS/releases"
+              href="https://github.com/DevXDojo/MrRSS/releases"
               class="download-btn windows"
               @mouseenter="onBtnHover"
               @mouseleave="onBtnLeave"
@@ -52,7 +52,7 @@ const onBtnLeave = (event) => {
             </a>
 
             <a
-              href="https://github.com/WCY-dt/MrRSS/releases"
+              href="https://github.com/DevXDojo/MrRSS/releases"
               class="download-btn macos"
               @mouseenter="onBtnHover"
               @mouseleave="onBtnLeave"
@@ -68,7 +68,7 @@ const onBtnLeave = (event) => {
             </a>
 
             <a
-              href="https://github.com/WCY-dt/MrRSS/releases"
+              href="https://github.com/DevXDojo/MrRSS/releases"
               class="download-btn linux"
               @mouseenter="onBtnHover"
               @mouseleave="onBtnLeave"

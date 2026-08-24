@@ -14,7 +14,7 @@ func TestNewFetcherSanity(t *testing.T) {
 		t.Fatalf("db Init error: %v", err)
 	}
 
-	f := NewFetcher(db, nil)
+	f := NewFetcher(db)
 	if f == nil {
 		t.Fatal("NewFetcher returned nil")
 	}

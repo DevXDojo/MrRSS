@@ -13,19 +13,19 @@ export interface DiscoveredFeed {
   }>;
 }
 
-export interface ProgressCounts {
+interface ProgressCounts {
   current: number;
   total: number;
   found: number;
 }
 
-export interface StartResult {
+interface StartResult {
   status: string;
   message?: string;
   total?: number;
 }
 
-export interface ProgressState {
+interface ProgressState {
   is_complete: boolean;
   error?: string;
   feeds?: DiscoveredFeed[];
@@ -67,7 +67,7 @@ export function useDiscoverAllFeeds() {
     errorMessage.value = '';
     discoveredFeeds.value = [];
     selectedFeeds.value.clear();
-    progressMessage.value = t('preparingDiscovery');
+    progressMessage.value = t('modal.discovery.preparingDiscovery');
     progressDetail.value = '';
     progressCounts.value = { current: 0, total: 0, found: 0 };
 
@@ -95,7 +95,7 @@ export function useDiscoverAllFeeds() {
 
       // Check if already complete (all feeds discovered)
       if (startResult.status === 'complete') {
-        errorMessage.value = startResult.message || t('noFriendLinksFound');
+        errorMessage.value = startResult.message || t('modal.discovery.noFriendLinksFound');
         isDiscovering.value = false;
         return;
       }
@@ -117,36 +117,36 @@ export function useDiscoverAllFeeds() {
             const progress = state.progress;
             switch (progress.stage) {
               case 'starting':
-                progressMessage.value = t('preparingDiscovery');
+                progressMessage.value = t('modal.discovery.preparingDiscovery');
                 progressDetail.value = '';
                 break;
               case 'processing_feed':
-                progressMessage.value = t('processingFeed', {
+                progressMessage.value = t('modal.discovery.processingFeed', {
                   current: progress.current || 0,
                   total: progress.total || 0,
                 });
                 progressDetail.value = progress.feed_name || '';
                 break;
               case 'fetching_homepage':
-                progressMessage.value = t('fetchingHomepage');
+                progressMessage.value = t('modal.discovery.fetchingHomepage');
                 progressDetail.value = progress.feed_name ? `${progress.feed_name}` : '';
                 break;
               case 'finding_friend_links':
-                progressMessage.value = t('searchingFriendLinks');
+                progressMessage.value = t('modal.discovery.searchingFriendLinks');
                 progressDetail.value = progress.feed_name || '';
                 break;
               case 'fetching_friend_page':
-                progressMessage.value = t('fetchingFriendPage');
+                progressMessage.value = t('modal.discovery.fetchingFriendPage');
                 progressDetail.value = progress.feed_name || '';
                 break;
               case 'checking_rss':
-                progressMessage.value = t('checkingRssFeed');
+                progressMessage.value = t('modal.discovery.checkingRssFeed');
                 progressDetail.value =
                   progress.feed_name +
                   (progress.detail ? ' - ' + getHostname(progress.detail) : '');
                 break;
               default:
-                progressMessage.value = progress.message || t('discovering');
+                progressMessage.value = progress.message || t('modal.discovery.discovering');
                 progressDetail.value =
                   progress.feed_name || (progress.detail ? getHostname(progress.detail) : '');
             }
@@ -167,7 +167,7 @@ export function useDiscoverAllFeeds() {
             } else {
               discoveredFeeds.value = state.feeds || [];
               if (discoveredFeeds.value.length === 0) {
-                errorMessage.value = t('noFriendLinksFound');
+                errorMessage.value = t('modal.discovery.noFriendLinksFound');
               }
             }
 
@@ -188,7 +188,7 @@ export function useDiscoverAllFeeds() {
       }, 500); // Poll every 500ms
     } catch (error) {
       console.error('Batch discovery error:', error);
-      errorMessage.value = t('discoveryFailed') + ': ' + (error as Error).message;
+      errorMessage.value = t('modal.discovery.discoveryFailed') + ': ' + (error as Error).message;
       isDiscovering.value = false;
       progressMessage.value = '';
       progressDetail.value = '';
@@ -249,13 +249,13 @@ export function useDiscoverAllFeeds() {
       await store.fetchFeeds();
 
       if (failed === 0) {
-        window.showToast(t('feedsSubscribedSuccess', { count: successful }), 'success');
+        window.showToast(t('modal.feed.feedsSubscribedSuccess', { count: successful }), 'success');
       } else {
-        window.showToast(t('feedsSubscribedPartial', { successful, failed }), 'warning');
+        window.showToast(t('modal.feed.feedsSubscribedPartial', { successful, failed }), 'warning');
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      window.showToast(t('errorSubscribingFeeds'), 'error');
+      window.showToast(t('common.errors.subscribingFeeds'), 'error');
     } finally {
       isSubscribing.value = false;
     }

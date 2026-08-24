@@ -7,11 +7,16 @@ import type { SettingsData } from '@/types/settings';
 import type { ThemePreference } from '@/stores/app';
 import { generateInitialSettings, parseSettingsData } from './useSettings.generated';
 
+const sharedSettings: Ref<SettingsData> = ref(generateInitialSettings());
+
+export function setSettingsFromRawData(data: Record<string, string>) {
+  sharedSettings.value = parseSettingsData(data);
+}
+
 export function useSettings() {
   const { locale } = useI18n();
 
-  // Use generated helper for initial settings (alphabetically sorted)
-  const settings: Ref<SettingsData> = ref(generateInitialSettings());
+  const settings = sharedSettings;
 
   /**
    * Fetch settings from backend
@@ -22,7 +27,7 @@ export function useSettings() {
       const data = await res.json();
 
       // Use generated helper to parse settings (alphabetically sorted)
-      settings.value = parseSettingsData(data);
+      setSettingsFromRawData(data);
 
       return settings.value;
     } catch (e) {
@@ -64,8 +69,17 @@ export function useSettings() {
   /**
    * Handle settings-updated event
    * Re-fetches settings when backend updates them (e.g., after feed refresh)
+   * Skips re-fetching if this is an auto-save event to prevent overwriting user input
    */
-  function handleSettingsUpdated() {
+  function handleSettingsUpdated(event: Event) {
+    const customEvent = event as CustomEvent<{ autoSave?: boolean }>;
+
+    // Skip re-fetching if this is an auto-save event
+    // The settings are already up-to-date since we just saved them
+    if (customEvent.detail?.autoSave) {
+      return;
+    }
+
     fetchSettings().catch((e) => {
       console.error('Error re-fetching settings after update:', e);
     });

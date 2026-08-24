@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -83,6 +84,7 @@ func (s *BidirectionalSyncService) Sync(ctx context.Context) (*SyncResult, error
 
 // SyncFeed syncs articles for a single FreshRSS feed/stream
 // This is called when user right-clicks a FreshRSS feed and selects "Sync Feed"
+// Now fetches ALL articles using pagination, not just a limited number
 func (s *BidirectionalSyncService) SyncFeed(ctx context.Context, streamID string) (int, error) {
 	// Login to FreshRSS
 	if err := s.client.Login(ctx); err != nil {
@@ -91,21 +93,19 @@ func (s *BidirectionalSyncService) SyncFeed(ctx context.Context, streamID string
 
 	log.Printf("[SyncFeed] Syncing stream: %s", streamID)
 
-	// Fetch articles from this stream
-	// Exclude already read articles to reduce data transfer
-	excludeTypes := []string{"user/-/state/com.google/read"}
-	contents, err := s.client.GetStreamContents(ctx, streamID, excludeTypes, 1000, "")
+	// Fetch all articles from this stream using pagination
+	allArticles, err := s.fetchAllArticles(ctx, streamID, 10000)
 	if err != nil {
-		return 0, fmt.Errorf("get stream contents: %w", err)
+		return 0, fmt.Errorf("fetch articles from stream: %w", err)
 	}
 
-	if len(contents.Items) == 0 {
-		log.Printf("[SyncFeed] No new articles in stream: %s", streamID)
+	if len(allArticles) == 0 {
+		log.Printf("[SyncFeed] No articles in stream: %s", streamID)
 		return 0, nil
 	}
 
 	// Save articles to database
-	count, err := s.saveArticlesFromServer(ctx, contents.Items)
+	count, err := s.saveArticlesFromServer(ctx, allArticles)
 	if err != nil {
 		return 0, fmt.Errorf("save articles: %w", err)
 	}
@@ -194,28 +194,43 @@ func (s *BidirectionalSyncService) pullFromServer(ctx context.Context) (int, err
 			log.Printf("Created/updated %d feeds from FreshRSS", feedsCreated)
 		}
 
-		// Step 2: Get articles from each subscription
-		articlesPerFeed := 100
+		// Step 2: Get articles from each subscription (no limit - fetch all articles)
+		articlesPerFeed := 10000 // Increased from 100 to fetch more articles per feed
 		totalArticles := 0
 
 		for _, sub := range subscriptions {
 			feedURL := strings.TrimPrefix(sub.ID, "feed/")
 
-			result, err := s.client.GetStreamContents(ctx, sub.ID, nil, articlesPerFeed, "")
-			if err != nil {
-				log.Printf("Warning: Failed to get articles for feed %s: %v", feedURL, err)
-				continue
-			}
-
-			if len(result.Items) > 0 {
-				saved, err := s.saveArticlesFromServer(ctx, result.Items)
+			// Fetch all articles using pagination
+			continuation := ""
+			feedArticleCount := 0
+			for {
+				result, err := s.client.GetStreamContents(ctx, sub.ID, nil, articlesPerFeed, continuation)
 				if err != nil {
-					log.Printf("Warning: Failed to save articles for feed %s: %v", feedURL, err)
-				} else {
-					totalArticles += saved
+					log.Printf("Warning: Failed to get articles for feed %s: %v", feedURL, err)
+					break
 				}
+
+				if len(result.Items) > 0 {
+					saved, err := s.saveArticlesFromServer(ctx, result.Items)
+					if err != nil {
+						log.Printf("Warning: Failed to save articles for feed %s: %v", feedURL, err)
+					} else {
+						totalArticles += saved
+						feedArticleCount += saved
+					}
+				}
+
+				// Check if there are more articles to fetch
+				if result.Continuation == "" {
+					break
+				}
+				continuation = result.Continuation
+				log.Printf("Fetched %d articles for feed %s, continuing with pagination...", feedArticleCount, feedURL)
+				time.Sleep(50 * time.Millisecond)
 			}
 
+			log.Printf("Total articles fetched for feed %s: %d", feedURL, feedArticleCount)
 			time.Sleep(50 * time.Millisecond)
 		}
 
@@ -225,9 +240,9 @@ func (s *BidirectionalSyncService) pullFromServer(ctx context.Context) (int, err
 		log.Printf("No subscriptions to sync from FreshRSS")
 	}
 
-	// Step 3: Apply starred status from server
+	// Step 3: Apply starred status from server (fetch all with pagination)
 	log.Printf("pullFromServer: Step 3 - Applying starred status")
-	starredArticles, err := s.client.GetStarredArticles(ctx, 1000)
+	starredArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/starred", 10000)
 	if err != nil {
 		log.Printf("Warning: Failed to get starred articles: %v", err)
 	} else {
@@ -240,9 +255,24 @@ func (s *BidirectionalSyncService) pullFromServer(ctx context.Context) (int, err
 		log.Printf("Applied starred status to %d articles from server", len(starredArticles))
 	}
 
-	// Step 4: Apply read status from server (optional - can be skipped if API doesn't support it well)
-	log.Printf("pullFromServer: Step 4 - Applying read status")
-	readArticles, err := s.client.GetReadArticles(ctx, 500)
+	// Step 4: Apply read status from server using unread count API (fetch all with pagination)
+	log.Printf("pullFromServer: Step 4 - Applying read status using unread count API")
+
+	// First, get unread counts from server to verify sync
+	unreadCounts, err := s.client.GetUnreadCount(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to get unread counts: %v", err)
+	} else {
+		// Log unread counts for debugging
+		for streamID, count := range unreadCounts {
+			if count > 0 {
+				log.Printf("Server unread count: %s = %d", streamID, count)
+			}
+		}
+	}
+
+	// Fetch all read articles using pagination
+	readArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/read", 10000)
 	if err != nil {
 		log.Printf("Warning: Failed to get read articles: %v", err)
 	} else {
@@ -259,6 +289,44 @@ func (s *BidirectionalSyncService) pullFromServer(ctx context.Context) (int, err
 	log.Printf("pullFromServer: Completed")
 
 	return totalChanges, nil
+}
+
+// fetchAllArticles fetches all articles from a stream using pagination
+// This helper function automatically handles pagination to fetch all articles
+func (s *BidirectionalSyncService) fetchAllArticles(ctx context.Context, streamID string, itemsPerPage int) ([]Article, error) {
+	allArticles := make([]Article, 0)
+	continuation := ""
+	pageCount := 0
+
+	for {
+		result, err := s.client.GetStreamContents(ctx, streamID, nil, itemsPerPage, continuation)
+		if err != nil {
+			return allArticles, fmt.Errorf("fetch page %d: %w", pageCount, err)
+		}
+
+		if len(result.Items) == 0 {
+			break
+		}
+
+		allArticles = append(allArticles, result.Items...)
+		pageCount++
+
+		log.Printf("Fetched page %d (%d articles) from stream %s (total: %d)",
+			pageCount, len(result.Items), streamID, len(allArticles))
+
+		// Check if there are more articles to fetch
+		if result.Continuation == "" {
+			break
+		}
+		continuation = result.Continuation
+
+		// Small delay to avoid overwhelming the server
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	log.Printf("Finished fetching %d total articles from stream %s (%d pages)",
+		len(allArticles), streamID, pageCount)
+	return allArticles, nil
 }
 
 // applyServerStatus applies server status to local article
@@ -658,6 +726,28 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 				}
 			}
 
+			// Extract and update thumbnail if article doesn't have one but has content
+			if article.Content != "" {
+				// Check if article already has an image URL
+				var existingImageURL string
+				err := s.db.QueryRow("SELECT image_url FROM articles WHERE id = ?", existingArticle.ID).Scan(&existingImageURL)
+				hasImage := err == nil && existingImageURL != ""
+
+				if !hasImage {
+					imageURL := extractImageURLFromHTML(article.Content)
+					if imageURL != "" {
+						// Update the article with the extracted image URL
+						_, err := s.db.Exec("UPDATE articles SET image_url = ? WHERE id = ?", imageURL, existingArticle.ID)
+						if err != nil {
+							log.Printf("Warning: Failed to update image URL for article %s: %v", article.URL, err)
+						} else {
+							log.Printf("Updated image URL for article %s: %s (from FreshRSS)", article.URL, imageURL)
+							updated = true
+						}
+					}
+				}
+			}
+
 			// If the existing article is NOT from FreshRSS but we just updated it,
 			// we should mark it as coming from FreshRSS if it's in a FreshRSS feed
 			if existingArticle.FreshRSSItemID == "" && article.ID != "" {
@@ -671,11 +761,15 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 			continue
 		}
 
+		// Extract thumbnail from article content before creating the article
+		imageURL := extractImageURLFromHTML(article.Content)
+
 		// Create new article
 		mrssArticle := &models.Article{
 			FeedID:         feedID,
 			Title:          article.Title,
 			URL:            article.URL,
+			ImageURL:       imageURL,
 			Summary:        "",
 			PublishedAt:    article.Published,
 			IsRead:         isRead,
@@ -776,8 +870,8 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 	remoteReadArticles := make(map[string]bool)    // URL -> is read
 	remoteStarredArticles := make(map[string]bool) // URL -> is starred
 
-	// Fetch remote read status
-	readArticles, err := s.client.GetReadArticles(ctx, 1000)
+	// Fetch remote read status (fetch all with pagination)
+	readArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/read", 10000)
 	if err != nil {
 		log.Printf("[Push] Warning: Failed to get remote read articles: %v", err)
 	} else {
@@ -787,8 +881,8 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 		log.Printf("[Push] Fetched %d read articles from remote", len(remoteReadArticles))
 	}
 
-	// Fetch remote starred status
-	starredArticles, err := s.client.GetStarredArticles(ctx, 1000)
+	// Fetch remote starred status (fetch all with pagination)
+	starredArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/starred", 10000)
 	if err != nil {
 		log.Printf("[Push] Warning: Failed to get remote starred articles: %v", err)
 	} else {
@@ -805,14 +899,38 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 	unstarIDs := make([]string, 0)
 
 	for _, feed := range freshRSSFeeds {
-		// Get articles for this feed
-		articles, err := s.db.GetArticles("all", feed.ID, "", false, 1000, 0)
-		if err != nil {
-			log.Printf("[Push] Warning: Failed to get articles for feed %s: %v", feed.Title, err)
-			continue
+		// Get all articles for this feed (increased limit from 1000 to 10000)
+		// Use pagination to get ALL articles if needed
+		allArticles := make([]models.Article, 0)
+		offset := 0
+		limit := 10000
+
+		for {
+			articles, err := s.db.GetArticles("all", feed.ID, "", false, limit, offset)
+			if err != nil {
+				log.Printf("[Push] Warning: Failed to get articles for feed %s: %v", feed.Title, err)
+				break
+			}
+
+			if len(articles) == 0 {
+				break
+			}
+
+			allArticles = append(allArticles, articles...)
+
+			// If we got fewer articles than the limit, we've reached the end
+			if len(articles) < limit {
+				break
+			}
+
+			offset += limit
+			log.Printf("[Push] Fetched batch of %d articles for feed %s (total: %d)",
+				len(articles), feed.Title, len(allArticles))
 		}
 
-		for _, article := range articles {
+		log.Printf("[Push] Total %d articles to check for feed %s", len(allArticles), feed.Title)
+
+		for _, article := range allArticles {
 			// Use FreshRSS Item ID if available, otherwise fall back to URL
 			identifier := article.URL
 			if article.FreshRSSItemID != "" {
@@ -990,6 +1108,22 @@ func (s *BidirectionalSyncService) pushPendingItems(ctx context.Context, pending
 // GetPendingCount returns the number of pending sync changes
 func (s *BidirectionalSyncService) GetPendingCount() (int, error) {
 	return s.db.GetPendingSyncCount()
+}
+
+// extractImageURLFromHTML extracts the first image URL from HTML content
+// This is used as a fallback for FreshRSS articles that don't have image metadata
+func extractImageURLFromHTML(htmlContent string) string {
+	if htmlContent == "" {
+		return ""
+	}
+
+	re := regexp.MustCompile(`<img[^>]+src="([^">]+)"`)
+	matches := re.FindStringSubmatch(htmlContent)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+
+	return ""
 }
 
 // GetFailedItems returns items that failed to sync

@@ -61,13 +61,13 @@ export function useFeedSubscription(feed: Feed, discoveredFeeds: Ref<DiscoveredF
       await store.fetchFeeds();
 
       if (failed === 0) {
-        window.showToast(t('feedsSubscribedSuccess', { count: successful }), 'success');
+        window.showToast(t('modal.feed.feedsSubscribedSuccess', { count: successful }), 'success');
       } else {
-        window.showToast(t('feedsSubscribedPartial', { successful, failed }), 'warning');
+        window.showToast(t('modal.feed.feedsSubscribedPartial', { successful, failed }), 'warning');
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      window.showToast(t('errorSubscribingFeeds'), 'error');
+      window.showToast(t('common.errors.subscribingFeeds'), 'error');
     } finally {
       isSubscribing.value = false;
     }

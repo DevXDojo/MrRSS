@@ -2,6 +2,8 @@
 import { computed, type ComputedRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhTrash } from '@phosphor-icons/vue';
+import BaseSelect from '@/components/common/BaseSelect.vue';
+import type { SelectOption } from '@/types/select';
 
 interface ActionOption {
   value: string;
@@ -32,21 +34,29 @@ const availableActions: ComputedRef<ActionOption[]> = computed(() => {
   );
 });
 
-function handleUpdate(event: Event): void {
-  const value = (event.target as HTMLSelectElement).value;
-  emit('update', value);
+// Build options for BaseSelect
+const actionSelectOptions = computed<SelectOption[]>(() => {
+  return availableActions.value.map((opt) => ({
+    value: opt.value,
+    label: t(opt.labelKey),
+  }));
+});
+
+function handleUpdate(value: string | number): void {
+  emit('update', String(value));
 }
 </script>
 
 <template>
   <div class="action-row">
     <span class="text-xs text-text-secondary">{{ index + 1 }}.</span>
-    <select :value="action" class="select-field flex-1" @change="handleUpdate">
-      <option v-for="opt in availableActions" :key="opt.value" :value="opt.value">
-        {{ t(opt.labelKey) }}
-      </option>
-    </select>
-    <button class="btn-danger-icon" :title="t('removeAction')" @click="emit('remove')">
+    <BaseSelect
+      :model-value="action"
+      :options="actionSelectOptions"
+      :searchable="true"
+      @update:model-value="handleUpdate"
+    />
+    <button class="btn-danger-icon" :title="t('setting.rule.removeAction')" @click="emit('remove')">
       <PhTrash :size="16" />
     </button>
   </div>
@@ -54,13 +64,8 @@ function handleUpdate(event: Event): void {
 
 <style scoped>
 @reference "../../../style.css";
-
 .action-row {
   @apply flex items-center gap-2 p-2 bg-bg-secondary border border-border rounded-lg;
-}
-
-.select-field {
-  @apply p-2 border border-border rounded-md bg-bg-primary text-text-primary text-sm focus:border-accent focus:outline-none transition-colors cursor-pointer;
 }
 
 .btn-danger-icon {

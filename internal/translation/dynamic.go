@@ -1,10 +1,10 @@
 package translation
 
 import (
-	"fmt"
-	"net/url"
-	"strings"
+	"context"
 	"sync"
+
+	"MrRSS/internal/ai"
 )
 
 // SettingsProvider is an interface for retrieving translation settings.
@@ -20,35 +20,27 @@ type CacheProvider interface {
 }
 
 // DynamicTranslator is a translator that dynamically selects the translation provider
-// based on user settings. It creates the appropriate translator at translation time.
+// based on user settings. It uses the factory pattern to create provider instances.
 type DynamicTranslator struct {
-	settings SettingsProvider
-	cache    CacheProvider
-	mu       sync.RWMutex
-	// Cache the current translator to avoid recreating it for every translation
-	cachedTranslator    Translator
-	cachedProvider      string
-	cachedAPIKey        string
-	cachedAppID         string
-	cachedSecretKey     string
-	cachedEndpoint      string
-	cachedModel         string
-	cachedPrompt        string
-	cachedCustomHeaders string
+	factory            *Factory
+	cache              CacheProvider
+	mu                 sync.RWMutex
+	cachedProvider     Provider
+	cachedProviderName string
 }
 
 // NewDynamicTranslator creates a new dynamic translator that uses the given settings provider.
 func NewDynamicTranslator(settings SettingsProvider) *DynamicTranslator {
 	return &DynamicTranslator{
-		settings: settings,
+		factory: NewFactory(settings),
 	}
 }
 
 // NewDynamicTranslatorWithCache creates a new dynamic translator with translation caching.
 func NewDynamicTranslatorWithCache(settings SettingsProvider, cache CacheProvider) *DynamicTranslator {
 	return &DynamicTranslator{
-		settings: settings,
-		cache:    cache,
+		factory: NewFactoryWithCache(settings, cache),
+		cache:   cache,
 	}
 }
 
@@ -58,143 +50,120 @@ func (t *DynamicTranslator) Translate(text, targetLang string) (string, error) {
 		return "", nil
 	}
 
-	translator, provider, err := t.getTranslatorWithProvider()
+	provider, err := t.getProvider()
 	if err != nil {
 		return "", err
 	}
 
+	ctx := context.Background()
+
 	// Wrap with caching if cache is available
 	if t.cache != nil {
-		cachedTranslator := NewCachedTranslator(translator, t.cache, provider)
-		return cachedTranslator.Translate(text, targetLang)
+		return t.translateWithCache(ctx, provider, text, targetLang)
 	}
 
-	return translator.Translate(text, targetLang)
+	result, err := provider.Translate(ctx, text, targetLang)
+	if err != nil {
+		return "", err
+	}
+
+	return result.Translated, nil
 }
 
-// getTranslatorWithProvider returns the appropriate translator and provider name based on current settings.
-// It caches the translator and only recreates it if settings have changed.
-func (t *DynamicTranslator) getTranslatorWithProvider() (Translator, string, error) {
-	provider, _ := t.settings.GetSetting("translation_provider")
-	if provider == "" {
-		provider = "google" // Default to Google Free
+// translateWithCache 使用缓存执行翻译
+func (t *DynamicTranslator) translateWithCache(ctx context.Context, provider Provider, text, targetLang string) (string, error) {
+	// 尝试从缓存获取
+	sourceHash := hashText(text)
+	if cached, found, _ := t.cache.GetCachedTranslation(sourceHash, targetLang, provider.Name()); found {
+		return cached, nil
 	}
 
-	// Get provider-specific settings (use encrypted methods for sensitive credentials)
-	var apiKey, appID, secretKey, endpoint, model, systemPrompt, customHeaders string
-	switch provider {
-	case "deepl":
-		apiKey, _ = t.settings.GetEncryptedSetting("deepl_api_key")
-		endpoint, _ = t.settings.GetSetting("deepl_endpoint")
-	case "baidu":
-		appID, _ = t.settings.GetSetting("baidu_app_id")
-		secretKey, _ = t.settings.GetEncryptedSetting("baidu_secret_key")
-	case "ai":
-		apiKey, _ = t.settings.GetEncryptedSetting("ai_api_key")
-		endpoint, _ = t.settings.GetSetting("ai_endpoint")
-		model, _ = t.settings.GetSetting("ai_model")
-		systemPrompt, _ = t.settings.GetSetting("ai_translation_prompt")
-		customHeaders, _ = t.settings.GetSetting("ai_custom_headers")
+	// 执行翻译
+	result, err := provider.Translate(ctx, text, targetLang)
+	if err != nil {
+		return "", err
 	}
 
-	// Check if we can reuse the cached translator
+	// 保存到缓存
+	t.cache.SetCachedTranslation(sourceHash, text, targetLang, result.Translated, provider.Name())
+
+	return result.Translated, nil
+}
+
+// getProvider 获取当前配置的翻译提供商
+func (t *DynamicTranslator) getProvider() (Provider, error) {
+	// 获取当前设置的提供商类型
+	providerType, err := t.getProviderType()
+	if err != nil {
+		return nil, err
+	}
+
+	// 检查是否可以重用缓存的提供商
 	t.mu.RLock()
-	if t.cachedTranslator != nil &&
-		t.cachedProvider == provider &&
-		t.cachedAPIKey == apiKey &&
-		t.cachedAppID == appID &&
-		t.cachedSecretKey == secretKey &&
-		t.cachedEndpoint == endpoint &&
-		t.cachedModel == model &&
-		t.cachedPrompt == systemPrompt &&
-		t.cachedCustomHeaders == customHeaders {
-		translator := t.cachedTranslator
+	if t.cachedProvider != nil && t.cachedProviderName == providerType.String() {
+		provider := t.cachedProvider
 		t.mu.RUnlock()
-		return translator, provider, nil
+		return provider, nil
 	}
 	t.mu.RUnlock()
 
-	// Create new translator
+	// 创建新的提供商实例
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	var translator Translator
-	switch provider {
-	case "google":
-		translator = NewGoogleFreeTranslatorWithDB(t.settings)
-	case "deepl":
-		// For deeplx self-hosted, endpoint is required but API key is optional
-		if endpoint == "" && apiKey == "" {
-			return nil, "", fmt.Errorf("DeepL API key is required (or provide a custom endpoint for deeplx)")
-		}
-		if endpoint != "" {
-			translator = NewDeepLTranslatorWithEndpoint(apiKey, endpoint)
-		} else {
-			translator = NewDeepLTranslator(apiKey)
-		}
-	case "baidu":
-		if appID == "" || secretKey == "" {
-			return nil, "", fmt.Errorf("Baidu App ID and Secret Key are required")
-		}
-		translator = NewBaiduTranslator(appID, secretKey)
-	case "ai":
-		// Allow empty API key for local endpoints (e.g., Ollama)
-		if apiKey == "" && !isLocalEndpoint(endpoint) {
-			return nil, "", fmt.Errorf("AI API key is required for non-local endpoints")
-		}
-		aiTranslator := NewAITranslator(apiKey, endpoint, model)
-		if systemPrompt != "" {
-			aiTranslator.SetSystemPrompt(systemPrompt)
-		}
-		if customHeaders != "" {
-			aiTranslator.SetCustomHeaders(customHeaders)
-		}
-		translator = aiTranslator
-	default:
-		translator = NewGoogleFreeTranslatorWithDB(t.settings)
+	provider, err := t.factory.Create(providerType)
+	if err != nil {
+		return nil, err
 	}
 
-	// Cache the translator
-	t.cachedTranslator = translator
+	// 缓存提供商实例
 	t.cachedProvider = provider
-	t.cachedAPIKey = apiKey
-	t.cachedAppID = appID
-	t.cachedSecretKey = secretKey
-	t.cachedEndpoint = endpoint
-	t.cachedModel = model
-	t.cachedPrompt = systemPrompt
-	t.cachedCustomHeaders = customHeaders
+	t.cachedProviderName = providerType.String()
 
-	return translator, provider, nil
+	return provider, nil
 }
 
-// isLocalEndpoint checks if an endpoint URL points to a local service (localhost, 127.0.0.1, etc.)
-// This allows using empty API keys for local LLM services like Ollama
-func isLocalEndpoint(endpointURL string) bool {
-	if endpointURL == "" {
-		return false
+// getProviderType 从设置中获取当前配置的提供商类型
+func (t *DynamicTranslator) getProviderType() (ProviderType, error) {
+	providerStr, err := t.factory.settingsProvider.GetSetting("translation_provider")
+	if err != nil || providerStr == "" {
+		return ProviderGoogle, nil // 默认使用 Google
 	}
 
-	// Parse the URL to extract the host
-	parsedURL, err := url.Parse(endpointURL)
-	if err != nil {
-		return false
+	switch providerStr {
+	case "google":
+		return ProviderGoogle, nil
+	case "deepl":
+		return ProviderDeepL, nil
+	case "baidu":
+		return ProviderBaidu, nil
+	case "ai":
+		return ProviderAI, nil
+	case "custom":
+		return ProviderCustom, nil
+	case "microsoft":
+		return ProviderMicrosoft, nil
+	case "tencent":
+		return ProviderTencent, nil
+	default:
+		return ProviderGoogle, nil
 	}
+}
 
-	host := parsedURL.Host
-	// Remove port if present
-	if idx := strings.LastIndex(host, ":"); idx != -1 {
-		// Handle IPv6 addresses like [::1]:8080
-		if !strings.Contains(host[idx:], "]") {
-			host = host[:idx]
-		}
-	}
-	// Remove brackets from IPv6 addresses
-	host = strings.Trim(host, "[]")
+// InvalidateCache 清除缓存的提供商实例（当设置更改时调用）
+func (t *DynamicTranslator) InvalidateCache() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.cachedProvider = nil
+	t.cachedProviderName = ""
+}
 
-	return host == "localhost" ||
-		host == "127.0.0.1" ||
-		host == "::1" ||
-		strings.HasPrefix(host, "127.") ||
-		host == "0.0.0.0"
+// SetProfileProvider sets the AI profile provider for translation
+func (t *DynamicTranslator) SetProfileProvider(profileProvider *ai.ProfileProvider) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.factory.SetProfileProvider(profileProvider)
+	// Clear cache to force re-creation with new profile
+	t.cachedProvider = nil
+	t.cachedProviderName = ""
 }

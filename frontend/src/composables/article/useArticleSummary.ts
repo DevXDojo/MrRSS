@@ -106,13 +106,18 @@ export function useArticleSummary() {
 
         // Show notification if AI limit was reached
         if (data.limit_reached) {
-          window.showToast(t('aiLimitReached'), 'warning');
+          window.showToast(t('article.summary.aiLimitReached'), 'warning');
+        }
+
+        // Show notification if AI failed and fell back to built-in algorithm
+        if (data.used_fallback) {
+          window.showToast(t('article.summary.aiSummaryFallback'), 'info');
         }
 
         return data;
       } else {
         // Handle API errors properly
-        let errorMessage = `${t('summaryGenerationFailed')}: ${res.status} ${res.statusText}`;
+        let errorMessage = `${t('setting.content.summaryGenerationFailed')}: ${res.status} ${res.statusText}`;
 
         try {
           const errorData = await res.json();
@@ -143,7 +148,7 @@ export function useArticleSummary() {
         return null;
       }
 
-      const errorMessage = `${t('summaryGenerationFailed')}: ${e instanceof Error ? e.message : t('unknownError')}`;
+      const errorMessage = `${t('setting.content.summaryGenerationFailed')}: ${e instanceof Error ? e.message : t('common.errors.unknownError')}`;
       console.error('Error generating summary:', e);
 
       // Cache the error to show in UI

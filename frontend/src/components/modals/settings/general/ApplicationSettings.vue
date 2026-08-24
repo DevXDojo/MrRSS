@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhPalette,
@@ -6,8 +7,17 @@ import {
   PhTranslate,
   PhPower,
   PhArchiveTray,
-  PhGitPullRequest,
+  PhTextT,
+  PhTextAa,
 } from '@phosphor-icons/vue';
+import {
+  SettingGroup,
+  SettingItem,
+  SettingWithToggle,
+  SettingWithSelect,
+  NumberControl,
+} from '@/components/settings';
+import FontFamilySelect from '@/components/settings/FontFamilySelect.vue';
 import type { SettingsData } from '@/types/settings';
 
 const { t } = useI18n();
@@ -16,167 +26,101 @@ interface Props {
   settings: SettingsData;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
 }>();
+
+const displayUiSize = computed(() => {
+  return parseInt(props.settings.ui_font_size as any) || 16;
+});
+
+function updateSetting(key: keyof SettingsData, value: any) {
+  emit('update:settings', {
+    ...props.settings,
+    [key]: value,
+  });
+}
+
+function updateUiFontSize(value: number) {
+  const nextValue = Number.isFinite(value) ? Math.min(20, Math.max(12, value)) : 16;
+  updateSetting('ui_font_size', nextValue);
+}
 </script>
 
 <template>
-  <div class="setting-group">
-    <label
-      class="font-semibold mb-2 sm:mb-3 text-text-secondary uppercase text-xs tracking-wider flex items-center gap-2"
-    >
-      <PhPalette :size="14" class="sm:w-4 sm:h-4" />
-      {{ t('application') }}
-    </label>
+  <SettingGroup :icon="PhPalette" :title="t('setting.general.application')">
+    <SettingWithToggle
+      :icon="PhPower"
+      :title="t('setting.general.startupOnBoot')"
+      :description="t('setting.general.startupOnBootDesc')"
+      :model-value="settings.startup_on_boot"
+      @update:model-value="updateSetting('startup_on_boot', $event)"
+    />
 
-    <div class="setting-item">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhPower :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('startupOnBoot') }}
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('startupOnBootDesc') }}
-          </div>
+    <SettingWithToggle
+      :icon="PhArchiveTray"
+      :title="t('setting.general.closeToTray')"
+      :description="t('setting.general.closeToTrayDesc')"
+      :model-value="settings.close_to_tray"
+      @update:model-value="updateSetting('close_to_tray', $event)"
+    />
+
+    <SettingWithSelect
+      :icon="PhMoon"
+      :title="t('setting.general.theme')"
+      :description="t('setting.general.themeDesc')"
+      :model-value="settings.theme"
+      :options="[
+        { value: 'light', label: t('setting.general.light') },
+        { value: 'dark', label: t('setting.general.dark') },
+        { value: 'auto', label: t('setting.general.auto') },
+      ]"
+      width="md"
+      @update:model-value="updateSetting('theme', $event)"
+    />
+
+    <SettingWithSelect
+      :icon="PhTranslate"
+      :title="t('setting.general.language')"
+      :description="t('setting.general.languageDesc')"
+      :model-value="settings.language"
+      :options="[
+        { value: 'en-US', label: t('common.language.english') },
+        { value: 'zh-CN', label: t('common.language.chinese') },
+      ]"
+      width="md"
+      @update:model-value="updateSetting('language', $event)"
+    />
+
+    <SettingItem :icon="PhTextT" :title="t('setting.general.uiFontFamily')">
+      <template #description>
+        <div class="text-xs text-text-secondary hidden sm:block">
+          {{ t('setting.general.uiFontFamilyDesc') }}
         </div>
-      </div>
-      <input
-        :checked="settings.startup_on_boot"
-        type="checkbox"
-        class="toggle"
-        @change="
-          (e) =>
-            emit('update:settings', {
-              ...settings,
-              startup_on_boot: (e.target as HTMLInputElement).checked,
-            })
-        "
+      </template>
+      <FontFamilySelect
+        :model-value="settings.ui_font_family"
+        @update:model-value="updateSetting('ui_font_family', $event)"
       />
-    </div>
+    </SettingItem>
 
-    <div class="setting-item mt-2 sm:mt-3">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhGitPullRequest :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('autoUpdateApp') }}
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('autoUpdateAppDesc') }}
-          </div>
+    <SettingItem :icon="PhTextAa" :title="t('setting.general.uiFontSize')">
+      <template #description>
+        <div class="text-xs text-text-secondary hidden sm:block">
+          {{ t('setting.general.uiFontSizeDesc') }}
         </div>
-      </div>
-      <input
-        :checked="settings.auto_update"
-        type="checkbox"
-        class="toggle"
-        @change="
-          (e) =>
-            emit('update:settings', {
-              ...settings,
-              auto_update: (e.target as HTMLInputElement).checked,
-            })
-        "
+      </template>
+      <NumberControl
+        :model-value="displayUiSize"
+        :min="12"
+        :max="20"
+        suffix="px"
+        @update:model-value="updateUiFontSize"
       />
-    </div>
-
-    <div class="setting-item mt-2 sm:mt-3">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhArchiveTray :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">
-            {{ t('closeToTray') }}
-          </div>
-          <div class="text-xs text-text-secondary hidden sm:block">
-            {{ t('closeToTrayDesc') }}
-          </div>
-        </div>
-      </div>
-      <input
-        :checked="settings.close_to_tray"
-        type="checkbox"
-        class="toggle"
-        @change="
-          (e) =>
-            emit('update:settings', {
-              ...settings,
-              close_to_tray: (e.target as HTMLInputElement).checked,
-            })
-        "
-      />
-    </div>
-
-    <div class="setting-item mt-2 sm:mt-3">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhMoon :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">{{ t('theme') }}</div>
-          <div class="text-xs text-text-secondary hidden sm:block">{{ t('themeDesc') }}</div>
-        </div>
-      </div>
-      <select
-        :value="settings.theme"
-        data-testid="theme-selector"
-        class="input-field w-24 sm:w-48 text-xs sm:text-sm"
-        @change="
-          (e) =>
-            emit('update:settings', { ...settings, theme: (e.target as HTMLSelectElement).value })
-        "
-      >
-        <option value="light">{{ t('light') }}</option>
-        <option value="dark">{{ t('dark') }}</option>
-        <option value="auto">{{ t('auto') }}</option>
-      </select>
-    </div>
-
-    <div class="setting-item mt-2 sm:mt-3">
-      <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
-        <PhTranslate :size="20" class="text-text-secondary mt-0.5 shrink-0 sm:w-6 sm:h-6" />
-        <div class="flex-1 min-w-0">
-          <div class="font-medium mb-0 sm:mb-1 text-sm sm:text-base">{{ t('language') }}</div>
-          <div class="text-xs text-text-secondary hidden sm:block">{{ t('languageDesc') }}</div>
-        </div>
-      </div>
-      <select
-        :value="settings.language"
-        data-testid="language-selector"
-        class="input-field w-24 sm:w-48 text-xs sm:text-sm"
-        @change="
-          (e) =>
-            emit('update:settings', {
-              ...settings,
-              language: (e.target as HTMLSelectElement).value,
-            })
-        "
-      >
-        <option value="en-US">{{ t('english') }}</option>
-        <option value="zh-CN">{{ t('chinese') }}</option>
-      </select>
-    </div>
-  </div>
+    </SettingItem>
+  </SettingGroup>
 </template>
 
-<style scoped>
-@reference "../../../../style.css";
-
-.input-field {
-  @apply p-1.5 sm:p-2.5 border border-border rounded-md bg-bg-secondary text-text-primary focus:border-accent focus:outline-none transition-colors;
-}
-.toggle {
-  @apply w-10 h-5 appearance-none bg-bg-tertiary rounded-full relative cursor-pointer border border-border transition-colors checked:bg-accent checked:border-accent shrink-0;
-}
-.toggle::after {
-  content: '';
-  @apply absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-transform;
-}
-.toggle:checked::after {
-  transform: translateX(20px);
-}
-.setting-item {
-  @apply flex items-center sm:items-start justify-between gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg bg-bg-secondary border border-border;
-}
-</style>
+<style scoped></style>

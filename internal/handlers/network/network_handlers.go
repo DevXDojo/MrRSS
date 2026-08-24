@@ -2,7 +2,6 @@ package network
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,14 +9,23 @@ import (
 	"time"
 
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/network"
-	"MrRSS/internal/utils"
+	"MrRSS/internal/utils/httputil"
 )
 
 // HandleDetectNetwork detects network speed and updates settings
+// @Summary      Detect network speed
+// @Description  Detect network speed and latency, then optimize max concurrent refreshes setting
+// @Tags         network
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  network.DetectionResult  "Network detection result (speed_level, bandwidth_mbps, latency_ms, max_concurrency)"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /network/detect [post]
 func HandleDetectNetwork(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -32,9 +40,9 @@ func HandleDetectNetwork(h *core.Handler, w http.ResponseWriter, r *http.Request
 	// Create HTTP client with proxy if enabled
 	var httpClient *http.Client
 	if proxyEnabled == "true" {
-		proxyURL := utils.BuildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword)
+		proxyURL := httputil.BuildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword)
 		if proxyURL != "" {
-			client, err := utils.CreateHTTPClient(proxyURL, 10*time.Second)
+			client, err := httputil.CreateHTTPClient(proxyURL, 10*time.Second)
 			if err != nil {
 				log.Printf("Failed to create HTTP client with proxy: %v", err)
 				// Fall back to default client
@@ -65,11 +73,17 @@ func HandleDetectNetwork(h *core.Handler, w http.ResponseWriter, r *http.Request
 	}
 
 	// Return results to frontend
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	response.JSON(w, result)
 }
 
 // HandleGetNetworkInfo returns current network detection info from settings
+// @Summary      Get network info
+// @Description  Get the last network detection information (speed, bandwidth, latency, concurrent refreshes)
+// @Tags         network
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "Network info (speed_level, bandwidth_mbps, latency_ms, max_concurrent_refreshes, last_network_test)"
+// @Router       /network/info [get]
 func HandleGetNetworkInfo(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	speedLevel, _ := h.DB.GetSetting("network_speed")
 	bandwidthStr, _ := h.DB.GetSetting("network_bandwidth_mbps")
@@ -106,6 +120,5 @@ func HandleGetNetworkInfo(h *core.Handler, w http.ResponseWriter, r *http.Reques
 		DetectionSuccess: speedLevel != "",
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	response.JSON(w, result)
 }

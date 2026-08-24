@@ -116,17 +116,18 @@ func (t *BaiduTranslator) Translate(text, targetLang string) (string, error) {
 // mapToBaiduLang maps standard language codes to Baidu's language codes.
 func mapToBaiduLang(lang string) string {
 	langMap := map[string]string{
-		"en": "en",
-		"zh": "zh",
-		"es": "spa",
-		"fr": "fra",
-		"de": "de",
-		"ja": "jp",
-		"ko": "kor",
-		"pt": "pt",
-		"ru": "ru",
-		"it": "it",
-		"ar": "ara",
+		"en":    "en",
+		"zh":    "zh",
+		"zh-TW": "cht",
+		"es":    "spa",
+		"fr":    "fra",
+		"de":    "de",
+		"ja":    "jp",
+		"ko":    "kor",
+		"pt":    "pt",
+		"ru":    "ru",
+		"it":    "it",
+		"ar":    "ara",
 	}
 	if baiduLang, ok := langMap[lang]; ok {
 		return baiduLang

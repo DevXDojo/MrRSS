@@ -15,23 +15,41 @@ export function generateInitialSettings(): SettingsData {
   return {
     ai_api_key: settingsDefaults.ai_api_key,
     ai_chat_enabled: settingsDefaults.ai_chat_enabled,
+    ai_chat_profile_id: settingsDefaults.ai_chat_profile_id,
     ai_custom_headers: settingsDefaults.ai_custom_headers,
     ai_endpoint: settingsDefaults.ai_endpoint,
     ai_model: settingsDefaults.ai_model,
+    ai_search_enabled: settingsDefaults.ai_search_enabled,
+    ai_search_profile_id: settingsDefaults.ai_search_profile_id,
+    ai_summary_profile_id: settingsDefaults.ai_summary_profile_id,
     ai_summary_prompt: settingsDefaults.ai_summary_prompt,
+    ai_translation_profile_id: settingsDefaults.ai_translation_profile_id,
     ai_translation_prompt: settingsDefaults.ai_translation_prompt,
     ai_usage_limit: settingsDefaults.ai_usage_limit,
     ai_usage_tokens: settingsDefaults.ai_usage_tokens,
     auto_cleanup_enabled: settingsDefaults.auto_cleanup_enabled,
     auto_show_all_content: settingsDefaults.auto_show_all_content,
-    auto_update: settingsDefaults.auto_update,
     baidu_app_id: settingsDefaults.baidu_app_id,
     baidu_secret_key: settingsDefaults.baidu_secret_key,
     close_to_tray: settingsDefaults.close_to_tray,
+    content_font_family: settingsDefaults.content_font_family,
+    content_font_size: settingsDefaults.content_font_size,
+    content_line_height: settingsDefaults.content_line_height,
     custom_css_file: settingsDefaults.custom_css_file,
+    custom_translation_body_template: settingsDefaults.custom_translation_body_template,
+    custom_translation_enabled: settingsDefaults.custom_translation_enabled,
+    custom_translation_endpoint: settingsDefaults.custom_translation_endpoint,
+    custom_translation_headers: settingsDefaults.custom_translation_headers,
+    custom_translation_lang_mapping: settingsDefaults.custom_translation_lang_mapping,
+    custom_translation_method: settingsDefaults.custom_translation_method,
+    custom_translation_name: settingsDefaults.custom_translation_name,
+    custom_translation_response_path: settingsDefaults.custom_translation_response_path,
+    custom_translation_timeout: settingsDefaults.custom_translation_timeout,
     deepl_api_key: settingsDefaults.deepl_api_key,
     deepl_endpoint: settingsDefaults.deepl_endpoint,
     default_view_mode: settingsDefaults.default_view_mode,
+    feed_drawer_expanded: settingsDefaults.feed_drawer_expanded,
+    feed_drawer_pinned: settingsDefaults.feed_drawer_pinned,
     freshrss_api_password: settingsDefaults.freshrss_api_password,
     freshrss_auto_sync_interval: settingsDefaults.freshrss_auto_sync_interval,
     freshrss_enabled: settingsDefaults.freshrss_enabled,
@@ -46,6 +64,7 @@ export function generateInitialSettings(): SettingsData {
     language: settingsDefaults.language,
     last_global_refresh: settingsDefaults.last_global_refresh,
     last_network_test: settingsDefaults.last_network_test,
+    layout_mode: settingsDefaults.layout_mode,
     max_article_age_days: settingsDefaults.max_article_age_days,
     max_cache_size_mb: settingsDefaults.max_cache_size_mb,
     max_concurrent_refreshes: settingsDefaults.max_concurrent_refreshes,
@@ -53,9 +72,15 @@ export function generateInitialSettings(): SettingsData {
     media_cache_max_age_days: settingsDefaults.media_cache_max_age_days,
     media_cache_max_size_mb: settingsDefaults.media_cache_max_size_mb,
     media_proxy_fallback: settingsDefaults.media_proxy_fallback,
+    microsoft_api_key: settingsDefaults.microsoft_api_key,
+    microsoft_endpoint: settingsDefaults.microsoft_endpoint,
+    microsoft_region: settingsDefaults.microsoft_region,
     network_bandwidth_mbps: settingsDefaults.network_bandwidth_mbps,
     network_latency_ms: settingsDefaults.network_latency_ms,
     network_speed: settingsDefaults.network_speed,
+    notion_api_key: settingsDefaults.notion_api_key,
+    notion_enabled: settingsDefaults.notion_enabled,
+    notion_page_id: settingsDefaults.notion_page_id,
     obsidian_enabled: settingsDefaults.obsidian_enabled,
     obsidian_vault: settingsDefaults.obsidian_vault,
     obsidian_vault_path: settingsDefaults.obsidian_vault_path,
@@ -67,10 +92,14 @@ export function generateInitialSettings(): SettingsData {
     proxy_username: settingsDefaults.proxy_username,
     refresh_mode: settingsDefaults.refresh_mode,
     retry_timeout_seconds: settingsDefaults.retry_timeout_seconds,
+    rsshub_api_key: settingsDefaults.rsshub_api_key,
+    rsshub_enabled: settingsDefaults.rsshub_enabled,
+    rsshub_endpoint: settingsDefaults.rsshub_endpoint,
     rules: settingsDefaults.rules,
     shortcuts: settingsDefaults.shortcuts,
     shortcuts_enabled: settingsDefaults.shortcuts_enabled,
     show_article_preview_images: settingsDefaults.show_article_preview_images,
+    show_floating_toc: settingsDefaults.show_floating_toc,
     show_hidden_articles: settingsDefaults.show_hidden_articles,
     startup_on_boot: settingsDefaults.startup_on_boot,
     summary_enabled: settingsDefaults.summary_enabled,
@@ -78,15 +107,25 @@ export function generateInitialSettings(): SettingsData {
     summary_provider: settingsDefaults.summary_provider,
     summary_trigger_mode: settingsDefaults.summary_trigger_mode,
     target_language: settingsDefaults.target_language,
+    tencent_region: settingsDefaults.tencent_region,
+    tencent_secret_id: settingsDefaults.tencent_secret_id,
+    tencent_secret_key: settingsDefaults.tencent_secret_key,
     theme: settingsDefaults.theme,
     translation_enabled: settingsDefaults.translation_enabled,
+    translation_only_mode: settingsDefaults.translation_only_mode,
     translation_provider: settingsDefaults.translation_provider,
+    ui_font_family: settingsDefaults.ui_font_family,
+    ui_font_size: settingsDefaults.ui_font_size,
+    update_check_enabled: settingsDefaults.update_check_enabled,
     update_interval: settingsDefaults.update_interval,
     window_height: settingsDefaults.window_height,
     window_maximized: settingsDefaults.window_maximized,
     window_width: settingsDefaults.window_width,
     window_x: settingsDefaults.window_x,
     window_y: settingsDefaults.window_y,
+    zotero_api_key: settingsDefaults.zotero_api_key,
+    zotero_enabled: settingsDefaults.zotero_enabled,
+    zotero_user_id: settingsDefaults.zotero_user_id,
   } as SettingsData;
 }
 
@@ -98,23 +137,50 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
   return {
     ai_api_key: data.ai_api_key || settingsDefaults.ai_api_key,
     ai_chat_enabled: data.ai_chat_enabled === 'true',
+    ai_chat_profile_id: data.ai_chat_profile_id || settingsDefaults.ai_chat_profile_id,
     ai_custom_headers: data.ai_custom_headers || settingsDefaults.ai_custom_headers,
     ai_endpoint: data.ai_endpoint || settingsDefaults.ai_endpoint,
     ai_model: data.ai_model || settingsDefaults.ai_model,
+    ai_search_enabled: data.ai_search_enabled === 'true',
+    ai_search_profile_id: data.ai_search_profile_id || settingsDefaults.ai_search_profile_id,
+    ai_summary_profile_id: data.ai_summary_profile_id || settingsDefaults.ai_summary_profile_id,
     ai_summary_prompt: data.ai_summary_prompt || settingsDefaults.ai_summary_prompt,
+    ai_translation_profile_id:
+      data.ai_translation_profile_id || settingsDefaults.ai_translation_profile_id,
     ai_translation_prompt: data.ai_translation_prompt || settingsDefaults.ai_translation_prompt,
     ai_usage_limit: data.ai_usage_limit || settingsDefaults.ai_usage_limit,
     ai_usage_tokens: data.ai_usage_tokens || settingsDefaults.ai_usage_tokens,
     auto_cleanup_enabled: data.auto_cleanup_enabled === 'true',
     auto_show_all_content: data.auto_show_all_content === 'true',
-    auto_update: data.auto_update === 'true',
     baidu_app_id: data.baidu_app_id || settingsDefaults.baidu_app_id,
     baidu_secret_key: data.baidu_secret_key || settingsDefaults.baidu_secret_key,
     close_to_tray: data.close_to_tray === 'true',
+    content_font_family: data.content_font_family || settingsDefaults.content_font_family,
+    content_font_size: parseInt(data.content_font_size) || settingsDefaults.content_font_size,
+    content_line_height: data.content_line_height || settingsDefaults.content_line_height,
     custom_css_file: data.custom_css_file || settingsDefaults.custom_css_file,
+    custom_translation_body_template:
+      data.custom_translation_body_template || settingsDefaults.custom_translation_body_template,
+    custom_translation_enabled: data.custom_translation_enabled === 'true',
+    custom_translation_endpoint:
+      data.custom_translation_endpoint || settingsDefaults.custom_translation_endpoint,
+    custom_translation_headers:
+      data.custom_translation_headers || settingsDefaults.custom_translation_headers,
+    custom_translation_lang_mapping:
+      data.custom_translation_lang_mapping || settingsDefaults.custom_translation_lang_mapping,
+    custom_translation_method:
+      data.custom_translation_method || settingsDefaults.custom_translation_method,
+    custom_translation_name:
+      data.custom_translation_name || settingsDefaults.custom_translation_name,
+    custom_translation_response_path:
+      data.custom_translation_response_path || settingsDefaults.custom_translation_response_path,
+    custom_translation_timeout:
+      parseInt(data.custom_translation_timeout) || settingsDefaults.custom_translation_timeout,
     deepl_api_key: data.deepl_api_key || settingsDefaults.deepl_api_key,
     deepl_endpoint: data.deepl_endpoint || settingsDefaults.deepl_endpoint,
     default_view_mode: data.default_view_mode || settingsDefaults.default_view_mode,
+    feed_drawer_expanded: data.feed_drawer_expanded === 'true',
+    feed_drawer_pinned: data.feed_drawer_pinned === 'true',
     freshrss_api_password: data.freshrss_api_password || settingsDefaults.freshrss_api_password,
     freshrss_auto_sync_interval:
       parseInt(data.freshrss_auto_sync_interval) || settingsDefaults.freshrss_auto_sync_interval,
@@ -132,6 +198,7 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     language: data.language || settingsDefaults.language,
     last_global_refresh: data.last_global_refresh || settingsDefaults.last_global_refresh,
     last_network_test: data.last_network_test || settingsDefaults.last_network_test,
+    layout_mode: data.layout_mode || settingsDefaults.layout_mode,
     max_article_age_days:
       parseInt(data.max_article_age_days) || settingsDefaults.max_article_age_days,
     max_cache_size_mb: parseInt(data.max_cache_size_mb) || settingsDefaults.max_cache_size_mb,
@@ -143,9 +210,15 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     media_cache_max_size_mb:
       parseInt(data.media_cache_max_size_mb) || settingsDefaults.media_cache_max_size_mb,
     media_proxy_fallback: data.media_proxy_fallback === 'true',
+    microsoft_api_key: data.microsoft_api_key || settingsDefaults.microsoft_api_key,
+    microsoft_endpoint: data.microsoft_endpoint || settingsDefaults.microsoft_endpoint,
+    microsoft_region: data.microsoft_region || settingsDefaults.microsoft_region,
     network_bandwidth_mbps: data.network_bandwidth_mbps || settingsDefaults.network_bandwidth_mbps,
     network_latency_ms: data.network_latency_ms || settingsDefaults.network_latency_ms,
     network_speed: data.network_speed || settingsDefaults.network_speed,
+    notion_api_key: data.notion_api_key || settingsDefaults.notion_api_key,
+    notion_enabled: data.notion_enabled === 'true',
+    notion_page_id: data.notion_page_id || settingsDefaults.notion_page_id,
     obsidian_enabled: data.obsidian_enabled === 'true',
     obsidian_vault: data.obsidian_vault || settingsDefaults.obsidian_vault,
     obsidian_vault_path: data.obsidian_vault_path || settingsDefaults.obsidian_vault_path,
@@ -158,10 +231,14 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     refresh_mode: data.refresh_mode || settingsDefaults.refresh_mode,
     retry_timeout_seconds:
       parseInt(data.retry_timeout_seconds) || settingsDefaults.retry_timeout_seconds,
+    rsshub_api_key: data.rsshub_api_key || settingsDefaults.rsshub_api_key,
+    rsshub_enabled: data.rsshub_enabled === 'true',
+    rsshub_endpoint: data.rsshub_endpoint || settingsDefaults.rsshub_endpoint,
     rules: data.rules || settingsDefaults.rules,
     shortcuts: data.shortcuts || settingsDefaults.shortcuts,
     shortcuts_enabled: data.shortcuts_enabled === 'true',
     show_article_preview_images: data.show_article_preview_images === 'true',
+    show_floating_toc: data.show_floating_toc === 'true',
     show_hidden_articles: data.show_hidden_articles === 'true',
     startup_on_boot: data.startup_on_boot === 'true',
     summary_enabled: data.summary_enabled === 'true',
@@ -169,15 +246,25 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     summary_provider: data.summary_provider || settingsDefaults.summary_provider,
     summary_trigger_mode: data.summary_trigger_mode || settingsDefaults.summary_trigger_mode,
     target_language: data.target_language || settingsDefaults.target_language,
+    tencent_region: data.tencent_region || settingsDefaults.tencent_region,
+    tencent_secret_id: data.tencent_secret_id || settingsDefaults.tencent_secret_id,
+    tencent_secret_key: data.tencent_secret_key || settingsDefaults.tencent_secret_key,
     theme: data.theme || settingsDefaults.theme,
     translation_enabled: data.translation_enabled === 'true',
+    translation_only_mode: data.translation_only_mode === 'true',
     translation_provider: data.translation_provider || settingsDefaults.translation_provider,
+    ui_font_family: data.ui_font_family || settingsDefaults.ui_font_family,
+    ui_font_size: parseInt(data.ui_font_size) || settingsDefaults.ui_font_size,
+    update_check_enabled: data.update_check_enabled === 'true',
     update_interval: parseInt(data.update_interval) || settingsDefaults.update_interval,
     window_height: data.window_height || settingsDefaults.window_height,
     window_maximized: data.window_maximized || settingsDefaults.window_maximized,
     window_width: data.window_width || settingsDefaults.window_width,
     window_x: data.window_x || settingsDefaults.window_x,
     window_y: data.window_y || settingsDefaults.window_y,
+    zotero_api_key: data.zotero_api_key || settingsDefaults.zotero_api_key,
+    zotero_enabled: data.zotero_enabled === 'true',
+    zotero_user_id: data.zotero_user_id || settingsDefaults.zotero_user_id,
   } as SettingsData;
 }
 
@@ -191,10 +278,20 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ai_chat_enabled: (
       settingsRef.value.ai_chat_enabled ?? settingsDefaults.ai_chat_enabled
     ).toString(),
+    ai_chat_profile_id: settingsRef.value.ai_chat_profile_id ?? settingsDefaults.ai_chat_profile_id,
     ai_custom_headers: settingsRef.value.ai_custom_headers ?? settingsDefaults.ai_custom_headers,
     ai_endpoint: settingsRef.value.ai_endpoint ?? settingsDefaults.ai_endpoint,
     ai_model: settingsRef.value.ai_model ?? settingsDefaults.ai_model,
+    ai_search_enabled: (
+      settingsRef.value.ai_search_enabled ?? settingsDefaults.ai_search_enabled
+    ).toString(),
+    ai_search_profile_id:
+      settingsRef.value.ai_search_profile_id ?? settingsDefaults.ai_search_profile_id,
+    ai_summary_profile_id:
+      settingsRef.value.ai_summary_profile_id ?? settingsDefaults.ai_summary_profile_id,
     ai_summary_prompt: settingsRef.value.ai_summary_prompt ?? settingsDefaults.ai_summary_prompt,
+    ai_translation_profile_id:
+      settingsRef.value.ai_translation_profile_id ?? settingsDefaults.ai_translation_profile_id,
     ai_translation_prompt:
       settingsRef.value.ai_translation_prompt ?? settingsDefaults.ai_translation_prompt,
     ai_usage_limit: settingsRef.value.ai_usage_limit ?? settingsDefaults.ai_usage_limit,
@@ -205,11 +302,40 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     auto_show_all_content: (
       settingsRef.value.auto_show_all_content ?? settingsDefaults.auto_show_all_content
     ).toString(),
-    auto_update: (settingsRef.value.auto_update ?? settingsDefaults.auto_update).toString(),
     baidu_app_id: settingsRef.value.baidu_app_id ?? settingsDefaults.baidu_app_id,
     baidu_secret_key: settingsRef.value.baidu_secret_key ?? settingsDefaults.baidu_secret_key,
     close_to_tray: (settingsRef.value.close_to_tray ?? settingsDefaults.close_to_tray).toString(),
+    content_font_family:
+      settingsRef.value.content_font_family ?? settingsDefaults.content_font_family,
+    content_font_size: (
+      settingsRef.value.content_font_size ?? settingsDefaults.content_font_size
+    ).toString(),
+    content_line_height:
+      settingsRef.value.content_line_height ?? settingsDefaults.content_line_height,
     custom_css_file: settingsRef.value.custom_css_file ?? settingsDefaults.custom_css_file,
+    custom_translation_body_template:
+      settingsRef.value.custom_translation_body_template ??
+      settingsDefaults.custom_translation_body_template,
+    custom_translation_enabled: (
+      settingsRef.value.custom_translation_enabled ?? settingsDefaults.custom_translation_enabled
+    ).toString(),
+    custom_translation_endpoint:
+      settingsRef.value.custom_translation_endpoint ?? settingsDefaults.custom_translation_endpoint,
+    custom_translation_headers:
+      settingsRef.value.custom_translation_headers ?? settingsDefaults.custom_translation_headers,
+    custom_translation_lang_mapping:
+      settingsRef.value.custom_translation_lang_mapping ??
+      settingsDefaults.custom_translation_lang_mapping,
+    custom_translation_method:
+      settingsRef.value.custom_translation_method ?? settingsDefaults.custom_translation_method,
+    custom_translation_name:
+      settingsRef.value.custom_translation_name ?? settingsDefaults.custom_translation_name,
+    custom_translation_response_path:
+      settingsRef.value.custom_translation_response_path ??
+      settingsDefaults.custom_translation_response_path,
+    custom_translation_timeout: (
+      settingsRef.value.custom_translation_timeout ?? settingsDefaults.custom_translation_timeout
+    ).toString(),
     deepl_api_key: settingsRef.value.deepl_api_key ?? settingsDefaults.deepl_api_key,
     deepl_endpoint: settingsRef.value.deepl_endpoint ?? settingsDefaults.deepl_endpoint,
     default_view_mode: settingsRef.value.default_view_mode ?? settingsDefaults.default_view_mode,
@@ -242,6 +368,7 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ).toString(),
     language: settingsRef.value.language ?? settingsDefaults.language,
     last_network_test: settingsRef.value.last_network_test ?? settingsDefaults.last_network_test,
+    layout_mode: settingsRef.value.layout_mode ?? settingsDefaults.layout_mode,
     max_article_age_days: (
       settingsRef.value.max_article_age_days ?? settingsDefaults.max_article_age_days
     ).toString(),
@@ -262,10 +389,18 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     media_proxy_fallback: (
       settingsRef.value.media_proxy_fallback ?? settingsDefaults.media_proxy_fallback
     ).toString(),
+    microsoft_api_key: settingsRef.value.microsoft_api_key ?? settingsDefaults.microsoft_api_key,
+    microsoft_endpoint: settingsRef.value.microsoft_endpoint ?? settingsDefaults.microsoft_endpoint,
+    microsoft_region: settingsRef.value.microsoft_region ?? settingsDefaults.microsoft_region,
     network_bandwidth_mbps:
       settingsRef.value.network_bandwidth_mbps ?? settingsDefaults.network_bandwidth_mbps,
     network_latency_ms: settingsRef.value.network_latency_ms ?? settingsDefaults.network_latency_ms,
     network_speed: settingsRef.value.network_speed ?? settingsDefaults.network_speed,
+    notion_api_key: settingsRef.value.notion_api_key ?? settingsDefaults.notion_api_key,
+    notion_enabled: (
+      settingsRef.value.notion_enabled ?? settingsDefaults.notion_enabled
+    ).toString(),
+    notion_page_id: settingsRef.value.notion_page_id ?? settingsDefaults.notion_page_id,
     obsidian_enabled: (
       settingsRef.value.obsidian_enabled ?? settingsDefaults.obsidian_enabled
     ).toString(),
@@ -282,6 +417,11 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     retry_timeout_seconds: (
       settingsRef.value.retry_timeout_seconds ?? settingsDefaults.retry_timeout_seconds
     ).toString(),
+    rsshub_api_key: settingsRef.value.rsshub_api_key ?? settingsDefaults.rsshub_api_key,
+    rsshub_enabled: (
+      settingsRef.value.rsshub_enabled ?? settingsDefaults.rsshub_enabled
+    ).toString(),
+    rsshub_endpoint: settingsRef.value.rsshub_endpoint ?? settingsDefaults.rsshub_endpoint,
     rules: settingsRef.value.rules ?? settingsDefaults.rules,
     shortcuts: settingsRef.value.shortcuts ?? settingsDefaults.shortcuts,
     shortcuts_enabled: (
@@ -289,6 +429,9 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ).toString(),
     show_article_preview_images: (
       settingsRef.value.show_article_preview_images ?? settingsDefaults.show_article_preview_images
+    ).toString(),
+    show_floating_toc: (
+      settingsRef.value.show_floating_toc ?? settingsDefaults.show_floating_toc
     ).toString(),
     show_hidden_articles: (
       settingsRef.value.show_hidden_articles ?? settingsDefaults.show_hidden_articles
@@ -304,14 +447,30 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     summary_trigger_mode:
       settingsRef.value.summary_trigger_mode ?? settingsDefaults.summary_trigger_mode,
     target_language: settingsRef.value.target_language ?? settingsDefaults.target_language,
+    tencent_region: settingsRef.value.tencent_region ?? settingsDefaults.tencent_region,
+    tencent_secret_id: settingsRef.value.tencent_secret_id ?? settingsDefaults.tencent_secret_id,
+    tencent_secret_key: settingsRef.value.tencent_secret_key ?? settingsDefaults.tencent_secret_key,
     theme: settingsRef.value.theme ?? settingsDefaults.theme,
     translation_enabled: (
       settingsRef.value.translation_enabled ?? settingsDefaults.translation_enabled
     ).toString(),
+    translation_only_mode: (
+      settingsRef.value.translation_only_mode ?? settingsDefaults.translation_only_mode
+    ).toString(),
     translation_provider:
       settingsRef.value.translation_provider ?? settingsDefaults.translation_provider,
+    ui_font_family: settingsRef.value.ui_font_family ?? settingsDefaults.ui_font_family,
+    ui_font_size: (settingsRef.value.ui_font_size ?? settingsDefaults.ui_font_size).toString(),
+    update_check_enabled: (
+      settingsRef.value.update_check_enabled ?? settingsDefaults.update_check_enabled
+    ).toString(),
     update_interval: (
       settingsRef.value.update_interval ?? settingsDefaults.update_interval
     ).toString(),
+    zotero_api_key: settingsRef.value.zotero_api_key ?? settingsDefaults.zotero_api_key,
+    zotero_enabled: (
+      settingsRef.value.zotero_enabled ?? settingsDefaults.zotero_enabled
+    ).toString(),
+    zotero_user_id: settingsRef.value.zotero_user_id ?? settingsDefaults.zotero_user_id,
   };
 }

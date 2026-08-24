@@ -1,8 +1,7 @@
 package feed
 
 import (
-	"MrRSS/internal/models"
-	"MrRSS/internal/utils"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -12,13 +11,88 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/html"
+	"MrRSS/internal/models"
+	"MrRSS/internal/rsshub"
+	"MrRSS/internal/utils"
+	"MrRSS/internal/utils/httputil"
 
 	"github.com/antchfx/htmlquery"
 	"github.com/antchfx/xmlquery"
 	"github.com/chromedp/chromedp"
 	"github.com/mmcdole/gofeed"
+	"golang.org/x/net/html"
+	htmlcharset "golang.org/x/net/html/charset"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
+
+// GenerateTitleFromRoute creates a friendly title from an RSSHub route
+// For example: "nytimes" → "NYTimes", "weibo/user/billieeilish" → "Weibo - billieeilish"
+func GenerateTitleFromRoute(route string) string {
+	// Split by first slash to get the main route name
+	parts := strings.Split(route, "/")
+	name := parts[0]
+
+	// Capitalize first letter of each word
+	title := cases.Title(language.English).String(strings.ReplaceAll(name, "-", " "))
+
+	// Add route category if present (e.g., "weibo/user/xxx" → "Weibo - xxx")
+	if len(parts) > 1 {
+		category := parts[0]
+		remainder := strings.Join(parts[1:], "/")
+		title = fmt.Sprintf("%s - %s", cases.Title(language.English).String(category), remainder)
+	}
+
+	return title
+}
+
+// AddRSSHubSubscription adds a new RSSHub feed subscription and returns the feed ID.
+// This is a specialized handler for RSSHub routes, similar to script subscriptions.
+func (f *Fetcher) AddRSSHubSubscription(route string, category string, customTitle string) (int64, error) {
+	utils.DebugLog("AddRSSHubSubscription: Adding RSSHub feed with route: %s", route)
+
+	// Validate route
+	if route == "" {
+		return 0, fmt.Errorf("RSSHub route cannot be empty")
+	}
+
+	// Validate route by testing it (skip if API key is empty)
+	endpoint, _ := f.db.GetSetting("rsshub_endpoint")
+	if endpoint == "" {
+		endpoint = "https://rsshub.app"
+	}
+	apiKey, _ := f.db.GetEncryptedSetting("rsshub_api_key")
+
+	client := rsshub.NewClient(endpoint, apiKey)
+
+	// Skip validation if API key is empty (public rsshub.app instance)
+	if apiKey != "" {
+		if err := client.ValidateRoute(route); err != nil {
+			return 0, fmt.Errorf("RSSHub route validation failed: %w", err)
+		}
+	}
+
+	// Generate title from route
+	title := customTitle
+	if title == "" {
+		title = GenerateTitleFromRoute(route)
+	}
+
+	// Store with rsshub:// protocol (similar to script://)
+	url := "rsshub://" + route
+
+	utils.DebugLog("AddRSSHubSubscription: Creating feed with URL: %s", url)
+
+	feed := &models.Feed{
+		Title:       title,
+		URL:         url,
+		Link:        client.BuildURL(route), // Store the actual RSSHub URL as link
+		Description: fmt.Sprintf("RSSHub route: %s", route),
+		Category:    category,
+	}
+
+	return f.db.AddFeed(feed)
+}
 
 // sanitizeFeedXML removes or replaces problematic atom:link elements with non-HTTP schemes
 // (like file://, javascript:, data:, etc.) that can cause parsing issues.
@@ -37,6 +111,35 @@ func sanitizeFeedXML(xmlContent string) string {
 
 	utils.DebugLog("sanitizeFeedXML: Removed non-HTTP links from feed XML")
 	return cleaned
+}
+
+var xmlEncodingRegex = regexp.MustCompile(`(?i)<\?xml\s+[^>]*encoding\s*=\s*["']([^"']+)["']`)
+
+func decodeFeedBody(body []byte, contentType string) (string, error) {
+	if len(body) == 0 {
+		return "", nil
+	}
+
+	if match := xmlEncodingRegex.FindSubmatch(body); len(match) == 2 {
+		reader, err := htmlcharset.NewReaderLabel(string(match[1]), bytes.NewReader(body))
+		if err == nil {
+			decoded, readErr := io.ReadAll(reader)
+			if readErr != nil {
+				return "", readErr
+			}
+			return string(decoded), nil
+		}
+	}
+
+	reader, err := htmlcharset.NewReader(bytes.NewReader(body), contentType)
+	if err != nil {
+		return string(body), nil
+	}
+	decoded, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+	return string(decoded), nil
 }
 
 // fetchAndSanitizeFeed fetches feed content and sanitizes it before parsing
@@ -63,9 +166,15 @@ func (f *Fetcher) fetchAndSanitizeFeed(ctx context.Context, feedURL string) (str
 	}
 	debugTimer.Stage("Request created")
 
-	// Add user agent to avoid being blocked
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	req.Header.Set("Accept", "application/rss+xml, application/xml, text/xml, */*")
+	// Add browser-like headers to avoid being blocked by Cloudflare and anti-bot protections
+	// Note: Don't set Accept-Encoding - let Go's http.Transport handle it automatically
+	// This ensures proper gzip decompression is applied
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/rss+xml, application/xml, text/xml, application/atom+xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
+	req.Header.Set("DNT", "1")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
 	debugTimer.LogWithTime("Sending HTTP request to %s", feedURL)
 	resp, err := httpClient.Do(req)
@@ -92,7 +201,11 @@ func (f *Fetcher) fetchAndSanitizeFeed(ctx context.Context, feedURL string) (str
 	debugTimer.LogWithTime("Read %d bytes from response", len(body))
 	debugTimer.Stage("Body read complete")
 
-	xmlContent := string(body)
+	xmlContent, err := decodeFeedBody(body, resp.Header.Get("Content-Type"))
+	if err != nil {
+		debugTimer.LogWithTime("Failed to decode body: %v", err)
+		return "", fmt.Errorf("failed to decode response body: %w", err)
+	}
 
 	// Sanitize the XML to remove problematic links
 	debugTimer.LogWithTime("Sanitizing XML")
@@ -123,6 +236,8 @@ func (f *Fetcher) AddSubscription(url string, category string, customTitle strin
 		parsedFeed, parseErr := parser.ParseString(cleanedXML)
 		if parseErr == nil {
 			utils.DebugLog("AddSubscription: Successfully parsed sanitized feed for URL: %s", url)
+			// Fix Atom authors for feeds that use simple text format
+			fixFeedAuthors(parsedFeed, cleanedXML)
 			title := parsedFeed.Title
 			if customTitle != "" {
 				title = customTitle
@@ -274,7 +389,7 @@ func (f *Fetcher) AddXPathSubscription(url string, category string, customTitle 
 	}
 
 	// Test fetch the URL to ensure it's accessible before adding
-	httpClient, err := utils.CreateHTTPClient("", 30*time.Second)
+	httpClient, err := httputil.CreateHTTPClient("", 30*time.Second)
 	if err != nil {
 		return 0, &XPathError{
 			Operation: "fetch",
@@ -395,7 +510,12 @@ func (f *Fetcher) ImportSubscription(title, url, category string) (int64, error)
 
 // ParseFeed parses an RSS feed from a URL and returns the parsed feed
 func (f *Fetcher) ParseFeed(ctx context.Context, url string) (*gofeed.Feed, error) {
-	return f.fp.ParseURLWithContext(url, ctx)
+	// Transform RSSHub URLs
+	actualURL, err := f.transformRSSHubURL(url)
+	if err != nil {
+		return nil, err
+	}
+	return f.fp.ParseURLWithContext(actualURL, ctx)
 }
 
 // ParseFeedWithScript parses an RSS feed, using a custom script or XPath if specified.
@@ -482,6 +602,18 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 	debugTimer.Stage("Traditional URL fetching")
 	utils.DebugLog("parseFeedWithFeedInternal: Using traditional URL-based fetching for %s", feed.URL)
 	// Use traditional URL-based fetching
+
+	// Transform RSSHub URLs if needed
+	actualURL := feed.URL
+	if rsshub.IsRSSHubURL(feed.URL) {
+		transformedURL, err := f.transformRSSHubURL(feed.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform RSSHub URL: %w", err)
+		}
+		actualURL = transformedURL
+		utils.DebugLog("parseFeedWithFeedInternal: Transformed RSSHub URL from %s to %s", feed.URL, actualURL)
+	}
+
 	// For high priority requests, use shorter timeout
 	fetchCtx := ctx
 	if priority {
@@ -492,8 +624,8 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 
 	// Try fetching and sanitizing the feed first to handle file:// URLs in atom:link
 	debugTimer.LogWithTime("About to call fetchAndSanitizeFeed")
-	utils.DebugLog("parseFeedWithFeedInternal: Attempting to fetch and sanitize feed for %s", feed.URL)
-	cleanedXML, sanitizeErr := f.fetchAndSanitizeFeed(fetchCtx, feed.URL)
+	utils.DebugLog("parseFeedWithFeedInternal: Attempting to fetch and sanitize feed for %s", actualURL)
+	cleanedXML, sanitizeErr := f.fetchAndSanitizeFeed(fetchCtx, actualURL)
 	debugTimer.LogWithTime("fetchAndSanitizeFeed completed, err=%v", sanitizeErr)
 
 	if sanitizeErr == nil {
@@ -510,7 +642,9 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 
 		if err == nil {
 			debugTimer.Stage("Successfully parsed sanitized feed")
-			utils.DebugLog("parseFeedWithFeedInternal: Successfully parsed sanitized feed for %s", feed.URL)
+			utils.DebugLog("parseFeedWithFeedInternal: Successfully parsed sanitized feed for %s", actualURL)
+			// Fix Atom authors for feeds that use simple text format
+			fixFeedAuthors(parsedFeed, cleanedXML)
 			return parsedFeed, nil
 		}
 		utils.DebugLog("parseFeedWithFeedInternal: Parsing sanitized feed failed: %v", err)
@@ -523,8 +657,8 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 	// Fallback: Try standard parsing first
 	debugTimer.Stage("Standard parsing via ParseURLWithContext")
 	debugTimer.LogWithTime("About to call ParseURLWithContext")
-	utils.DebugLog("parseFeedWithFeedInternal: Attempting standard RSS parsing for %s", feed.URL)
-	parsedFeed, err := f.fp.ParseURLWithContext(feed.URL, fetchCtx)
+	utils.DebugLog("parseFeedWithFeedInternal: Attempting standard RSS parsing for %s", actualURL)
+	parsedFeed, err := f.fp.ParseURLWithContext(actualURL, fetchCtx)
 	debugTimer.LogWithTime("ParseURLWithContext completed, err=%v", err)
 	if err != nil {
 		utils.DebugLog("parseFeedWithFeedInternal: Standard RSS parsing failed: %v", err)
@@ -548,7 +682,7 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 
 		if shouldTryJS {
 			// If standard parsing fails with parsing errors, try executing JavaScript in browser
-			utils.DebugLog("parseFeedWithFeedInternal: Attempting JavaScript execution for %s", feed.URL)
+			utils.DebugLog("parseFeedWithFeedInternal: Attempting JavaScript execution for %s", actualURL)
 			jsCtx := ctx
 			if priority {
 				var cancel context.CancelFunc
@@ -556,7 +690,7 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 				defer cancel()
 			}
 
-			parsedFeed, err = f.parseFeedWithJavaScript(jsCtx, feed.URL, priority)
+			parsedFeed, err = f.parseFeedWithJavaScript(jsCtx, actualURL, priority)
 			if err != nil {
 				utils.DebugLog("parseFeedWithFeedInternal: JavaScript execution also failed: %v", err)
 				return nil, fmt.Errorf("both standard parsing and JavaScript execution failed: %w", err)
@@ -584,7 +718,7 @@ func (f *Fetcher) parseFeedWithXPath(_ context.Context, feed *models.Feed) (*gof
 	}
 
 	// Fetch the content
-	httpClient, err := utils.CreateHTTPClient("", 30*time.Second)
+	httpClient, err := httputil.CreateHTTPClient("", 30*time.Second)
 	if err != nil {
 		return nil, &XPathError{
 			Operation: "fetch",
@@ -1194,6 +1328,9 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 		}
 		return nil, fmt.Errorf("failed to parse content after JavaScript execution: %w", err)
 	}
+
+	// Fix Atom authors for feeds that use simple text format
+	fixFeedAuthors(feed, pageContent)
 
 	utils.DebugLog("parseFeedWithJavaScript: RSS/Atom parsing succeeded, feed title: %s, items count: %d", feed.Title, len(feed.Items))
 	return feed, nil

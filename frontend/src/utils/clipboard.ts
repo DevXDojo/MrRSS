@@ -10,7 +10,7 @@ import { Clipboard } from '@wailsio/runtime';
  * @param text Text to copy
  * @returns Promise that resolves to true if successful, false otherwise
  */
-export async function copyToClipboard(text: string): Promise<boolean> {
+async function copyToClipboard(text: string): Promise<boolean> {
   if (!text) {
     console.warn('copyToClipboard: text is empty');
     return false;

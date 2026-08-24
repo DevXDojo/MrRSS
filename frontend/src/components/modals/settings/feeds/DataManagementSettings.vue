@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { PhHardDrives, PhUpload, PhDownload, PhBroom } from '@phosphor-icons/vue';
+import { ButtonControl } from '@/components/settings';
+import { SettingGroup } from '@/components/settings';
 
 const { t } = useI18n();
 
@@ -24,69 +26,31 @@ function handleCleanupDatabase() {
 </script>
 
 <template>
-  <div class="setting-group">
-    <label
-      class="font-semibold mb-2 sm:mb-3 text-text-secondary uppercase text-xs tracking-wider flex items-center gap-2"
-    >
-      <PhHardDrives :size="14" class="sm:w-4 sm:h-4" />
-      {{ t('dataManagement') }}
-    </label>
-    <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-2 sm:mb-3">
-      <button
-        class="btn-secondary flex-1 justify-center text-sm sm:text-base"
+  <SettingGroup :icon="PhHardDrives" :title="t('setting.database.dataManagement')">
+    <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+      <ButtonControl
+        :label="t('modal.opml.import')"
+        :icon="PhDownload"
+        type="secondary"
+        class="flex-1 justify-center text-sm sm:text-base"
         @click="handleImportOPML"
-      >
-        <PhUpload :size="18" class="sm:w-5 sm:h-5" /> {{ t('importOPML') }}
-      </button>
-      <button
-        class="btn-secondary flex-1 justify-center text-sm sm:text-base"
+      />
+      <ButtonControl
+        :label="t('modal.opml.export')"
+        :icon="PhUpload"
+        type="secondary"
+        class="flex-1 justify-center text-sm sm:text-base"
         @click="handleExportOPML"
-      >
-        <PhDownload :size="18" class="sm:w-5 sm:h-5" /> {{ t('exportOPML') }}
-      </button>
+      />
     </div>
-    <div class="flex mb-2 sm:mb-3">
-      <button
-        class="btn-danger flex-1 justify-center text-sm sm:text-base"
-        @click="handleCleanupDatabase"
-      >
-        <PhBroom :size="18" class="sm:w-5 sm:h-5" /> {{ t('cleanDatabase') }}
-      </button>
-    </div>
-  </div>
+    <ButtonControl
+      :label="t('setting.database.cleanDatabase')"
+      :icon="PhBroom"
+      type="danger"
+      class="w-full justify-center text-sm sm:text-base"
+      @click="handleCleanupDatabase"
+    />
+  </SettingGroup>
 </template>
 
-<style scoped>
-@reference "../../../../style.css";
-
-.btn-primary {
-  @apply bg-accent text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-semibold hover:bg-accent-hover transition-colors shadow-sm;
-}
-.btn-primary:disabled {
-  @apply opacity-50 cursor-not-allowed;
-}
-.btn-secondary {
-  @apply bg-bg-tertiary border border-border text-text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-medium hover:bg-bg-secondary transition-colors;
-}
-.btn-secondary:disabled {
-  @apply opacity-50 cursor-not-allowed;
-}
-.btn-danger {
-  @apply bg-red-50 border border-red-300 text-red-600 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-semibold hover:bg-red-100 transition-colors;
-}
-.btn-danger:disabled {
-  @apply opacity-50 cursor-not-allowed;
-}
-</style>
-
-<style>
-/* Dark mode styles need to be global to work with body.dark-mode */
-.dark-mode .btn-danger {
-  background-color: rgba(127, 29, 29, 0.2) !important;
-  border-color: #f87171 !important;
-  color: #f87171 !important;
-}
-.dark-mode .btn-danger:hover {
-  background-color: rgba(127, 29, 29, 0.3) !important;
-}
-</style>
+<style scoped></style>

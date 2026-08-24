@@ -1,37 +1,26 @@
-<div align="center">
-  <img src="imgs/logo.svg" alt="MrRSS Logo" width="120" height="120">
-  <h1>MrRSS</h1>
-  <p><strong>A Modern, Cross-Platform Desktop RSS Reader</strong></p>
+<h1><img src="imgs/logo-rounded.png" alt="MrRSS logo" style="height: 40px;"/>&nbsp;MrRSS</h1>
 
-   [![Version](https://img.shields.io/badge/version-1.3.13-blue.svg)](https://github.com/WCY-dt/MrRSS/releases)
-  [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
-   [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://go.dev/)
-  [![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
-  [![Vue.js](https://img.shields.io/badge/Vue.js-3.5+-4FC08D?logo=vue.js)](https://vuejs.org/)
+<a href="https://trendshift.io/repositories/15731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15731" alt="DevXDojo%2FMrRSS | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  <p>
-    <strong>English</strong> | <a href="README_zh.md">简体中文</a>
-  </p>
-</div>
+![Screenshot](imgs/og1.png)
 
-> [!TIP]
-> If you encounter any issues while using the application, please first check the [Q&A page](https://github.com/WCY-dt/MrRSS/discussions/217). If you cannot find a solution, feel free to report the issue in [Issues](https://github.com/WCY-dt/MrRSS/issues).
+<p>
+   <strong>English</strong> | <a href="README_zh.md">简体中文</a>
+</p>
 
----
+[![Version](https://img.shields.io/badge/version-1.3.27-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
+[![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
+[![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
+[![Vue.js](https://img.shields.io/badge/Vue.js-3.5+-4FC08D?logo=vue.js)](https://vuejs.org/)
 
 ## ✨ Features
 
-- 🖥️ **Cross-platform Support**: Native desktop apps for Windows, macOS, and Linux, providing a smooth and consistent experience
-- 🌐 **Automatic Translation and Summary**: Automatically translates article titles and content, and generates concise summaries to help you quickly grasp information
-- 🔍 **Smart Feed Discovery**: Automatically discovers and recommends new RSS feeds from relevant sources, continuously enriching your reading library
-- 🤖 **AI-enhanced Features**: Integrates advanced AI technology to empower various functions like translation, summarization, and recommendation, making reading smarter
-- 🎨 **Modern User Interface**: Features a clean, beautiful, and responsive design, supports dark mode, providing a comfortable and immersive visual experience
-- 📦 **OPML Import/Export**: Supports one-click import or export of OPML files, making it easy to migrate subscriptions from other RSS readers
-- 🏭 **Custom Scripts and Automation**: Built-in filters, scripts, and XPath system, supporting highly customizable automation workflows
-
-## 📸 Screenshots
-
-![Screenshot](imgs/og.png)
+- 🌐 **Auto-Translation & Summarization**: Automatically translate article titles and content, and generate concise summaries to help you get information quickly
+- 🤖 **AI-Enhanced Features**: Integrated advanced AI technology for translation, summarization, recommendations, and more. Reading and performing operations through skills are also supported
+- 🔌 **Rich Plugin Ecosystem**: Supports integration with mainstream tools like Obsidian, Notion, FreshRSS, and RSSHub for easy feature extension
+- 📡 **Diverse Subscription Methods**: Supports URL, XPath, scripts, newsletters, and other feed types to meet different needs
+- 🏭 **Custom Scripts & Automation**: Built-in filters and scripting system supporting highly customizable automation workflows
 
 ## 🚀 Quick Start
 
@@ -39,7 +28,13 @@
 
 #### Option 1: Download Pre-built Installer (Recommended)
 
-Download the latest installer for your platform from the [Releases](https://github.com/WCY-dt/MrRSS/releases/latest) page:
+Download the latest installer for your platform from the [Releases](https://github.com/DevXDojo/MrRSS/releases/latest) page.
+
+<details>
+
+<summary>Click to view the list of available installers</summary>
+
+<div markdown="1">
 
 **Standard Installation:**
 
@@ -53,6 +48,14 @@ Download the latest installer for your platform from the [Releases](https://gith
 - **Linux:** `MrRSS-{version}-linux-{arch}-portable.tar.gz`
 - **macOS:** `MrRSS-{version}-darwin-{arch}-portable.zip`
 
+**AI Agent Skills:**
+
+- **Codex:** `MrRSS-{version}-skills.zip` ([usage guide](docs/SKILLS.md))
+
+</div>
+
+</details>
+
 #### Option 2: Build from Source
 
 <details>
@@ -65,13 +68,13 @@ Download the latest installer for your platform from the [Releases](https://gith
 
 Before you begin, ensure you have the following installed:
 
-- [Go](https://go.dev/) (1.24 or higher)
+- [Go](https://go.dev/) (1.27 or higher)
 - [Node.js](https://nodejs.org/) (20 LTS or higher with npm)
 - [Wails v3](https://v3alpha.wails.io/getting-started/installation/) CLI
 
 **Platform-specific requirements:**
 
-- **Linux**: GTK3, WebKit2GTK 4.1, libsoup 3.0, GCC, pkg-config
+- **Linux**: GTK4, WebKitGTK 6.0, libsoup 3.0, GCC, pkg-config
 - **Windows**: MinGW-w64 (for CGO support), NSIS (for installers)
 - **macOS**: Xcode Command Line Tools
 
@@ -79,7 +82,7 @@ For detailed installation instructions, see [Build Requirements](docs/BUILD_REQU
 
 ```bash
 # Quick setup for Linux (Ubuntu 24.04+):
-sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev gcc pkg-config
+sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-config
 ```
 
 ### Installation
@@ -87,7 +90,7 @@ sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev gcc pkg-
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/WCY-dt/MrRSS.git
+   git clone https://github.com/DevXDojo/MrRSS.git
    cd MrRSS
    ```
 
@@ -102,7 +105,7 @@ sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev gcc pkg-
 3. **Install Wails v3 CLI**
 
    ```bash
-   go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
    ```
 
 4. **Build the application**
@@ -132,6 +135,12 @@ sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev gcc pkg-
 
 ### Data Storage
 
+<details>
+
+<summary>Click to expand data storage details</summary>
+
+<div markdown="1">
+
 **Normal Mode** (default):
 
 - **Windows:** `%APPDATA%\MrRSS\` (e.g., `C:\Users\YourName\AppData\Roaming\MrRSS\`)
@@ -144,7 +153,11 @@ sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev gcc pkg-
 
 This ensures your data persists across application updates and reinstalls.
 
-## 🛠️ Development
+</div>
+
+</details>
+
+## 🛠️ Development Guide
 
 <details>
 
@@ -168,7 +181,7 @@ task dev
 
 #### Using Make
 
-We provide a `Makefile` with common development tasks (works on Linux/macOS/Windows with Make installed):
+We provide a `Makefile` for handling common development tasks (available on Linux/macOS/Windows):
 
 ```bash
 # Show all available commands
@@ -182,30 +195,6 @@ make clean
 
 # Setup development environment
 make setup
-```
-
-#### Using Scripts
-
-Cross-platform scripts are available in the `scripts/` directory:
-
-**Linux/macOS:**
-
-```bash
-# Run all checks
-./scripts/check.sh
-
-# Pre-release checks
-./scripts/pre-release.sh
-```
-
-**Windows (PowerShell):**
-
-```powershell
-# Run all checks
-.\scripts\check.ps1
-
-# Pre-release checks
-.\scripts\pre-release.ps1
 ```
 
 ### Pre-commit Hooks
@@ -223,15 +212,13 @@ pre-commit run --all-files
 ### Running Tests
 
 ```bash
-# Backend tests
-go test ./...
-
-# Frontend tests
-cd frontend
-npm test
+make test
 ```
 
-### Server Mode (API-only)
+### Local API and Server Mode
+
+The desktop app exposes its REST API at `http://localhost:1234/api` while it is
+running. The listener is restricted to the local computer.
 
 For server deployments and API integration, use the headless server version:
 
@@ -244,7 +231,15 @@ go build -tags server -o mrrss-server .
 ./mrrss-server
 ```
 
-See [Server Mode Documentation](docs/SERVER_MODE.md) for complete API reference and deployment guide.
+Pre-built server images based on ghcr.io are also available:
+
+```bash
+docker run -d -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-amd64
+docker run -d -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-arm64
+```
+
+Please refer to the [Server Mode API Documentation](docs/SERVER_MODE/swagger.json) for a complete API reference.
+To let Codex operate MrRSS through this API, install the release skill package described in [MrRSS Skills](docs/SKILLS.md).
 
 </div>
 
@@ -254,6 +249,12 @@ See [Server Mode Documentation](docs/SERVER_MODE.md) for complete API reference 
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
+<details>
+
+<summary>Click to expand the contributing guidelines</summary>
+
+<div markdown="1">
+
 Before contributing:
 
 1. Read the [Code of Conduct](CODE_OF_CONDUCT.md)
@@ -262,27 +263,23 @@ Before contributing:
 4. Make your changes and add tests
 5. Submit a pull request
 
+</div>
+
+</details>
+
 ## 🔒 Security
 
 If you discover a security vulnerability, please follow our [Security Policy](SECURITY.md).
 
 ## 📝 License
 
-This project is licensed under the GPLv3 License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with [Wails](https://wails.io/) - Go + Web framework
-- UI powered by [Vue.js 3](https://vuejs.org/) and [Tailwind CSS](https://tailwindcss.com/)
-- Icons from [Phosphor Icons](https://phosphoricons.com/)
-- RSS parsing with [gofeed](https://github.com/mmcdole/gofeed)
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## 📮 Contact & Support
 
-- **Issues**: [GitHub Issues](https://github.com/WCY-dt/MrRSS/issues)
-- **Repository**: [github.com/WCY-dt/MrRSS](https://github.com/WCY-dt/MrRSS)
-
----
+- **Issues**: [GitHub Issues](https://github.com/DevXDojo/MrRSS/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/DevXDojo/MrRSS/discussions)
+- **Repository**: [github.com/DevXDojo/MrRSS](https://github.com/DevXDojo/MrRSS)
 
 <div align="center">
   <img src="imgs/sponsor.png" alt="Sponsor MrRSS"/>

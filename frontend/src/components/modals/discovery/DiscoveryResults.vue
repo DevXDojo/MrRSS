@@ -30,13 +30,13 @@ function selectAll() {
 <template>
   <div class="mb-4 flex items-center justify-between bg-bg-secondary rounded-lg p-3">
     <p class="text-sm font-medium text-text-primary">
-      {{ t('foundFeeds', { count: discoveredFeeds.length }) }}
+      {{ t('modal.discovery.foundFeeds', { count: discoveredFeeds.length }) }}
     </p>
     <button
       class="text-sm text-accent hover:text-accent-hover font-medium px-3 py-1 rounded hover:bg-accent/10 transition-colors"
       @click="selectAll"
     >
-      {{ allSelected ? t('deselectAll') : t('selectAll') }}
+      {{ allSelected ? t('common.action.deselectAll') : t('common.search.selectAll') }}
     </button>
   </div>
 

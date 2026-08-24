@@ -5,15 +5,18 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/emersion/go-imap"
+	id "github.com/emersion/go-imap-id"
 	"github.com/emersion/go-imap/client"
 	"github.com/mmcdole/gofeed"
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/models"
+	"MrRSS/internal/version"
 )
 
 // EmailFetcher handles fetching and parsing newsletter emails
@@ -61,6 +64,9 @@ func (ef *EmailFetcher) FetchEmails(ctx context.Context, feed *models.Feed) ([]*
 	seqset.AddRange(fromUID, ^uint32(0)) // Use ^uint32(0) as max UID
 	criteria.Uid = seqset
 	criteria.Since = time.Now().AddDate(0, -1, 0) // Last 1 month
+	if sender := strings.TrimSpace(feed.EmailAddress); sender != "" {
+		criteria.Header.Add("From", sender)
+	}
 
 	uids, err := c.Search(criteria)
 	if err != nil {
@@ -88,7 +94,7 @@ func (ef *EmailFetcher) FetchEmails(ctx context.Context, feed *models.Feed) ([]*
 			maxUID = int(batchUIDs[len(batchUIDs)-1])
 		}
 
-		batchItems, err := ef.fetchEmailBatch(c, batchUIDs)
+		batchItems, err := ef.fetchEmailBatch(c, batchUIDs, feed.EmailAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -125,6 +131,13 @@ func (ef *EmailFetcher) connectToIMAP(feed *models.Feed) (*client.Client, error)
 		}
 	}
 
+	// Send ID command before login (RFC 2971)
+	// This is required by some email providers like NetEase (163, 126)
+	if err := ef.sendIMAPID(c); err != nil {
+		// Log the error but continue - ID command is optional for most servers
+		// Some servers may not support the ID extension
+	}
+
 	// Login
 	if err := c.Login(feed.EmailUsername, feed.EmailPassword); err != nil {
 		c.Logout()
@@ -134,8 +147,32 @@ func (ef *EmailFetcher) connectToIMAP(feed *models.Feed) (*client.Client, error)
 	return c, nil
 }
 
+// sendIMAPID sends the IMAP ID command to identify the client
+// This is required by some email providers (e.g., NetEase 163/126) as per RFC 2971
+func (ef *EmailFetcher) sendIMAPID(c *client.Client) error {
+	idClient := id.NewClient(c)
+
+	// Check if server supports ID extension
+	supported, err := idClient.SupportID()
+	if err != nil || !supported {
+		// Server doesn't support ID extension, skip
+		return nil
+	}
+
+	// Send client identification
+	clientID := id.ID{
+		id.FieldName:    "MrRSS",
+		id.FieldVersion: version.Version,
+		id.FieldVendor:  "MrRSS",
+		id.FieldOS:      runtime.GOOS,
+	}
+
+	_, err = idClient.ID(clientID)
+	return err
+}
+
 // fetchEmailBatch fetches and parses a batch of emails
-func (ef *EmailFetcher) fetchEmailBatch(c *client.Client, uids []uint32) ([]*gofeed.Item, error) {
+func (ef *EmailFetcher) fetchEmailBatch(c *client.Client, uids []uint32, senderFilter string) ([]*gofeed.Item, error) {
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(uids...)
 
@@ -153,6 +190,10 @@ func (ef *EmailFetcher) fetchEmailBatch(c *client.Client, uids []uint32) ([]*gof
 			break
 		}
 
+		if !emailMatchesSenderFilter(msg, senderFilter) {
+			continue
+		}
+
 		item, err := ef.parseEmailToItem(msg)
 		if err != nil {
 			// Skip invalid emails but continue processing others
@@ -165,6 +206,35 @@ func (ef *EmailFetcher) fetchEmailBatch(c *client.Client, uids []uint32) ([]*gof
 	}
 
 	return items, nil
+}
+
+func emailMatchesSenderFilter(msg *imap.Message, senderFilter string) bool {
+	filter := strings.ToLower(strings.TrimSpace(senderFilter))
+	if filter == "" {
+		return true
+	}
+	if msg == nil || msg.Envelope == nil || len(msg.Envelope.From) == 0 {
+		return false
+	}
+
+	for _, sender := range msg.Envelope.From {
+		if sender == nil {
+			continue
+		}
+		values := []string{
+			sender.Address(),
+			sender.MailboxName,
+			sender.HostName,
+			sender.PersonalName,
+		}
+		for _, value := range values {
+			if strings.Contains(strings.ToLower(strings.TrimSpace(value)), filter) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // parseEmailToItem converts an IMAP message to a gofeed Item

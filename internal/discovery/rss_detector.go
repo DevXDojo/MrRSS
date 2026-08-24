@@ -12,11 +12,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// discoverRSSFeeds discovers RSS feeds from a list of blog URLs
-func (s *Service) discoverRSSFeeds(ctx context.Context, blogURLs []string) []DiscoveredBlog {
-	return s.discoverRSSFeedsWithProgress(ctx, blogURLs, nil)
-}
-
 // discoverRSSFeedsWithProgress discovers RSS feeds with progress updates
 func (s *Service) discoverRSSFeedsWithProgress(ctx context.Context, blogURLs []string, progressCb ProgressCallback) []DiscoveredBlog {
 	var wg sync.WaitGroup

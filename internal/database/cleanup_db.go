@@ -6,8 +6,11 @@ import (
 	"time"
 )
 
+const defaultMaxArticlesPerFeed = 15000
+
 // CleanupOldArticles removes articles based on age and status.
 // - Articles older than configured days: delete except favorited or read later
+// - Read article metadata beyond the per-feed retention limit
 // - Also checks database size against max_cache_size_mb setting
 func (db *DB) CleanupOldArticles() (int64, error) {
 	db.WaitForReady()
@@ -39,7 +42,16 @@ func (db *DB) CleanupOldArticles() (int64, error) {
 	count, _ := result.RowsAffected()
 	totalDeleted += count
 
-	// Step 2: Check database size and clean up if over limit
+	// Step 2: Apply per-feed article retention so high-volume feeds do not
+	// force low-volume feeds to lose their local history.
+	perFeedDeleted, err := db.CleanupReadArticlesOverPerFeedLimit(defaultMaxArticlesPerFeed)
+	if err != nil {
+		log.Printf("Error during per-feed retention cleanup: %v", err)
+	} else {
+		totalDeleted += perFeedDeleted
+	}
+
+	// Step 3: Check database size and clean up if over limit
 	sizeDeleted, err := db.CleanupBySize()
 	if err != nil {
 		log.Printf("Error during size-based cleanup: %v", err)
@@ -51,8 +63,10 @@ func (db *DB) CleanupOldArticles() (int64, error) {
 	_, _ = db.CleanupTranslationCache(maxAgeDays)
 	_, _ = db.CleanupOldArticleContents(maxAgeDays)
 
-	// Run VACUUM to reclaim space
-	_, _ = db.Exec("VACUUM")
+	// Reclaim freelist pages
+	if totalDeleted > 0 {
+		_, _ = db.IncrementalVacuum()
+	}
 
 	return totalDeleted, nil
 }
@@ -68,14 +82,22 @@ func (db *DB) CleanupAllArticleContents() (int64, error) {
 }
 
 // DeleteAllArticles removes ALL articles from the database
-// This keeps feeds, settings, and other metadata intact
+// This keeps feeds, settings, and other metadata intact.
+// With foreign_keys enabled, ON DELETE CASCADE automatically removes
+// associated article_contents, chat_sessions, and chat_messages rows.
 func (db *DB) DeleteAllArticles() (int64, error) {
 	db.WaitForReady()
 	result, err := db.Exec(`DELETE FROM articles`)
 	if err != nil {
 		return 0, err
 	}
-	return result.RowsAffected()
+
+	count, _ := result.RowsAffected()
+	// Reclaim freelist pages after bulk delete
+	if count > 0 {
+		_, _ = db.IncrementalVacuum()
+	}
+	return count, nil
 }
 
 // CleanupUnimportantArticles removes all articles except read, favorited, and read later ones.
@@ -94,18 +116,93 @@ func (db *DB) CleanupUnimportantArticles() (int64, error) {
 
 	count, _ := result.RowsAffected()
 
-	// Also cleanup related caches (remove entries older than 7 days)
-	_, _ = db.CleanupTranslationCache(7)
-	_, _ = db.CleanupOldArticleContents(7)
-
-	// Run VACUUM to reclaim space
-	_, _ = db.Exec("VACUUM")
+	// Reclaim freelist pages
+	if count > 0 {
+		_, _ = db.IncrementalVacuum()
+	}
 
 	return count, nil
 }
 
-// GetDatabaseSizeMB returns the current database size in megabytes.
+// CleanupReadArticlesOverPerFeedLimit removes old read articles above the
+// per-feed retention limit while preserving favorites, read-later items, and
+// unread metadata. Protected articles may cause a feed to exceed the limit.
+func (db *DB) CleanupReadArticlesOverPerFeedLimit(maxArticlesPerFeed int) (int64, error) {
+	db.WaitForReady()
+
+	if maxArticlesPerFeed <= 0 {
+		return 0, nil
+	}
+
+	result, err := db.Exec(`
+		WITH ranked_articles AS (
+			SELECT
+				id,
+				ROW_NUMBER() OVER (
+					PARTITION BY feed_id
+					ORDER BY published_at DESC, id DESC
+				) AS feed_rank
+			FROM articles
+		)
+		DELETE FROM articles
+		WHERE id IN (
+			SELECT articles.id
+			FROM articles
+			JOIN ranked_articles ON ranked_articles.id = articles.id
+			WHERE ranked_articles.feed_rank > ?
+			AND articles.is_read = 1
+			AND articles.is_favorite = 0
+			AND articles.is_read_later = 0
+		)
+	`, maxArticlesPerFeed)
+	if err != nil {
+		return 0, err
+	}
+
+	count, _ := result.RowsAffected()
+	if count > 0 {
+		_, _ = db.IncrementalVacuum()
+	}
+	return count, nil
+}
+
+// GetDatabaseSizeMB returns the current database ACTUAL data size in megabytes.
+// This excludes freelist pages (pages freed by DELETE but not yet reclaimed),
+// so it reflects the real data footprint rather than the on-disk file size.
+// Use GetDatabaseFileSizeMB if you need the physical file size instead.
 func (db *DB) GetDatabaseSizeMB() (float64, error) {
+	db.WaitForReady()
+
+	var pageCount, pageSize, freelistCount int64
+	err := db.QueryRow("PRAGMA page_count").Scan(&pageCount)
+	if err != nil {
+		return 0, err
+	}
+
+	err = db.QueryRow("PRAGMA page_size").Scan(&pageSize)
+	if err != nil {
+		return 0, err
+	}
+
+	err = db.QueryRow("PRAGMA freelist_count").Scan(&freelistCount)
+	if err != nil {
+		return 0, err
+	}
+
+	// Actual used pages = total pages - freelist pages
+	usedPages := pageCount - freelistCount
+	if usedPages < 0 {
+		usedPages = 0
+	}
+	sizeBytes := usedPages * pageSize
+	sizeMB := float64(sizeBytes) / (1024 * 1024)
+
+	return sizeMB, nil
+}
+
+// GetDatabaseFileSizeMB returns the physical database file size in megabytes,
+// including freelist pages that have not yet been reclaimed.
+func (db *DB) GetDatabaseFileSizeMB() (float64, error) {
 	db.WaitForReady()
 
 	var pageCount, pageSize int64
@@ -123,6 +220,52 @@ func (db *DB) GetDatabaseSizeMB() (float64, error) {
 	sizeMB := float64(sizeBytes) / (1024 * 1024)
 
 	return sizeMB, nil
+}
+
+// IncrementalVacuum reclaims freelist pages, returning the number of pages freed.
+// Requires auto_vacuum=INCREMENTAL mode (set during migration).
+// If auto_vacuum is not INCREMENTAL, this is a no-op.
+func (db *DB) IncrementalVacuum() (int64, error) {
+	db.WaitForReady()
+
+	// Check if auto_vacuum is in INCREMENTAL mode (value 2)
+	var autoVacuum int64
+	err := db.QueryRow("PRAGMA auto_vacuum").Scan(&autoVacuum)
+	if err != nil {
+		return 0, err
+	}
+	if autoVacuum != 2 {
+		// Not in incremental mode; fall back to full VACUUM if there are many freelist pages
+		var freelistCount int64
+		if err := db.QueryRow("PRAGMA freelist_count").Scan(&freelistCount); err != nil {
+			return 0, err
+		}
+		if freelistCount > 1000 {
+			if _, err := db.Exec("VACUUM"); err != nil {
+				return 0, err
+			}
+			return freelistCount, nil
+		}
+		return 0, nil
+	}
+
+	// In INCREMENTAL mode: reclaim up to N pages (0 = all possible)
+	var beforeFreelist int64
+	_ = db.QueryRow("PRAGMA freelist_count").Scan(&beforeFreelist)
+
+	// incremental_vacuum(0) reclaims all freelist pages
+	if _, err := db.Exec("PRAGMA incremental_vacuum"); err != nil {
+		return 0, err
+	}
+
+	var afterFreelist int64
+	_ = db.QueryRow("PRAGMA freelist_count").Scan(&afterFreelist)
+
+	reclaimed := beforeFreelist - afterFreelist
+	if reclaimed < 0 {
+		reclaimed = 0
+	}
+	return reclaimed, nil
 }
 
 // ShouldCleanupBeforeSave checks if database is approaching the size limit.
@@ -150,9 +293,9 @@ func (db *DB) ShouldCleanupBeforeSave() (bool, error) {
 	return currentSizeMB >= threshold, nil
 }
 
-// CleanupBySize removes oldest articles to keep database under max_cache_size_mb limit.
-// Protects favorited and read later articles.
-// Uses priority order: oldest read articles first, then older unread articles.
+// CleanupBySize reduces cached content first to keep database under max_cache_size_mb.
+// Article metadata is preserved whenever possible so refreshed feeds do not
+// reinsert old read items as new articles after cleanup.
 func (db *DB) CleanupBySize() (int64, error) {
 	db.WaitForReady()
 
@@ -181,7 +324,44 @@ func (db *DB) CleanupBySize() (int64, error) {
 	totalDeleted := int64(0)
 	targetSizeMB := float64(maxSizeMB) * 0.95 // Aim for 95% of limit
 
-	// Step 1: Delete oldest read articles (not favorited, not read later)
+	// Step 1: Delete oldest cached article contents. This saves most space while
+	// keeping article metadata, read status, favorites, and dedupe keys intact.
+	for currentSizeMB > targetSizeMB {
+		result, err := db.Exec(`
+			DELETE FROM article_contents
+			WHERE article_id IN (
+				SELECT article_id FROM article_contents
+				ORDER BY fetched_at ASC
+				LIMIT 100
+			)
+		`)
+		if err != nil {
+			break
+		}
+
+		count, _ := result.RowsAffected()
+		if count == 0 {
+			break // No more cached content to delete
+		}
+
+		totalDeleted += count
+		currentSizeMB, _ = db.GetDatabaseSizeMB()
+		log.Printf("Deleted %d cached article contents, current size: %.2f MB", count, currentSizeMB)
+	}
+
+	// Step 2: If still over limit, delete oldest read article metadata as a last resort.
+	if currentSizeMB > targetSizeMB {
+		count, err := db.CleanupReadArticlesOverPerFeedLimit(defaultMaxArticlesPerFeed)
+		if err != nil {
+			log.Printf("Per-feed article retention cleanup failed: %v", err)
+		} else if count > 0 {
+			totalDeleted += count
+			currentSizeMB, _ = db.GetDatabaseSizeMB()
+			log.Printf("Deleted %d read article metadata rows over per-feed limit, current size: %.2f MB", count, currentSizeMB)
+		}
+	}
+
+	// Step 3: If per-feed retention is not enough, delete oldest read article metadata.
 	for currentSizeMB > targetSizeMB {
 		result, err := db.Exec(`
 			DELETE FROM articles
@@ -205,37 +385,19 @@ func (db *DB) CleanupBySize() (int64, error) {
 
 		totalDeleted += count
 		currentSizeMB, _ = db.GetDatabaseSizeMB()
-		log.Printf("Deleted %d read articles, current size: %.2f MB", count, currentSizeMB)
-	}
-
-	// Step 2: If still over limit, delete oldest unread articles (not favorited, not read later)
-	for currentSizeMB > targetSizeMB {
-		result, err := db.Exec(`
-			DELETE FROM articles
-			WHERE id IN (
-				SELECT id FROM articles
-				WHERE is_favorite = 0
-				AND is_read_later = 0
-				ORDER BY published_at ASC
-				LIMIT 100
-			)
-		`)
-		if err != nil {
-			break
-		}
-
-		count, _ := result.RowsAffected()
-		if count == 0 {
-			break // No more articles to delete
-		}
-
-		totalDeleted += count
-		currentSizeMB, _ = db.GetDatabaseSizeMB()
-		log.Printf("Deleted %d unread articles, current size: %.2f MB", count, currentSizeMB)
+		log.Printf("Deleted %d read article metadata rows, current size: %.2f MB", count, currentSizeMB)
 	}
 
 	if totalDeleted > 0 {
 		log.Printf("Size-based cleanup completed: removed %d articles, final size: %.2f MB", totalDeleted, currentSizeMB)
+		// Reclaim freelist pages to keep the file size in sync with actual data.
+		// Without this, deleted rows leave freelist pages that inflate the file size
+		// and cause ShouldCleanupBeforeSave to trigger on every SaveArticles call.
+		if reclaimed, err := db.IncrementalVacuum(); err != nil {
+			log.Printf("Warning: incremental vacuum after cleanup failed: %v", err)
+		} else if reclaimed > 0 {
+			log.Printf("Incremental vacuum reclaimed %d pages", reclaimed)
+		}
 	}
 
 	return totalDeleted, nil
@@ -304,6 +466,10 @@ func (db *DB) CleanupArticleContentsBySize() (int64, error) {
 
 		totalDeleted += count
 		currentSizeMB, _ = db.GetDatabaseSizeMB()
+	}
+
+	if totalDeleted > 0 {
+		_, _ = db.IncrementalVacuum()
 	}
 
 	return totalDeleted, nil
@@ -396,9 +562,13 @@ func (db *DB) CleanupOldArticlesLayered() (int64, error) {
 		}
 	}
 
-	// Run VACUUM to reclaim space if we deleted anything
+	// Reclaim freelist pages if we deleted anything
 	if totalDeleted > 0 {
-		_, _ = db.Exec("VACUUM")
+		if reclaimed, err := db.IncrementalVacuum(); err != nil {
+			log.Printf("Warning: incremental vacuum after layered cleanup failed: %v", err)
+		} else if reclaimed > 0 {
+			log.Printf("Incremental vacuum reclaimed %d pages after layered cleanup", reclaimed)
+		}
 	}
 
 	return totalDeleted, nil
@@ -406,6 +576,8 @@ func (db *DB) CleanupOldArticlesLayered() (int64, error) {
 
 // CleanupOldReadArticles removes read articles older than specified days
 // Protects favorited and read later articles
+// With foreign_keys enabled, ON DELETE CASCADE automatically removes
+// associated article_contents, chat_sessions, and chat_messages rows.
 func (db *DB) CleanupOldReadArticles(maxAgeDays int) (int64, error) {
 	db.WaitForReady()
 
@@ -427,6 +599,8 @@ func (db *DB) CleanupOldReadArticles(maxAgeDays int) (int64, error) {
 
 // CleanupOldUnreadArticles removes unread articles older than specified days
 // Protects favorited and read later articles
+// With foreign_keys enabled, ON DELETE CASCADE automatically removes
+// associated article_contents, chat_sessions, and chat_messages rows.
 func (db *DB) CleanupOldUnreadArticles(maxAgeDays int) (int64, error) {
 	db.WaitForReady()
 

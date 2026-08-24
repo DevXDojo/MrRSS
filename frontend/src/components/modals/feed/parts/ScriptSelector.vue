@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhCode, PhBookOpen } from '@phosphor-icons/vue';
+import BaseSelect from '@/components/common/BaseSelect.vue';
+import { openInBrowser } from '@/utils/browser';
+import type { SelectOption } from '@/types/select';
 
 interface Props {
   modelValue: string;
@@ -19,63 +23,73 @@ const emit = defineEmits<{
   'open-scripts-folder': [];
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+// Build options for BaseSelect
+const scriptOptions = computed<SelectOption[]>(() => {
+  return [
+    { value: '', label: t('setting.customization.selectScriptPlaceholder') },
+    ...props.availableScripts.map((script) => ({
+      value: script.path,
+      label: `${script.name} (${script.type})`,
+    })),
+  ];
+});
 
 function openScriptsFolder() {
   emit('open-scripts-folder');
+}
+
+function openDocumentation() {
+  const docUrl = locale.value.startsWith('zh')
+    ? 'https://github.com/DevXDojo/MrRSS/blob/main/docs/CUSTOM_SCRIPT_MODE.zh.md'
+    : 'https://github.com/DevXDojo/MrRSS/blob/main/docs/CUSTOM_SCRIPT_MODE.md';
+  openInBrowser(docUrl);
 }
 </script>
 
 <template>
   <div class="mb-3 sm:mb-4">
     <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary"
-      >{{ t('selectScript') }}
+      >{{ t('setting.customization.selectScript') }}
       <span v-if="props.mode === 'add'" class="text-red-500">*</span></label
     >
     <div v-if="props.availableScripts.length > 0" class="mb-2">
-      <select
-        :value="props.modelValue"
-        :class="['input-field', props.mode === 'add' && props.isInvalid ? 'border-red-500' : '']"
-        @change="emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
-      >
-        <option value="">{{ t('selectScriptPlaceholder') }}</option>
-        <option v-for="script in props.availableScripts" :key="script.path" :value="script.path">
-          {{ script.name }} ({{ script.type }})
-        </option>
-      </select>
+      <BaseSelect
+        :model-value="props.modelValue"
+        :options="scriptOptions"
+        :class="{ 'border-red-500': props.mode === 'add' && props.isInvalid }"
+        :searchable="true"
+        @update:model-value="emit('update:modelValue', String($event))"
+      />
     </div>
     <div
       v-else
       class="text-xs sm:text-sm text-text-secondary bg-bg-secondary rounded-md p-2 sm:p-3 border border-border"
     >
-      <p class="mb-2">{{ t('noScriptsFound') }}</p>
+      <p class="mb-2">{{ t('setting.customization.scriptsNotFound') }}</p>
     </div>
     <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-3">
-      <a
-        href="https://github.com/WCY-dt/MrRSS/blob/main/docs/CUSTOM_SCRIPT_MODE.md"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        type="button"
         class="text-xs sm:text-sm text-accent hover:underline flex items-center gap-1"
+        @click="openDocumentation"
       >
         <PhBookOpen :size="14" />
-        {{ t('scriptDocumentation') }}
-      </a>
+        {{ t('setting.customization.scriptDoc') }}
+      </button>
       <button
         type="button"
         class="text-xs sm:text-sm text-accent hover:underline flex items-center gap-1"
         @click="openScriptsFolder"
       >
         <PhCode :size="14" />
-        {{ t('openScriptsFolder') }}
+        {{ t('setting.customization.scriptsFolder') }}
       </button>
     </div>
   </div>
 </template>
 
 <style scoped>
-@reference "../../../style.css";
-
-.input-field {
-  @apply w-full p-2 sm:p-2.5 border border-border rounded-md bg-bg-tertiary text-text-primary text-xs sm:text-sm focus:border-accent focus:outline-none transition-colors;
-}
+/* Styles are now handled by BaseSelect and select.css */
 </style>
