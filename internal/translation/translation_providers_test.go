@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -107,5 +108,40 @@ func TestAITranslate_AutoDetectOllama(t *testing.T) {
 	}
 	if callCount != 2 {
 		t.Fatalf("expected 2 API calls (OpenAI then Ollama), got %d", callCount)
+	}
+}
+
+func TestGoogleTranslateSkipsRequestWhenTextMatchesTargetLanguage(t *testing.T) {
+	translator := NewGoogleFreeTranslator()
+	requestCount := 0
+	translator.client = &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
+		requestCount++
+		return nil, context.DeadlineExceeded
+	})}
+
+	translated, err := translator.Translate("这里是中文内容", "zh")
+	if err != nil {
+		t.Fatalf("expected same-language translation to succeed: %v", err)
+	}
+	if translated != "这里是中文内容" {
+		t.Fatalf("expected unchanged text, got %q", translated)
+	}
+	if requestCount != 0 {
+		t.Fatalf("expected no network requests, got %d", requestCount)
+	}
+}
+
+func TestGoogleTranslateReturnsSanitizedTimeout(t *testing.T) {
+	translator := NewGoogleFreeTranslator()
+	translator.client = &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
+		return nil, context.DeadlineExceeded
+	})}
+
+	_, err := translator.Translate("Hello", "zh")
+	if err == nil {
+		t.Fatal("expected translation to fail")
+	}
+	if strings.Contains(err.Error(), "q=Hello") || !strings.Contains(err.Error(), "configure the proxy") {
+		t.Fatalf("expected a concise configuration hint without source text, got %q", err.Error())
 	}
 }
