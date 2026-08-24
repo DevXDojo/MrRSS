@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SidebarView: View {
     @ObservedObject var viewModel: AppViewModel
@@ -8,6 +9,7 @@ struct SidebarView: View {
     @State private var expandedFolders: Set<String> = []
     @State private var folderPrompt: FolderPrompt?
     @State private var dropTargetFolder: String?
+    @State private var isDropTargetingRoot = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,8 +73,20 @@ struct SidebarView: View {
                 }
             }
 
-            Section("Feeds") {
+            Section {
                 feedSection
+            } header: {
+                // Dropping on the section header takes a subscription back out
+                // of whatever folder it is in.
+                Text("Feeds")
+                    .padding(.horizontal, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(isDropTargetingRoot ? Color.accentColor.opacity(0.25) : .clear)
+                    )
+                    .onDrop(of: [.mrrssFeed], isTargeted: $isDropTargetingRoot) { providers in
+                        move(providers, toFolder: nil)
+                    }
             }
         }
         .listStyle(.sidebar)
@@ -181,17 +195,21 @@ struct SidebarView: View {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(dropTargetFolder == folder ? Color.accentColor.opacity(0.25) : .clear)
             )
-            .dropDestination(for: FeedTransfer.self) { transfers, _ in
-                guard !transfers.isEmpty else { return false }
-                Task { await viewModel.moveFeeds(ids: transfers.map(\.feedID), toFolder: folder) }
-                return true
-            } isTargeted: { isTargeted in
-                if isTargeted {
-                    dropTargetFolder = folder
-                    expandedFolders.insert(folder)
-                } else if dropTargetFolder == folder {
-                    dropTargetFolder = nil
-                }
+            .onDrop(
+                of: [.mrrssFeed],
+                isTargeted: Binding(
+                    get: { dropTargetFolder == folder },
+                    set: { isTargeted in
+                        if isTargeted {
+                            dropTargetFolder = folder
+                            expandedFolders.insert(folder)
+                        } else if dropTargetFolder == folder {
+                            dropTargetFolder = nil
+                        }
+                    }
+                )
+            ) { providers in
+                move(providers, toFolder: folder)
             }
             .contextMenu {
                 Button("Rename Folder…", systemImage: "pencil") {
@@ -208,7 +226,9 @@ struct SidebarView: View {
         FeedLabel(feed: feed)
             .badge(viewModel.unreadCounts.feedCounts[feed.id] ?? 0)
             .tag(SidebarItem.feed(feed.id))
-            .draggable(FeedTransfer(feedID: feed.id)) {
+            .onDrag {
+                FeedTransfer(feedID: feed.id).itemProvider
+            } preview: {
                 FeedLabel(feed: feed)
                     .padding(6)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
@@ -244,6 +264,15 @@ struct SidebarView: View {
                     feedPendingDeletion = feed
                 }
             }
+    }
+
+    private func move(_ providers: [NSItemProvider], toFolder folder: String?) -> Bool {
+        guard !providers.isEmpty else { return false }
+        Task {
+            let ids = await FeedTransfer.feedIDs(from: providers)
+            await viewModel.moveFeeds(ids: ids, toFolder: folder)
+        }
+        return true
     }
 
     private func badge(for filter: ArticleFilter) -> Int {
