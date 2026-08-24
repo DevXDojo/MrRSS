@@ -10,7 +10,8 @@ struct SidebarView: View {
     @State private var folderPrompt: FolderPrompt?
     @State private var dropTargetFolder: String?
     @State private var isDropTargetingRoot = false
-    @State private var insertionPoint: FeedInsertionPoint?
+    @State private var dragSession: FeedDragSession?
+    @State private var hoverGeneration = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -81,11 +82,21 @@ struct SidebarView: View {
                 // of whatever folder it is in.
                 Text("Feeds")
                     .padding(.horizontal, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(isDropTargetingRoot ? Color.accentColor.opacity(0.25) : .clear)
-                    )
-                    .onDrop(of: [.mrrssFeed], isTargeted: $isDropTargetingRoot) { providers in
+                    .background(dropHighlight(active: isDropTargetingRoot))
+                    .onDrop(
+                        of: [.mrrssFeed],
+                        isTargeted: Binding(
+                            get: { isDropTargetingRoot },
+                            set: { isTargeted in
+                                isDropTargetingRoot = isTargeted
+                                if isTargeted {
+                                    previewMove(intoFolder: "")
+                                } else {
+                                    scheduleDragSessionClear()
+                                }
+                            }
+                        )
+                    ) { providers in
                         move(providers, toFolder: nil)
                     }
             }
@@ -177,7 +188,7 @@ struct SidebarView: View {
                 }
             )
         ) {
-            ForEach(viewModel.feeds(inFolder: folder)) { feed in
+            ForEach(viewModel.arrangedFeeds(inFolder: folder, previewing: dragSession)) { feed in
                 feedRow(feed)
             }
         } label: {
@@ -192,10 +203,7 @@ struct SidebarView: View {
             .tag(SidebarItem.folder(folder))
             .padding(.vertical, 2)
             .padding(.horizontal, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(dropTargetFolder == folder ? Color.accentColor.opacity(0.25) : .clear)
-            )
+            .background(dropHighlight(active: dropTargetFolder == folder))
             .onDrop(
                 of: [.mrrssFeed],
                 isTargeted: Binding(
@@ -204,8 +212,10 @@ struct SidebarView: View {
                         if isTargeted {
                             dropTargetFolder = folder
                             expandedFolders.insert(folder)
+                            previewMove(intoFolder: folder)
                         } else if dropTargetFolder == folder {
                             dropTargetFolder = nil
+                            scheduleDragSessionClear()
                         }
                     }
                 )
@@ -227,35 +237,24 @@ struct SidebarView: View {
         FeedLabel(feed: feed)
             .badge(viewModel.unreadCounts.feedCounts[feed.id] ?? 0)
             .tag(SidebarItem.feed(feed.id))
-            .overlay(alignment: .top) {
-                insertionIndicator(showing: insertionPoint == FeedInsertionPoint(feedID: feed.id, above: true))
-            }
-            .overlay(alignment: .bottom) {
-                insertionIndicator(showing: insertionPoint == FeedInsertionPoint(feedID: feed.id, above: false))
-            }
+            .opacity(dragSession?.feedID == feed.id ? 0.4 : 1)
             .background {
                 GeometryReader { geometry in
                     Color.clear.onDrop(
                         of: [.mrrssFeed],
                         delegate: FeedRowDropDelegate(
                             rowHeight: geometry.size.height,
-                            onHover: { above in
-                                insertionPoint = FeedInsertionPoint(feedID: feed.id, above: above)
-                            },
-                            onExit: {
-                                if insertionPoint?.feedID == feed.id {
-                                    insertionPoint = nil
-                                }
-                            },
+                            onHover: { above in previewInsertion(near: feed, above: above) },
+                            onExit: { scheduleDragSessionClear() },
                             onDrop: { above, providers in
-                                insert(providers, relativeTo: feed, above: above)
+                                drop(providers, near: feed, above: above)
                             }
                         )
                     )
                 }
             }
             .onDrag {
-                insertionPoint = nil
+                startDragSession(for: feed)
                 return FeedTransfer(feedID: feed.id).itemProvider
             } preview: {
                 FeedLabel(feed: feed)
@@ -295,28 +294,99 @@ struct SidebarView: View {
             }
     }
 
-    private func insertionIndicator(showing: Bool) -> some View {
-        Capsule()
-            .fill(Color.accentColor)
-            .frame(height: 2)
-            .padding(.horizontal, 2)
-            .opacity(showing ? 1 : 0)
-            .scaleEffect(x: showing ? 1 : 0.4, anchor: .leading)
-            .animation(.easeOut(duration: 0.12), value: showing)
-            .allowsHitTesting(false)
+    private func startDragSession(for feed: Feed) {
+        let siblings = viewModel.feeds(inFolder: feed.category)
+        dragSession = FeedDragSession(
+            feedID: feed.id,
+            folder: feed.category,
+            index: siblings.firstIndex(where: { $0.id == feed.id }) ?? siblings.count
+        )
     }
 
-    private func insert(_ providers: [NSItemProvider], relativeTo feed: Feed, above: Bool) -> Bool {
+    /// Opens a gap where the subscription would land. Hovering the travelling
+    /// row itself changes nothing, which is what keeps the preview from
+    /// oscillating as the rows move out of the way.
+    private func previewInsertion(near feed: Feed, above: Bool) {
+        hoverGeneration += 1
+        guard let session = dragSession, session.feedID != feed.id else { return }
+
+        let siblings = viewModel.feeds(inFolder: feed.category).filter { $0.id != session.feedID }
+        let anchor = siblings.firstIndex(where: { $0.id == feed.id }) ?? siblings.count
+        let updated = FeedDragSession(
+            feedID: session.feedID,
+            folder: feed.category,
+            index: above ? anchor : anchor + 1
+        )
+
+        guard updated != session else { return }
+        withAnimation(.snappy(duration: 0.18)) {
+            dragSession = updated
+        }
+    }
+
+    /// A drag that leaves one row usually enters another straight away, so the
+    /// preview is only dropped once nothing has claimed it.
+    private func scheduleDragSessionClear() {
+        hoverGeneration += 1
+        let generation = hoverGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            guard generation == hoverGeneration else { return }
+            withAnimation(.snappy(duration: 0.18)) {
+                dragSession = nil
+            }
+        }
+    }
+
+    private func drop(_ providers: [NSItemProvider], near feed: Feed, above: Bool) -> Bool {
         guard !providers.isEmpty else { return false }
+
+        let session = dragSession
+        withAnimation(.snappy(duration: 0.18)) {
+            dragSession = nil
+        }
+
         Task {
             let ids = await FeedTransfer.feedIDs(from: providers)
-            await viewModel.moveFeeds(ids: ids, relativeTo: feed.id, placeAbove: above)
+            // Commit what the preview was showing; a drag from elsewhere has no
+            // preview, so fall back to the row the pointer is on.
+            if let session, ids == [session.feedID] {
+                await viewModel.placeFeed(id: session.feedID, inFolder: session.folder, at: session.index)
+            } else {
+                await viewModel.moveFeeds(ids: ids, relativeTo: feed.id, placeAbove: above)
+            }
         }
         return true
     }
 
+    /// The system's own drop tint, rather than a colour of our choosing.
+    private func dropHighlight(active: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Color(nsColor: .selectedContentBackgroundColor).opacity(active ? 0.28 : 0))
+            .animation(.easeOut(duration: 0.12), value: active)
+    }
+
+    /// Lifts the travelling subscription out of the list it came from while the
+    /// pointer rests on a folder, so the gap it leaves behind closes up.
+    private func previewMove(intoFolder folder: String) {
+        hoverGeneration += 1
+        guard let session = dragSession else { return }
+
+        let updated = FeedDragSession(
+            feedID: session.feedID,
+            folder: folder,
+            index: viewModel.feeds(inFolder: folder).filter { $0.id != session.feedID }.count
+        )
+        guard updated != session else { return }
+        withAnimation(.snappy(duration: 0.18)) {
+            dragSession = updated
+        }
+    }
+
     private func move(_ providers: [NSItemProvider], toFolder folder: String?) -> Bool {
         guard !providers.isEmpty else { return false }
+        withAnimation(.snappy(duration: 0.18)) {
+            dragSession = nil
+        }
         Task {
             let ids = await FeedTransfer.feedIDs(from: providers)
             await viewModel.moveFeeds(ids: ids, toFolder: folder)
