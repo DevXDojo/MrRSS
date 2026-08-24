@@ -4,7 +4,7 @@ struct Feed: Identifiable, Codable, Hashable {
     let id: Int
     let url: String
     let title: String
-    let category: String
+    var category: String
     let lastUpdated: String
     let iconURL: String?
 

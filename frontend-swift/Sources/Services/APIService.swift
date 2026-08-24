@@ -73,6 +73,7 @@ protocol APIClient: AnyObject {
     func fetchUnreadCounts() async throws -> UnreadCounts
     func addFeed(url: String, title: String, category: String) async throws
     func deleteFeed(id: Int) async throws
+    func updateFeedCategory(id: Int, category: String) async throws
     func refreshAllFeeds() async throws
     func fetchRefreshProgress() async throws -> RefreshProgress
     func fetchArticles(
@@ -143,6 +144,13 @@ final class APIService: APIClient {
         try await post(
             "feeds/delete",
             queryItems: [URLQueryItem(name: "id", value: String(id))]
+        )
+    }
+
+    func updateFeedCategory(id: Int, category: String) async throws {
+        try await post(
+            "feeds/category",
+            jsonBody: ["id": id, "category": category]
         )
     }
 
@@ -309,7 +317,7 @@ final class APIService: APIClient {
     private func post(
         _ endpoint: String,
         queryItems: [URLQueryItem] = [],
-        jsonBody: [String: String]? = nil
+        jsonBody: [String: Any]? = nil
     ) async throws {
         let url = try makeURL(endpoint: endpoint, queryItems: queryItems)
         var request = URLRequest(url: url)

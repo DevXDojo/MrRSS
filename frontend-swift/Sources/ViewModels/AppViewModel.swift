@@ -30,6 +30,7 @@ enum ArticleFilter: String, CaseIterable, Identifiable {
 
 enum SidebarItem: Hashable {
     case filter(ArticleFilter)
+    case folder(String)
     case feed(Int)
 }
 
@@ -58,6 +59,7 @@ enum ConnectionState: Equatable {
 @MainActor
 final class AppViewModel: ObservableObject {
     @Published private(set) var feeds: [Feed] = []
+    @Published private(set) var folders: [String] = []
     @Published private(set) var articles: [Article] = []
     @Published private(set) var unreadCounts = UnreadCounts.empty
     @Published private(set) var isLoadingArticles = false
@@ -86,16 +88,24 @@ final class AppViewModel: ObservableObject {
     private var hasMore = true
     private let limit: Int
     private var api: APIClient
+    private let defaults: UserDefaults
     private var feedTask: Task<Void, Never>?
     private var sourceRefreshTask: Task<Void, Never>?
     private var feedRequestID = UUID()
     private var articleTask: Task<Void, Never>?
     private var articleRequestID = UUID()
 
-    init(api: APIClient = APIService.shared, limit: Int = 50, autoLoad: Bool = true) {
+    init(
+        api: APIClient = APIService.shared,
+        limit: Int = 50,
+        autoLoad: Bool = true,
+        defaults: UserDefaults = .standard
+    ) {
         self.api = api
         self.limit = limit
+        self.defaults = defaults
         serverURLText = api.baseURL.absoluteString
+        refreshFolders()
 
         if autoLoad {
             refreshAll()
@@ -143,6 +153,7 @@ final class AppViewModel: ObservableObject {
                 try Task.checkCancellation()
                 guard requestID == feedRequestID else { return }
                 feeds = loadedFeeds
+                refreshFolders()
                 unreadCounts = loadedCounts
                 connectionState = .connected
                 isLoadingFeeds = false
@@ -220,6 +231,126 @@ final class AppViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+
+    // MARK: - Folders
+
+    /// A folder is the category stored on each feed. A folder that somebody
+    /// created but has not filled yet has nowhere to live on the server, so its
+    /// name is remembered on this Mac until a feed moves into it.
+    private static let pendingFoldersKey = "MrRSS.pendingFolders"
+
+    private var pendingFolders: Set<String> {
+        get { Set(defaults.stringArray(forKey: Self.pendingFoldersKey) ?? []) }
+        set { defaults.set(newValue.sorted(), forKey: Self.pendingFoldersKey) }
+    }
+
+    func feeds(inFolder folder: String) -> [Feed] {
+        feeds.filter { $0.category == folder }
+    }
+
+    var unfiledFeeds: [Feed] {
+        feeds.filter { $0.category.isEmpty }
+    }
+
+    func unreadCount(forFolder folder: String) -> Int {
+        feeds(inFolder: folder).reduce(0) { $0 + (unreadCounts.feedCounts[$1.id] ?? 0) }
+    }
+
+    @discardableResult
+    func createFolder(named name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            errorMessage = "Enter a folder name."
+            return false
+        }
+        guard !folders.contains(trimmed) else {
+            errorMessage = "A folder named \(trimmed) already exists."
+            return false
+        }
+
+        pendingFolders.insert(trimmed)
+        refreshFolders()
+        return true
+    }
+
+    func moveFeed(_ feed: Feed, toFolder folder: String?) async {
+        let target = (folder ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard feed.category != target else { return }
+
+        do {
+            try await api.updateFeedCategory(id: feed.id, category: target)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+
+        if let index = feeds.firstIndex(where: { $0.id == feed.id }) {
+            feeds[index].category = target
+        }
+        refreshFolders()
+    }
+
+    func renameFolder(_ folder: String, to newName: String) async {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != folder else { return }
+        guard !folders.contains(trimmed) else {
+            errorMessage = "A folder named \(trimmed) already exists."
+            return
+        }
+
+        for feed in feeds(inFolder: folder) {
+            do {
+                try await api.updateFeedCategory(id: feed.id, category: trimmed)
+            } catch {
+                errorMessage = error.localizedDescription
+                refreshFeeds()
+                return
+            }
+        }
+
+        for index in feeds.indices where feeds[index].category == folder {
+            feeds[index].category = trimmed
+        }
+        var stored = pendingFolders
+        stored.remove(folder)
+        stored.insert(trimmed)
+        pendingFolders = stored
+        if selection == .folder(folder) {
+            selection = .folder(trimmed)
+        }
+        refreshFolders()
+    }
+
+    /// Removes the folder itself. The feeds it held stay subscribed and move
+    /// back out of any folder.
+    func deleteFolder(_ folder: String) async {
+        for feed in feeds(inFolder: folder) {
+            do {
+                try await api.updateFeedCategory(id: feed.id, category: "")
+            } catch {
+                errorMessage = error.localizedDescription
+                refreshFeeds()
+                return
+            }
+        }
+
+        for index in feeds.indices where feeds[index].category == folder {
+            feeds[index].category = ""
+        }
+        pendingFolders.remove(folder)
+        if selection == .folder(folder) {
+            selection = .filter(.all)
+        }
+        refreshFolders()
+    }
+
+    private func refreshFolders() {
+        let assigned = Set(feeds.map(\.category).filter { !$0.isEmpty })
+        let stored = pendingFolders.subtracting(assigned)
+        pendingFolders = stored
+        folders = assigned.union(stored).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
     func reloadArticles() {
@@ -484,7 +615,7 @@ final class AppViewModel: ObservableObject {
             do {
                 let loadedArticles = try await api.fetchArticles(
                     feedID: query.feedID,
-                    category: nil,
+                    category: query.category,
                     filter: query.filter,
                     page: targetPage,
                     limit: limit
@@ -514,14 +645,16 @@ final class AppViewModel: ObservableObject {
         }
     }
 
-    private var articleQuery: (feedID: Int?, filter: String) {
+    private var articleQuery: (feedID: Int?, category: String?, filter: String) {
         switch selection {
         case .filter(let filter):
-            return (nil, filter.rawValue)
+            return (nil, nil, filter.rawValue)
+        case .folder(let name):
+            return (nil, name, "")
         case .feed(let id):
-            return (id, "")
+            return (id, nil, "")
         case .none:
-            return (nil, ArticleFilter.all.rawValue)
+            return (nil, nil, ArticleFilter.all.rawValue)
         }
     }
 }

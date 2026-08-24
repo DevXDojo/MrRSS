@@ -96,12 +96,21 @@ final class DelayedAPIClient: APIClient {
     private(set) var lastReadMutation: ReadMutation?
     var articleContent = ArticleContent(content: "", feedURL: nil)
     var defaultFeeds: [Feed] = []
+    private(set) var categoryMutations: [(id: Int, category: String)] = []
+    var categoryUpdateError: Error?
+    private(set) var lastArticleQuery: (feedID: Int?, category: String?, filter: String)?
 
     func checkConnection() async throws {}
     func fetchFeeds() async throws -> [Feed] { defaultFeeds }
-    func fetchUnreadCounts() async throws -> UnreadCounts { .empty }
+    var unreadCounts = UnreadCounts.empty
+    func fetchUnreadCounts() async throws -> UnreadCounts { unreadCounts }
     func addFeed(url: String, title: String, category: String) async throws {}
     func deleteFeed(id: Int) async throws {}
+
+    func updateFeedCategory(id: Int, category: String) async throws {
+        if let categoryUpdateError { throw categoryUpdateError }
+        categoryMutations.append((id, category))
+    }
     func refreshAllFeeds() async throws {}
     func fetchRefreshProgress() async throws -> RefreshProgress {
         RefreshProgress(isRunning: false)
@@ -114,6 +123,7 @@ final class DelayedAPIClient: APIClient {
         page: Int,
         limit: Int
     ) async throws -> [Article] {
+        lastArticleQuery = (feedID, category, filter)
         if feedID == 2 {
             try await Task.sleep(for: .milliseconds(10))
             return [

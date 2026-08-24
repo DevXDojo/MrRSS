@@ -58,4 +58,6 @@ cd ../frontend-swift
 
 The release application contains both the SwiftUI frontend and reusable Go backend, so it can launch without a separately installed server.
 
-The application provides native three-column navigation, feed subscription management, source refresh, article filtering, pagination, read/unread and favorite actions, translation, summaries, automation rules, complete backend settings management, configurable server connectivity, and restricted HTML rendering for untrusted feed content.
+The application provides native three-column navigation, feed subscription management, folders for grouping subscriptions, source refresh, article filtering, pagination, read/unread and favorite actions, translation, summaries, automation rules, complete backend settings management, configurable server connectivity, and restricted HTML rendering for untrusted feed content.
+
+Folders are the `category` recorded on each feed, so they are shared with the Vue frontend. A folder that has been created but holds no feeds yet has nowhere to live on the server, so its name is remembered on the Mac until a feed moves into it.
