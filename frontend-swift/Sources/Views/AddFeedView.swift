@@ -18,12 +18,14 @@ struct AddFeedView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Form {
-                TextField("Feed URL", text: $url, prompt: Text("https://example.com/feed.xml"))
-                TextField("Title (optional)", text: $title)
-                TextField("Category (optional)", text: $category)
+            // The label sits above the field rather than beside it, so a long
+            // address keeps the full width of the sheet instead of scrolling
+            // out of a narrow field next to its label.
+            VStack(alignment: .leading, spacing: 14) {
+                field("Feed URL", text: $url, prompt: "https://example.com/feed.xml")
+                field("Title (optional)", text: $title, prompt: "Feed title")
+                field("Category (optional)", text: $category, prompt: "Category name")
             }
-            .formStyle(.grouped)
 
             HStack {
                 Spacer()
@@ -38,7 +40,7 @@ struct AddFeedView: View {
             }
         }
         .padding(24)
-        .frame(width: 500, height: 300)
+        .frame(width: 520)
         .overlay {
             if isSubmitting {
                 ZStack {
@@ -48,6 +50,17 @@ struct AddFeedView: View {
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                 }
             }
+        }
+    }
+
+    private func field(_ label: String, text: Binding<String>, prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            TextField(label, text: text, prompt: Text(prompt))
+                .textFieldStyle(.roundedBorder)
+                .labelsHidden()
         }
     }
 
