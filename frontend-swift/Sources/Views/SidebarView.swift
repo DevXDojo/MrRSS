@@ -7,6 +7,7 @@ struct SidebarView: View {
     @State private var folderPendingDeletion: String?
     @State private var expandedFolders: Set<String> = []
     @State private var folderPrompt: FolderPrompt?
+    @State private var dropTargetFolder: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -174,6 +175,24 @@ struct SidebarView: View {
             }
             .badge(viewModel.unreadCount(forFolder: folder))
             .tag(SidebarItem.folder(folder))
+            .padding(.vertical, 2)
+            .padding(.horizontal, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(dropTargetFolder == folder ? Color.accentColor.opacity(0.25) : .clear)
+            )
+            .dropDestination(for: FeedTransfer.self) { transfers, _ in
+                guard !transfers.isEmpty else { return false }
+                Task { await viewModel.moveFeeds(ids: transfers.map(\.feedID), toFolder: folder) }
+                return true
+            } isTargeted: { isTargeted in
+                if isTargeted {
+                    dropTargetFolder = folder
+                    expandedFolders.insert(folder)
+                } else if dropTargetFolder == folder {
+                    dropTargetFolder = nil
+                }
+            }
             .contextMenu {
                 Button("Rename Folder…", systemImage: "pencil") {
                     folderPrompt = .rename(folder)
@@ -189,6 +208,11 @@ struct SidebarView: View {
         FeedLabel(feed: feed)
             .badge(viewModel.unreadCounts.feedCounts[feed.id] ?? 0)
             .tag(SidebarItem.feed(feed.id))
+            .draggable(FeedTransfer(feedID: feed.id)) {
+                FeedLabel(feed: feed)
+                    .padding(6)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+            }
             .contextMenu {
                 Menu("Move to Folder") {
                     ForEach(viewModel.folders, id: \.self) { folder in
