@@ -75,6 +75,11 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .background {
+            SidebarBackgroundMenu(title: "New Folder…") {
+                folderPrompt = .create
+            }
+        }
     }
 
     @ViewBuilder
