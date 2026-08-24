@@ -3,6 +3,7 @@ package database_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,199 @@ func setupDBWithFeed(t *testing.T) *dbpkg.DB {
 	}
 	_, _ = res.LastInsertId()
 	return db
+}
+
+func TestCleanupBySizePreservesUnreadMetadataAndDeletesContentFirst(t *testing.T) {
+	db := setupDBWithFeed(t)
+	if err := db.SetSetting("max_cache_size_mb", "1"); err != nil {
+		t.Fatalf("SetSetting error: %v", err)
+	}
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	res, err := db.Exec(
+		`INSERT INTO articles (feed_id, title, url, published_at, is_read, is_favorite, is_read_later, unique_id) VALUES (?, ?, ?, ?, 0, 0, 0, ?)`,
+		feedID,
+		"Old unread article",
+		"https://example.com/old",
+		time.Now().AddDate(-10, 0, 0),
+		"cleanup-preserve-unread",
+	)
+	if err != nil {
+		t.Fatalf("insert article: %v", err)
+	}
+	articleID, _ := res.LastInsertId()
+
+	if err := db.SetArticleContent(articleID, strings.Repeat("content ", 200000)); err != nil {
+		t.Fatalf("SetArticleContent error: %v", err)
+	}
+
+	deleted, err := db.CleanupBySize()
+	if err != nil {
+		t.Fatalf("CleanupBySize error: %v", err)
+	}
+	if deleted == 0 {
+		t.Fatalf("expected cleanup to delete cached content")
+	}
+
+	var isRead bool
+	if err := db.QueryRow(`SELECT is_read FROM articles WHERE id = ?`, articleID).Scan(&isRead); err != nil {
+		t.Fatalf("expected article metadata to remain: %v", err)
+	}
+	if isRead {
+		t.Fatalf("expected unread state to be preserved")
+	}
+
+	_, found, err := db.GetArticleContent(articleID)
+	if err != nil {
+		t.Fatalf("GetArticleContent error: %v", err)
+	}
+	if found {
+		t.Fatalf("expected cached article content to be removed")
+	}
+}
+
+func TestCleanupReadArticlesOverPerFeedLimitKeepsFeedsIndependent(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var busyFeedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&busyFeedID); err != nil {
+		t.Fatalf("scan busy feed id: %v", err)
+	}
+	res, err := db.Exec(`INSERT INTO feeds (title, url, category) VALUES (?, ?, ?)`, "Slow Feed", "https://example.com/slow-feed", "blogs")
+	if err != nil {
+		t.Fatalf("insert slow feed: %v", err)
+	}
+	slowFeedID, _ := res.LastInsertId()
+
+	now := time.Now()
+	busyRows := []struct {
+		title       string
+		isRead      int
+		isFavorite  int
+		isReadLater int
+	}{
+		{"busy-newest", 1, 0, 0},
+		{"busy-middle", 1, 0, 0},
+		{"busy-unread-protected", 0, 0, 0},
+		{"busy-readlater-protected", 1, 0, 1},
+		{"busy-favorite-protected", 1, 1, 0},
+		{"busy-oldest-read", 1, 0, 0},
+	}
+	for i, row := range busyRows {
+		_, err := db.Exec(
+			`INSERT INTO articles (feed_id, title, url, published_at, is_read, is_favorite, is_read_later, unique_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			busyFeedID,
+			row.title,
+			"https://example.com/"+row.title,
+			now.Add(-time.Duration(i)*time.Hour),
+			row.isRead,
+			row.isFavorite,
+			row.isReadLater,
+			row.title,
+		)
+		if err != nil {
+			t.Fatalf("insert busy article %q: %v", row.title, err)
+		}
+	}
+
+	for i := 0; i < 2; i++ {
+		title := fmt.Sprintf("slow-%d", i)
+		_, err := db.Exec(
+			`INSERT INTO articles (feed_id, title, url, published_at, is_read, is_favorite, is_read_later, unique_id) VALUES (?, ?, ?, ?, 1, 0, 0, ?)`,
+			slowFeedID,
+			title,
+			"https://example.com/"+title,
+			now.Add(-time.Duration(i)*time.Hour),
+			title,
+		)
+		if err != nil {
+			t.Fatalf("insert slow article %q: %v", title, err)
+		}
+	}
+
+	deleted, err := db.CleanupReadArticlesOverPerFeedLimit(3)
+	if err != nil {
+		t.Fatalf("CleanupReadArticlesOverPerFeedLimit error: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected 1 old read article deleted, got %d", deleted)
+	}
+
+	var deletedCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM articles WHERE title = ?`, "busy-oldest-read").Scan(&deletedCount); err != nil {
+		t.Fatalf("count deleted article: %v", err)
+	}
+	if deletedCount != 0 {
+		t.Fatalf("expected oldest unprotected busy article to be deleted")
+	}
+
+	protectedTitles := []string{"busy-unread-protected", "busy-readlater-protected", "busy-favorite-protected"}
+	for _, title := range protectedTitles {
+		var count int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM articles WHERE title = ?`, title).Scan(&count); err != nil {
+			t.Fatalf("count protected article %q: %v", title, err)
+		}
+		if count != 1 {
+			t.Fatalf("expected protected article %q to remain", title)
+		}
+	}
+
+	var slowCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM articles WHERE feed_id = ?`, slowFeedID).Scan(&slowCount); err != nil {
+		t.Fatalf("count slow feed articles: %v", err)
+	}
+	if slowCount != 2 {
+		t.Fatalf("expected slow feed to remain untouched, got %d articles", slowCount)
+	}
+}
+
+func TestGetArticlesWithUnreadFilterCombinesWithFavorites(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	rows := []struct {
+		title      string
+		url        string
+		isRead     int
+		isFavorite int
+	}{
+		{"Unread favorite", "https://example.com/unread-favorite", 0, 1},
+		{"Read favorite", "https://example.com/read-favorite", 1, 1},
+		{"Unread normal", "https://example.com/unread-normal", 0, 0},
+	}
+	for _, row := range rows {
+		if _, err := db.Exec(
+			`INSERT INTO articles (feed_id, title, url, published_at, is_read, is_favorite, is_read_later, unique_id) VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+			feedID,
+			row.title,
+			row.url,
+			time.Now(),
+			row.isRead,
+			row.isFavorite,
+			row.url,
+		); err != nil {
+			t.Fatalf("insert article %q: %v", row.title, err)
+		}
+	}
+
+	articles, err := db.GetArticlesWithUnreadFilter("favorites", 0, "", false, true, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticlesWithUnreadFilter error: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 unread favorite, got %d", len(articles))
+	}
+	if articles[0].Title != "Unread favorite" || articles[0].IsRead || !articles[0].IsFavorite {
+		t.Fatalf("unexpected article returned: %+v", articles[0])
+	}
 }
 
 func TestSaveAndGetArticle(t *testing.T) {
@@ -224,6 +418,75 @@ func TestSaveArticlesBatchContextCancel(t *testing.T) {
 	}
 }
 
+func TestSaveArticlesUpdatePreservesRelatedData(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	publishedAt := time.Date(2026, time.July, 13, 12, 0, 0, 0, time.UTC)
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "Article with related data",
+		URL:                   "https://example.com/article/original",
+		PublishedAt:           publishedAt,
+		HasValidPublishedTime: true,
+	}
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("initial SaveArticles error: %v", err)
+	}
+
+	var articleID int64
+	if err := db.QueryRow(`SELECT id FROM articles WHERE feed_id = ?`, feedID).Scan(&articleID); err != nil {
+		t.Fatalf("scan article id: %v", err)
+	}
+	if err := db.SetArticleContent(articleID, "cached content"); err != nil {
+		t.Fatalf("SetArticleContent error: %v", err)
+	}
+	sessionID, err := db.CreateChatSession(articleID, "Existing chat")
+	if err != nil {
+		t.Fatalf("CreateChatSession error: %v", err)
+	}
+	if _, err := db.CreateChatMessage(sessionID, "user", "Keep this message", ""); err != nil {
+		t.Fatalf("CreateChatMessage error: %v", err)
+	}
+
+	article.URL = "https://example.com/article/updated"
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("update SaveArticles error: %v", err)
+	}
+
+	var updatedArticleID int64
+	var updatedURL string
+	if err := db.QueryRow(`SELECT id, url FROM articles WHERE feed_id = ?`, feedID).Scan(&updatedArticleID, &updatedURL); err != nil {
+		t.Fatalf("scan updated article: %v", err)
+	}
+	if updatedArticleID != articleID {
+		t.Fatalf("article id changed from %d to %d", articleID, updatedArticleID)
+	}
+	if updatedURL != article.URL {
+		t.Fatalf("article URL = %q, want %q", updatedURL, article.URL)
+	}
+
+	content, found, err := db.GetArticleContent(articleID)
+	if err != nil {
+		t.Fatalf("GetArticleContent error: %v", err)
+	}
+	if !found || content != "cached content" {
+		t.Fatalf("article content was not preserved: found=%v content=%q", found, content)
+	}
+
+	session, err := db.GetChatSession(sessionID)
+	if err != nil {
+		t.Fatalf("GetChatSession error: %v", err)
+	}
+	if session == nil || session.MessageCount != 1 {
+		t.Fatalf("chat data was not preserved: session=%+v", session)
+	}
+}
+
 func TestArticleDeduplicationByUniqueID(t *testing.T) {
 	db := setupDBWithFeed(t)
 
@@ -321,5 +584,148 @@ func TestArticleDifferentTitlesNotDeduplicated(t *testing.T) {
 
 	if len(articles) != 2 {
 		t.Fatalf("expected 2 articles with different titles, got %d", len(articles))
+	}
+}
+
+// TestSaveArticlesNoPubDateKeepsFirstSeenTime verifies that articles without a
+// valid pubDate keep their originally stored published_at on refresh when the
+// article is unchanged, instead of being bumped to the current time every save.
+func TestSaveArticlesNoPubDateKeepsFirstSeenTime(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	firstSeen := time.Now()
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "No pubDate article",
+		URL:                   "https://example.com/no-pubdate",
+		PublishedAt:           firstSeen,
+		HasValidPublishedTime: false, // feed item had no pubDate
+	}
+
+	// First save: article is inserted with the first-seen time
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("initial SaveArticles error: %v", err)
+	}
+
+	// Simulate the next feed refresh: processArticles stamps a NEW time.Now()
+	// but the article content is unchanged.
+	later := firstSeen.Add(2 * time.Hour)
+	article.PublishedAt = later
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("refresh SaveArticles error: %v", err)
+	}
+
+	// Only one article must exist (dedup by title+feedID, no date part)
+	articles, err := db.GetArticles("all", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles error: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 article, got %d", len(articles))
+	}
+
+	stored := articles[0].PublishedAt
+	// Must stay at the first-seen time, NOT be bumped to the refresh time
+	if diff := stored.Sub(firstSeen); diff < 0 || diff > time.Minute {
+		t.Fatalf("published_at bumped to refresh time: got %v, want ≈ %v (diff %v)", stored, firstSeen, diff)
+	}
+}
+
+// TestSaveArticlesNoPubDateBumpsOnContentChange verifies that an article without
+// a valid pubDate DOES move to the new time when its content actually changed
+// (e.g. the source entry was edited).
+func TestSaveArticlesNoPubDateBumpsOnContentChange(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	firstSeen := time.Now()
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "Edited no-pubDate article",
+		URL:                   "https://example.com/edited/1",
+		PublishedAt:           firstSeen,
+		OriginalSummary:       "old summary",
+		HasValidPublishedTime: false,
+	}
+
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("initial SaveArticles error: %v", err)
+	}
+
+	// Next refresh: content changed (summary updated) and processArticles stamped
+	// a new time — published_at should move to the new time.
+	editedAt := firstSeen.Add(2 * time.Hour)
+	article.PublishedAt = editedAt
+	article.OriginalSummary = "updated summary"
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("refresh SaveArticles error: %v", err)
+	}
+
+	articles, err := db.GetArticles("all", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles error: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 article, got %d", len(articles))
+	}
+
+	stored := articles[0].PublishedAt
+	if diff := stored.Sub(editedAt); diff < 0 || diff > time.Minute {
+		t.Fatalf("changed article time not bumped: got %v, want ≈ %v (diff %v)", stored, editedAt, diff)
+	}
+}
+
+// TestSaveArticlesValidPubDateStillUpdatesTime guards the CASE expression:
+// articles WITH a valid pubDate must still get their real published time on refresh.
+func TestSaveArticlesValidPubDateStillUpdatesTime(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	// Same calendar date so the unique_id (title+feedID+date) matches and the
+	// second save hits the ON CONFLICT update path.
+	t1 := time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 7, 13, 20, 0, 0, 0, time.UTC)
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "With pubDate article",
+		URL:                   "https://example.com/with-pubdate",
+		PublishedAt:           t1,
+		HasValidPublishedTime: true,
+	}
+
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("initial SaveArticles error: %v", err)
+	}
+
+	// Refresh with a new (valid) published time on the same day
+	article.PublishedAt = t2
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("refresh SaveArticles error: %v", err)
+	}
+
+	articles, err := db.GetArticles("all", feedID, "", false, 10, 0)
+	if err != nil {
+		t.Fatalf("GetArticles error: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 article, got %d", len(articles))
+	}
+
+	stored := articles[0].PublishedAt
+	if diff := stored.Sub(t2); diff < 0 || diff > time.Minute {
+		t.Fatalf("valid pubDate not honored on refresh: got %v, want %v (diff %v)", stored, t2, diff)
 	}
 }

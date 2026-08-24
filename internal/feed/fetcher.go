@@ -1,17 +1,21 @@
 package feed
 
 import (
-	"MrRSS/internal/database"
-	"MrRSS/internal/models"
-	"MrRSS/internal/rules"
-	"MrRSS/internal/translation"
-	"MrRSS/internal/utils"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"MrRSS/internal/database"
+	"MrRSS/internal/models"
+	"MrRSS/internal/rsshub"
+	"MrRSS/internal/rules"
+	"MrRSS/internal/utils"
+	"MrRSS/internal/utils/fileutil"
+	"MrRSS/internal/utils/httputil"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -26,7 +30,6 @@ type Fetcher struct {
 	db                *database.DB
 	fp                FeedParser
 	highPriorityFp    FeedParser // High priority parser for content fetching
-	translator        translation.Translator
 	scriptExecutor    *ScriptExecutor
 	emailFetcher      *EmailFetcher
 	progress          Progress
@@ -36,9 +39,9 @@ type Fetcher struct {
 	cleanupManager    *CleanupManager
 }
 
-func NewFetcher(db *database.DB, translator translation.Translator) *Fetcher {
+func NewFetcher(db *database.DB) *Fetcher {
 	// Initialize script executor with scripts directory
-	scriptsDir, err := utils.GetScriptsDir()
+	scriptsDir, err := fileutil.GetScriptsDir()
 	var executor *ScriptExecutor
 	if err == nil {
 		executor = NewScriptExecutor(scriptsDir)
@@ -46,7 +49,7 @@ func NewFetcher(db *database.DB, translator translation.Translator) *Fetcher {
 
 	// Create HTTP client for feed parsing with proper User-Agent
 	// This is critical because many RSS servers block requests without a proper User-Agent
-	httpClient, err := utils.CreateHTTPClientWithUserAgent(
+	httpClient, err := httputil.CreateHTTPClientWithUserAgent(
 		"",
 		30*time.Second,
 		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -69,7 +72,6 @@ func NewFetcher(db *database.DB, translator translation.Translator) *Fetcher {
 		db:                db,
 		fp:                parser,
 		highPriorityFp:    highPriorityParser,
-		translator:        translator,
 		scriptExecutor:    executor,
 		emailFetcher:      NewEmailFetcher(db),
 		refreshCalculator: NewIntelligentRefreshCalculator(db),
@@ -106,9 +108,32 @@ func (f *Fetcher) GetCleanupManager() *CleanupManager {
 	return f.cleanupManager
 }
 
+// transformRSSHubURL converts rsshub:// route to full URL
+func (f *Fetcher) transformRSSHubURL(url string) (string, error) {
+	if !rsshub.IsRSSHubURL(url) {
+		return url, nil
+	}
+
+	// Check if RSSHub is enabled
+	enabledStr, _ := f.db.GetSetting("rsshub_enabled")
+	if enabledStr != "true" {
+		return "", fmt.Errorf("RSSHub integration is disabled. Please enable it in settings")
+	}
+
+	endpoint, _ := f.db.GetSetting("rsshub_endpoint")
+	if endpoint == "" {
+		endpoint = "https://rsshub.app"
+	}
+	apiKey, _ := f.db.GetEncryptedSetting("rsshub_api_key")
+
+	route := rsshub.ExtractRoute(url)
+	client := rsshub.NewClient(endpoint, apiKey)
+	return client.BuildURL(route), nil
+}
+
 // getDataDir returns the data directory path
 func (f *Fetcher) getDataDir() (string, error) {
-	return utils.GetDataDir()
+	return fileutil.GetDataDir()
 }
 
 // getConcurrencyLimit returns the maximum number of concurrent feed refreshes
@@ -159,51 +184,13 @@ func (f *Fetcher) getHTTPClient(feed models.Feed) (*http.Client, error) {
 	}
 	// If ProxyEnabled=false, proxyURL remains empty (no proxy)
 
-	// Create HTTP client with or without proxy
-	return CreateHTTPClient(proxyURL)
-}
-
-// setupTranslator configures the translator based on database settings.
-// Now supports global proxy settings for all translation services.
-func (f *Fetcher) setupTranslator() {
-	provider, _ := f.db.GetSetting("translation_provider")
-
-	var t translation.Translator
-	switch provider {
-	case "deepl":
-		apiKey, _ := f.db.GetEncryptedSetting("deepl_api_key")
-		if apiKey != "" {
-			t = translation.NewDeepLTranslatorWithDB(apiKey, f.db)
-		} else {
-			t = translation.NewGoogleFreeTranslatorWithDB(f.db)
-		}
-	case "baidu":
-		appID, _ := f.db.GetSetting("baidu_app_id")
-		secretKey, _ := f.db.GetEncryptedSetting("baidu_secret_key")
-		if appID != "" && secretKey != "" {
-			t = translation.NewBaiduTranslatorWithDB(appID, secretKey, f.db)
-		} else {
-			t = translation.NewGoogleFreeTranslatorWithDB(f.db)
-		}
-	case "ai":
-		apiKey, _ := f.db.GetEncryptedSetting("ai_api_key")
-		endpoint, _ := f.db.GetSetting("ai_endpoint")
-		model, _ := f.db.GetSetting("ai_model")
-		if apiKey != "" {
-			t = translation.NewAITranslatorWithDB(apiKey, endpoint, model, f.db)
-			// Set custom headers if available
-			if aiTranslator, ok := t.(*translation.AITranslator); ok {
-				customHeaders, _ := f.db.GetSetting("ai_custom_headers")
-				aiTranslator.SetCustomHeaders(customHeaders)
-			}
-		} else {
-			t = translation.NewGoogleFreeTranslatorWithDB(f.db)
-		}
-	default:
-		// Default to Google Free Translator with proxy support
-		t = translation.NewGoogleFreeTranslatorWithDB(f.db)
-	}
-	f.translator = t
+	// Create HTTP client with browser-like headers to bypass Cloudflare and anti-bot protections
+	// This is critical for RSSHub feeds and other services with anti-bot protection
+	return httputil.CreateHTTPClientWithUserAgent(
+		proxyURL,
+		30*time.Second,
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+	)
 }
 
 func (f *Fetcher) FetchAll(ctx context.Context) {
@@ -221,26 +208,71 @@ func (f *Fetcher) FetchAll(ctx context.Context) {
 		return
 	}
 
-	// Filter out FreshRSS feeds - they are refreshed via sync, not standard refresh
+	// Filter out FreshRSS feeds, never-refresh feeds, and custom interval feeds
 	filteredFeeds := make([]models.Feed, 0, len(feeds))
 	freshRSSCount := 0
+	neverRefreshCount := 0
+	customIntervalCount := 0
 	for _, feed := range feeds {
 		if feed.IsFreshRSSSource {
 			freshRSSCount++
+		} else if feed.RefreshInterval == -2 {
+			// Skip feeds with never refresh mode
+			neverRefreshCount++
+		} else if feed.RefreshInterval > 0 {
+			// Skip feeds with custom refresh interval (they are scheduled individually)
+			customIntervalCount++
 		} else {
+			// Only include feeds using global setting (RefreshInterval == 0)
 			filteredFeeds = append(filteredFeeds, feed)
 		}
 	}
 
-	// If all feeds are FreshRSS feeds, no standard refresh needed
+	// If all feeds are FreshRSS feeds, never-refresh feeds, or custom interval feeds, no standard refresh needed
 	if len(filteredFeeds) == 0 {
-		log.Printf("All %d feeds are FreshRSS sources (refreshed via sync only), skipping standard refresh", freshRSSCount)
+		if freshRSSCount > 0 && neverRefreshCount > 0 && customIntervalCount > 0 {
+			log.Printf("All feeds are either FreshRSS sources (%d), never-refresh feeds (%d), or custom interval feeds (%d), skipping standard refresh", freshRSSCount, neverRefreshCount, customIntervalCount)
+		} else if freshRSSCount > 0 && neverRefreshCount > 0 {
+			log.Printf("All feeds are either FreshRSS sources (%d) or never-refresh feeds (%d), skipping standard refresh", freshRSSCount, neverRefreshCount)
+		} else if freshRSSCount > 0 && customIntervalCount > 0 {
+			log.Printf("All feeds are either FreshRSS sources (%d) or custom interval feeds (%d), skipping standard refresh", freshRSSCount, customIntervalCount)
+		} else if neverRefreshCount > 0 && customIntervalCount > 0 {
+			log.Printf("All feeds are either never-refresh feeds (%d) or custom interval feeds (%d), skipping standard refresh", neverRefreshCount, customIntervalCount)
+		} else if freshRSSCount > 0 {
+			log.Printf("All %d feeds are FreshRSS sources (refreshed via sync only), skipping standard refresh", freshRSSCount)
+		} else if neverRefreshCount > 0 {
+			log.Printf("All %d feeds are never-refresh feeds, skipping standard refresh", neverRefreshCount)
+		} else {
+			log.Printf("All %d feeds are custom interval feeds, skipping standard refresh", customIntervalCount)
+		}
+
+		// Update last global refresh time even if no standard feeds
+		newUpdateTime := time.Now().Format(time.RFC3339)
+		log.Printf("Global refresh started (FreshRSS only), updating last_global_refresh to: %s", newUpdateTime)
+		if err := f.db.SetSetting("last_global_refresh", newUpdateTime); err != nil {
+			log.Printf("ERROR: Failed to update last_global_refresh: %v", err)
+		}
+
+		// Track global refresh in statistics even if no standard feeds
+		if err := f.db.IncrementStat("feed_refresh"); err != nil {
+			log.Printf("ERROR: Failed to track feed refresh: %v", err)
+		}
+
 		// Mark progress as completed since there's nothing to do
 		f.taskManager.MarkCompleted()
 		return
 	}
 
-	log.Printf("Standard refresh: %d feeds (skipped %d FreshRSS feeds)", len(filteredFeeds), freshRSSCount)
+	// Log what's being refreshed
+	if neverRefreshCount > 0 && customIntervalCount > 0 {
+		log.Printf("Standard refresh: %d feeds (skipped %d FreshRSS feeds, %d never-refresh feeds, %d custom interval feeds)", len(filteredFeeds), freshRSSCount, neverRefreshCount, customIntervalCount)
+	} else if neverRefreshCount > 0 {
+		log.Printf("Standard refresh: %d feeds (skipped %d FreshRSS feeds, %d never-refresh feeds)", len(filteredFeeds), freshRSSCount, neverRefreshCount)
+	} else if customIntervalCount > 0 {
+		log.Printf("Standard refresh: %d feeds (skipped %d FreshRSS feeds, %d custom interval feeds)", len(filteredFeeds), freshRSSCount, customIntervalCount)
+	} else {
+		log.Printf("Standard refresh: %d feeds (skipped %d FreshRSS feeds)", len(filteredFeeds), freshRSSCount)
+	}
 
 	// Update task manager capacity based on network
 	concurrency := f.getConcurrencyLimit()

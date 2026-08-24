@@ -2,7 +2,6 @@ package feed
 
 import (
 	"MrRSS/internal/database"
-	"MrRSS/internal/translation"
 	"context"
 	"testing"
 
@@ -24,7 +23,7 @@ func TestAddSubscription(t *testing.T) {
 		Items:       []*gofeed.Item{},
 	}
 
-	fetcher := NewFetcher(db, translation.NewMockTranslator())
+	fetcher := NewFetcher(db)
 	fetcher.fp = &MockParser{Feed: mockFeed}
 
 	_, err = fetcher.AddSubscription("http://test.com/rss", "Test Category", "")
@@ -54,7 +53,7 @@ func TestFetchFeed(t *testing.T) {
 		t.Fatalf("Failed to init db: %v", err)
 	}
 
-	fetcher := NewFetcher(db, translation.NewMockTranslator())
+	fetcher := NewFetcher(db)
 
 	mockFeed := &gofeed.Feed{
 		Title:       "Test Feed",
@@ -101,7 +100,7 @@ func TestFetchFeedWithMissingTitle(t *testing.T) {
 		t.Fatalf("Failed to init db: %v", err)
 	}
 
-	fetcher := NewFetcher(db, translation.NewMockTranslator())
+	fetcher := NewFetcher(db)
 
 	mockFeed := &gofeed.Feed{
 		Title:       "Test Feed",
@@ -149,7 +148,7 @@ func TestFetchFeedWithMissingTitleLongContent(t *testing.T) {
 		t.Fatalf("Failed to init db: %v", err)
 	}
 
-	fetcher := NewFetcher(db, translation.NewMockTranslator())
+	fetcher := NewFetcher(db)
 
 	longContent := "This is a very long article content that should be truncated to generate a title from the beginning of the content when the title is missing from the RSS feed item."
 	mockFeed := &gofeed.Feed{

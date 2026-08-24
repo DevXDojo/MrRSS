@@ -9,10 +9,11 @@ let mediaCachePromise: Promise<boolean> | null = null;
 /**
  * Convert a media URL to use the proxy endpoint
  * @param url Original media URL
- * @param referer Optional referer URL for anti-hotlinking
+ * @param referer Optional referer URL for anti-hotlinking and resolving relative URLs
+ * @param forceCache Force caching even if globally disabled (e.g., for image mode feeds)
  * @returns Proxied URL
  */
-export function getProxiedMediaUrl(url: string, referer?: string): string {
+export function getProxiedMediaUrl(url: string, referer?: string, forceCache?: boolean): string {
   if (!url) return '';
 
   // Don't proxy data URLs or blob URLs
@@ -20,23 +21,46 @@ export function getProxiedMediaUrl(url: string, referer?: string): string {
     return url;
   }
 
-  // Don't proxy local URLs
-  if (
-    url.startsWith('/') ||
-    url.startsWith('http://localhost') ||
-    url.startsWith('http://127.0.0.1')
-  ) {
+  // Don't proxy localhost URLs (these are local development URLs)
+  if (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')) {
     return url;
   }
 
-  // Build proxy URL
-  const params = new URLSearchParams();
-  params.set('url', url);
-  if (referer) {
-    params.set('referer', referer);
+  // Resolve relative URLs using the referer
+  // Relative URLs need to be converted to absolute URLs before proxying
+  let urlToProxy = url;
+  if (referer && !url.startsWith('http://') && !url.startsWith('https://')) {
+    // This is a relative URL, resolve it against the referer
+    try {
+      const baseUrl = new URL(referer);
+      urlToProxy = new URL(url, baseUrl).href;
+    } catch (e) {
+      // If URL resolution fails, use the original URL
+      console.warn('Failed to resolve relative URL:', url, 'against referer:', referer, e);
+      urlToProxy = url;
+    }
   }
 
-  return `/api/media/proxy?${params.toString()}`;
+  // CRITICAL FIX: Use base64 encoding to avoid all URL encoding issues
+  // This prevents double-encoding problems with special characters, Chinese characters, etc.
+  // Base64 encoding is safe for URLs and doesn't interfere with query parameter parsing
+  const urlB64 = btoa(urlToProxy);
+
+  // Build proxy URL with base64-encoded parameters
+  let proxyUrl = `/api/media/proxy?url_b64=${urlB64}`;
+
+  // Add referer if provided (also base64-encoded)
+  if (referer) {
+    const refererB64 = btoa(referer);
+    proxyUrl += `&referer_b64=${refererB64}`;
+  }
+
+  // Add force_cache parameter if specified
+  if (forceCache) {
+    proxyUrl += `&force_cache=true`;
+  }
+
+  return proxyUrl;
 }
 
 /**
@@ -93,10 +117,84 @@ export function clearMediaCacheEnabledCache(): void {
 export function proxyImagesInHtml(html: string, referer?: string): string {
   if (!html) return html;
 
-  // Enhanced regex to handle img src attributes with better pattern matching
+  // First, convert lazy-loaded images to normal images
+  // This ensures images load immediately without waiting for lazy loading scripts
+  let processed = convertLazyImages(html);
+
+  // Then proxy the src attributes
+  processed = proxyImgAttribute(processed, 'src', referer);
+
+  return processed;
+}
+
+/**
+ * Convert lazy-loaded images to normal images
+ * For images with data-original or data-src attributes, move those URLs to src
+ * This prevents lazy loading and ensures immediate display
+ */
+function convertLazyImages(html: string): string {
+  // Match img tags with lazy loading attributes
+  // Pattern: <img ... src="placeholder" data-original="real-image" ...>
+  const lazyImgRegex =
+    /<img([^>]*?)\s+(data-original|data-src)\s*=\s*(['"]?)([^"'\s>]+)\3([^>]*?)>/gi;
+
+  return html.replace(lazyImgRegex, (match, _beforeAttr, lazyAttr, quote, lazySrc, _afterAttr) => {
+    // Extract the current src attribute if it exists
+    const srcMatch = match.match(/\ssrc\s*=\s*(['"]?)([^"'\s>]+)\1/i);
+
+    if (srcMatch) {
+      // Image already has src, replace it with the lazy src
+      const newSrc = `src=${quote}${lazySrc}${quote}`;
+
+      // Replace the src attribute with the lazy-loaded URL
+      let newMatch = match.replace(/\ssrc\s*=\s*(['"]?)([^"'\s>]+)\1/i, ' ' + newSrc);
+
+      // Remove lazy loading class if present
+      newMatch = newMatch.replace(
+        /\sclass\s*=\s*(['"]?)([^"'\s>]*\blazy\b[^"'\s>]*)\1/i,
+        (_classMatch, classQuote, classValue) => {
+          const newClassValue = classValue.replace(/\blazy\b/g, '').trim();
+          if (newClassValue) {
+            return ` class=${classQuote}${newClassValue}${classQuote}`;
+          }
+          return '';
+        }
+      );
+
+      // Remove the data-original/data-src attribute since we've moved it to src
+      // Build a simple regex that matches the attribute
+      // If quote is empty, match unquoted value; otherwise match quoted value
+      let removeRegex: RegExp;
+      if (quote) {
+        // Match quoted value: data-original="value" or data-original='value'
+        const quoteChar = quote === '"' ? '"' : "'";
+        removeRegex = new RegExp(`${lazyAttr}=${quoteChar}[^${quoteChar}]+${quoteChar}`, 'gi');
+      } else {
+        // Match unquoted value: data-original=value
+        removeRegex = new RegExp(`${lazyAttr}=[^\\s>]+`, 'gi');
+      }
+      newMatch = newMatch.replace(removeRegex, '');
+
+      return newMatch;
+    }
+
+    // No src attribute, add one with the lazy src (this shouldn't happen with valid HTML)
+    return match;
+  });
+}
+
+/**
+ * Proxy a specific img attribute
+ * @param html HTML content
+ * @param attrName Attribute name to proxy (e.g., 'src', 'data-original', 'data-src')
+ * @param referer Optional referer URL
+ * @returns HTML with proxied attribute
+ */
+function proxyImgAttribute(html: string, attrName: string, referer?: string): string {
+  // Enhanced regex to handle img attributes with better pattern matching
   // Handles double quotes, single quotes, and unquoted values
   // Note: Unquoted values cannot contain spaces per HTML specification
-  const imgRegex = /<img([^>]+)src\s*=\s*(['"]?)([^"'\s>]+)\2/gi;
+  const imgRegex = new RegExp(`<img([^>]+)${attrName}\\s*=\\s*(['"]?)([^"'\\s>]+)\\2`, 'gi');
 
   return html.replace(imgRegex, (match, _attrs, quote, src) => {
     // CRITICAL FIX: Decode HTML entities before processing the URL
@@ -110,14 +208,14 @@ export function proxyImagesInHtml(html: string, referer?: string): string {
       return match;
     }
 
-    // Replace the src attribute, preserving the original quote style
-    const newSrc = `src=${quote}${proxiedUrl}${quote}`;
-    const srcRegex = new RegExp(
-      `src\\s*=\\s*${quote}${src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${quote}`,
+    // Replace the attribute, preserving the original quote style
+    const newAttr = `${attrName}=${quote}${proxiedUrl}${quote}`;
+    const attrRegex = new RegExp(
+      `${attrName}\\s*=\\s*${quote}${src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${quote}`,
       'i'
     );
 
-    return match.replace(srcRegex, newSrc);
+    return match.replace(attrRegex, newAttr);
   });
 }
 

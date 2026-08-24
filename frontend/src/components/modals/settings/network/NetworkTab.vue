@@ -35,6 +35,4 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
   </div>
 </template>
 
-<style scoped>
-@reference "../../../../style.css";
-</style>
+<style scoped></style>

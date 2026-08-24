@@ -7,6 +7,7 @@ const { t } = useI18n();
 
 interface Props {
   containerSelector: string; // CSS selector for the content container to search in
+  articleId?: number | null; // Article ID to trigger re-search when switching
 }
 
 const props = defineProps<Props>();
@@ -15,10 +16,14 @@ const emit = defineEmits<{
   close: [];
 }>();
 
+// Persistent search query that survives article switches
 const searchQuery = ref('');
 const currentIndex = ref(0);
 const totalMatches = ref(0);
 const searchInput = ref<HTMLInputElement | null>(null);
+
+// Track if search is focused to handle ESC key properly
+const isSearchFocused = ref(false);
 
 // Track current highlights
 let currentMarkElements: HTMLElement[] = [];
@@ -28,7 +33,32 @@ onMounted(() => {
   nextTick(() => {
     searchInput.value?.focus();
   });
+
+  // Add focus/blur listeners to track search focus state
+  if (searchInput.value) {
+    searchInput.value.addEventListener('focus', () => {
+      isSearchFocused.value = true;
+    });
+    searchInput.value.addEventListener('blur', () => {
+      isSearchFocused.value = false;
+    });
+  }
 });
+
+// Watch for content changes (article switches) and re-execute search if query exists
+watch(
+  () => props.articleId,
+  () => {
+    // Small delay to ensure new content is rendered
+    nextTick(() => {
+      setTimeout(() => {
+        if (searchQuery.value.trim()) {
+          performSearch(searchQuery.value);
+        }
+      }, 100);
+    });
+  }
+);
 
 // Clean up highlights when closing or changing query
 function clearHighlights() {
@@ -182,8 +212,22 @@ function close() {
   emit('close');
 }
 
+// Handle ESC key on input - only close if there's search content
+function handleEscOnInput() {
+  if (searchQuery.value.trim()) {
+    close();
+  }
+}
+
 // Keyboard shortcuts
 function handleKeydown(e: KeyboardEvent) {
+  // Track focus state
+  if (document.activeElement === searchInput.value) {
+    isSearchFocused.value = true;
+  } else {
+    isSearchFocused.value = false;
+  }
+
   if (e.key === 'Enter') {
     if (e.shiftKey) {
       goToPrevious();
@@ -192,7 +236,13 @@ function handleKeydown(e: KeyboardEvent) {
     }
     e.preventDefault();
   } else if (e.key === 'Escape') {
-    close();
+    // Only close search if the input is focused or if there's search content
+    // This prevents conflict with the article close ESC key
+    if (isSearchFocused.value || searchQuery.value.trim()) {
+      close();
+      e.preventDefault();
+      e.stopPropagation();
+    }
   }
 }
 
@@ -215,15 +265,18 @@ onBeforeUnmount(() => {
         v-model="searchQuery"
         type="text"
         class="find-input"
-        :placeholder="t('findInPagePlaceholder')"
+        :placeholder="t('common.findInPage.findInPagePlaceholder')"
         @keydown.enter.exact.prevent="goToNext"
         @keydown.enter.shift.prevent="goToPrevious"
-        @keydown.esc.prevent="close"
+        @keydown.esc.prevent="handleEscOnInput"
       />
-      <PhX v-if="searchQuery" :size="16" class="clear-icon" @click="searchQuery = ''" />
-      <button v-if="!searchQuery" class="close-button" :title="t('close')" @click="close">
-        <PhX :size="16" />
-      </button>
+      <PhX
+        v-if="searchQuery"
+        :size="16"
+        class="clear-icon"
+        :title="t('common.clear')"
+        @click="searchQuery = ''"
+      />
     </div>
 
     <div v-if="searchQuery" class="find-navigation">
@@ -231,7 +284,7 @@ onBeforeUnmount(() => {
       <button
         class="nav-button"
         :disabled="totalMatches === 0"
-        :title="t('previousMatch')"
+        :title="t('common.findInPage.previousMatch')"
         @click="goToPrevious"
       >
         <PhCaretUp :size="16" />
@@ -239,21 +292,29 @@ onBeforeUnmount(() => {
       <button
         class="nav-button"
         :disabled="totalMatches === 0"
-        :title="t('nextMatch')"
+        :title="t('common.findInPage.nextMatch')"
         @click="goToNext"
       >
         <PhCaretDown :size="16" />
       </button>
+      <button class="nav-button" :title="t('common.close')" @click="close">
+        <PhX :size="16" />
+      </button>
     </div>
+
+    <!-- Close button when no search content -->
+    <button v-if="!searchQuery" class="nav-button" :title="t('common.close')" @click="close">
+      <PhX :size="16" />
+    </button>
   </div>
 </template>
 
 <style scoped>
-@reference '../../../style.css';
-
+@reference "../../style.css";
 .find-in-page-bar {
   @apply fixed top-[4.5rem] right-4 z-50 flex items-center gap-2 bg-bg-secondary border border-border rounded-lg shadow-lg p-2;
-  max-width: 400px;
+  width: auto;
+  max-width: min(90vw, 500px);
   animation: slideDown 0.2s ease-out;
 }
 
@@ -277,18 +338,13 @@ onBeforeUnmount(() => {
 }
 
 .find-input {
-  @apply bg-bg-tertiary text-text-primary rounded-md pl-8 pr-6 py-1.5 text-sm w-64 outline-none border border-transparent focus:border-border transition-colors;
+  @apply bg-bg-tertiary text-text-primary rounded-md pl-8 pr-6 py-1.5 text-sm min-w-[200px] max-w-[300px] outline-none border border-transparent focus:border-border transition-colors;
 }
 
 .clear-icon {
   @apply absolute right-2 text-text-secondary cursor-pointer hover:text-text-primary;
   background: var(--bg-tertiary);
   padding-left: 4px;
-}
-
-.close-button {
-  @apply absolute right-2 flex items-center justify-center w-6 h-6 rounded hover:bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors;
-  background: var(--bg-tertiary);
 }
 
 .find-navigation {
@@ -305,11 +361,12 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .find-in-page-bar {
-    @apply right-2 left-2 max-w-none;
+    @apply right-2 left-2;
+    max-width: none;
   }
 
   .find-input {
-    @apply w-full;
+    @apply min-w-[150px] max-w-[200px];
   }
 }
 </style>

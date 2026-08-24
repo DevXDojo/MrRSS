@@ -1,23 +1,30 @@
 package update
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/version"
 )
 
 // HandleVersion returns the current application version.
+// @Summary      Get application version
+// @Description  Get the current application version string
+// @Tags         update
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]string  "Application version (version)"
+// @Router       /version [get]
 func HandleVersion(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
+	response.JSON(w, map[string]string{
 		"version": version.Version,
 	})
 }

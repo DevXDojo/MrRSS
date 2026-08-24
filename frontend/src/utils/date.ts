@@ -20,6 +20,19 @@ export function formatDate(
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
+
+    // Handle future dates - always show absolute date
+    if (diffMs < 0) {
+      if (locale === 'zh-CN') {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        return `${year}年${month}月${day}日`;
+      } else {
+        return date.toLocaleDateString(locale);
+      }
+    }
+
     const diffSeconds = Math.floor(diffMs / 1000);
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
@@ -36,10 +49,10 @@ export function formatDate(
       }
 
       // Use translations
-      if (diffSeconds < 60) return t('secondsAgo', { count: diffSeconds });
-      if (diffMins < 60) return t('minutesAgo', { count: diffMins });
-      if (diffHours < 24) return t('hoursAgo', { count: diffHours });
-      return t('daysAgo', { count: diffDays });
+      if (diffSeconds < 60) return t('common.time.secondsAgo', { count: diffSeconds });
+      if (diffMins < 60) return t('common.time.minutesAgo', { count: diffMins });
+      if (diffHours < 24) return t('common.time.hoursAgo', { count: diffHours });
+      return t('common.time.daysAgo', { count: diffDays });
     }
 
     // Use absolute date for articles 14+ days old
@@ -69,7 +82,7 @@ export function formatRelativeTime(
   locale: string,
   t: (key: string, params?: Record<string, unknown>) => string
 ): string {
-  if (!timestamp) return t('never');
+  if (!timestamp) return t('common.time.never');
   try {
     const date = new Date(timestamp);
 
@@ -85,6 +98,6 @@ export function formatRelativeTime(
       return date.toLocaleDateString('en-US');
     }
   } catch {
-    return t('never');
+    return t('common.time.never');
   }
 }

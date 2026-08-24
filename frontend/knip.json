@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/**/*.ts"],
+  "project": ["src/**/*.vue", "src/**/*.ts"],
+  "ignore": ["src/test/**"],
+  "ignoreDependencies": ["@cypress/*"],
+  "ignoreIssues": {
+    "src/composables/article/useContentTranslation.ts": ["exports"],
+    "src/utils/clipboard.ts": ["exports"],
+    "src/utils/fontDetector.ts": ["exports"],
+    "src/utils/mediaProxy.ts": ["exports"],
+    "src/components/settings/index.ts": ["exports"],
+    "src/stores/app.ts": ["types"],
+    "src/types/models.ts": ["types"],
+    "src/config/defaults.ts": ["types"],
+    "src/types/discovery.ts": ["types"],
+    "src/types/settings.ts": ["types"],
+    "src/components/settings/advanced/KeyValueList.vue": ["types"]
+  }
+}

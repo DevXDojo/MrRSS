@@ -1,52 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import { useAppStore } from '@/stores/app';
+import { ref, onMounted, nextTick } from 'vue';
+import { PhCaretRight } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
-import { PhPlus, PhGear, PhMagnifyingGlass, PhX, PhPencil, PhCheck } from '@phosphor-icons/vue';
-import { useSidebar } from '@/composables/core/useSidebar';
-import { useDragDrop } from '@/composables/ui/useDragDrop';
-import SidebarNavItem from './SidebarNavItem.vue';
-import SidebarCategory from './SidebarCategory.vue';
-
-const store = useAppStore();
-const { t } = useI18n();
-
-// Edit mode for drag reordering
-const isEditMode = ref(false);
-
-// Local state to track if user is actively dragging (independent of drop operation)
-const isDragging = ref(false);
-// Track if drop was handled to clear isDragging correctly
-let dropHandled = false;
-
-function toggleEditMode() {
-  isEditMode.value = !isEditMode.value;
-}
-
-// Check if image gallery feature is enabled
-const imageGalleryEnabled = ref(false);
-
-async function loadImageGallerySetting() {
-  try {
-    const res = await fetch('/api/settings');
-    if (res.ok) {
-      const data = await res.json();
-      imageGalleryEnabled.value = data.image_gallery_enabled === 'true';
-    }
-  } catch (e) {
-    console.error('Failed to load settings:', e);
-  }
-}
-
-onMounted(async () => {
-  await loadImageGallerySetting();
-
-  // Listen for settings changes
-  window.addEventListener('image-gallery-setting-changed', (e: Event) => {
-    const customEvent = e as CustomEvent;
-    imageGalleryEnabled.value = customEvent.detail.enabled;
-  });
-});
+import ActivityBar from './ActivityBar.vue';
+import FeedList from './FeedList.vue';
 
 interface Props {
   isOpen?: boolean;
@@ -58,324 +15,343 @@ const emit = defineEmits<{
   toggle: [];
 }>();
 
-const {
-  tree,
-  categoryUnreadCounts,
-  toggleCategory,
-  isCategoryOpen: checkIsCategoryOpen,
-  searchQuery,
-  onFeedContextMenu,
-  onCategoryContextMenu,
-} = useSidebar();
+const { t } = useI18n();
 
-// Drag and drop functionality
-const {
-  draggingFeedId,
-  dragOverCategory,
-  dropPreview,
-  onDragStart,
-  onDragEnd,
-  onDragOver: onDragOverComposable,
-  onDragLeave: onDragLeaveComposable,
-  onDrop,
-} = useDragDrop();
+// Feed drawer state
+const isFeedListExpanded = ref(false);
+const isFeedListPinned = ref(false);
+const activityBarRef = ref<InstanceType<typeof ActivityBar> | null>(null);
 
-// Handle drag events from categories
-function handleDragStart(feedId: number, event: Event) {
-  console.log('[handleDragStart] Starting drag for feed:', feedId);
+// Activity bar collapse state - use localStorage for persistence
+const savedActivityBarCollapsed = localStorage.getItem('ActivityBarCollapsed');
+const isActivityBarCollapsed = ref(savedActivityBarCollapsed === 'true');
 
-  // Prevent dragging FreshRSS feeds
-  const feed = store.feeds?.find((f) => f.id === feedId);
-  if (feed?.is_freshrss_source) {
-    console.log('[handleDragStart] Blocked drag for FreshRSS feed:', feedId);
-    event.preventDefault();
-    window.showToast(t('freshRSSFeedLocked'), 'info');
-    return;
-  }
-
-  isDragging.value = true;
-  dropHandled = false;
-  onDragStart(feedId, event);
+// Save activity bar state to localStorage
+function saveActivityBarState() {
+  localStorage.setItem('ActivityBarCollapsed', String(isActivityBarCollapsed.value));
 }
 
-function handleDragEnd() {
-  // Don't clear isDragging here - let handleDrop or a timeout handle it
-  // This prevents premature clearing if drop is still being processed
-  onDragEnd();
+// Handle ready event from ActivityBar
+function handleActivityBarReady(state: { expanded: boolean; pinned: boolean }) {
+  isFeedListExpanded.value = state.expanded;
+  isFeedListPinned.value = state.pinned;
 }
 
-function handleDragOver(categoryName: string, feedId: number | null, event: Event) {
-  console.log('[Sidebar] handleDragOver called with:', { categoryName, feedId, event });
-  onDragOverComposable(categoryName, feedId, event);
-}
+// Initialize state from ActivityBar after mount (fallback)
+onMounted(async () => {
+  await nextTick();
 
-function handleDragLeave(categoryName: string, event: Event) {
-  onDragLeaveComposable(categoryName, event);
-}
+  // Fallback: if ready event doesn't fire, try reading state after delay
+  setTimeout(() => {
+    if (activityBarRef.value) {
+      const expanded = activityBarRef.value.isFeedListExpanded;
+      const pinned = activityBarRef.value.isFeedListPinned;
 
-async function handleDrop(categoryName: string, feeds: any[]) {
-  if (dropHandled) {
-    console.log('[handleDrop] Drop already handled, skipping');
-    return;
-  }
-
-  dropHandled = true;
-
-  console.log('[handleDrop] Starting drop operation:', {
-    categoryName,
-    feedsCount: feeds.length,
-    feeds: feeds.map((f) => ({ id: f.id, title: f.title, category: f.category })),
-    draggingFeedId: draggingFeedId.value,
-  });
-
-  // Get the dragged feed
-  const draggedFeed = store.feeds?.find((f) => f.id === draggingFeedId.value);
-
-  // Prevent dropping into FreshRSS categories
-  // Check if any feed in the target category is a FreshRSS feed
-  const targetCategoryFeeds = feeds.filter(
-    (f) => f.category === categoryName || (categoryName === 'uncategorized' && !f.category)
-  );
-  const hasFreshRSSFeedInTarget = targetCategoryFeeds.some((f) => f.is_freshrss_source);
-
-  // Also check if category name indicates it's a FreshRSS category (ends with " (FreshRSS)")
-  const isFreshRSSCategoryByName =
-    categoryName.endsWith(' (FreshRSS)') || categoryName.match(/ \(FreshRSS \d+\)$/);
-
-  // Block dropping non-FreshRSS feeds into FreshRSS categories
-  if (draggedFeed && !draggedFeed.is_freshrss_source) {
-    if (hasFreshRSSFeedInTarget || isFreshRSSCategoryByName) {
-      console.log('[handleDrop] Blocked drop into FreshRSS category:', categoryName);
-      window.showToast(t('freshRSSFeedLocked'), 'info');
-      isDragging.value = false;
-      return;
+      // Only update if not already set by ready event
+      if (isFeedListExpanded.value === false && expanded === true) {
+        isFeedListExpanded.value = expanded;
+        isFeedListPinned.value = pinned;
+      }
     }
-  }
-
-  // Block dropping FreshRSS feeds into local categories
-  if (draggedFeed && draggedFeed.is_freshrss_source) {
-    if (!hasFreshRSSFeedInTarget && !isFreshRSSCategoryByName && targetCategoryFeeds.length > 0) {
-      console.log('[handleDrop] Cannot drop FreshRSS feed into local category');
-      window.showToast(t('freshRSSFeedLocked'), 'info');
-      isDragging.value = false;
-      return;
-    }
-  }
-
-  try {
-    // Keep isDragging true until after the data refreshes
-    const result = await onDrop(categoryName, feeds);
-
-    console.log('[handleDrop] Drop result:', result);
-
-    if (result.success) {
-      // Refresh feeds to show updated order
-      await store.fetchFeeds();
-      console.log(
-        '[handleDrop] Feeds refreshed, tree.uncategorized.length:',
-        tree.value.uncategorized.length
-      );
-      window.showToast(t('feedReordered'), 'success');
-    } else {
-      window.showToast(t('errorReorderingFeed') + ': ' + result.error, 'error');
-    }
-  } finally {
-    // Always clear dragging state, even if there's an error
-    console.log('[handleDrop] Clearing isDragging');
-    isDragging.value = false;
-  }
-}
-
-// Watch for drag end to clear isDragging if no drop occurred
-// This handles the case where user drags outside sidebar and cancels
-watch(draggingFeedId, (newValue, oldValue) => {
-  // If draggingFeedId changes from non-null to null, but handleDrop wasn't called
-  // (which would clear isDragging), we need to clear isDragging after a short delay
-  if (oldValue !== null && newValue === null && !dropHandled) {
-    setTimeout(() => {
-      isDragging.value = false;
-    }, 100);
-  }
+  }, 300);
 });
+
+function handleFeedListExpand() {
+  isFeedListExpanded.value = true;
+  updateActivityBarState();
+}
+
+function handleFeedListCollapse() {
+  isFeedListExpanded.value = false;
+  updateActivityBarState();
+}
+
+function handlePinFeedList() {
+  isFeedListPinned.value = true;
+  isFeedListExpanded.value = true;
+  updateActivityBarState();
+}
+
+function handleUnpinFeedList() {
+  isFeedListPinned.value = false;
+  // Keep expanded when unpinning - don't collapse
+  updateActivityBarState();
+}
+
+function handleToggleFeedList() {
+  // Only toggle expand/collapse state
+  // Pinned state should remain unchanged and only be controlled via the pin button in FeedList
+  isFeedListExpanded.value = !isFeedListExpanded.value;
+  updateActivityBarState();
+}
+
+// Update activity bar state when drawer state changes
+function updateActivityBarState() {
+  if (activityBarRef.value) {
+    activityBarRef.value.handleFeedListStateChange(
+      isFeedListExpanded.value,
+      isFeedListPinned.value
+    );
+  }
+}
 
 const emitShowAddFeed = () => window.dispatchEvent(new CustomEvent('show-add-feed'));
 const emitShowSettings = () => window.dispatchEvent(new CustomEvent('show-settings'));
+
+function toggleActivityBar() {
+  isActivityBarCollapsed.value = !isActivityBarCollapsed.value;
+  saveActivityBarState();
+}
 </script>
 
 <template>
-  <aside
-    :class="[
-      'sidebar flex flex-col bg-bg-secondary border-r border-border h-full transition-transform duration-300',
-      'absolute z-20',
-      isOpen ? 'translate-x-0' : '-translate-x-full',
-      'md:relative md:translate-x-0',
-    ]"
+  <div
+    class="compact-sidebar-wrapper flex h-full relative"
+    :class="{ 'width-collapsed': isActivityBarCollapsed }"
   >
-    <div class="p-3 sm:p-5 border-b border-border flex justify-between items-center">
-      <h2 class="m-0 text-base sm:text-lg font-bold flex items-center gap-1.5 sm:gap-2 text-accent">
-        <img src="/assets/logo.svg" alt="Logo" class="h-6 sm:h-7 w-auto" />
-        <span class="xs:inline">{{ t('appName') }}</span>
-      </h2>
-    </div>
-
-    <nav class="p-2 sm:p-3 space-y-1">
-      <SidebarNavItem
-        :label="t('allArticles')"
-        :is-active="store.currentFilter === 'all'"
-        icon="all"
-        :unread-count="store.unreadCounts.total"
-        @click="store.setFilter('all')"
-      />
-      <SidebarNavItem
-        :label="t('unread')"
-        :is-active="store.currentFilter === 'unread'"
-        icon="unread"
-        @click="store.setFilter('unread')"
-      />
-      <SidebarNavItem
-        :label="t('favorites')"
-        :is-active="store.currentFilter === 'favorites'"
-        icon="favorites"
-        @click="store.setFilter('favorites')"
-      />
-      <SidebarNavItem
-        :label="t('readLater')"
-        :is-active="store.currentFilter === 'readLater'"
-        icon="readLater"
-        @click="store.setFilter('readLater')"
-      />
-      <SidebarNavItem
-        v-if="imageGalleryEnabled"
-        :label="t('imageGallery')"
-        :is-active="store.currentFilter === 'imageGallery'"
-        icon="imageGallery"
-        @click="store.setFilter('imageGallery')"
-      />
-    </nav>
-
-    <!-- Search Box (kept outside scrollable list so it doesn't scroll) -->
-    <div class="px-2 sm:px-3 pt-2 border-t border-border bg-bg-secondary z-10">
-      <div class="mb-3">
-        <div
-          class="flex items-center bg-bg-secondary border border-border rounded-lg px-3 py-2 focus-within:border-accent transition-colors"
+    <!-- Shared container for ActivityBar and Edge Toggle -->
+    <div class="sidebar-toggle-container">
+      <!-- Edge Toggle Button (visible when ActivityBar is collapsed) -->
+      <Transition name="edge-toggle-fade">
+        <button
+          v-if="isActivityBarCollapsed"
+          class="edge-toggle-button flex items-center justify-center text-text-secondary hover:text-accent hover:bg-bg-secondary transition-all"
+          :title="t('sidebar.activity.expandActivityBar')"
+          @click="toggleActivityBar"
         >
-          <PhMagnifyingGlass :size="18" class="text-text-secondary mr-2 flex-shrink-0" />
-          <input
-            v-model="searchQuery"
-            type="text"
-            :placeholder="t('searchFeeds')"
-            class="w-full bg-transparent border-none outline-none text-text-primary text-sm placeholder-text-secondary"
-          />
-          <button
-            v-if="searchQuery"
-            class="ml-2 p-0.5 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors flex-shrink-0"
-            :title="t('clear')"
-            @click="searchQuery = ''"
-          >
-            <PhX :size="16" />
-          </button>
-        </div>
-      </div>
-    </div>
+          <PhCaretRight :size="20" weight="regular" />
+        </button>
+      </Transition>
 
-    <div class="flex-1 overflow-y-scroll p-1.5 sm:p-2">
-      <!-- Categories -->
-      <SidebarCategory
-        v-for="(data, name) in tree.tree"
-        :key="name"
-        :name="name"
-        :feeds="data._feeds"
-        :children="data._children"
-        :level="0"
-        :is-open="checkIsCategoryOpen(name)"
-        :is-active="store.currentCategory === name"
-        :unread-count="categoryUnreadCounts[name] || 0"
-        :current-feed-id="store.currentFeedId"
-        :feed-unread-counts="store.unreadCounts.feedCounts"
-        :is-drag-over="dragOverCategory === name"
-        :is-edit-mode="isEditMode"
-        :drop-preview="dropPreview"
-        :dragging-feed-id="draggingFeedId"
-        :is-category-open="checkIsCategoryOpen"
-        @toggle="toggleCategory(name)"
-        @select-category="store.setCategory(name)"
-        @select-feed="store.setFeed"
-        @category-context-menu="(e) => onCategoryContextMenu(e, name)"
-        @child-toggle="toggleCategory"
-        @child-select-category="store.setCategory"
-        @child-context-menu="(e, path) => onCategoryContextMenu(e, path)"
-        @feed-context-menu="onFeedContextMenu"
-        @dragstart="(feedId, e) => handleDragStart(feedId, e)"
-        @dragend="handleDragEnd"
-        @feed-drag-over="(feedId, e) => handleDragOver(name, feedId, e)"
-        @dragleave="(categoryName, e) => handleDragLeave(categoryName, e)"
-        @drop="() => handleDrop(name, data._feeds)"
-      />
-
-      <!-- Uncategorized -->
-      <SidebarCategory
-        v-if="tree.uncategorized.length > 0 || isDragging"
-        :name="t('uncategorized')"
-        :feeds="tree.uncategorized"
-        :is-open="
-          checkIsCategoryOpen('uncategorized') || (tree.uncategorized.length === 0 && isDragging)
-        "
-        :is-active="false"
-        :is-uncategorized="true"
-        :unread-count="categoryUnreadCounts['uncategorized'] || 0"
-        :current-feed-id="store.currentFeedId"
-        :feed-unread-counts="store.unreadCounts.feedCounts"
-        :is-drag-over="dragOverCategory === 'uncategorized'"
-        :is-edit-mode="isEditMode"
-        :drop-preview="dropPreview"
-        :dragging-feed-id="draggingFeedId"
-        :is-category-open="checkIsCategoryOpen"
-        @toggle="toggleCategory('uncategorized')"
-        @select-feed="store.setFeed"
-        @category-context-menu="(e) => onCategoryContextMenu(e, 'uncategorized')"
-        @feed-context-menu="onFeedContextMenu"
-        @dragstart="(feedId, e) => handleDragStart(feedId, e)"
-        @dragend="handleDragEnd"
-        @feed-drag-over="(feedId, e) => handleDragOver('uncategorized', feedId, e)"
-        @dragleave="(categoryName, e) => handleDragLeave(categoryName, e)"
-        @drop="() => handleDrop('uncategorized', tree.uncategorized)"
+      <!-- Smart Activity Bar (Left) -->
+      <ActivityBar
+        ref="activityBarRef"
+        :is-collapsed="isActivityBarCollapsed"
+        @add-feed="emitShowAddFeed"
+        @settings="emitShowSettings"
+        @toggle-feed-drawer="handleToggleFeedList"
+        @toggle-activity-bar="toggleActivityBar"
+        @ready="handleActivityBarReady"
       />
     </div>
 
-    <div class="p-2 sm:p-4 border-t border-border flex gap-1.5 sm:gap-2">
-      <button class="footer-btn" :title="t('addFeed')" @click="emitShowAddFeed">
-        <PhPlus :size="18" class="sm:w-5 sm:h-5" />
-      </button>
-      <button
-        class="footer-btn"
-        :class="{ 'text-accent': isEditMode }"
-        :title="isEditMode ? t('done') : t('edit')"
-        @click="toggleEditMode"
+    <!-- Feed Drawer -->
+    <Transition name="drawer-position">
+      <div
+        v-if="isFeedListExpanded"
+        class="feed-drawer-wrapper"
+        :class="[
+          { pinned: isFeedListPinned },
+          { 'activity-bar-collapsed': isActivityBarCollapsed },
+        ]"
       >
-        <PhPencil v-if="!isEditMode" :size="18" class="sm:w-5 sm:h-5" />
-        <PhCheck v-else :size="18" class="sm:w-5 sm:h-5" />
-      </button>
-      <button class="footer-btn" :title="t('settings')" @click="emitShowSettings">
-        <PhGear :size="18" class="sm:w-5 sm:h-5" />
-      </button>
-    </div>
-  </aside>
-  <!-- Overlay for mobile -->
-  <div v-if="isOpen" class="fixed inset-0 bg-black/50 z-10 md:hidden" @click="emit('toggle')"></div>
+        <FeedList
+          :is-expanded="isFeedListExpanded"
+          :is-pinned="isFeedListPinned"
+          @expand="handleFeedListExpand"
+          @collapse="handleFeedListCollapse"
+          @pin="handlePinFeedList"
+          @unpin="handleUnpinFeedList"
+        />
+      </div>
+    </Transition>
+
+    <!-- Overlay for mobile -->
+    <Transition name="overlay-fade">
+      <div
+        v-if="isOpen && isFeedListExpanded"
+        class="fixed inset-0 bg-black/50 z-20 md:hidden"
+        @click="emit('toggle')"
+      ></div>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>
-@reference "../../style.css";
-
-.sidebar {
-  width: 16rem;
+.compact-sidebar-wrapper {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  /* Smooth width transition between collapsed/expanded states */
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width;
 }
-@media (min-width: 768px) {
-  .sidebar {
-    width: var(--sidebar-width, 16rem);
+
+/* Container for both ActivityBar and Edge Toggle - uses absolute positioning */
+.sidebar-toggle-container {
+  position: relative;
+  width: 56px;
+  min-width: 56px;
+  height: 100%;
+  flex-shrink: 0;
+  /* Width transition happens after button animations */
+  transition:
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0.15s,
+    min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+  will-change: width, min-width;
+}
+
+/* When collapsed, container shrinks to edge toggle button width */
+.compact-sidebar-wrapper.width-collapsed .sidebar-toggle-container {
+  width: 16px;
+  min-width: 16px;
+}
+
+/* Edge toggle button - absolutely positioned in shared space */
+.edge-toggle-button {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 100%;
+  border-right: 1px solid var(--color-border);
+  background-color: var(--color-bg-secondary);
+  cursor: pointer;
+  z-index: 16;
+  transition: background-color 0.2s;
+}
+
+.edge-toggle-button:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+/* Edge toggle fade transition - faster than container width change */
+.edge-toggle-fade-enter-active,
+.edge-toggle-fade-leave-active {
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+.edge-toggle-fade-enter-from,
+.edge-toggle-fade-leave-to {
+  opacity: 0;
+}
+
+.edge-toggle-fade-enter-to,
+.edge-toggle-fade-leave-from {
+  opacity: 1;
+}
+
+/* Smaller screens (laptops, tablets) */
+@media (max-width: 1400px) {
+  .sidebar-toggle-container {
+    width: 48px;
+    min-width: 48px;
+  }
+
+  .compact-sidebar-wrapper.width-collapsed .sidebar-toggle-container {
+    width: 16px;
+    min-width: 16px;
   }
 }
-.footer-btn {
-  @apply flex-1 flex items-center justify-center gap-2 p-2 sm:p-2.5 text-text-secondary rounded-lg text-lg sm:text-xl hover:bg-bg-tertiary hover:text-text-primary transition-colors;
+
+/* Mobile devices */
+@media (max-width: 767px) {
+  .sidebar-toggle-container {
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .compact-sidebar-wrapper.width-collapsed .sidebar-toggle-container {
+    width: 16px;
+    min-width: 16px;
+  }
+}
+
+.feed-drawer-wrapper {
+  position: relative;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.feed-drawer-wrapper:not(.pinned) {
+  position: absolute;
+  left: 56px;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+}
+
+/* When activity bar is collapsed, feed drawer should start from edge toggle button */
+.feed-drawer-wrapper:not(.pinned).activity-bar-collapsed {
+  left: 16px;
+}
+
+/* Smaller screens (laptops, tablets) */
+@media (max-width: 1400px) {
+  .feed-drawer-wrapper:not(.pinned) {
+    left: 48px;
+  }
+
+  .feed-drawer-wrapper:not(.pinned).activity-bar-collapsed {
+    left: 16px;
+  }
+}
+
+/* Mobile devices */
+@media (max-width: 767px) {
+  .feed-drawer-wrapper:not(.pinned) {
+    left: 44px;
+  }
+
+  .feed-drawer-wrapper:not(.pinned).activity-bar-collapsed {
+    left: 16px;
+  }
+}
+
+/* Drawer position transition */
+.drawer-position-enter-active {
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+  will-change: transform, opacity;
+}
+
+.drawer-position-leave-active {
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+  will-change: transform, opacity;
+}
+
+.drawer-position-enter-from {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+
+.drawer-position-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+
+.drawer-position-enter-to,
+.drawer-position-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Optimize feed drawer rendering */
+.feed-drawer-wrapper {
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  transform: translateZ(0);
+}
+
+/* Overlay transition */
+.overlay-fade-enter-active,
+.overlay-fade-leave-active {
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+.overlay-fade-enter-from,
+.overlay-fade-leave-to {
+  opacity: 0;
+}
+
+.overlay-fade-enter-to,
+.overlay-fade-leave-from {
+  opacity: 1;
 }
 </style>

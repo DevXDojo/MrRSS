@@ -5,22 +5,29 @@ package browser
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 
 	handlers "MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 )
 
 // HandleOpenURL handles URL opening requests in server mode.
 // In server mode, this returns a redirect response that instructs the client to open the URL.
-//
-// Request: POST /api/browser/open
-// Body: {"url": "https://example.com"}
-// Response: {"redirect": "https://example.com"}
+// @Summary      Open URL in browser (server mode)
+// @Description  Returns redirect response for client-side URL opening
+// @Tags         browser
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object  true  "Open URL request (url)"
+// @Success      200  {object}  map[string]string  "Redirect URL (redirect)"
+// @Failure      400  {object}  map[string]string  "Bad request (invalid URL)"
+// @Router       /browser/open [post]
 func HandleOpenURL(h *handlers.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -30,13 +37,13 @@ func HandleOpenURL(h *handlers.Handler, w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		response.Error(w, err, http.StatusBadRequest)
 		return
 	}
 
 	// Validate URL
 	if req.URL == "" {
-		http.Error(w, "URL is required", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("URL is required"), http.StatusBadRequest)
 		return
 	}
 
@@ -44,20 +51,19 @@ func HandleOpenURL(h *handlers.Handler, w http.ResponseWriter, r *http.Request) 
 	parsedURL, err := url.Parse(req.URL)
 	if err != nil {
 		log.Printf("Invalid URL format: %v", err)
-		http.Error(w, "Invalid URL format", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("invalid URL format: %w", err), http.StatusBadRequest)
 		return
 	}
 
 	// Only allow http and https schemes for security
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		log.Printf("Invalid URL scheme: %s", parsedURL.Scheme)
-		http.Error(w, "Only HTTP and HTTPS URLs are allowed", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("only HTTP and HTTPS URLs are allowed"), http.StatusBadRequest)
 		return
 	}
 
 	// Server mode: return redirect response for client-side handling
 	log.Printf("Server mode detected, instructing client to open URL: %s", req.URL)
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"redirect": req.URL})
+	response.JSON(w, map[string]string{"redirect": req.URL})
 }

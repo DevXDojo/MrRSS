@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { PhSpeakerHigh, PhPlay, PhPause, PhGauge, PhTimer, PhSpinner } from '@phosphor-icons/vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import {
+  PhMusicNotes,
+  PhSpeakerHigh,
+  PhPlay,
+  PhPause,
+  PhSpinner,
+  PhRewind,
+  PhFastForward,
+} from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
 
 interface Props {
@@ -23,6 +31,14 @@ const hasLoadedMetadata = ref(false); // Metadata loaded state
 // Local audio controls (not global settings)
 const playbackSpeed = ref(1.0);
 const volume = ref(1.0);
+
+// Load metadata on mount to display duration immediately
+onMounted(() => {
+  if (audioRef.value) {
+    // Load metadata to get duration without starting playback
+    audioRef.value.load();
+  }
+});
 
 // Speed options
 const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -70,7 +86,7 @@ async function togglePlay() {
     } catch (err) {
       console.error('[AudioPlayer] Failed to play audio:', err);
       hideLoading();
-      window.showToast(t('audioPlaybackError'), 'error');
+      window.showToast(t('article.audioPlayer.audioPlaybackError'), 'error');
     }
   }
 }
@@ -173,9 +189,9 @@ function updateBufferedProgress() {
   }
 
   try {
-    const buffered = audioRef.value.buffered;
-    if (buffered && buffered.length > 0) {
-      const bufferedEnd = buffered.end(buffered.length - 1);
+    const audioBuffered = audioRef.value.buffered;
+    if (audioBuffered && audioBuffered.length > 0) {
+      const bufferedEnd = audioBuffered.end(audioBuffered.length - 1);
       buffered.value = (bufferedEnd / duration.value) * 100;
     } else {
       buffered.value = 0;
@@ -281,6 +297,18 @@ function onVolumeChange(event: Event) {
   }
 }
 
+// Skip backward 10 seconds
+function skipBackward() {
+  if (!audioRef.value) return;
+  audioRef.value.currentTime = Math.max(0, audioRef.value.currentTime - 10);
+}
+
+// Skip forward 10 seconds
+function skipForward() {
+  if (!audioRef.value) return;
+  audioRef.value.currentTime = Math.min(duration.value, audioRef.value.currentTime + 10);
+}
+
 // Extract filename from audio URL
 const downloadFilename = computed(() => {
   try {
@@ -302,15 +330,17 @@ const downloadFilename = computed(() => {
 <template>
   <div class="bg-bg-secondary border border-border rounded-lg p-4 mb-4 sm:mb-6">
     <div class="flex items-center gap-3 mb-3">
-      <PhSpeakerHigh :size="20" class="text-accent flex-shrink-0" />
-      <span class="text-sm font-medium text-text-primary">{{ t('podcastAudio') }}</span>
+      <PhMusicNotes :size="20" class="text-accent flex-shrink-0" />
+      <span class="text-sm font-medium text-text-primary">{{
+        t('article.audioPlayer.podcastAudio')
+      }}</span>
     </div>
 
     <!-- Audio element (hidden) -->
     <audio
       ref="audioRef"
       :src="audioUrl"
-      preload="none"
+      preload="metadata"
       @play="onPlay"
       @pause="onPause"
       @playing="onPlaying"
@@ -328,15 +358,33 @@ const downloadFilename = computed(() => {
     <div class="space-y-3">
       <!-- Progress bar row -->
       <div class="flex items-center gap-3">
+        <!-- Skip backward button -->
+        <button
+          class="flex items-center justify-center w-8 h-8 rounded-full bg-bg-tertiary hover:bg-bg-hover transition-colors flex-shrink-0"
+          :title="t('article.audioPlayer.skipBackward')"
+          @click="skipBackward"
+        >
+          <PhRewind :size="16" class="text-text-primary" />
+        </button>
+
         <!-- Play/Pause button -->
         <button
           class="flex items-center justify-center w-10 h-10 rounded-full bg-accent hover:bg-accent/90 transition-colors flex-shrink-0 relative"
-          :title="isPlaying ? t('pause') : t('play')"
+          :title="isPlaying ? t('article.audioPlayer.pause') : t('article.audioPlayer.play')"
           @click="togglePlay"
         >
           <PhSpinner v-if="isLoading" :size="20" class="text-white animate-spin" />
           <PhPlay v-else-if="!isPlaying" :size="20" class="text-white ml-0.5" />
           <PhPause v-else :size="20" class="text-white" />
+        </button>
+
+        <!-- Skip forward button -->
+        <button
+          class="flex items-center justify-center w-8 h-8 rounded-full bg-bg-tertiary hover:bg-bg-hover transition-colors flex-shrink-0"
+          :title="t('article.audioPlayer.skipForward')"
+          @click="skipForward"
+        >
+          <PhFastForward :size="16" class="text-text-primary" />
         </button>
 
         <!-- Progress bar -->
@@ -369,7 +417,7 @@ const downloadFilename = computed(() => {
               v-if="isLoading"
               class="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 text-[10px] text-text-secondary font-medium px-2 py-0.5 bg-bg-tertiary/95 rounded-full backdrop-blur-sm whitespace-nowrap z-10"
             >
-              {{ t('loading') }}...
+              {{ t('common.pagination.loading') }}...
             </span>
           </div>
           <span class="text-xs text-text-secondary min-w-[40px]">{{ formatTime(duration) }}</span>
@@ -385,24 +433,14 @@ const downloadFilename = computed(() => {
           class="text-xs text-accent hover:underline flex items-center gap-1"
           target="_blank"
         >
-          {{ t('downloadAudio') }}
+          {{ t('common.contextMenu.downloadAudio') }}
         </a>
 
         <!-- Controls -->
         <div class="flex items-center gap-3">
-          <!-- Playback speed control -->
-          <button
-            class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-tertiary hover:bg-bg-tertiary/80 transition-colors text-xs font-medium text-text-primary"
-            :title="t('playbackSpeed')"
-            @click="cycleSpeed"
-          >
-            <PhTimer :size="12" class="text-text-secondary" />
-            <span>{{ playbackSpeed }}x</span>
-          </button>
-
           <!-- Volume control -->
           <div class="flex items-center gap-1.5">
-            <PhGauge :size="14" class="text-text-secondary flex-shrink-0" />
+            <PhSpeakerHigh :size="14" class="text-text-secondary flex-shrink-0" />
             <input
               type="range"
               min="0"
@@ -410,13 +448,22 @@ const downloadFilename = computed(() => {
               step="0.05"
               :value="volume"
               class="w-20 h-1.5 bg-bg-tertiary rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:hover:scale-125"
-              :title="t('volume')"
+              :title="t('article.audioPlayer.volume')"
               @input="onVolumeChange"
             />
-            <span class="text-xs text-text-secondary min-w-[28px] text-right"
+            <span class="text-xs text-text-secondary w-[35px] text-right"
               >{{ Math.round(volume * 100) }}%</span
             >
           </div>
+
+          <!-- Playback speed control -->
+          <button
+            class="flex items-center justify-center px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-tertiary/80 transition-colors text-xs font-medium text-text-primary w-[52px]"
+            :title="t('article.audioPlayer.playbackSpeed')"
+            @click="cycleSpeed"
+          >
+            <span class="tabular-nums">{{ playbackSpeed }}x</span>
+          </button>
         </div>
       </div>
     </div>

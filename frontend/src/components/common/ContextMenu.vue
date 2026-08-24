@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick, type Ref, type Component } from 'vue';
+import {
+  ref,
+  onMounted,
+  onUnmounted,
+  computed,
+  nextTick,
+  watch,
+  type Ref,
+  type Component,
+} from 'vue';
 import * as PhosphorIcons from '@phosphor-icons/vue';
-
-export interface ContextMenuItem {
-  label?: string;
-  action?: string;
-  icon?: string;
-  iconWeight?: 'regular' | 'bold' | 'light' | 'fill' | 'duotone' | 'thin';
-  iconColor?: string;
-  disabled?: boolean;
-  danger?: boolean;
-  separator?: boolean;
-}
+import type { ContextMenuItem } from '@/types/context-menu';
 
 interface Props {
   items: ContextMenuItem[];
@@ -31,7 +30,8 @@ const adjustedPosition = ref({ top: 0, left: 0 });
 
 // Map old icon names to new component names
 const iconMap: Record<string, string> = {
-  'ph-link': 'PhLink',
+  'ph-link': 'PhLinkSimple',
+  'ph-link-simple': 'PhLinkSimple',
   'ph-text-t': 'PhTextT',
   'ph-check-circle': 'PhCheckCircle',
   'ph-globe': 'PhGlobe',
@@ -45,6 +45,8 @@ const iconMap: Record<string, string> = {
   'ph-eye-slash': 'PhEyeSlash',
   'ph-arrow-square-out': 'PhArrowSquareOut',
   'ph-clock-countdown': 'PhClockCountdown',
+  'ph-arrow-bend-right-up': 'PhArrowBendRightUp',
+  'ph-arrow-bend-left-down': 'PhArrowBendLeftDown',
   PhMagnifyingGlass: 'PhMagnifyingGlass',
   PhArrowsClockwise: 'PhArrowsClockwise',
   PhMagnifyingGlassPlus: 'PhMagnifyingGlassPlus',
@@ -105,6 +107,14 @@ onMounted(() => {
     document.addEventListener('contextmenu', handleClickOutside);
   }, 0);
 });
+
+// Watch for position changes and re-adjust
+watch(
+  () => [props.x, props.y],
+  () => {
+    adjustMenuPosition();
+  }
+);
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);

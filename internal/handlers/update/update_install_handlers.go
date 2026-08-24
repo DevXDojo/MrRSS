@@ -17,13 +17,24 @@ import (
 	"time"
 
 	"MrRSS/internal/handlers/core"
-	"MrRSS/internal/utils"
+	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/utils/fileutil"
 )
 
 // HandleInstallUpdate triggers the installation of the downloaded update.
+// @Summary      Install update
+// @Description  Install the downloaded update (will restart the application)
+// @Tags         update
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object  true  "Install request (file_path)"
+// @Success      200  {object}  map[string]interface{}  "Installation started (success, message)"
+// @Failure      400  {object}  map[string]string  "Bad request (invalid file path or type)"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /update/install [post]
 func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -32,7 +43,7 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response.Error(w, err, http.StatusBadRequest)
 		return
 	}
 
@@ -41,29 +52,29 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 	cleanPath := filepath.Clean(req.FilePath)
 	if !strings.HasPrefix(cleanPath, filepath.Clean(tempDir)) {
 		log.Printf("Invalid file path attempted: %s", req.FilePath)
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("invalid file path"), http.StatusBadRequest)
 		return
 	}
 
 	// Validate file exists and is a regular file
 	fileInfo, err := os.Stat(cleanPath)
 	if os.IsNotExist(err) {
-		http.Error(w, "Update file not found", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("update file not found"), http.StatusBadRequest)
 		return
 	}
 	if err != nil {
 		log.Printf("Error stating file: %v", err)
-		http.Error(w, "Error accessing update file", http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 	if !fileInfo.Mode().IsRegular() {
 		log.Printf("File is not a regular file: %s", cleanPath)
-		http.Error(w, "Invalid file type", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("invalid file type"), http.StatusBadRequest)
 		return
 	}
 
 	platform := runtime.GOOS
-	isPortable := utils.IsPortableMode()
+	isPortable := fileutil.IsPortableMode()
 	log.Printf("Installing update from: %s on platform: %s, portable: %v", cleanPath, platform, isPortable)
 
 	// Helper function to schedule cleanup of installer file
@@ -84,7 +95,7 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 		// Portable mode: extract and replace executable
 		if err := installPortableUpdate(cleanPath, platform); err != nil {
 			log.Printf("Error installing portable update: %v", err)
-			http.Error(w, "Failed to install portable update: "+err.Error(), http.StatusInternalServerError)
+			response.Error(w, err, http.StatusInternalServerError)
 			return
 		}
 		scheduleCleanup(cleanPath, 5*time.Second)
@@ -95,7 +106,7 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 		case "windows":
 			// Launch the installer - validate file extension
 			if !strings.HasSuffix(strings.ToLower(cleanPath), ".exe") {
-				http.Error(w, "Invalid file type for Windows", http.StatusBadRequest)
+				response.Error(w, fmt.Errorf("invalid file type for Windows"), http.StatusBadRequest)
 				return
 			}
 			// Use start command with /B flag to launch in background
@@ -106,12 +117,12 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 		case "linux":
 			// Make AppImage executable and run it - validate file extension
 			if !strings.HasSuffix(strings.ToLower(cleanPath), ".appimage") {
-				http.Error(w, "Invalid file type for Linux", http.StatusBadRequest)
+				response.Error(w, fmt.Errorf("invalid file type for Linux"), http.StatusBadRequest)
 				return
 			}
 			if err := os.Chmod(cleanPath, 0755); err != nil {
 				log.Printf("Error making file executable: %v", err)
-				http.Error(w, "Failed to prepare installer", http.StatusInternalServerError)
+				response.Error(w, fmt.Errorf("failed to prepare installer: %w", err), http.StatusInternalServerError)
 				return
 			}
 			cmd = exec.Command(cleanPath)
@@ -119,27 +130,27 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 		case "darwin":
 			// Open the DMG file - validate file extension
 			if !strings.HasSuffix(strings.ToLower(cleanPath), ".dmg") {
-				http.Error(w, "Invalid file type for macOS", http.StatusBadRequest)
+				response.Error(w, fmt.Errorf("invalid file type for macOS"), http.StatusBadRequest)
 				return
 			}
 			cmd = exec.Command("open", cleanPath)
 			scheduleCleanup(cleanPath, 15*time.Second)
 		default:
-			http.Error(w, "Unsupported platform", http.StatusBadRequest)
+			response.Error(w, fmt.Errorf("unsupported platform"), http.StatusBadRequest)
 			return
 		}
 
 		// Start the installer in the background
 		if err := cmd.Start(); err != nil {
 			log.Printf("Error starting installer: %v", err)
-			http.Error(w, "Failed to start installer", http.StatusInternalServerError)
+			response.Error(w, fmt.Errorf("failed to start installer: %w", err), http.StatusInternalServerError)
 			return
 		}
 
 		log.Printf("Installer started successfully, PID: %d", cmd.Process.Pid)
 	}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"success": true,
 		"message": "Installation started. Application will exit shortly.",
 	})

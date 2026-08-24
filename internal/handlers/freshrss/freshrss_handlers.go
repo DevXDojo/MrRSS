@@ -2,26 +2,37 @@ package freshrss
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"MrRSS/internal/freshrss"
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 )
 
 // HandleSyncFeed syncs articles for a single FreshRSS feed
+// @Summary      Sync single FreshRSS feed
+// @Description  Synchronize articles for a specific FreshRSS feed/stream
+// @Tags         freshrss
+// @Accept       json
+// @Produce      json
+// @Param        stream_id  query     string  true  "FreshRSS stream ID"
+// @Success      200  {object}  map[string]interface{}  "Sync started status (status, message)"
+// @Failure      400  {object}  map[string]string  "Bad request (FreshRSS disabled or stream_id missing)"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /freshrss/sync-feed [post]
 func HandleSyncFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
 	// Get stream_id from query parameter
 	streamID := r.URL.Query().Get("stream_id")
 	if streamID == "" {
-		http.Error(w, "stream_id is required", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("stream_id is required"), http.StatusBadRequest)
 		return
 	}
 
@@ -29,12 +40,12 @@ func HandleSyncFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	enabled, err := h.DB.GetSetting("freshrss_enabled")
 	if err != nil {
 		log.Printf("Error getting freshrss_enabled: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
 	if enabled != "true" {
-		http.Error(w, "FreshRSS sync is disabled", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("FreshRSS sync is disabled"), http.StatusBadRequest)
 		return
 	}
 
@@ -43,7 +54,7 @@ func HandleSyncFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	password, _ := h.DB.GetEncryptedSetting("freshrss_api_password")
 
 	if serverURL == "" || username == "" || password == "" {
-		http.Error(w, "FreshRSS settings incomplete", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("FreshRSS settings incomplete"), http.StatusBadRequest)
 		return
 	}
 
@@ -64,18 +75,26 @@ func HandleSyncFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Return success response immediately
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"status":  "sync_started",
 		"message": "Feed synchronization started",
 	})
 }
 
 // HandleSync performs bidirectional synchronization with FreshRSS server
+// @Summary      Sync with FreshRSS
+// @Description  Perform bidirectional synchronization with FreshRSS server (pull and push changes)
+// @Tags         freshrss
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "Sync started status (status, message)"
+// @Failure      400  {object}  map[string]string  "Bad request (FreshRSS disabled or incomplete settings)"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /freshrss/sync [post]
 func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	log.Printf("[HandleSync] Sync request received")
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -84,12 +103,12 @@ func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	log.Printf("[HandleSync] FreshRSS enabled: %s", enabled)
 	if err != nil {
 		log.Printf("Error getting freshrss_enabled: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
 	if enabled != "true" {
-		http.Error(w, "FreshRSS sync is disabled", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("FreshRSS sync is disabled"), http.StatusBadRequest)
 		return
 	}
 
@@ -98,7 +117,7 @@ func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	password, _ := h.DB.GetEncryptedSetting("freshrss_api_password")
 
 	if serverURL == "" || username == "" || password == "" {
-		http.Error(w, "FreshRSS settings incomplete", http.StatusBadRequest)
+		response.Error(w, fmt.Errorf("FreshRSS settings incomplete"), http.StatusBadRequest)
 		return
 	}
 
@@ -124,17 +143,23 @@ func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Return success response immediately
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"status":  "sync_started",
 		"message": "FreshRSS synchronization started",
 	})
 }
 
 // HandleSyncStatus returns the current sync status
+// @Summary      Get FreshRSS sync status
+// @Description  Get the current synchronization status with FreshRSS
+// @Tags         freshrss
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "Sync status (pending_changes, failed_items, last_sync_time)"
+// @Router       /freshrss/status [get]
 func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -161,12 +186,9 @@ func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"pending_changes": pendingCount,
 		"failed_items":    len(failedItems),
 		"last_sync_time":  lastSyncTime,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }

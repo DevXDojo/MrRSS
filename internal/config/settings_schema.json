@@ -11,6 +11,13 @@
       "encrypted": false,
       "frontend_key": "updateInterval"
     },
+    "update_check_enabled": {
+      "type": "bool",
+      "default": true,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "updateCheckEnabled"
+    },
     "refresh_mode": {
       "type": "string",
       "default": "fixed",
@@ -74,6 +81,13 @@
       "encrypted": false,
       "frontend_key": "translationEnabled"
     },
+    "translation_only_mode": {
+      "type": "bool",
+      "default": false,
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "translationOnlyMode"
+    },
     "target_language": {
       "type": "string",
       "default": "zh",
@@ -115,6 +129,111 @@
       "category": "translation",
       "encrypted": true,
       "frontend_key": "baiduSecretKey"
+    },
+    "microsoft_api_key": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": true,
+      "frontend_key": "microsoftAPIKey"
+    },
+    "microsoft_region": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "microsoftRegion"
+    },
+    "microsoft_endpoint": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "microsoftEndpoint"
+    },
+    "tencent_secret_id": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "tencentSecretID"
+    },
+    "tencent_secret_key": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": true,
+      "frontend_key": "tencentSecretKey"
+    },
+    "tencent_region": {
+      "type": "string",
+      "default": "ap-guangzhou",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "tencentRegion"
+    },
+    "custom_translation_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationEnabled"
+    },
+    "custom_translation_name": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationName"
+    },
+    "custom_translation_endpoint": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationEndpoint"
+    },
+    "custom_translation_method": {
+      "type": "string",
+      "default": "POST",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationMethod"
+    },
+    "custom_translation_headers": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationHeaders"
+    },
+    "custom_translation_body_template": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationBodyTemplate"
+    },
+    "custom_translation_response_path": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationResponsePath"
+    },
+    "custom_translation_lang_mapping": {
+      "type": "string",
+      "default": "",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationLangMapping"
+    },
+    "custom_translation_timeout": {
+      "type": "int",
+      "default": 10,
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "customTranslationTimeout"
     },
     "ai_api_key": {
       "type": "string",
@@ -178,6 +297,13 @@
       "category": "ai",
       "encrypted": false,
       "frontend_key": "aiChatEnabled"
+    },
+    "ai_search_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "aiSearchEnabled"
     },
     "summary_enabled": {
       "type": "bool",
@@ -333,6 +459,13 @@
       "encrypted": false,
       "frontend_key": "showArticlePreviewImages"
     },
+    "show_floating_toc": {
+      "type": "bool",
+      "default": false,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "showFloatingToc"
+    },
     "obsidian_enabled": {
       "type": "bool",
       "default": false,
@@ -353,6 +486,48 @@
       "category": "integrations",
       "encrypted": false,
       "frontend_key": "obsidianVaultPath"
+    },
+    "notion_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "notionEnabled"
+    },
+    "notion_api_key": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": true,
+      "frontend_key": "notionApiKey"
+    },
+    "notion_page_id": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "notionPageId"
+    },
+    "zotero_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "zoteroEnabled"
+    },
+    "zotero_api_key": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": true,
+      "frontend_key": "zoteroAPIKey"
+    },
+    "zotero_user_id": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "zoteroUserID"
     },
     "window_x": {
       "type": "string",
@@ -433,7 +608,7 @@
     },
     "image_gallery_enabled": {
       "type": "bool",
-      "default": false,
+      "default": true,
       "category": "general",
       "encrypted": false,
       "frontend_key": "imageGalleryEnabled"
@@ -487,6 +662,27 @@
       "encrypted": false,
       "frontend_key": "freshRSSLastSyncTime"
     },
+    "rsshub_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "rsshubEnabled"
+    },
+    "rsshub_endpoint": {
+      "type": "string",
+      "default": "https://rss.spriple.org",
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "rsshubEndpoint"
+    },
+    "rsshub_api_key": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": true,
+      "frontend_key": "rsshubAPIKey"
+    },
     "full_text_fetch_enabled": {
       "type": "bool",
       "default": true,
@@ -508,19 +704,96 @@
       "encrypted": false,
       "frontend_key": "customCSSFile"
     },
-    "auto_update": {
-      "type": "bool",
-      "default": false,
-      "category": "general",
-      "encrypted": false,
-      "frontend_key": "autoUpdate"
-    },
     "shortcuts_enabled": {
       "type": "bool",
       "default": true,
       "category": "general",
       "encrypted": false,
       "frontend_key": "shortcutsEnabled"
+    },
+    "layout_mode": {
+      "type": "string",
+      "default": "normal",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "layoutMode"
+    },
+    "feed_drawer_pinned": {
+      "type": "bool",
+      "default": true,
+      "category": "internal",
+      "encrypted": false,
+      "frontend_key": "feedDrawerPinned"
+    },
+    "feed_drawer_expanded": {
+      "type": "bool",
+      "default": true,
+      "category": "internal",
+      "encrypted": false,
+      "frontend_key": "feedDrawerExpanded"
+    },
+    "content_font_family": {
+      "type": "string",
+      "default": "system",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "contentFontFamily"
+    },
+    "content_font_size": {
+      "type": "int",
+      "default": 16,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "contentFontSize"
+    },
+    "content_line_height": {
+      "type": "string",
+      "default": "1.6",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "contentLineHeight"
+    },
+    "ui_font_family": {
+      "type": "string",
+      "default": "system",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "uiFontFamily"
+    },
+    "ui_font_size": {
+      "type": "int",
+      "default": 16,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "uiFontSize"
+    },
+    "ai_translation_profile_id": {
+      "type": "string",
+      "default": "",
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "aiTranslationProfileId"
+    },
+    "ai_summary_profile_id": {
+      "type": "string",
+      "default": "",
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "aiSummaryProfileId"
+    },
+    "ai_chat_profile_id": {
+      "type": "string",
+      "default": "",
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "aiChatProfileId"
+    },
+    "ai_search_profile_id": {
+      "type": "string",
+      "default": "",
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "aiSearchProfileId"
     }
   }
 }

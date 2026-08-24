@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"MrRSS/internal/ai"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -58,17 +60,34 @@ func TestBaidu_Non200AndTimeout(t *testing.T) {
 func TestAI_Non200AndTimeout(t *testing.T) {
 	a := NewAITranslator("k", "https://api.test", "m")
 
-	a.client = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	// Create custom HTTP client for testing
+	testHTTPClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 503, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"srv"}}`)), Header: make(http.Header)}, nil
 	}), Timeout: 2 * time.Second}
+
+	// Re-create AI client with custom HTTP client
+	a.client = ai.NewClientWithHTTPClient(ai.ClientConfig{
+		APIKey:   "k",
+		Endpoint: "https://api.test",
+		Model:    "m",
+		Timeout:  2 * time.Second,
+	}, testHTTPClient)
 
 	if _, err := a.Translate("hello", "en"); err == nil {
 		t.Fatalf("expected error for non-200 response")
 	}
 
-	a.client = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	// Test timeout
+	testHTTPClient2 := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		return nil, context.DeadlineExceeded
 	}), Timeout: 20 * time.Millisecond}
+
+	a.client = ai.NewClientWithHTTPClient(ai.ClientConfig{
+		APIKey:   "k",
+		Endpoint: "https://api.test",
+		Model:    "m",
+		Timeout:  20 * time.Millisecond,
+	}, testHTTPClient2)
 
 	if _, err := a.Translate("hello", "en"); err == nil {
 		t.Fatalf("expected timeout error")

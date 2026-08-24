@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import type { SettingsData } from '@/types/settings';
 import { useSettingsAutoSave } from '@/composables/core/useSettingsAutoSave';
 import ApplicationSettings from './ApplicationSettings.vue';
-import ReadingSettings from './ReadingSettings.vue';
 import UpdateSettings from './UpdateSettings.vue';
 import DataManagementSettings from './DataManagementSettings.vue';
 
@@ -35,8 +34,6 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
   <div class="space-y-4 sm:space-y-6">
     <ApplicationSettings :settings="settings" @update:settings="handleUpdateSettings" />
 
-    <ReadingSettings :settings="settings" @update:settings="handleUpdateSettings" />
-
     <UpdateSettings :settings="settings" @update:settings="handleUpdateSettings" />
 
     <DataManagementSettings :settings="settings" @update:settings="handleUpdateSettings" />
@@ -45,7 +42,6 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
 
 <style scoped>
 @reference "../../../../style.css";
-
 .input-field {
   @apply p-1.5 sm:p-2.5 border border-border rounded-md bg-bg-secondary text-text-primary focus:border-accent focus:outline-none transition-colors;
 }

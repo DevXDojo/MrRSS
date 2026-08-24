@@ -5,8 +5,8 @@ import { PhSpinnerGap, PhArticleNyTimes } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import ArticleTitle from './parts/ArticleTitle.vue';
 import ArticleSummary from './parts/ArticleSummary.vue';
-import ArticleLoading from './parts/ArticleLoading.vue';
 import ArticleBody from './parts/ArticleBody.vue';
+import FloatingToc from './parts/FloatingToc.vue';
 import AudioPlayer from './parts/AudioPlayer.vue';
 import VideoPlayer from './parts/VideoPlayer.vue';
 import ArticleChatButton from './ArticleChatButton.vue';
@@ -21,6 +21,7 @@ import {
 } from '@/composables/article/useContentTranslation';
 import { useSettings } from '@/composables/core/useSettings';
 import { useAppStore } from '@/stores/app';
+import { openInBrowser } from '@/utils/browser';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import './ArticleContent.css';
 
@@ -31,6 +32,7 @@ interface SummaryResult {
   is_too_short: boolean;
   limit_reached?: boolean;
   used_fallback?: boolean;
+  source?: string;
   thinking?: string;
   error?: string;
 }
@@ -65,6 +67,11 @@ function handleRetryLoad() {
 const { settings: appSettings, fetchSettings } = useSettings();
 const store = useAppStore();
 const isChatPanelOpen = ref(false);
+const articleScrollContainer = ref<HTMLElement | null>(null);
+const ARTICLE_SCROLL_POSITIONS_KEY = 'mrrssArticleScrollPositions';
+let scrollSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingScrollRestoreArticleId: number | null = null;
+let pendingScrollRestoreAttempts = 0;
 
 // Full-text fetching state
 const isFetchingFullArticle = ref(false);
@@ -75,6 +82,19 @@ const autoShowAllContent = ref(false);
 const shouldAutoExpandContent = computed(() => {
   // First check if feed has auto_expand_content setting
   const feed = store.feeds.find((f) => f.id === props.article.feed_id);
+
+  // Special case: For XPath feeds without content xpath, always auto-expand regardless of settings
+  const isXPathFeedWithoutContent =
+    feed &&
+    (feed.type === 'HTML+XPath' || feed.type === 'XML+XPath') &&
+    !feed.xpath_item_content &&
+    feed.xpath_item_uri;
+
+  // For XPath feeds without content xpath, always return true
+  if (isXPathFeedWithoutContent) {
+    return true;
+  }
+
   if (feed?.auto_expand_content) {
     if (feed.auto_expand_content === 'enabled') return true;
     if (feed.auto_expand_content === 'disabled') return false;
@@ -99,6 +119,15 @@ onMounted(async () => {
     'auto-show-all-content-changed',
     onAutoShowAllContentChanged as EventListener
   );
+
+  // Listen for summary settings changes
+  window.addEventListener('summary-settings-changed', onSummarySettingsChanged as EventListener);
+
+  // Listen for translation settings changes so RSS summaries follow the new target language.
+  window.addEventListener(
+    'translation-settings-changed',
+    onTranslationSettingsChanged as EventListener
+  );
 });
 
 // Computed to check if chat should be shown
@@ -109,12 +138,19 @@ const showChatButton = computed(() => {
   );
 });
 
+const showFloatingToc = computed(() => appSettings.value.show_floating_toc);
+
 // Computed to check if full-text fetching should be shown
 const showFullTextButton = computed(() => {
+  // For XPath feeds without content, show button even if articleContent is empty
+  const feed = store.feeds.find((f) => f.id === props.article.feed_id);
+  const isXPathFeedWithoutContent =
+    feed && (feed.type === 'HTML+XPath' || feed.type === 'XML+XPath') && !props.articleContent;
+
   return (
     appSettings.value.full_text_fetch_enabled &&
     !props.isLoadingContent &&
-    props.articleContent &&
+    (props.articleContent || isXPathFeedWithoutContent) && // Allow empty content for XPath feeds
     props.article?.url &&
     props.showContent &&
     !fullArticleContent.value // Don't show if we already have full content
@@ -156,8 +192,85 @@ const isLoadingSummary = computed(() =>
 // Additional state for translation
 const translatedTitle = ref('');
 const isTranslatingTitle = ref(false);
+const translatedSummary = ref<{ text: string; html: string } | null>(null);
+const isTranslatingSummary = ref(false);
 const isTranslatingContent = ref(false);
 const lastTranslatedArticleId = ref<number | null>(null);
+const lastTranslatedContentHash = ref<string>(''); // Track translated content by hash
+const translationSkipped = ref(false);
+let summaryTranslationRequestId = 0;
+
+function loadArticleScrollPositions(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(ARTICLE_SCROLL_POSITIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveArticleScrollPosition(articleId: number | null | undefined = props.article?.id) {
+  const container = articleScrollContainer.value;
+  if (!container || !articleId) return;
+
+  const positions = loadArticleScrollPositions();
+  positions[String(articleId)] = Math.round(container.scrollTop);
+
+  const entries = Object.entries(positions);
+  if (entries.length > 200) {
+    const trimmed = Object.fromEntries(entries.slice(entries.length - 200));
+    localStorage.setItem(ARTICLE_SCROLL_POSITIONS_KEY, JSON.stringify(trimmed));
+    return;
+  }
+
+  localStorage.setItem(ARTICLE_SCROLL_POSITIONS_KEY, JSON.stringify(positions));
+}
+
+function scheduleSaveArticleScrollPosition() {
+  if (pendingScrollRestoreArticleId === props.article?.id) {
+    return;
+  }
+
+  if (scrollSaveTimer) {
+    clearTimeout(scrollSaveTimer);
+  }
+  scrollSaveTimer = setTimeout(() => {
+    saveArticleScrollPosition();
+    scrollSaveTimer = null;
+  }, 200);
+}
+
+function restoreArticleScrollPosition(articleId: number | null | undefined = props.article?.id) {
+  const container = articleScrollContainer.value;
+  if (!container || !articleId) return;
+
+  const savedTop = loadArticleScrollPositions()[String(articleId)];
+  if (savedTop === undefined) {
+    pendingScrollRestoreArticleId = null;
+    pendingScrollRestoreAttempts = 0;
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    container.scrollTop = Math.min(savedTop, maxScrollTop);
+
+    pendingScrollRestoreAttempts += 1;
+    if (maxScrollTop >= savedTop || savedTop === 0 || pendingScrollRestoreAttempts >= 5) {
+      pendingScrollRestoreArticleId = null;
+      pendingScrollRestoreAttempts = 0;
+    }
+  });
+}
+
+async function restorePendingArticleScrollPosition() {
+  if (!pendingScrollRestoreArticleId || pendingScrollRestoreArticleId !== props.article?.id) return;
+
+  await nextTick();
+  restoreArticleScrollPosition(pendingScrollRestoreArticleId);
+}
 
 // Load settings using composables
 async function loadSettings() {
@@ -166,56 +279,98 @@ async function loadSettings() {
 }
 
 // Translate text using the API
-async function translateText(text: string): Promise<{ text: string; html: string }> {
+async function translateText(
+  text: string,
+  force: boolean = false,
+  updateTranslationStatus: boolean = true
+): Promise<{ text: string; html: string }> {
   if (!text || !translationEnabled.value) {
-    console.log('[translateText] Skipping translation:', {
-      hasText: !!text,
-      enabled: translationEnabled.value,
-    });
     return { text: '', html: '' };
   }
 
-  console.log('[translateText] Starting translation:', {
-    textLength: text.length,
-    targetLanguage: targetLanguage.value,
-  });
+  const requestBody = {
+    text: text,
+    target_language: targetLanguage.value,
+    force: force,
+  };
 
   try {
     const res = await fetch('/api/articles/translate-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: text,
-        target_language: targetLanguage.value,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (res.ok) {
       const data = await res.json();
-      console.log('[translateText] Translation successful:', {
-        translatedLength: data.translated_text?.length || 0,
-        htmlLength: data.html?.length || 0,
-      });
+
+      // Check if translation was skipped
+      if (updateTranslationStatus && (data.skipped === 'true' || data.skipped === true)) {
+        if (data.reason === 'already_target_language') {
+          translationSkipped.value = true;
+        }
+      } else if (updateTranslationStatus) {
+        // Reset skip flags on successful translation
+        translationSkipped.value = false;
+      }
+
       return {
         text: data.translated_text || '',
         html: data.html || '',
       };
     } else {
-      console.error('[translateText] API error:', res.status);
-      const errorText = await res.text();
-      console.error('[translateText] Error response:', errorText);
-      window.showToast(t('errorTranslatingContent'), 'error');
+      window.showToast(t('common.errors.translatingContent'), 'error');
     }
-  } catch (e) {
-    console.error('[translateText] Network error:', e);
-    window.showToast(t('errorTranslating'), 'error');
+  } catch {
+    window.showToast(t('common.errors.translating'), 'error');
   }
-  console.log('[translateText] Translation failed, returning empty strings');
   return { text: '', html: '' };
 }
 
+function clearTranslatedSummary() {
+  summaryTranslationRequestId += 1;
+  translatedSummary.value = null;
+  isTranslatingSummary.value = false;
+}
+
+// RSS summaries are already available in the source feed, so translate them
+// after they are loaded instead of sending them through the summarizer again.
+async function translateSummary(result: SummaryResult | null) {
+  clearTranslatedSummary();
+
+  if (
+    !translationEnabled.value ||
+    summaryProvider.value !== 'rss' ||
+    !result?.summary ||
+    result.is_too_short
+  ) {
+    return;
+  }
+
+  const requestId = summaryTranslationRequestId;
+  isTranslatingSummary.value = true;
+  const translation = await translateText(result.summary, false, false);
+
+  if (requestId !== summaryTranslationRequestId) {
+    return;
+  }
+
+  isTranslatingSummary.value = false;
+  if (!translation.text) return;
+
+  translatedSummary.value = translation;
+}
+
+// Force translate content
+async function forceTranslateContent() {
+  if (!props.articleContent) return;
+
+  await translateContentParagraphs(props.articleContent);
+}
+
 // Fetch full article content from the original URL
-async function fetchFullArticle() {
+// @param showErrors - whether to show error toasts (default: true for manual clicks, false for auto-fetch)
+async function fetchFullArticle(showErrors: boolean = true) {
   if (!props.article?.id) return;
 
   isFetchingFullArticle.value = true;
@@ -237,29 +392,39 @@ async function fetchFullArticle() {
       }
 
       fullArticleContent.value = content;
-      window.showToast(t('fullArticleFetched'), 'success');
+      if (showErrors) {
+        window.showToast(t('article.action.fullArticleFetched'), 'success');
+      }
 
       // After fetching full content, regenerate summary and trigger translation
       if (props.article) {
-        if (shouldAutoGenerateSummary()) {
+        // Generate summary if we should wait for full content
+        // This handles the case where:
+        // 1. Summary uses AI auto trigger OR local algorithm
+        // 2. AND auto-show all content is enabled
+        if (shouldWaitForFullContentBeforeSummary.value) {
           setTimeout(() => generateSummary(props.article), 100);
         }
+
         if (translationEnabled.value) {
-          // Reset translation tracking to allow re-translation with full content
-          lastTranslatedArticleId.value = null;
-          translateTitle(props.article);
+          // Only translate content, not title (title translation is cached in DB)
+          // Content hash will automatically detect new content and trigger translation
           // Wait for DOM to update with new content before translating
           await nextTick();
-          translateContentParagraphs(fullArticleContent.value);
+          await translateContentParagraphs(fullArticleContent.value);
         }
       }
     } else {
       console.error('Error fetching full article:', res.status);
-      window.showToast(t('errorFetchingFullArticle'), 'error');
+      if (showErrors) {
+        window.showToast(t('common.errors.fetchingFullArticle'), 'error');
+      }
     }
   } catch (e) {
     console.error('Error fetching full article:', e);
-    window.showToast(t('errorFetchingFullArticle'), 'error');
+    if (showErrors) {
+      window.showToast(t('common.errors.fetchingFullArticle'), 'error');
+    }
   } finally {
     isFetchingFullArticle.value = false;
   }
@@ -279,20 +444,21 @@ async function generateSummary(article: Article, force: boolean = false) {
   const result = await generateSummaryComposable(article, displayContent.value, force);
 
   // Update the article summary in store for caching
-  if (result?.summary) {
+  if (result?.summary && result.source !== 'rss') {
     store.updateArticleSummary(article.id, result.summary);
   }
 
   // Set summary result
   summaryResult.value = result;
+  await translateSummary(result);
 }
 
 // Check if should auto-generate summary
 function shouldAutoGenerateSummary(): boolean {
   if (!summaryEnabled.value) return false;
 
-  // For local provider, always auto-generate
-  if (summaryProvider.value === 'local') return true;
+  // Local and RSS summaries are inexpensive and do not consume AI quota.
+  if (summaryProvider.value === 'local' || summaryProvider.value === 'rss') return true;
 
   // For AI provider, check trigger mode
   if (summaryProvider.value === 'ai') {
@@ -301,6 +467,21 @@ function shouldAutoGenerateSummary(): boolean {
 
   return false;
 }
+
+// Check if should wait for full content before generating summary
+// This returns true when:
+// 1. Summary uses AI with auto trigger mode, OR uses local algorithm
+// 2. AND "auto show all content" is enabled
+const shouldWaitForFullContentBeforeSummary = computed(() => {
+  if (!summaryEnabled.value) return false;
+
+  // Check if summary should be auto-generated
+  const shouldAutoGen = shouldAutoGenerateSummary();
+  if (!shouldAutoGen) return false;
+
+  // If summary is auto-generated and auto-expand content is enabled, wait for full content
+  return shouldAutoExpandContent.value;
+});
 
 // Translate title
 async function translateTitle(article: Article) {
@@ -312,17 +493,38 @@ async function translateTitle(article: Article) {
   isTranslatingTitle.value = false;
 }
 
+// Simple hash function for content (for detecting content changes)
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(36);
+}
+
 // Translate content paragraphs while preserving inline elements (formulas, code, images)
 async function translateContentParagraphs(content: string) {
-  if (!translationEnabled.value || !content) return;
+  if (!translationEnabled.value || !content) {
+    return;
+  }
 
-  // Prevent duplicate translations for the same article
-  if (lastTranslatedArticleId.value === props.article?.id) {
+  // Calculate content hash to detect if content has changed
+  const contentHash = simpleHash(content);
+
+  // Prevent duplicate translations for the same content
+  // Check both article ID and content hash to handle RSS content vs full content
+  if (
+    lastTranslatedArticleId.value === props.article?.id &&
+    lastTranslatedContentHash.value === contentHash
+  ) {
     return;
   }
 
   isTranslatingContent.value = true;
   lastTranslatedArticleId.value = props.article?.id || null;
+  lastTranslatedContentHash.value = contentHash;
 
   // Wait for content to render
   await nextTick();
@@ -337,6 +539,14 @@ async function translateContentParagraphs(content: string) {
   // Remove any existing translations first
   const existingTranslations = proseContainer.querySelectorAll('.translation-text');
   existingTranslations.forEach((el) => el.remove());
+
+  // Check if content is plain text (no HTML tags) and wrap it in <p> tags
+  // This handles cases where article content is stored as plain text without HTML structure
+  const hasHTMLTags = /<[^>]+>/.test(proseContainer.innerHTML);
+  if (!hasHTMLTags && proseContainer.textContent && proseContainer.textContent.trim().length > 0) {
+    const textContent = proseContainer.innerHTML;
+    proseContainer.innerHTML = `<p>${textContent}</p>`;
+  }
 
   // Find all translatable elements
   // For lists: translate individual li items, translation stays inside the same li
@@ -457,7 +667,9 @@ async function translateContentParagraphs(content: string) {
     const translatedText = translation.text;
 
     // Skip if translation is same as original or empty
-    if (!translatedText || translatedText === textWithPlaceholders) continue;
+    if (!translatedText || translatedText === textWithPlaceholders) {
+      continue;
+    }
 
     // Restore preserved elements and hyperlinks in the translated text
     const translatedHTML = restorePreservedElements(translatedText, preservedElements, hyperlinks);
@@ -504,15 +716,57 @@ async function translateContentParagraphs(content: string) {
 
   // Re-attach ALL event listeners after translation modifies the DOM
   // This includes unwrapping images from links, attaching image handlers, and link handlers
-  await reattachImageInteractions();
+  await reattachContentInteractions();
 
   isTranslatingContent.value = false;
 }
 
-async function reattachImageInteractions() {
-  if (!props.attachImageEventListeners || !props.articleContent) return;
+async function reattachContentInteractions() {
   await nextTick();
+  await reattachImageInteractions();
+  attachExternalLinkHandlers();
+}
+
+async function reattachImageInteractions() {
+  if (!props.attachImageEventListeners || !displayContent.value) return;
   props.attachImageEventListeners();
+}
+
+function resolveExternalHref(rawHref: string | null): string | null {
+  if (!rawHref || rawHref.startsWith('#')) return null;
+
+  try {
+    const url = props.article?.url ? new URL(rawHref, props.article.url) : new URL(rawHref);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function attachExternalLinkHandlers() {
+  const container = articleScrollContainer.value;
+  if (!container) return;
+
+  container.querySelectorAll<HTMLAnchorElement>('.prose-content a[href]').forEach((link) => {
+    if (link.dataset.externalBrowserHandlerAttached === 'true') return;
+    if (link.querySelector('img')) return;
+
+    link.dataset.externalBrowserHandlerAttached = 'true';
+    link.addEventListener(
+      'click',
+      (event: MouseEvent) => {
+        const href = resolveExternalHref(link.getAttribute('href'));
+        if (!href) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        void openInBrowser(href);
+      },
+      { capture: true }
+    );
+  });
 }
 
 // Clear text selection when clicking outside the selected content
@@ -555,17 +809,79 @@ function onAutoShowAllContentChanged(e: Event): void {
   autoShowAllContent.value = customEvent.detail.value;
 }
 
+// Handle summary settings change
+async function onSummarySettingsChanged(): Promise<void> {
+  // Reload summary settings to get the latest enabled state
+  await loadSummarySettings();
+
+  // Clear cached summary when settings change
+  if (props.article) {
+    summaryResult.value = null;
+    clearTranslatedSummary();
+    // Auto-generate summary if newly enabled
+    // But wait for full content if both conditions are met:
+    // 1. Summary uses AI auto trigger OR local algorithm
+    // 2. AND auto-show all content is enabled
+    if (shouldAutoGenerateSummary() && props.articleContent) {
+      if (!shouldWaitForFullContentBeforeSummary.value) {
+        setTimeout(() => generateSummary(props.article), 100);
+      }
+      // If we should wait for full content, and full content exists, generate summary now
+      else if (fullArticleContent.value) {
+        setTimeout(() => generateSummary(props.article), 100);
+      }
+      // If we should wait but full content doesn't exist yet,
+      // it will be generated after fetchFullArticle completes
+    }
+  }
+}
+
+// Re-translate the RSS summary when translation settings or the target language change.
+async function onTranslationSettingsChanged(): Promise<void> {
+  await loadTranslationSettings();
+  clearTranslatedSummary();
+
+  if (!props.article) return;
+
+  if (translationEnabled.value) {
+    translateTitle(props.article);
+    if (summaryResult.value) {
+      await translateSummary(summaryResult.value);
+    }
+    if (displayContent.value) {
+      lastTranslatedArticleId.value = null;
+      await nextTick();
+      translateContentParagraphs(displayContent.value);
+    }
+  } else {
+    translatedTitle.value = '';
+    lastTranslatedArticleId.value = null;
+  }
+}
+
 // Watch for article changes and regenerate summary + translations
 watch(
   () => props.article?.id,
   async (newId, oldId) => {
     if (newId !== oldId) {
+      if (oldId !== undefined) {
+        saveArticleScrollPosition(oldId);
+      }
+
+      // Scroll to top when switching articles
+      if (articleScrollContainer.value) {
+        articleScrollContainer.value.scrollTop = 0;
+      }
+      pendingScrollRestoreArticleId = newId ?? null;
+      pendingScrollRestoreAttempts = 0;
+
       // Cancel any ongoing summary generation for the previous article
       if (oldId !== undefined) {
         cancelSummaryGeneration(oldId);
       }
 
       summaryResult.value = null;
+      clearTranslatedSummary();
       translatedTitle.value = '';
       lastTranslatedArticleId.value = null; // Reset translation tracking
       fullArticleContent.value = ''; // Reset full article content when switching articles
@@ -580,11 +896,19 @@ watch(
           // Set summary result
           if (result) {
             summaryResult.value = result;
+            await translateSummary(result);
           }
         } else if (shouldAutoGenerateSummary()) {
           // Only auto-generate if no cached summary exists
-          setTimeout(() => generateSummary(props.article), 100);
+          // But wait for full content if both conditions are met:
+          // 1. Summary uses AI auto trigger OR local algorithm
+          // 2. AND auto-show all content is enabled
+          if (!shouldWaitForFullContentBeforeSummary.value) {
+            setTimeout(() => generateSummary(props.article), 100);
+          }
         }
+
+        await restorePendingArticleScrollPosition();
 
         // Translate title
         if (translationEnabled.value) {
@@ -595,54 +919,85 @@ watch(
   }
 );
 
-// Watch for content loading completion only
+// Watch for article content changes to trigger translation
+// This handles both cases:
+// 1. Content is loaded from cache (isLoadingContent never changes)
+// 2. Content is fetched and becomes available
 watch(
-  () => props.isLoadingContent,
-  async (isLoading, wasLoading) => {
-    if (wasLoading && !isLoading && props.article) {
-      // Enhance rendering first (math formulas, etc.)
+  () => [props.article?.id, props.articleContent, translationEnabled.value] as const,
+  async (newValue, oldValue) => {
+    const [newArticleId, newContent, newTranslationEnabled] = newValue || [
+      undefined,
+      undefined,
+      false,
+    ];
+    const [oldArticleId, oldContent, oldTranslationEnabled] = oldValue || [
+      undefined,
+      undefined,
+      false,
+    ];
+
+    // Trigger when:
+    // 1. Article changes AND content is present
+    // 2. Same article but content changes (from empty to loaded) AND translation is enabled
+    // 3. Translation setting changes from false to true AND content is present
+    const articleChanged = newArticleId !== oldArticleId;
+    const contentJustLoaded =
+      newArticleId && oldContent === '' && newContent && newContent !== oldContent;
+    const translationJustEnabled =
+      oldTranslationEnabled === false && newTranslationEnabled === true;
+
+    const shouldTrigger =
+      newContent && newArticleId && (articleChanged || contentJustLoaded || translationJustEnabled);
+
+    if (shouldTrigger) {
+      // Wait for DOM to update with the new content
       await nextTick();
+
+      // Enhance rendering first (math formulas, etc.)
       enhanceRendering('.prose-content');
 
-      // Re-attach image event listeners after rendering enhancements
-      await reattachImageInteractions();
+      // Re-attach image and link event listeners after rendering enhancements
+      await reattachContentInteractions();
+      await restorePendingArticleScrollPosition();
 
       // Auto-fetch full article if setting is enabled
-      if (shouldAutoExpandContent.value && !fullArticleContent.value) {
-        setTimeout(() => fetchFullArticle(), 200);
-      }
-
-      // Delay summary generation to prioritize content display
-      if (shouldAutoGenerateSummary()) {
-        setTimeout(() => generateSummary(props.article), 100);
-      }
-      if (translationEnabled.value && lastTranslatedArticleId.value !== props.article.id) {
-        await nextTick();
-        translateContentParagraphs(props.articleContent);
-      }
-    }
-  }
-);
-
-onMounted(async () => {
-  await loadSettings();
-  if (props.article) {
-    // Enhance rendering if content is already loaded
-    if (props.articleContent && !props.isLoadingContent) {
-      await nextTick();
-      enhanceRendering('.prose-content');
-      // Re-attach image event listeners after rendering
-      await reattachImageInteractions();
-
-      // Auto-fetch full article if setting is enabled and content is already loaded
+      // Don't auto-fetch if we're already fetching
       if (
         shouldAutoExpandContent.value &&
         !fullArticleContent.value &&
         !isFetchingFullArticle.value
       ) {
-        setTimeout(() => fetchFullArticle(), 200);
+        setTimeout(() => fetchFullArticle(false), 200);
+      }
+
+      // Generate summary if needed
+      // But wait for full content if both conditions are met:
+      // 1. Summary uses AI auto trigger OR local algorithm
+      // 2. AND auto-show all content is enabled
+      if (shouldAutoGenerateSummary()) {
+        // If we should wait for full content, don't generate summary here
+        // It will be generated after fetchFullArticle completes
+        if (!shouldWaitForFullContentBeforeSummary.value) {
+          setTimeout(() => generateSummary(props.article), 100);
+        }
+      }
+
+      // Translate content if enabled
+      if (newTranslationEnabled && lastTranslatedArticleId.value !== newArticleId) {
+        await nextTick();
+        translateContentParagraphs(newContent);
       }
     }
+  },
+  { immediate: true } // Run immediately on component mount
+);
+
+onMounted(async () => {
+  await loadSettings();
+  if (props.article) {
+    pendingScrollRestoreArticleId = props.article.id;
+    pendingScrollRestoreAttempts = 0;
 
     // Check for cached summary first
     if (props.article.summary && props.article.summary.trim() !== '') {
@@ -652,17 +1007,39 @@ onMounted(async () => {
       // Set summary result
       if (result) {
         summaryResult.value = result;
+        await translateSummary(result);
       }
     } else if (shouldAutoGenerateSummary() && props.articleContent) {
       // Only auto-generate if no cached summary exists
-      setTimeout(() => generateSummary(props.article), 100);
+      // But wait for full content if both conditions are met:
+      // 1. Summary uses AI auto trigger OR local algorithm
+      // 2. AND auto-show all content is enabled
+      if (!shouldWaitForFullContentBeforeSummary.value) {
+        setTimeout(() => generateSummary(props.article), 100);
+      }
     }
 
+    // Translate title
     if (translationEnabled.value) {
       translateTitle(props.article);
-      if (props.articleContent && !props.isLoadingContent) {
-        await nextTick();
-        translateContentParagraphs(props.articleContent);
+    }
+    // Content translation is handled by the watch on [article.id, articleContent]
+
+    // Enhance rendering if content is already loaded
+    if (props.articleContent && !props.isLoadingContent) {
+      await nextTick();
+      enhanceRendering('.prose-content');
+      // Re-attach image and link event listeners after rendering
+      await reattachContentInteractions();
+      await restorePendingArticleScrollPosition();
+
+      // Auto-fetch full article if setting is enabled and content is already loaded
+      if (
+        shouldAutoExpandContent.value &&
+        !fullArticleContent.value &&
+        !isFetchingFullArticle.value
+      ) {
+        setTimeout(() => fetchFullArticle(false), 200);
       }
     }
   }
@@ -675,14 +1052,33 @@ watch(
     if (content) {
       // Wait for v-html to update the DOM before attaching event listeners
       await nextTick();
-      await reattachImageInteractions();
+      await reattachContentInteractions();
+      await restorePendingArticleScrollPosition();
     }
   },
   { immediate: true }
 );
 
+// Watch for full article content changes and reattach event listeners
+// This is necessary because displayContent uses fullArticleContent when available,
+// but the watch above only monitors props.articleContent
+watch(fullArticleContent, async (content) => {
+  if (content) {
+    // Wait for v-html to update the DOM before attaching event listeners
+    await nextTick();
+    await reattachContentInteractions();
+    await restorePendingArticleScrollPosition();
+  }
+});
+
 // Clean up event listeners
 onBeforeUnmount(() => {
+  if (scrollSaveTimer) {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = null;
+  }
+  saveArticleScrollPosition();
+
   // Cancel any ongoing summary generation
   if (props.article?.id) {
     cancelSummaryGeneration(props.article.id);
@@ -692,75 +1088,99 @@ onBeforeUnmount(() => {
     'auto-show-all-content-changed',
     onAutoShowAllContentChanged as EventListener
   );
+
+  window.removeEventListener('summary-settings-changed', onSummarySettingsChanged as EventListener);
+  window.removeEventListener(
+    'translation-settings-changed',
+    onTranslationSettingsChanged as EventListener
+  );
 });
 </script>
 
 <template>
-  <div
-    class="flex-1 overflow-y-auto bg-bg-primary p-3 sm:p-6 scroll-smooth"
-    @click="handleContainerClick"
-  >
+  <div class="relative flex-1 overflow-hidden bg-bg-primary">
     <div
-      class="max-w-3xl mx-auto bg-bg-primary"
-      :class="{ 'hide-translations': !showTranslations }"
+      ref="articleScrollContainer"
+      class="h-full overflow-y-scroll p-3 sm:p-6 scroll-smooth"
+      @click="handleContainerClick"
+      @scroll="scheduleSaveArticleScrollPosition"
     >
-      <ArticleTitle
-        :article="article"
-        :translated-title="translatedTitle"
-        :is-translating-title="isTranslatingTitle"
-        :translation-enabled="translationEnabled"
-      />
+      <div
+        class="max-w-3xl mx-auto bg-bg-primary [container-type:inline-size]"
+        :class="{
+          'hide-translations': !showTranslations,
+          'translation-only-mode': translationSettings.translationOnlyMode,
+        }"
+      >
+        <ArticleTitle
+          :article="article"
+          :translated-title="translatedTitle"
+          :is-translating-title="isTranslatingTitle"
+          :translation-enabled="translationEnabled"
+          :translation-skipped="translationSkipped"
+          :is-translating-content="isTranslatingContent"
+          @force-translate="forceTranslateContent"
+        />
 
-      <!-- Audio Player (if article has audio) -->
-      <AudioPlayer
-        v-if="article.audio_url"
-        :audio-url="article.audio_url"
-        :article-title="article.title"
-      />
+        <!-- Audio Player (if article has audio) -->
+        <AudioPlayer
+          v-if="article.audio_url"
+          :audio-url="article.audio_url"
+          :article-title="article.title"
+        />
 
-      <!-- Video Player (if article has video) -->
-      <VideoPlayer
-        v-if="article.video_url"
-        :video-url="article.video_url"
-        :article-title="article.title"
-      />
+        <!-- Video Player (if article has video) -->
+        <VideoPlayer
+          v-if="article.video_url"
+          :video-url="article.video_url"
+          :article-title="article.title"
+        />
 
-      <ArticleSummary
-        :summary-result="summaryResult"
-        :is-loading-summary="isLoadingSummary"
-        :translation-enabled="translationEnabled"
-        :summary-provider="summaryProvider"
-        :summary-trigger-mode="summaryTriggerMode"
-        :is-loading-content="props.isLoadingContent"
-        @generate-summary="generateSummary(props.article, true)"
-      />
+        <ArticleSummary
+          v-if="summaryEnabled"
+          :summary-result="summaryResult"
+          :is-loading-summary="isLoadingSummary"
+          :translated-summary="translatedSummary"
+          :is-translating-summary="isTranslatingSummary"
+          :translation-enabled="translationEnabled"
+          :summary-provider="summaryProvider"
+          :summary-trigger-mode="summaryTriggerMode"
+          :is-loading-content="props.isLoadingContent"
+          @generate-summary="generateSummary(props.article, true)"
+        />
 
-      <ArticleLoading v-if="isLoadingContent" />
+        <ArticleBody
+          :article-content="displayContent"
+          :is-translating-content="isTranslatingContent"
+          :has-media-content="!!(article.audio_url || article.video_url)"
+          :is-loading-content="isLoadingContent"
+          @retry-load="handleRetryLoad"
+        />
 
-      <ArticleBody
-        v-else
-        :article-content="displayContent"
-        :is-translating-content="isTranslatingContent"
-        :has-media-content="!!(article.audio_url || article.video_url)"
-        :is-loading-content="isLoadingContent"
-        @retry-load="handleRetryLoad"
-      />
-
-      <!-- Full-text fetch button -->
-      <div v-if="showFullTextButton" class="flex justify-center mt-4 mb-4">
-        <button
-          :disabled="isFetchingFullArticle"
-          class="btn-secondary-compact flex items-center gap-1.5"
-          @click="fetchFullArticle"
-        >
-          <PhSpinnerGap v-if="isFetchingFullArticle" :size="12" class="animate-spin" />
-          <PhArticleNyTimes v-else :size="12" />
-          <span class="text-xs">{{
-            isFetchingFullArticle ? t('fetchingFullArticle') : t('fetchFullArticle')
-          }}</span>
-        </button>
+        <!-- Full-text fetch button -->
+        <div v-if="showFullTextButton" class="flex justify-center mt-4 mb-4">
+          <button
+            :disabled="isFetchingFullArticle"
+            class="btn-secondary-compact flex items-center gap-2"
+            @click="() => fetchFullArticle()"
+          >
+            <PhSpinnerGap v-if="isFetchingFullArticle" :size="14" class="animate-spin" />
+            <PhArticleNyTimes v-else :size="14" />
+            <span>{{
+              isFetchingFullArticle
+                ? t('article.action.fetchingFullArticle')
+                : t('article.action.fetchFullArticle')
+            }}</span>
+          </button>
+        </div>
       </div>
     </div>
+
+    <FloatingToc
+      :enabled="showFloatingToc"
+      :article-id="article.id"
+      :scroll-container="articleScrollContainer"
+    />
 
     <!-- Chat Button (shown when content is loaded and chat is enabled) -->
     <ArticleChatButton v-if="showChatButton && !isChatPanelOpen" @click="isChatPanelOpen = true" />
@@ -777,13 +1197,20 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-@reference "../../../../style.css";
-
+@reference "../../style.css";
 .btn-secondary {
   @apply bg-bg-tertiary border border-border text-text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-medium hover:bg-bg-secondary transition-colors;
 }
 
 .btn-secondary-compact {
-  @apply bg-bg-tertiary border border-border text-text-primary px-2 py-1 rounded cursor-pointer flex items-center gap-1.5 text-xs hover:bg-bg-secondary transition-colors opacity-70 hover:opacity-100;
+  @apply border border-border px-3 py-1.5 rounded-md cursor-pointer flex items-center gap-2 text-sm font-normal transition-all duration-200;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.btn-secondary-compact:hover {
+  opacity: 1;
+  color: var(--text-primary);
 }
 </style>

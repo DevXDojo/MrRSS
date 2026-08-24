@@ -2,27 +2,35 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
 	"MrRSS/internal/discovery"
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/models"
 )
 
 // HandleDiscoverAllFeeds discovers feeds from all subscriptions that haven't been discovered yet.
+// @Summary      Discover feeds from all subscriptions
+// @Description  Discover new blogs by analyzing friend links from all feeds that haven't been discovered yet
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "Discovery results (discovered_from, feeds_found, feeds)"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /discovery/all [post]
 func HandleDiscoverAllFeeds(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
 	// Get all feeds
 	feeds, err := h.DB.GetFeeds()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -42,7 +50,7 @@ func HandleDiscoverAllFeeds(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	}
 
 	if len(feedsToDiscover) == 0 {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"message":         "All feeds have already been discovered",
 			"discovered_from": 0,
 			"feeds_found":     0,
@@ -96,7 +104,7 @@ discoveryLoop:
 
 	log.Printf("Batch discovery complete: discovered %d feeds from %d sources", discoveredCount, len(feedsToDiscover))
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"discovered_from": len(feedsToDiscover),
 		"feeds_found":     discoveredCount,
 		"feeds":           allDiscovered,
@@ -104,9 +112,18 @@ discoveryLoop:
 }
 
 // HandleStartBatchDiscovery starts batch discovery in the background.
+// @Summary      Start batch discovery
+// @Description  Start an asynchronous blog discovery process for all undiscovered feeds
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Success      202  {object}  map[string]interface{}  "Discovery started (status, total)"
+// @Failure      409  {object}  map[string]string  "Batch discovery already in progress"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /discovery/batch/start [post]
 func HandleStartBatchDiscovery(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -114,7 +131,7 @@ func HandleStartBatchDiscovery(h *core.Handler, w http.ResponseWriter, r *http.R
 	h.DiscoveryMu.Lock()
 	if h.BatchDiscoveryState != nil && h.BatchDiscoveryState.IsRunning {
 		h.DiscoveryMu.Unlock()
-		http.Error(w, "Batch discovery already in progress", http.StatusConflict)
+		response.Error(w, fmt.Errorf("batch discovery already in progress"), http.StatusConflict)
 		return
 	}
 
@@ -137,7 +154,7 @@ func HandleStartBatchDiscovery(h *core.Handler, w http.ResponseWriter, r *http.R
 		h.BatchDiscoveryState.IsComplete = true
 		h.BatchDiscoveryState.Error = err.Error()
 		h.DiscoveryMu.Unlock()
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -163,7 +180,7 @@ func HandleStartBatchDiscovery(h *core.Handler, w http.ResponseWriter, r *http.R
 		h.BatchDiscoveryState.Progress.Message = "All feeds have already been discovered"
 		h.DiscoveryMu.Unlock()
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		response.JSON(w, map[string]interface{}{
 			"status":  "complete",
 			"message": "All feeds have already been discovered",
 		})
@@ -280,16 +297,23 @@ func HandleStartBatchDiscovery(h *core.Handler, w http.ResponseWriter, r *http.R
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSON(w, map[string]interface{}{
 		"status": "started",
 		"total":  len(feedsToDiscover),
 	})
 }
 
 // HandleGetBatchDiscoveryProgress returns the current progress of batch discovery.
+// @Summary      Get batch discovery progress
+// @Description  Get the current progress and status of the batch discovery operation
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  core.DiscoveryState  "Discovery state (is_running, is_complete, progress, feeds, error)"
+// @Router       /discovery/batch/progress [get]
 func HandleGetBatchDiscoveryProgress(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -298,20 +322,27 @@ func HandleGetBatchDiscoveryProgress(h *core.Handler, w http.ResponseWriter, r *
 	h.DiscoveryMu.RUnlock()
 
 	if state == nil {
-		json.NewEncoder(w).Encode(&core.DiscoveryState{
+		response.JSON(w, &core.DiscoveryState{
 			IsRunning:  false,
 			IsComplete: false,
 		})
 		return
 	}
 
-	json.NewEncoder(w).Encode(state)
+	response.JSON(w, state)
 }
 
 // HandleClearBatchDiscovery clears the batch discovery state.
+// @Summary      Clear batch discovery state
+// @Description  Clear the current batch discovery state and results
+// @Tags         discovery
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]string  "Clear status (status)"
+// @Router       /discovery/batch/clear [post]
 func HandleClearBatchDiscovery(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -320,5 +351,5 @@ func HandleClearBatchDiscovery(h *core.Handler, w http.ResponseWriter, r *http.R
 	h.DiscoveryMu.Unlock()
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "cleared"})
+	response.JSON(w, map[string]string{"status": "cleared"})
 }

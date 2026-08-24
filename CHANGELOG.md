@@ -5,6 +5,341 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.27] - 2026-08-22
+
+### Added
+
+- Exposed the desktop REST API to local integrations on `127.0.0.1:1234`, with loopback and cross-origin request protections. (#1022)
+
+### Changed
+
+- Changed the icon and banner for the desktop application to reflect the new branding.
+- Updated go version to 1.27.
+
+### Fixed
+
+- Flush a pending debounced settings save when a settings tab unmounts. (#1011) (@marcomarcogd)
+- Render the download progress value already tracked by the update flow and passed to `UpdateAvailableDialog`. (#1010) (@marcomarcogd)
+- Keep the scrollable activity-bar navigation aligned with the fixed logo and bottom actions in macOS WKWebView. (#1008) (@marcomarcogd)
+- Sign and strictly verify the completed macOS app bundle before creating a DMG. (#1009) (@marcomarcogd)
+- Fixed the Manage Tags dialog when the tag database is empty. (#1016) (@marcomarcogd)
+- Preserve protected articles during manual cleanup. (#1006) (@marcomarcogd)
+
+## [1.3.26] - 2026-08-16
+
+### Added
+
+- Added configurable interface typography settings for application fonts and sizes while preserving article content typography. (@marcomarcogd)
+- Supported translation of article summarys. (#983)
+
+### Changed
+
+- Updated backend and frontend dependencies, including Wails v3 beta and Tailwind CSS 4.
+- Standardized article and image gallery icons for favorites, copy link, and opening articles in the browser. (#980)
+
+### Fixed
+
+- Fixed the first-fetched timestamp for articles without a publication date. (@cos-y)
+- Fixed switching away from card article layout without redundant per-article settings requests. (#974, #987, #988) (@marcomarcogd)
+- Fixed article content mismatches for feed entries without links. (#999) (@marcomarcogd)
+- Fixed activity bar icons not being centered consistently. (#975)
+- Fixed Windows shortcut modifier labels and replaced the unset shortcut dash with a clear placeholder. (#976, #977)
+- Fixed the mark-all-as-read shortcut so it respects the current feed/category, uses the same confirmation dialog as the toolbar, and handles uncategorized feeds correctly. (#978)
+- Fixed article context menu ordering and renamed the original-content action to "View Original". (#979)
+
+## [1.3.25] - 2026-07-19
+
+### Added
+
+- Added a downloadable Codex skill package for operating MrRSS through the local API.
+
+### Fixed
+
+- Fixed Linux release builds by upgrading Wails v3 to the latest alpha and installing GTK4/WebKitGTK 6.0 build dependencies.
+- Fixed sidebar scrollbars so they stay hidden until the sidebar is hovered or focused. (#465)
+- Fixed summary card layout jumps by reserving space before automatic summary generation starts. (#654)
+- Fixed the image gallery "view article" action so it opens the selected article in the regular reader. (#572)
+- Fixed image-mode feeds and categories switching regular article views into the image gallery. (#568)
+- Added a shortcut from the article feed name back to that feed in the regular article list. (#561)
+- Added per-article reading position restoration when reopening articles. (#445)
+
+### Changed
+
+- Updated release automation to publish `MrRSS-<version>-skills.zip` as a release asset.
+
+## [1.3.24] - 2026-07-19
+
+### Added
+
+- Added targeted refresh actions for the current article, feed, and category. (#555, #594)
+- Added keyboard shortcuts for toggling unread, favorites, and read-later article filters. (#590)
+- Added support for using RSS-provided summaries directly. (#910)
+- Added per-feed refresh interval support and Turkish translation options. (#695, #902)
+- Added controls to disable update notifications and open article links in the system browser. (#801, #903)
+
+### Changed
+
+- Updated Go, frontend, website, and GitHub Actions dependencies for the release branch.
+
+### Fixed
+
+- Fixed database cleanup and refresh regressions that caused existing articles to be fetched again, lose cached data, or reappear after cleanup. (#802, #904, #946) (@rogeryk)
+- Fixed repeated feed refresh behavior, unread filtering, bulk selection, and duplicate feed handling. (#562, #619, #669, #826, #873, #896, #917)
+- Fixed FreshRSS-synced feeds remaining after the FreshRSS integration is disabled. (#797)
+- Fixed lazy-loaded article images, XML encoding detection, proxy usage during full-text fetching, and content loading states for article rendering. (#655, #804, #853, #875, #876)
+- Fixed RSSHub route query preservation and subscription failures for some feeds. (#631, #894)
+- Fixed AI and translation provider compatibility issues, including Tencent, LibreTranslate, DeepSeek, Ollama, and newsletter sender handling. (#750, #911, #912, #919, #920, #942) (@atoz03)
+- Fixed window state and close behavior issues on macOS. (#643, #716, #770, #913)
+- Fixed compact/card layout visual jumps during initial settings load. (#663)
+
+## [1.3.23] - 2026-03-26
+
+### Fixed
+
+- Resolved OPML import failure for self-exported feedURL attributes. (#781) (@kv-chiu)
+
+## [1.3.22] - 2026-03-07
+
+**BREAKING**: The logic operator precedence for filter conditions and rules has been standardized to `NOT` > `AND` > `OR`. This means that `NOT` conditions will be evaluated first, followed by `AND`, and then `OR`. Please review your existing filters and rules to ensure they behave as expected with this precedence.
+
+### Added
+
+- Supported floating TOC feature for articles. (@MidnightCrowing)
+- Supported Miniflux format OPML import. (#768)
+- Supported displaying Youtube and Bilibili video in multimedia gallery view.
+
+### Changed
+
+- Optimized RSSHub connection handling to improve performance and reliability.
+- Changed evaluation methods for filter conditions and added logic precedence tips in filter and rule modals. (#756)
+
+### Fixed
+
+- Fixed an issue where the advanced settings for a RSSHub feed can not be saved correctly.
+- Enhanced FetchAll to skip feeds with custom refresh intervals. (#774)
+- Resolved multiple minor styling inconsistencies. (#751, #752, #753, #755)
+
+## [1.3.21] - 2026-02-27
+
+### Added
+
+- Added support for additional translation providers. (#690)
+- Enabled exporting to Zotero. (#735)
+- Enhanced error messages for feed refresh failures in the settings page. (#518)
+- Introduced an option to mark all articles as read from the bottom of the article list. (#667)
+
+### Changed
+
+- Refactored the dropdown input component to improve usability and added search functionality. (#697)
+
+### Fixed
+
+- Removed leaked thinking content from AI translation results. (@MidnightCrowing)
+- Fixed a bug where rules might not apply correctly in certain scenarios. (#698)
+- Resolved multiple minor styling inconsistencies. (#510, #648, #650, #697)
+
+## [1.3.20] - 2026-02-13
+
+### Changed
+
+- Disabled closing the pop-up window by clicking on the background to prevent accidental closures.
+
+### Fixed
+
+- Fixed multiple minor styling inconsistencies. (#402, #407, #428, #646, #648, #649, #651, #665, #666, #668) (@RUBisco0211)
+- Fixed an issue where the rule addition/editing modal could not be closed. (#647)
+- Fixed an issue where some input fields would revert to their previous values after being cleared. (#689)
+- Fixed an issue where the "Read Later" feature did not function correctly in the card layout. (#662)
+- Fixed an issue where the image gallery could not adjust the number of columns based on the window width. (#652)
+
+## [1.3.19] - 2026-02-07
+
+**NOTE:** After the update, AI-related settings may require reconfiguration due to conflicts introduced by new features.
+
+### Refactored
+
+- Enhanced the tip box and image gallery components for improved consistency and maintainability.
+
+### Added
+
+- Introduced support for multiple AI profiles and configuration management. (#439)
+- Implemented Notion integration for direct article export to Notion pages. (#625)
+- Added the ability to hide and show the activity bar. (#588)
+- Introduced a "show only unread" filter for the image gallery. (#559)
+- Added additional filter conditions for article lists and automatic rules. (#642)
+
+### Changed
+
+- Enabled auto-refresh upon feed updates. (#639)
+- Enforced caching for cover images in the image gallery. (#500)
+
+### Fixed
+
+- Ensured summary generation awaits full content when applicable. (#629)
+- Prevented layout overflow caused by lengthy content. (#574)
+- Resolved styling issues in the image gallery view. (#573)
+- Fixed multiple minor styling inconsistencies. (#578, #585, #624, #645)
+
+### Removed
+
+- Removed path auto‑completion in the AI handler. (#640)
+
+## [1.3.18] - 2026-01-29
+
+### Refactored
+
+- Refactored all popup windows and context menus for improved consistency and maintainability. (#582)
+
+### Added
+
+- Added AI-powered article search functionality. (#248)
+- Added support for saving custom filters. (#223)
+- Implemented feed tagging for better organization. (#545)
+- Added batch operations to the feed list for efficient management. (#593)
+- Added card layout view option for the article list. (#592)
+
+### Changed
+
+- Added confirmation dialog when bulk-marking articles as read to prevent accidental actions. (#560)
+- Thumbnail previews now display in compact mode when enabled. (#589)
+- Update checks detect firewall-related connectivity issues for users in mainland China. (#621)
+
+### Fixed
+
+- Fixed missing default title assignment when articles lack a title. (#566)
+- Fixed multiple minor styling inconsistencies. (#569, #584, #579)
+- Fixed styling issues in the image gallery view. (#571, #581)
+- Fixed layout shift in list width after navigating to the settings page. (#575)
+- Fixed HTTP headers being blocked by Cloudflare for some requests. (#620)
+- Fixed broken images in article content caused by incorrect referrer headers. (#597)
+- Fixed issue preventing the article summary from being closed. (#591)
+- Fixed synchronization errors with FreshRSS. (#598, #600)
+- Fixed HTML character encoding issues in the image gallery view. (#596)
+- Improved filter-by-category performance by adding a missing database index. (#570)
+- Implemented IMAP ID command support for enhanced client identification. (#602)
+
+## [1.3.17] - 2026-01-24
+
+### Refactored
+
+- Refactored the settings page and i18n system for improved maintainability and extensibility.
+- Upgraded the Wails version and corresponding Go dependencies.
+
+### Added
+
+- Added support for thumbnail images in the gallery view for easier navigation. (#495)
+- Added the ability to filter images by category in the gallery view. (#487, #490)
+- Added support for translation between Traditional and Simplified Chinese. (#511)
+- Added the ability to copy images to the clipboard. (#515)
+- Enhanced the styling and user experience of the gallery mode. (#520)
+- Added support for customizing typography styles. (#488)
+- Added the ability to mark items above or below as read. (#390, #524)
+- Changed the default behavior to open links in an external browser. (#551)
+- Added the ability to jump to a specific feed by clicking on it in the settings page. (#548)
+- Added support for displaying multiple authors in a single feed. (#554)
+
+### Changed
+
+- Changed the checkbox checked indicator from an asterisk to a checkmark. (#507)
+- Improved the feed list in the settings page for better usability. (#498)
+- Made the protocol optional when adding or editing feeds. (#502)
+- Improved the performance of article content search. (#509)
+- Optimized the styling of compact mode. (#488, #504)
+
+### Fixed
+
+- Fixed multiple minor styling issues. (#492, #493, #494, #496, #503, #505, #506, #510, #516, #517, #519, #521, #522, #523, #550)
+- Fixed an issue where plain text could not be translated correctly. (#511, #514)
+- Fixed an issue where the reading status did not update correctly in gallery mode.
+- Fixed an issue where translation occurred even when the feature was disabled. (#541)
+- Fixed an issue where custom headers could accept non-ASCII characters. (#549)
+
+## [1.3.16] - 2026-01-15
+
+### Added
+
+- Added compact mode for article list to reduce visual clutter. (#403)
+- Enhanced image gallery with multi‑image support and improved navigation. (#457)
+- Added support for Anthropic and DeepSeek AI services.
+- Added option to hide text overlay in image gallery view. (#486)
+- Added indication for feeds using image gallery mode in feed list. (#485)
+- Added ability to customize translation service endpoint. (#383)
+- Added option to disable automatic feed refresh. (#448)
+- Added option to display translated text only (hide original). (#464)
+
+### Changed
+
+- Documents now open in the default browser with added multi‑language support. (#458)
+- Import/export no longer shows error messages when no file is selected. (#483)
+- Articles with >60% target language content are no longer translated to reduce API usage.
+
+### Fixed
+
+- Fixed conflict between left/right arrow shortcuts and input fields. (#454)
+- Fixed article list not scrolling automatically when switching articles. (#451)
+- Fixed minor styling issues. (#452, #456, #453, #484)
+- Fixed display of future publish times for some articles.
+- Fixed summary generation not respecting language settings. (#480)
+- Fixed Gemini API integration. (#459)
+- Fixed automatic application updates occurring without user confirmation. (#479)
+- Fixed intermittent FreshRSS synchronization failures. (#460)
+- Fixed view mode reset when switching between articles and images. (#432)
+- Fixed XPath feed parsing in certain cases. (#479)
+
+### Refactored
+
+- Refactored sidebar, settings, and summary components for improved maintainability and performance. (#461, #466)
+
+## [1.3.15] - 2026-01-11
+
+### Changed
+
+- Reduced the size of binary files by optimizing lingua-go import. (#450)
+
+### Fixed
+
+- Fixed an issue where the old database can not be migrated correctly in some cases.
+
+## [1.3.14] - 2026-01-10
+
+### Added
+
+- Supported better reverse proxy for website display. (#414)
+- Supported RSSHub feed type for better integration with RSSHub instances. (#176, #302) (@cry0404)
+- Supported a statistics tab in the settings modal to view usage statistics over time.
+- Supported manually sorting rules for advanced users. (#398)
+- Supported Gemini service API. (#437)
+- Supported language detection to reduce unnecessary translation requests. (#410)
+- Added error messages for feeds that fail to refresh. (#429)
+- Supported buttons to switch to previous/next articles in the article detail view. (#357)
+- Supported -10s and +10s skip buttons in the audio player. (#395)
+
+### Changed
+
+- Cached thumbnail images in the article list to avoid disappearing after restarting the application. (#423)
+- Improved the performance of article list rendering.
+- Prevented the article content viewer from closing when clicking the same article again. (#434)
+
+### Fixed
+
+- Fixed an issue where URLs were not trimmed correctly when adding or editing feeds. (#413)
+- Fixed an issue where the summary could not be regenerated after the article content changed. (#412)
+- Fixed some minor style issues. (#396, #397, #402, #407, #425, #428, #430, #443, #449)
+- Fixed an issue where the image gallery view showed only 2 columns. (#399)
+- Fixed an issue where left and right click actions did not work correctly in the feeds list. (#394)
+- Fixed an issue where feeds could not be dragged into collapsed categories. (#394)
+- Fixed an issue where links could not be opened in the default browser after extracting the full article content. (#409)
+- Fixed an issue where duplicate feeds could be added. (#401)
+- Fixed an issue where the article list got stuck in some cases. (#422)
+- Fixed an issue where the sidebar width would shrink when feed titles were short. (#433)
+- Fixed an issue where the image viewer could not be closed automatically after switching articles or feeds. (#431)
+- Fixed an issue where AI summaries were always regenerated in English or were not accurate enough. (#424, #438)
+- Fixed an issue where FreshRSS synchronization failed for feeds in some cases. (#440)
+- Fixed an issue where translation failures caused many toast notifications. (#436)
+- Fixed an issue where FreshRSS articles could not display thumbnail images correctly. (#446)
+
+**Special Thanks** to @EnterMan123 for carefully testing and reporting many of these issues!
+
 ## [1.3.13] - 2026-01-03
 
 **BREAKING**: The FreshRSS synchronization feature has been significantly enhanced, offering more options and improved reliability. You may need to remove and re-add your FreshRSS feeds after upgrading.
@@ -694,7 +1029,7 @@ MrRSS follows [Semantic Versioning](https://semver.org/):
 
 ### Download
 
-Downloads for all platforms are available on the [GitHub Releases](https://github.com/WCY-dt/MrRSS/releases) page.
+Downloads for all platforms are available on the [GitHub Releases](https://github.com/DevXDojo/MrRSS/releases) page.
 
 ### Upgrade Notes
 
@@ -706,6 +1041,6 @@ When upgrading from a previous version:
 
 ### Support
 
-- Report bugs: [GitHub Issues](https://github.com/WCY-dt/MrRSS/issues)
-- Feature requests: [GitHub Issues](https://github.com/WCY-dt/MrRSS/issues)
+- Report bugs: [GitHub Issues](https://github.com/DevXDojo/MrRSS/issues)
+- Feature requests: [GitHub Issues](https://github.com/DevXDojo/MrRSS/issues)
 - Documentation: [README](README.md)

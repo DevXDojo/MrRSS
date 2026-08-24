@@ -405,18 +405,6 @@ func (c *Client) GetStreamContents(ctx context.Context, streamID string, exclude
 	}, nil
 }
 
-// GetUnreadArticles retrieves unread articles (deprecated, use GetStreamContents instead)
-// Kept for backward compatibility
-func (c *Client) GetUnreadArticles(ctx context.Context, maxItems int) ([]Article, error) {
-	// Exclude read articles to get only unread ones
-	result, err := c.GetStreamContents(ctx, "user/-/state/com.google/reading-list",
-		[]string{TagRead}, maxItems, "")
-	if err != nil {
-		return nil, err
-	}
-	return result.Items, nil
-}
-
 // System tags for Google Reader API
 const (
 	TagRead    = "user/-/state/com.google/read"
@@ -646,10 +634,12 @@ func (s *SyncService) Sync(ctx context.Context) error {
 	}
 
 	// Get unread articles from FreshRSS
-	freshArticles, err := s.client.GetUnreadArticles(ctx, 100) // Get up to 100 unread articles
+	result, err := s.client.GetStreamContents(ctx, "user/-/state/com.google/reading-list",
+		[]string{TagRead}, 100, "") // Get up to 100 unread articles
 	if err != nil {
 		return fmt.Errorf("get unread articles: %w", err)
 	}
+	freshArticles := result.Items
 
 	// Create or get FreshRSS feed for synced articles
 	freshRSSFeedID, err := s.getOrCreateFreshRSSFeed()

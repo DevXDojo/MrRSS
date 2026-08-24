@@ -3,15 +3,15 @@ import FeedFormModal from './FeedFormModal.vue';
 
 const emit = defineEmits<{
   close: [];
-  added: [];
+  added: [feedId?: number];
 }>();
 
 function handleClose() {
   emit('close');
 }
 
-function handleAdded() {
-  emit('added');
+function handleAdded(feedId?: number) {
+  emit('added', feedId);
 }
 </script>
 

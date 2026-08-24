@@ -91,7 +91,7 @@ function handleImageError(event: Event): void {
         <div v-if="feed.recent_articles && feed.recent_articles.length > 0" class="mt-3">
           <p class="text-xs font-semibold text-text-secondary mb-2 flex items-center gap-1">
             <PhRss :size="12" />
-            {{ t('recentArticles') }}
+            {{ t('sidebar.feedList.recentArticles') }}
           </p>
           <div class="space-y-1.5">
             <div

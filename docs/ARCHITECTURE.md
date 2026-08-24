@@ -1,13 +1,32 @@
 # MrRSS Architecture Documentation
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Backend Architecture](#backend-architecture)
+- [Frontend Architecture](#frontend-architecture)
+- [Communication Flow](#communication-flow)
+- [Data Flow](#data-flow)
+- [Security Considerations](#security-considerations)
+- [Performance Optimizations](#performance-optimizations)
+- [Related Documentation](#related-documentation)
+
 ## Overview
 
 MrRSS is built with a modern, modular architecture using:
 
-- **Backend**: Go 1.24+ with Wails v3 (alpha) framework
+- **Backend**: Go 1.27+ with Wails v3 (beta) framework
 - **Frontend**: Vue 3.5+ Composition API with TypeScript
 - **Database**: SQLite with pure Go implementation (`modernc.org/sqlite`)
 - **Communication**: HTTP REST API (not Wails bindings)
+
+### Key Design Principles
+
+1. **Privacy-First**: All data stored locally, no external analytics
+2. **Performance-Optimized**: Concurrent processing, intelligent caching, WAL mode SQLite
+3. **Modular Architecture**: Feature-based organization, clear separation of concerns
+4. **Schema-Driven Configuration**: JSON schema-driven settings system with code generation
+5. **Hybrid Communication**: HTTP API for data, Wails bindings for system integration
 
 ## Backend Architecture
 
@@ -17,16 +36,26 @@ Handlers are organized by feature domains in `internal/handlers/`:
 
 ```plaintext
 handlers/
-├── core/          # Core handler initialization and scheduling
+├── ai/            # AI configuration test and AI search
 ├── article/       # Article CRUD and filtering
-├── feed/          # Feed management
+├── browser/       # URL opening in browser
+├── chat/          # AI chat sessions and messages
+├── core/          # Core handler initialization and scheduling
+├── custom_css/    # Custom CSS management
 ├── discovery/     # Feed discovery
+├── feed/          # Feed management
+├── filter_category/  # Saved filters management
+├── freshrss/      # FreshRSS synchronization
 ├── media/         # Media handling (images, audio, video)
+├── network/       # Network detection
 ├── opml/          # OPML import/export
+├── rsshub/        # RSSHub integration
 ├── rules/         # Filtering rules
 ├── script/        # Custom script execution
 ├── settings/      # Settings management
+├── statistics/    # Usage statistics
 ├── summary/       # Article summarization
+├── tags/          # Tag management
 ├── translation/   # Translation services
 ├── update/        # Application updates
 └── window/        # Window management
@@ -340,3 +369,244 @@ func (h *Handler) GetArticles(w http.ResponseWriter, r *http.Request) {
 - [Code Patterns](CODE_PATTERNS.md) - Common coding patterns and examples
 - [Testing Guide](TESTING.md) - Testing strategies and examples
 - [Custom Scripts](CUSTOM_SCRIPTS.md) - Guide for writing custom feed scripts
+- [Settings Guide](SETTINGS.md) - Settings system documentation
+- [Build Requirements](BUILD_REQUIREMENTS.md) - Platform-specific build dependencies
+
+## Advanced Features
+
+### AI-Powered Summarization
+
+MrRSS supports two types of summarization:
+
+#### Local Summarization (Offline)
+
+- **TF-IDF Algorithm**: Calculates term importance across articles
+- **TextRank Algorithm**: Ranks sentences based on importance
+- **Combined Scoring**: 0.5 TF-IDF + 0.5 TextRank for balanced results
+- **No API Required**: Works completely offline
+- **Smart Sentence Selection**: Preserves narrative flow and coherence
+
+#### AI Summarization (Cloud)
+
+- **OpenAI-Compatible APIs**: Supports GPT, Claude, Gemini, etc.
+- **Configurable Endpoint**: Self-hosted or commercial APIs
+- **Token-Efficient Prompts**: Optimized for cost-effectiveness
+- **Smart Caching**: Avoids redundant API calls
+
+### Smart Translation System
+
+#### Translation Services
+
+1. **Google Translate** (free, no API key required)
+2. **DeepL API** (high quality, requires API key)
+3. **Baidu Translation** (Chinese language optimized)
+4. **AI-Based Translation** (uses configured AI endpoint)
+
+#### Caching Strategy
+
+- **Translation Cache**: Stores all translations in database
+- **Automatic Cache Invalidation**: Smart cache management
+- **Performance**: Significant speed improvement for repeated content
+
+### Feed Discovery Engine
+
+#### Discovery Methods
+
+1. **URL-Based Discovery**: Extract feeds from any website URL
+2. **Batch Discovery**: Process multiple URLs concurrently
+3. **Friend Links Discovery**: Crawl friend links for feed discovery
+4. **HTML Parsing**: Intelligent RSS link detection
+
+#### Discovery Features
+
+- **Real-Time Progress**: Track discovery status
+- **Deduplication**: Automatic duplicate detection
+- **Validation**: Verify feeds before adding
+- **Concurrent Processing**: Fast batch operations
+
+### Custom Script System
+
+#### Supported Script Types
+
+- **Python** (`.py`) - Cross-platform
+- **Shell** (`.sh`) - Linux/macOS only
+- **PowerShell** (`.ps1`) - Windows only
+- **Node.js** (`.js`) - Cross-platform
+- **Ruby** (`.rb`) - Cross-platform
+
+#### Script Execution Security
+
+- **Path Validation**: Prevents directory traversal
+- **Timeout Enforcement**: 30-second limit per script
+- **Working Directory Restriction**: Scripts run in isolated folder
+- **No Shell Concatenation**: Safe command execution
+- **Error Capture**: Comprehensive stderr logging
+
+### Filtering Rules Engine
+
+#### Rule Structure
+
+```
+IF [condition] THEN [action]
+```
+
+#### Conditions
+
+- Feed matches
+- Title contains
+- Content contains
+- Author matches
+- Tag matches
+
+#### Actions
+
+- Mark as read/unread
+- Mark as favorite/unfavorite
+- Hide/show
+- Set tag
+- Apply label
+
+### Email Newsletter Integration
+
+#### IMAP Support
+
+- **Connection**: Secure IMAP connections
+- **Folder Selection**: Choose specific folders to monitor
+- **Conversion**: Emails converted to feed articles
+- **Attachments**: Handles email attachments
+
+### XPath Scraping
+
+For websites without RSS feeds:
+
+- **XPath Selector**: Target specific content elements
+- **Content Extraction**: Clean article content
+- **Automatic Detection**: Smart content area detection
+- **Fallback Strategies**: Multiple extraction methods
+
+### Image Gallery Mode
+
+#### Visual Browsing
+
+- **Image Extraction**: Pulls images from articles
+- **Thumbnail Generation**: Creates optimized thumbnails
+- **Gallery View**: Grid-based visual interface
+- **Full-Screen Viewer**: Immersive image viewing
+
+### FreshRSS Synchronization
+
+#### Sync Features
+
+- **Bidirectional Sync**: Articles and subscriptions
+- **Conflict Resolution**: Intelligent merge strategies
+- **Progress Tracking**: Monitor sync status
+- **Error Recovery**: Handles network failures gracefully
+
+## Database Optimization
+
+### Performance Features
+
+#### WAL Mode
+
+- **Write-Ahead Logging**: Better concurrent access
+- **Read Performance**: Unblocked reads during writes
+- **Crash Recovery**: Automatic recovery from crashes
+
+#### Indexing Strategy
+
+```sql
+-- Performance indexes
+CREATE INDEX idx_articles_feed_id ON articles(feed_id);
+CREATE INDEX idx_articles_published_at ON articles(published_at DESC);
+CREATE INDEX idx_articles_is_read ON articles(is_read);
+CREATE INDEX idx_articles_is_favorite ON articles(is_favorite);
+CREATE INDEX idx_articles_hidden ON articles(is_hidden);
+```
+
+#### Prepared Statements
+
+- **Query Caching**: Prepared statements cached and reused
+- **SQL Injection Prevention**: Automatic parameter escaping
+- **Performance**: Faster query execution
+
+#### Connection Pooling
+
+- **Single Connection**: Efficient connection management
+- **Mutex Protection**: Thread-safe access
+- **WAL Mode**: Enables concurrent reads
+
+### Cleanup Strategy
+
+#### Smart Article Retention
+
+- **Favorites Preservation**: Never deletes favorited articles
+- **Per-Feed Limits**: Configurable article limits (default: 15,000)
+- **Age-Based Cleanup**: Remove articles older than X days
+- **Automatic VACUUM**: Reclaim disk space
+
+## Frontend Architecture Details
+
+### Component Communication Patterns
+
+#### Props vs Events
+
+**Best Practice**: Use props for data down, events for actions up
+
+```vue
+<!-- Parent -->
+<ChildComponent
+  :data="parentData"
+  @update="handleUpdate"
+/>
+
+<!-- Child -->
+<script setup>
+defineProps<{ data: Type }>()
+const emit = defineEmits<{ update: [value: Type] }>()
+</script>
+```
+
+#### Store Communication
+
+**For Cross-Component State**: Use Pinia store
+
+```typescript
+// Access store
+const store = useAppStore()
+
+// Read state
+const articles = computed(() => store.articles)
+
+// Update state
+store.loadArticles()
+```
+
+### Multimedia Support
+
+#### Image Handling
+
+- **Lazy Loading**: Images load as needed
+- **Click to View**: Opens in image viewer
+- **Context Menu**: Right-click for options
+- **Download Support**: Save images locally
+- **Proxy Caching**: Cached media proxy
+
+#### Audio/Video Support
+
+- **HTML5 Players**: Native browser support
+- **Responsive Sizing**: Adapts to content
+- **Custom Styling**: Branded player appearance
+- **Keyboard Controls**: Space to play/pause
+
+#### Math Rendering
+
+- **KaTeX Integration**: Fast math rendering
+- **Inline Math**: `$E = mc^2$`
+- **Block Math**: `$$ \int_0^\infty e^{-x^2} dx $$`
+
+#### Code Highlighting
+
+- **highlight.js**: Syntax highlighting
+- **Auto-Detection**: Language detection
+- **Dark Mode**: Theme-aware highlighting
+- **Copy Button**: Easy code copying

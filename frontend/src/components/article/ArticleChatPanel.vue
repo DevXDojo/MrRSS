@@ -112,7 +112,7 @@ async function createNewSession() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         article_id: props.article.id,
-        title: t('newChat'),
+        title: t('article.chat.newChat'),
       }),
     });
 
@@ -132,8 +132,8 @@ async function createNewSession() {
 async function deleteSession(sessionId: number, e: Event) {
   e.stopPropagation();
   const confirmed = await window.showConfirm({
-    title: t('confirm'),
-    message: t('confirmDeleteSession'),
+    title: t('common.confirm'),
+    message: t('article.chat.confirmDeleteSession'),
     isDanger: true,
   });
   if (!confirmed) return;
@@ -287,12 +287,23 @@ async function sendMessage() {
       const errorText = await response.text();
       console.error('AI chat error response:', response.status, errorText);
 
-      let errorMessage = t('aiChatError');
+      let errorMessage = t('article.chat.aiChatError');
       try {
         const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error || errorData || t('aiChatError');
+        // Extract error message from various possible formats
+        if (typeof errorData.error === 'string') {
+          errorMessage = errorData.error;
+        } else if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else {
+          errorMessage = t('article.chat.aiChatError');
+        }
       } catch {
-        errorMessage = errorText || t('aiChatError');
+        errorMessage = errorText || t('article.chat.aiChatError');
       }
 
       messages.value.push({
@@ -307,7 +318,7 @@ async function sendMessage() {
     messages.value.push({
       id: 0,
       role: 'assistant',
-      content: t('aiChatError'),
+      content: t('article.chat.aiChatError'),
       created_at: new Date().toISOString(),
     });
   } finally {
@@ -333,9 +344,9 @@ function handleKeydown(e: KeyboardEvent) {
 const currentSessionTitle = computed(() => {
   if (currentSessionId.value) {
     const session = sessions.value.find((s) => s.id === currentSessionId.value);
-    return session?.title || t('aiChat');
+    return session?.title || t('article.chat.aiChat');
   }
-  return t('aiChat');
+  return t('article.chat.aiChat');
 });
 </script>
 
@@ -345,7 +356,7 @@ const currentSessionTitle = computed(() => {
       <div
         v-if="isOpen"
         ref="panelElement"
-        class="chat-panel fixed bottom-4 right-4 md:bottom-6 md:right-6 w-[500px] h-[600px] bg-bg-primary border border-border rounded-xl shadow-2xl flex flex-col z-50"
+        class="chat-panel fixed bottom-10 right-4 md:bottom-14 md:right-6 w-[500px] h-[600px] bg-bg-primary border border-border rounded-xl shadow-2xl flex flex-col z-50"
         :class="{ 'select-none': isResizing }"
       >
         <!-- Header -->
@@ -356,7 +367,7 @@ const currentSessionTitle = computed(() => {
             <PhChatCircleText :size="20" class="text-accent" />
             <button
               class="flex items-center gap-1 text-sm font-medium hover:text-accent transition-colors"
-              :title="t('switchSession')"
+              :title="t('article.chat.switchSession')"
               @click="showSessions = !showSessions"
             >
               <span>{{ currentSessionTitle }}</span>
@@ -366,14 +377,14 @@ const currentSessionTitle = computed(() => {
           <div class="flex items-center gap-1">
             <button
               class="p-1 hover:bg-bg-tertiary rounded-lg transition-colors"
-              :title="t('newChat')"
+              :title="t('article.chat.newChat')"
               @click="createNewSession"
             >
               <PhPlus :size="18" class="text-text-secondary" />
             </button>
             <button
               class="p-1 hover:bg-bg-tertiary rounded-lg transition-colors"
-              :title="t('close')"
+              :title="t('common.close')"
               @click="emit('close')"
             >
               <PhX :size="18" class="text-text-secondary" />
@@ -440,7 +451,7 @@ const currentSessionTitle = computed(() => {
                 v-if="sessions.length === 0"
                 class="text-center text-text-secondary text-sm py-4"
               >
-                {{ t('noSessions') }}
+                {{ t('article.chat.noSessions') }}
               </div>
             </div>
           </div>
@@ -452,7 +463,7 @@ const currentSessionTitle = computed(() => {
             v-if="messages.length === 0"
             class="flex items-center justify-center h-full text-text-secondary text-sm"
           >
-            {{ t('aiChatWelcome') }}
+            {{ t('article.chat.aiChatWelcome') }}
           </div>
           <div
             v-for="(msg, index) in messages"
@@ -473,7 +484,7 @@ const currentSessionTitle = computed(() => {
               >
                 <div class="font-bold mb-1 flex items-center gap-1">
                   <PhSpinner :size="12" class="animate-spin" />
-                  {{ t('thinking') }}
+                  {{ t('article.chat.thinking') }}
                 </div>
                 <div class="whitespace-pre-wrap">{{ msg.thinking }}</div>
               </div>
@@ -499,7 +510,7 @@ const currentSessionTitle = computed(() => {
             <input
               v-model="inputMessage"
               type="text"
-              :placeholder="t('aiChatInputPlaceholder')"
+              :placeholder="t('article.chat.aiChatInputPlaceholder')"
               class="flex-1 px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-sm focus:outline-none focus:border-accent"
               :disabled="isLoading"
               @keydown="handleKeydown"

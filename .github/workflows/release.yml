@@ -18,7 +18,7 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
       tag: ${{ steps.get_version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -104,7 +104,7 @@ jobs:
           echo "==============================="
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           name: MrRSS ${{ steps.get_version.outputs.tag }}
@@ -112,6 +112,38 @@ jobs:
           draft: false
           prerelease: ${{ steps.get_version.outputs.is_prerelease == 'true' }}
           make_latest: ${{ steps.get_version.outputs.is_prerelease == 'false' }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  package-skills:
+    name: Package Skills
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.create-release.outputs.tag }}
+
+      - name: Validate generated skill API reference
+        run: |
+          python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
+          git diff --exit-code skills/mrrss-assistant/references/api.md
+
+      - name: Package MrRSS skills
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          mkdir -p build/skills
+          cd skills
+          zip -r "../build/skills/MrRSS-${VERSION}-skills.zip" mrrss-assistant
+          cd ..
+          unzip -t "build/skills/MrRSS-${VERSION}-skills.zip"
+
+      - name: Upload Skills Release Asset
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: build/skills/MrRSS-${{ needs.create-release.outputs.version }}-skills.zip
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build-release:
@@ -170,7 +202,7 @@ jobs:
           #   build_condition: 'wails_v3_only'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.create-release.outputs.tag }}
 
@@ -234,19 +266,19 @@ jobs:
 
       - name: Set up Go
         if: steps.check_artifacts.outputs.skip_build == 'false'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.24'
+          go-version: '1.27'
 
       - name: Set up Node.js
         if: steps.check_artifacts.outputs.skip_build == 'false'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Task (task runner)
         if: steps.check_artifacts.outputs.skip_build == 'false'
-        uses: arduino/setup-task@v2
+        uses: arduino/setup-task@v3
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -256,34 +288,36 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev \
             libsoup-3.0-dev \
             gcc \
             pkg-config \
             wget \
             file
 
-          # Verify webkit2gtk-4.1 is properly installed
-          pkg-config --modversion webkit2gtk-4.1 || exit 1
-          echo "webkit2gtk-4.1 installed successfully for Wails v3"
+          # Verify GTK4/WebKitGTK 6.0 are available for current Wails v3
+          pkg-config --modversion gtk4 || exit 1
+          pkg-config --modversion webkitgtk-6.0 || exit 1
+          echo "GTK4 and WebKitGTK 6.0 installed successfully for Wails v3"
 
       - name: Install Linux dependencies (ARM64)
         if: steps.check_artifacts.outputs.skip_build == 'false' && matrix.platform == 'linux' && matrix.arch == 'arm64'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev \
             libsoup-3.0-dev \
             gcc \
             pkg-config \
             wget \
             file
 
-          # Verify webkit2gtk-4.1 is properly installed
-          pkg-config --modversion webkit2gtk-4.1 || exit 1
-          echo "webkit2gtk-4.1 installed successfully for Wails v3 ARM64"
+          # Verify GTK4/WebKitGTK 6.0 are available for current Wails v3
+          pkg-config --modversion gtk4 || exit 1
+          pkg-config --modversion webkitgtk-6.0 || exit 1
+          echo "GTK4 and WebKitGTK 6.0 installed successfully for Wails v3 ARM64"
 
       - name: Install Windows dependencies (AMD64)
         if: steps.check_artifacts.outputs.skip_build == 'false' && matrix.platform == 'windows' && matrix.arch == 'amd64'
@@ -301,7 +335,10 @@ jobs:
       - name: Install Wails CLI
         if: steps.check_artifacts.outputs.skip_build == 'false'
         shell: bash
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        run: |
+          WAILS_VERSION=$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)
+          echo "Installing Wails CLI ${WAILS_VERSION}"
+          go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
 
       - name: Install frontend dependencies
         if: steps.check_artifacts.outputs.skip_build == 'false'
@@ -433,7 +470,7 @@ jobs:
 
           To run: Double-click MrRSS.exe
 
-          For more information, visit: https://github.com/WCY-dt/MrRSS
+          For more information, visit: https://github.com/DevXDojo/MrRSS
           "@ | Out-File -FilePath "$portableDir/README.txt" -Encoding UTF8
 
           # Create zip file
@@ -464,9 +501,13 @@ jobs:
       - name: Create installer (macOS)
         if: steps.check_artifacts.outputs.skip_build == 'false' && matrix.platform == 'darwin'
         run: |
+          codesign --deep --force --verify --verbose \
+            --sign - \
+            --entitlements build/darwin/entitlements.plist \
+            build/bin/MrRSS.app
+          codesign --verify --deep --strict --verbose=2 build/bin/MrRSS.app
           chmod +x build/darwin/create-dmg.sh
           ./build/darwin/create-dmg.sh
-        continue-on-error: true
 
       - name: Create portable package (macOS)
         if: steps.check_artifacts.outputs.skip_build == 'false' && matrix.platform == 'darwin'
@@ -493,7 +534,7 @@ jobs:
 
           To run: Double-click MrRSS.app
 
-          For more information, visit: https://github.com/WCY-dt/MrRSS
+          For more information, visit: https://github.com/DevXDojo/MrRSS
           EOF
 
           # Create zip file
@@ -540,7 +581,7 @@ jobs:
 
           To run: ./MrRSS
 
-          For more information, visit: https://github.com/WCY-dt/MrRSS
+          For more information, visit: https://github.com/DevXDojo/MrRSS
           EOF
 
           # Create tar.gz file
@@ -598,7 +639,7 @@ jobs:
 
       - name: Upload Release Assets
         if: steps.check_artifacts.outputs.skip_build == 'false'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
           files: |

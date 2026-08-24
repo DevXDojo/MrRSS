@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { PhYoutubeLogo } from '@phosphor-icons/vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { PhYoutubeLogo, PhPlayCircle } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
+import { isYouTubeUrl } from '@/utils/youtube';
+import { isBilibiliUrl } from '@/utils/bilibili';
 
 interface Props {
   videoUrl: string;
@@ -15,20 +17,54 @@ const { t } = useI18n();
 const iframeRef = ref<HTMLIFrameElement | null>(null);
 const isLoading = ref(true);
 
+// Check if this is a YouTube video
+const isYouTube = computed(() => isYouTubeUrl(props.videoUrl));
+
+// Check if this is a Bilibili video
+const isBilibili = computed(() => isBilibiliUrl(props.videoUrl));
+
+// Get video platform name
+const videoPlatform = computed(() => {
+  if (isYouTube.value) return 'YouTube';
+  if (isBilibili.value) return 'Bilibili';
+  return 'Video';
+});
+
+// Get video platform icon color
+const iconColor = computed(() => {
+  if (isYouTube.value) return 'text-red-600';
+  if (isBilibili.value) return 'text-pink-600';
+  return 'text-accent';
+});
+
 function onLoad() {
   isLoading.value = false;
 }
 
 function onError() {
   isLoading.value = false;
-  window.showToast(t('videoLoadError'), 'error');
+  window.showToast(t('article.videoPlayer.videoLoadError'), 'error');
 }
 
 // Open video in new tab
 function openInNewTab() {
-  // Convert embed URL back to watch URL
-  const watchURL = props.videoUrl.replace('/embed/', '/watch?v=');
-  window.open(watchURL, '_blank');
+  if (isYouTube.value) {
+    // Convert embed URL back to watch URL
+    const watchURL = props.videoUrl.replace('/embed/', '/watch?v=');
+    window.open(watchURL, '_blank');
+  } else if (isBilibili.value) {
+    // For Bilibili, the video_url is already the iframe URL
+    // Extract BVID and open the watch page
+    const bvidMatch = props.videoUrl.match(/bvid=([A-Za-z0-9]+)/);
+    if (bvidMatch && bvidMatch[1]) {
+      window.open(`https://www.bilibili.com/video/${bvidMatch[1]}`, '_blank');
+    } else {
+      // Fallback: open the video_url as-is
+      window.open(props.videoUrl, '_blank');
+    }
+  } else {
+    window.open(props.videoUrl, '_blank');
+  }
 }
 
 onMounted(() => {
@@ -51,15 +87,18 @@ onUnmounted(() => {
     <!-- Header -->
     <div class="flex items-center justify-between p-3 border-b border-border">
       <div class="flex items-center gap-2">
-        <PhYoutubeLogo :size="20" class="text-red-600 flex-shrink-0" />
-        <span class="text-sm font-medium text-text-primary">{{ t('youtubeVideo') }}</span>
+        <PhYoutubeLogo v-if="isYouTube" :size="20" :class="iconColor + ' flex-shrink-0'" />
+        <PhPlayCircle v-else-if="isBilibili" :size="20" :class="iconColor + ' flex-shrink-0'" />
+        <span class="text-sm font-medium text-text-primary">{{
+          t('article.videoPlayer.videoPlayer', { platform: videoPlatform })
+        }}</span>
       </div>
       <button
         class="text-xs text-accent hover:underline"
-        :title="t('openInYouTube')"
+        :title="t('article.videoPlayer.openInPlatform', { platform: videoPlatform })"
         @click="openInNewTab"
       >
-        {{ t('openInYouTube') }}
+        {{ t('article.videoPlayer.openInPlatform', { platform: videoPlatform }) }}
       </button>
     </div>
 
@@ -81,6 +120,9 @@ onUnmounted(() => {
           web-share;
         "
         allowfullscreen
+        :sandbox="
+          isBilibili ? 'allow-forms allow-scripts allow-same-origin allow-presentation' : undefined
+        "
       />
 
       <!-- Loading indicator -->

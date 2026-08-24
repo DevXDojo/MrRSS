@@ -25,9 +25,10 @@ export function useSidebar() {
   const openCategories: Ref<Set<string>> = ref(
     savedCategories ? new Set(JSON.parse(savedCategories)) : new Set()
   );
+
   const searchQuery: Ref<string> = ref('');
 
-  // Build category tree with search filtering
+  // Build category tree with search filtering and filter-specific filtering
   const tree = computed<TreeData>(() => {
     const t: Record<string, TreeNode> = {};
     const uncategorized: Feed[] = [];
@@ -37,6 +38,16 @@ export function useSidebar() {
 
     const query = searchQuery.value.toLowerCase().trim();
 
+    // Determine which filter counts to use based on currentFilter
+    const currentFilterType = store.currentFilter;
+    const filterTypeMap: Record<string, string> = {
+      unread: 'unread',
+      favorites: 'favorites',
+      readLater: 'read_later',
+      imageGallery: 'images',
+    };
+    const filterKey = filterTypeMap[currentFilterType] || '';
+
     store.feeds.forEach((feed: Feed) => {
       const matchesSearch =
         query === '' ||
@@ -44,6 +55,12 @@ export function useSidebar() {
         feed.url.toLowerCase().includes(query);
 
       if (!matchesSearch) return;
+
+      // Filter by currentFilter if applicable
+      if (currentFilterType && filterKey) {
+        const feedCount = store.filterCounts[filterKey]?.[feed.id] || 0;
+        if (feedCount === 0) return;
+      }
 
       if (feed.category) {
         const parts = feed.category.split('/');
@@ -69,14 +86,35 @@ export function useSidebar() {
     return { tree: t, uncategorized, categories };
   });
 
-  // Compute unread counts for categories
+  // Compute unread counts for categories based on current filter
   const categoryUnreadCounts = computed<Record<string, number>>(() => {
     const counts: Record<string, number> = {};
     if (!store.feeds || !store.unreadCounts.feedCounts) return counts;
 
+    // Determine which counts to use based on current filter
+    let countsSource: Record<number | string, number>;
+    switch (store.currentFilter) {
+      case 'favorites':
+        countsSource = store.filterCounts.favorites_unread;
+        break;
+      case 'readLater':
+        countsSource = store.filterCounts.read_later_unread;
+        break;
+      case 'unread':
+        countsSource = store.filterCounts.unread;
+        break;
+      case 'imageGallery':
+        countsSource = store.filterCounts.images_unread;
+        break;
+      default:
+        // For 'all' or empty filter, use regular unread counts
+        countsSource = store.unreadCounts.feedCounts;
+        break;
+    }
+
     store.feeds.forEach((feed: Feed) => {
       if (feed.category) {
-        const unreadCount = store.unreadCounts.feedCounts[feed.id] || 0;
+        const unreadCount = countsSource[feed.id] || 0;
         if (unreadCount > 0) {
           counts[feed.category] = (counts[feed.category] || 0) + unreadCount;
         }
@@ -86,10 +124,30 @@ export function useSidebar() {
     // Calculate uncategorized count
     const uncategorizedFeeds = store.feeds.filter((f) => !f.category);
     counts['uncategorized'] = uncategorizedFeeds.reduce((sum, feed) => {
-      return sum + (store.unreadCounts.feedCounts[feed.id] || 0);
+      return sum + (countsSource[feed.id] || 0);
     }, 0);
 
     return counts;
+  });
+
+  // Compute feed unread counts based on current filter (for displaying on individual feeds)
+  const feedUnreadCounts = computed<Record<number, number>>(() => {
+    if (!store.feeds) return {};
+
+    // Determine which counts to use based on current filter
+    switch (store.currentFilter) {
+      case 'favorites':
+        return store.filterCounts.favorites_unread;
+      case 'readLater':
+        return store.filterCounts.read_later_unread;
+      case 'unread':
+        return store.filterCounts.unread;
+      case 'imageGallery':
+        return store.filterCounts.images_unread;
+      default:
+        // For 'all' or empty filter, use regular unread counts
+        return store.unreadCounts.feedCounts;
+    }
   });
 
   // Auto-expand new categories only if no saved state exists
@@ -149,10 +207,10 @@ export function useSidebar() {
   async function handleFeedAction(action: string, feed: Feed): Promise<void> {
     if (action === 'markAllRead') {
       await store.markAllAsRead(feed.id);
-      window.showToast(t('markedAllAsRead'), 'success');
+      window.showToast(t('article.action.markedAllAsRead'), 'success');
     } else if (action === 'refreshFeed') {
       await fetch(`/api/feeds/refresh?id=${feed.id}`, { method: 'POST' });
-      window.showToast(t('feedRefreshStarted'), 'success');
+      window.showToast(t('modal.feed.feedRefreshStarted'), 'success');
       // Start polling for progress as the backend is now fetching articles for this feed
       store.pollProgress();
     } else if (action === 'syncFeed') {
@@ -160,27 +218,77 @@ export function useSidebar() {
       await fetch(`/api/freshrss/sync-feed?stream_id=${feed.freshrss_stream_id}`, {
         method: 'POST',
       });
-      window.showToast(t('syncFeedStarted'), 'success');
+      window.showToast(t('modal.feed.syncFeedStarted'), 'success');
       // Start polling for progress
       store.pollProgress();
     } else if (action === 'delete') {
       const confirmed = await window.showConfirm({
-        title: t('unsubscribeTitle'),
-        message: t('unsubscribeMessage', { name: feed.title }),
-        confirmText: t('unsubscribe'),
-        cancelText: t('cancel'),
+        title: t('modal.feed.unsubscribeTitle'),
+        message: t('modal.feed.unsubscribeMessage', { name: feed.title }),
+        confirmText: t('common.action.unsubscribe'),
+        cancelText: t('common.action.cancel'),
         isDanger: true,
       });
       if (confirmed) {
         await fetch(`/api/feeds/delete?id=${feed.id}`, { method: 'POST' });
         store.fetchFeeds();
-        window.showToast(t('unsubscribedSuccess'), 'success');
+        window.showToast(t('modal.feed.unsubscribedSuccess'), 'success');
       }
     } else if (action === 'edit') {
       window.dispatchEvent(new CustomEvent('show-edit-feed', { detail: feed }));
     } else if (action === 'openWebsite') {
-      const urlToOpen = feed.website_url || feed.url;
-      openInBrowser(urlToOpen);
+      // Handle RSSHub URLs - need to transform rsshub:// to full URL
+      let urlToOpen = feed.website_url || feed.url;
+      if (urlToOpen.startsWith('rsshub://')) {
+        try {
+          const response = await fetch('/api/rsshub/transform-url', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ url: urlToOpen }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.url && (data.url.startsWith('http://') || data.url.startsWith('https://'))) {
+              urlToOpen = data.url;
+            } else {
+              // Invalid transformed URL
+              window.showToast(
+                t('common.errors.failedToTransformRSSHubURL') || 'Failed to transform RSSHub URL',
+                'error'
+              );
+              return;
+            }
+          } else {
+            // Transformation failed - try to get error message from response
+            let errorMessage =
+              t('common.errors.failedToTransformRSSHubURL') || 'Failed to transform RSSHub URL';
+            try {
+              const errorText = await response.text();
+              if (errorText) {
+                errorMessage = errorText;
+              }
+            } catch (e) {
+              // Ignore error reading response
+            }
+            window.showToast(errorMessage, 'error');
+            return;
+          }
+        } catch (error) {
+          window.showToast(
+            t('common.errors.failedToTransformRSSHubURL') || 'Failed to transform RSSHub URL',
+            'error'
+          );
+          return;
+        }
+      }
+      // Only open if URL is http/https (not rsshub://)
+      if (urlToOpen.startsWith('http://') || urlToOpen.startsWith('https://')) {
+        openInBrowser(urlToOpen);
+      } else {
+        window.showToast(t('common.errors.invalidURLScheme') || 'Invalid URL scheme', 'error');
+      }
     } else if (action === 'discover') {
       window.dispatchEvent(new CustomEvent('show-discover-blogs', { detail: feed }));
     }
@@ -192,34 +300,55 @@ export function useSidebar() {
 
     // Build menu items dynamically based on whether this is a FreshRSS feed
     const items: Array<{
-      label: string;
-      action: string;
-      icon: string;
+      label?: string;
+      action?: string;
+      icon?: string;
       separator?: boolean;
       danger?: boolean;
     }> = [];
 
     // For FreshRSS feeds, show "Sync Feed" instead of "Refresh Feed"
     if (feed.is_freshrss_source) {
-      items.push({ label: t('syncFeed'), action: 'syncFeed', icon: 'PhArrowsClockwise' });
+      items.push({
+        label: t('modal.feed.syncFeed'),
+        action: 'syncFeed',
+        icon: 'PhArrowsClockwise',
+      });
     } else {
-      items.push({ label: t('refreshFeed'), action: 'refreshFeed', icon: 'PhArrowsClockwise' });
+      items.push({
+        label: t('article.action.refreshFeed'),
+        action: 'refreshFeed',
+        icon: 'PhArrowsClockwise',
+      });
     }
 
-    items.push({ label: t('markAllAsReadFeed'), action: 'markAllRead', icon: 'PhCheckCircle' });
+    items.push({
+      label: t('article.action.markAllAsReadFeed'),
+      action: 'markAllRead',
+      icon: 'PhCheckCircle',
+    });
     items.push({ separator: true });
-    items.push({ label: t('openWebsite'), action: 'openWebsite', icon: 'PhGlobe' });
+    items.push({ label: t('common.action.openWebsite'), action: 'openWebsite', icon: 'PhGlobe' });
 
     // Only add discover for non-FreshRSS feeds
     if (!feed.is_freshrss_source) {
-      items.push({ label: t('discoverFeeds'), action: 'discover', icon: 'PhBinoculars' });
+      items.push({
+        label: t('modal.discovery.discoverFeeds'),
+        action: 'discover',
+        icon: 'PhBinoculars',
+      });
     }
 
     // Only add edit and delete options for non-FreshRSS feeds
     if (!feed.is_freshrss_source) {
       items.push({ separator: true });
-      items.push({ label: t('editSubscription'), action: 'edit', icon: 'PhPencil' });
-      items.push({ label: t('unsubscribe'), action: 'delete', icon: 'PhTrash', danger: true });
+      items.push({ label: t('modal.feed.editSubscription'), action: 'edit', icon: 'PhPencil' });
+      items.push({
+        label: t('common.action.unsubscribe'),
+        action: 'delete',
+        icon: 'PhTrash',
+        danger: true,
+      });
     }
 
     window.dispatchEvent(
@@ -244,14 +373,14 @@ export function useSidebar() {
         method: 'POST',
       });
       store.fetchUnreadCounts();
-      window.showToast(t('markedAllAsRead'), 'success');
+      window.showToast(t('article.action.markedAllAsRead'), 'success');
     } else if (action === 'rename') {
       const newName = await window.showInput({
-        title: t('renameCategory'),
-        message: t('enterCategoryName'),
+        title: t('modal.feed.renameCategory'),
+        message: t('modal.feed.enterCategoryName'),
         defaultValue: categoryName,
-        confirmText: t('confirm'),
-        cancelText: t('cancel'),
+        confirmText: t('common.action.confirm'),
+        cancelText: t('common.action.cancel'),
       });
       if (newName && newName !== categoryName) {
         const feedsToUpdate = store.feeds.filter(
@@ -289,12 +418,16 @@ export function useSidebar() {
     e.stopPropagation();
 
     const items: Array<{ label?: string; action?: string; icon?: string; separator?: boolean }> = [
-      { label: t('markAllAsReadFeed'), action: 'markAllRead', icon: 'ph-check-circle' },
+      {
+        label: t('article.action.markAllAsReadFeed'),
+        action: 'markAllRead',
+        icon: 'ph-check-circle',
+      },
     ];
 
     if (categoryName !== 'uncategorized') {
       items.push({ separator: true });
-      items.push({ label: t('renameCategory'), action: 'rename', icon: 'ph-pencil' });
+      items.push({ label: t('modal.feed.renameCategory'), action: 'rename', icon: 'ph-pencil' });
     }
 
     window.dispatchEvent(
@@ -310,14 +443,54 @@ export function useSidebar() {
     );
   }
 
+  // Expand category containing a specific feed
+  function expandCategoryForFeed(feedId: number): void {
+    const feed = store.feeds?.find((f) => f.id === feedId);
+    if (feed?.category) {
+      // Expand the feed's category
+      if (!openCategories.value.has(feed.category)) {
+        openCategories.value.add(feed.category);
+      }
+      // Also expand all parent categories
+      const parts = feed.category.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        const parentPath = parts.slice(0, i).join('/');
+        if (!openCategories.value.has(parentPath)) {
+          openCategories.value.add(parentPath);
+        }
+      }
+      // Trigger reactivity by creating a new Set
+      const newSet = new Set(openCategories.value);
+      openCategories.value = newSet;
+      // Save to localStorage
+      localStorage.setItem('openCategories', JSON.stringify([...openCategories.value]));
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('categories-expanded'));
+    } else if (feed && !feed.category) {
+      // Expand uncategorized category
+      if (!openCategories.value.has('uncategorized')) {
+        openCategories.value.add('uncategorized');
+        // Trigger reactivity by creating a new Set
+        const newSet = new Set(openCategories.value);
+        openCategories.value = newSet;
+        // Save to localStorage
+        localStorage.setItem('openCategories', JSON.stringify([...openCategories.value]));
+        // Dispatch event to notify other components
+        window.dispatchEvent(new CustomEvent('categories-expanded'));
+      }
+    }
+  }
+
   return {
     tree,
     categoryUnreadCounts,
+    feedUnreadCounts,
     openCategories,
     searchQuery,
     toggleCategory,
     isCategoryOpen,
     onFeedContextMenu,
     onCategoryContextMenu,
+    expandCategoryForFeed,
   };
 }

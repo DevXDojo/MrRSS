@@ -24,8 +24,9 @@ func TestHandleOPMLImport_RawBody(t *testing.T) {
 </opml>`
 
 	// Use a real fetcher that writes to an in-memory DB (ImportSubscription uses DB.AddFeed)
+	// Use unique shared cache database name to avoid test interference
 	db := func() *database.DB {
-		db, err := database.NewDB(":memory:")
+		db, err := database.NewDB("file:TestHandleOPMLImport_RawBody?mode=memory&cache=shared")
 		if err != nil {
 			t.Fatalf("failed to create db: %v", err)
 		}
@@ -35,7 +36,7 @@ func TestHandleOPMLImport_RawBody(t *testing.T) {
 		return db
 	}()
 
-	f := feed.NewFetcher(db, nil)
+	f := feed.NewFetcher(db)
 	h := &corepkg.Handler{DB: db, Fetcher: f}
 
 	req := httptest.NewRequest(http.MethodPost, "/opml/import", strings.NewReader(xmlData))
@@ -55,6 +56,10 @@ func TestHandleOPMLImport_RawBody(t *testing.T) {
 	if len(feeds) != 2 {
 		t.Fatalf("expected 2 feeds in DB, got %d", len(feeds))
 	}
+
+	// Stop background tasks to prevent interference with other tests
+	f.GetTaskManager().Stop()
+	f.GetCleanupManager().Stop()
 }
 
 func TestHandleOPMLImport_XPathFeed(t *testing.T) {
@@ -67,8 +72,9 @@ func TestHandleOPMLImport_XPathFeed(t *testing.T) {
 </opml>`
 
 	// Use a real fetcher that writes to an in-memory DB
+	// Use unique shared cache database name to avoid test interference
 	db := func() *database.DB {
-		db, err := database.NewDB(":memory:")
+		db, err := database.NewDB("file:TestHandleOPMLImport_XPathFeed?mode=memory&cache=shared")
 		if err != nil {
 			t.Fatalf("failed to create db: %v", err)
 		}
@@ -78,7 +84,7 @@ func TestHandleOPMLImport_XPathFeed(t *testing.T) {
 		return db
 	}()
 
-	f := feed.NewFetcher(db, nil)
+	f := feed.NewFetcher(db)
 	h := &corepkg.Handler{DB: db, Fetcher: f}
 
 	req := httptest.NewRequest(http.MethodPost, "/opml/import", strings.NewReader(xmlData))
@@ -112,11 +118,16 @@ func TestHandleOPMLImport_XPathFeed(t *testing.T) {
 	if feed.XPathItemTimeFormat != "2006-01" {
 		t.Errorf("expected XPathItemTimeFormat '2006-01', got '%s'", feed.XPathItemTimeFormat)
 	}
+
+	// Stop background tasks to prevent interference with other tests
+	f.GetTaskManager().Stop()
+	f.GetCleanupManager().Stop()
 }
 
 func TestHandleOPMLExport(t *testing.T) {
+	// Use unique shared cache database name to avoid test interference
 	db := func() *database.DB {
-		db, err := database.NewDB(":memory:")
+		db, err := database.NewDB("file:TestHandleOPMLExport?mode=memory&cache=shared")
 		if err != nil {
 			t.Fatalf("failed to create db: %v", err)
 		}

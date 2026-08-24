@@ -2,24 +2,43 @@ package database
 
 import (
 	"database/sql"
-	"strings"
 	"time"
 
 	"MrRSS/internal/models"
 )
 
-// parseDateTimeForSQL converts Go time format to SQLite-compatible format
-// Input: "2025-12-31 14:19:21 +0000 UTC" -> Output: "2025-12-31 14:19:21"
-func parseDateTimeForSQL(timeStr string) string {
-	if timeStr == "" {
-		return ""
-	}
-	// Split by space and take first two parts (date and time)
-	parts := strings.Split(timeStr, " ")
-	if len(parts) >= 2 {
-		return parts[0] + " " + parts[1]
-	}
-	return timeStr
+// FeedUpdateOptions contains optional fields for updating a feed.
+// Only non-nil fields will be updated in the database.
+type FeedUpdateOptions struct {
+	Title               *string
+	URL                 *string
+	Category            *string
+	ScriptPath          *string
+	Position            *int
+	HideFromTimeline    *bool
+	ProxyURL            *string
+	ProxyEnabled        *bool
+	RefreshInterval     *int
+	IsImageMode         *bool
+	Type                *string
+	XPathItem           *string
+	XPathItemTitle      *string
+	XPathItemContent    *string
+	XPathItemUri        *string
+	XPathItemAuthor     *string
+	XPathItemTimestamp  *string
+	XPathItemTimeFormat *string
+	XPathItemThumbnail  *string
+	XPathItemCategories *string
+	XPathItemUid        *string
+	ArticleViewMode     *string
+	AutoExpandContent   *string
+	EmailAddress        *string
+	EmailIMAPServer     *string
+	EmailUsername       *string
+	EmailPassword       *string
+	EmailFolder         *string
+	EmailIMAPPort       *int
 }
 
 // AddFeed adds a new feed or updates an existing one.
@@ -380,18 +399,226 @@ func (db *DB) GetAllFeedURLs() (map[string]bool, error) {
 	return urls, rows.Err()
 }
 
-// UpdateFeed updates feed title, URL, category, script_path, hide_from_timeline, proxy settings, refresh_interval, is_image_mode, XPath fields, article_view_mode, auto_expand_content, and email settings.
-func (db *DB) UpdateFeed(id int64, title, url, category, scriptPath string, hideFromTimeline bool, proxyURL string, proxyEnabled bool, refreshInterval int, isImageMode bool, feedType string, xpathItem, xpathItemTitle, xpathItemContent, xpathItemUri, xpathItemAuthor, xpathItemTimestamp, xpathItemTimeFormat, xpathItemThumbnail, xpathItemCategories, xpathItemUid, articleViewMode, autoExpandContent, emailAddress, emailIMAPServer, emailUsername, emailPassword, emailFolder string, emailIMAPPort int) error {
+// UpdateFeedWithOptions updates a feed using the provided options.
+// Only non-nil fields in opts will be updated.
+func (db *DB) UpdateFeedWithOptions(id int64, opts FeedUpdateOptions) error {
 	db.WaitForReady()
-	_, err := db.Exec("UPDATE feeds SET title = ?, url = ?, category = ?, script_path = ?, hide_from_timeline = ?, proxy_url = ?, proxy_enabled = ?, refresh_interval = ?, is_image_mode = ?, type = ?, xpath_item = ?, xpath_item_title = ?, xpath_item_content = ?, xpath_item_uri = ?, xpath_item_author = ?, xpath_item_timestamp = ?, xpath_item_time_format = ?, xpath_item_thumbnail = ?, xpath_item_categories = ?, xpath_item_uid = ?, article_view_mode = ?, auto_expand_content = ?, email_address = ?, email_imap_server = ?, email_imap_port = ?, email_username = ?, email_password = ?, email_folder = ? WHERE id = ?", title, url, category, scriptPath, hideFromTimeline, proxyURL, proxyEnabled, refreshInterval, isImageMode, feedType, xpathItem, xpathItemTitle, xpathItemContent, xpathItemUri, xpathItemAuthor, xpathItemTimestamp, xpathItemTimeFormat, xpathItemThumbnail, xpathItemCategories, xpathItemUid, articleViewMode, autoExpandContent, emailAddress, emailIMAPServer, emailIMAPPort, emailUsername, emailPassword, emailFolder, id)
+
+	// Build SET clause dynamically based on non-nil options
+	setParts := []string{}
+	args := []interface{}{}
+
+	if opts.Title != nil {
+		setParts = append(setParts, "title = ?")
+		args = append(args, *opts.Title)
+	}
+	if opts.URL != nil {
+		setParts = append(setParts, "url = ?")
+		args = append(args, *opts.URL)
+	}
+	if opts.Category != nil {
+		setParts = append(setParts, "category = ?")
+		args = append(args, *opts.Category)
+	}
+	if opts.ScriptPath != nil {
+		setParts = append(setParts, "script_path = ?")
+		args = append(args, *opts.ScriptPath)
+	}
+	if opts.Position != nil {
+		setParts = append(setParts, "position = ?")
+		args = append(args, *opts.Position)
+	}
+	if opts.HideFromTimeline != nil {
+		setParts = append(setParts, "hide_from_timeline = ?")
+		args = append(args, *opts.HideFromTimeline)
+	}
+	if opts.ProxyURL != nil {
+		setParts = append(setParts, "proxy_url = ?")
+		args = append(args, *opts.ProxyURL)
+	}
+	if opts.ProxyEnabled != nil {
+		setParts = append(setParts, "proxy_enabled = ?")
+		args = append(args, *opts.ProxyEnabled)
+	}
+	if opts.RefreshInterval != nil {
+		setParts = append(setParts, "refresh_interval = ?")
+		args = append(args, *opts.RefreshInterval)
+	}
+	if opts.IsImageMode != nil {
+		setParts = append(setParts, "is_image_mode = ?")
+		args = append(args, *opts.IsImageMode)
+	}
+	if opts.Type != nil {
+		setParts = append(setParts, "type = ?")
+		args = append(args, *opts.Type)
+	}
+	if opts.XPathItem != nil {
+		setParts = append(setParts, "xpath_item = ?")
+		args = append(args, *opts.XPathItem)
+	}
+	if opts.XPathItemTitle != nil {
+		setParts = append(setParts, "xpath_item_title = ?")
+		args = append(args, *opts.XPathItemTitle)
+	}
+	if opts.XPathItemContent != nil {
+		setParts = append(setParts, "xpath_item_content = ?")
+		args = append(args, *opts.XPathItemContent)
+	}
+	if opts.XPathItemUri != nil {
+		setParts = append(setParts, "xpath_item_uri = ?")
+		args = append(args, *opts.XPathItemUri)
+	}
+	if opts.XPathItemAuthor != nil {
+		setParts = append(setParts, "xpath_item_author = ?")
+		args = append(args, *opts.XPathItemAuthor)
+	}
+	if opts.XPathItemTimestamp != nil {
+		setParts = append(setParts, "xpath_item_timestamp = ?")
+		args = append(args, *opts.XPathItemTimestamp)
+	}
+	if opts.XPathItemTimeFormat != nil {
+		setParts = append(setParts, "xpath_item_time_format = ?")
+		args = append(args, *opts.XPathItemTimeFormat)
+	}
+	if opts.XPathItemThumbnail != nil {
+		setParts = append(setParts, "xpath_item_thumbnail = ?")
+		args = append(args, *opts.XPathItemThumbnail)
+	}
+	if opts.XPathItemCategories != nil {
+		setParts = append(setParts, "xpath_item_categories = ?")
+		args = append(args, *opts.XPathItemCategories)
+	}
+	if opts.XPathItemUid != nil {
+		setParts = append(setParts, "xpath_item_uid = ?")
+		args = append(args, *opts.XPathItemUid)
+	}
+	if opts.ArticleViewMode != nil {
+		setParts = append(setParts, "article_view_mode = ?")
+		args = append(args, *opts.ArticleViewMode)
+	}
+	if opts.AutoExpandContent != nil {
+		setParts = append(setParts, "auto_expand_content = ?")
+		args = append(args, *opts.AutoExpandContent)
+	}
+	if opts.EmailAddress != nil {
+		setParts = append(setParts, "email_address = ?")
+		args = append(args, *opts.EmailAddress)
+	}
+	if opts.EmailIMAPServer != nil {
+		setParts = append(setParts, "email_imap_server = ?")
+		args = append(args, *opts.EmailIMAPServer)
+	}
+	if opts.EmailUsername != nil {
+		setParts = append(setParts, "email_username = ?")
+		args = append(args, *opts.EmailUsername)
+	}
+	if opts.EmailPassword != nil {
+		setParts = append(setParts, "email_password = ?")
+		args = append(args, *opts.EmailPassword)
+	}
+	if opts.EmailFolder != nil {
+		setParts = append(setParts, "email_folder = ?")
+		args = append(args, *opts.EmailFolder)
+	}
+	if opts.EmailIMAPPort != nil {
+		setParts = append(setParts, "email_imap_port = ?")
+		args = append(args, *opts.EmailIMAPPort)
+	}
+
+	if len(setParts) == 0 {
+		// Nothing to update
+		return nil
+	}
+
+	// Add WHERE parameter
+	args = append(args, id)
+
+	query := "UPDATE feeds SET " + joinStrings(setParts, ", ") + " WHERE id = ?"
+	_, err := db.Exec(query, args...)
 	return err
 }
 
+// joinStrings joins a slice of strings with a separator.
+func joinStrings(parts []string, sep string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	result := parts[0]
+	for i := 1; i < len(parts); i++ {
+		result += sep + parts[i]
+	}
+	return result
+}
+
+// UpdateFeed updates feed title, URL, category, script_path, hide_from_timeline, proxy settings, refresh_interval, is_image_mode, XPath fields, article_view_mode, auto_expand_content, and email settings.
+// Deprecated: Use UpdateFeedWithOptions instead for better maintainability.
+func (db *DB) UpdateFeed(id int64, title, url, category, scriptPath string, hideFromTimeline bool, proxyURL string, proxyEnabled bool, refreshInterval int, isImageMode bool, feedType string, xpathItem, xpathItemTitle, xpathItemContent, xpathItemUri, xpathItemAuthor, xpathItemTimestamp, xpathItemTimeFormat, xpathItemThumbnail, xpathItemCategories, xpathItemUid, articleViewMode, autoExpandContent, emailAddress, emailIMAPServer, emailUsername, emailPassword, emailFolder string, emailIMAPPort int) error {
+	return db.UpdateFeedWithOptions(id, FeedUpdateOptions{
+		Title:               &title,
+		URL:                 &url,
+		Category:            &category,
+		ScriptPath:          &scriptPath,
+		HideFromTimeline:    &hideFromTimeline,
+		ProxyURL:            &proxyURL,
+		ProxyEnabled:        &proxyEnabled,
+		RefreshInterval:     &refreshInterval,
+		IsImageMode:         &isImageMode,
+		Type:                &feedType,
+		XPathItem:           &xpathItem,
+		XPathItemTitle:      &xpathItemTitle,
+		XPathItemContent:    &xpathItemContent,
+		XPathItemUri:        &xpathItemUri,
+		XPathItemAuthor:     &xpathItemAuthor,
+		XPathItemTimestamp:  &xpathItemTimestamp,
+		XPathItemTimeFormat: &xpathItemTimeFormat,
+		XPathItemThumbnail:  &xpathItemThumbnail,
+		XPathItemCategories: &xpathItemCategories,
+		XPathItemUid:        &xpathItemUid,
+		ArticleViewMode:     &articleViewMode,
+		AutoExpandContent:   &autoExpandContent,
+		EmailAddress:        &emailAddress,
+		EmailIMAPServer:     &emailIMAPServer,
+		EmailUsername:       &emailUsername,
+		EmailPassword:       &emailPassword,
+		EmailFolder:         &emailFolder,
+		EmailIMAPPort:       &emailIMAPPort,
+	})
+}
+
 // UpdateFeedWithPosition updates a feed including its position field.
+// Deprecated: Use UpdateFeedWithOptions instead for better maintainability.
 func (db *DB) UpdateFeedWithPosition(id int64, title, url, category, scriptPath string, position int, hideFromTimeline bool, proxyURL string, proxyEnabled bool, refreshInterval int, isImageMode bool, feedType string, xpathItem, xpathItemTitle, xpathItemContent, xpathItemUri, xpathItemAuthor, xpathItemTimestamp, xpathItemTimeFormat, xpathItemThumbnail, xpathItemCategories, xpathItemUid, articleViewMode, autoExpandContent, emailAddress, emailIMAPServer, emailUsername, emailPassword, emailFolder string, emailIMAPPort int) error {
-	db.WaitForReady()
-	_, err := db.Exec("UPDATE feeds SET title = ?, url = ?, category = ?, script_path = ?, position = ?, hide_from_timeline = ?, proxy_url = ?, proxy_enabled = ?, refresh_interval = ?, is_image_mode = ?, type = ?, xpath_item = ?, xpath_item_title = ?, xpath_item_content = ?, xpath_item_uri = ?, xpath_item_author = ?, xpath_item_timestamp = ?, xpath_item_time_format = ?, xpath_item_thumbnail = ?, xpath_item_categories = ?, xpath_item_uid = ?, article_view_mode = ?, auto_expand_content = ?, email_address = ?, email_imap_server = ?, email_imap_port = ?, email_username = ?, email_password = ?, email_folder = ? WHERE id = ?", title, url, category, scriptPath, position, hideFromTimeline, proxyURL, proxyEnabled, refreshInterval, isImageMode, feedType, xpathItem, xpathItemTitle, xpathItemContent, xpathItemUri, xpathItemAuthor, xpathItemTimestamp, xpathItemTimeFormat, xpathItemThumbnail, xpathItemCategories, xpathItemUid, articleViewMode, autoExpandContent, emailAddress, emailIMAPServer, emailIMAPPort, emailUsername, emailPassword, emailFolder, id)
-	return err
+	return db.UpdateFeedWithOptions(id, FeedUpdateOptions{
+		Title:               &title,
+		URL:                 &url,
+		Category:            &category,
+		ScriptPath:          &scriptPath,
+		Position:            &position,
+		HideFromTimeline:    &hideFromTimeline,
+		ProxyURL:            &proxyURL,
+		ProxyEnabled:        &proxyEnabled,
+		RefreshInterval:     &refreshInterval,
+		IsImageMode:         &isImageMode,
+		Type:                &feedType,
+		XPathItem:           &xpathItem,
+		XPathItemTitle:      &xpathItemTitle,
+		XPathItemContent:    &xpathItemContent,
+		XPathItemUri:        &xpathItemUri,
+		XPathItemAuthor:     &xpathItemAuthor,
+		XPathItemTimestamp:  &xpathItemTimestamp,
+		XPathItemTimeFormat: &xpathItemTimeFormat,
+		XPathItemThumbnail:  &xpathItemThumbnail,
+		XPathItemCategories: &xpathItemCategories,
+		XPathItemUid:        &xpathItemUid,
+		ArticleViewMode:     &articleViewMode,
+		AutoExpandContent:   &autoExpandContent,
+		EmailAddress:        &emailAddress,
+		EmailIMAPServer:     &emailIMAPServer,
+		EmailUsername:       &emailUsername,
+		EmailPassword:       &emailPassword,
+		EmailFolder:         &emailFolder,
+		EmailIMAPPort:       &emailIMAPPort,
+	})
 }
 
 // UpdateFeedCategory updates a feed's category.

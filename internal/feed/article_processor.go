@@ -1,11 +1,14 @@
 package feed
 
 import (
-	"MrRSS/internal/models"
-	"MrRSS/internal/utils"
+	"html"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"MrRSS/internal/models"
+	"MrRSS/internal/utils/textutil"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -48,11 +51,16 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 			published = *item.PublishedParsed
 			hasValidPublishedTime = true
 		} else {
-			published = time.Now() // Still set for database storage
+			// No publish date in the feed. Use the current time as a fallback so the
+			// DB always has a value. The upsert in SaveArticles only writes this to
+			// published_at when the article actually changed; for unchanged articles
+			// it keeps the originally stored time, so no-pubDate items don't get
+			// bumped to "now" on every refresh and stay ordered by first appearance.
+			published = time.Now()
 			hasValidPublishedTime = false
 		}
 
-		imageURL := extractImageURL(item)
+		imageURL := extractImageURL(item, feed.URL)
 		audioURL := extractAudioURL(item)
 		videoURL := extractVideoURL(item)
 
@@ -63,7 +71,8 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 		content := ExtractContent(item)
 
 		// Clean HTML to fix malformed tags that can cause rendering issues
-		content = utils.CleanHTML(content)
+		content = textutil.CleanHTML(content)
+		originalSummary := textutil.CleanHTML(item.Description)
 
 		// Determine title: prefer media:title if available, then item.Title, then generate from content
 		title := item.Title
@@ -82,6 +91,12 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 		// Doing it here for all articles during refresh causes massive performance issues
 		translatedTitle := "" // Always empty - translation happens on-demand in frontend
 
+		// Extract author information
+		author := ""
+		if item.Author != nil {
+			author = item.Author.Name
+		}
+
 		article := &models.Article{
 			FeedID:                feed.ID,
 			Title:                 title,
@@ -92,6 +107,8 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 			PublishedAt:           published,
 			HasValidPublishedTime: hasValidPublishedTime,
 			TranslatedTitle:       translatedTitle,
+			OriginalSummary:       originalSummary,
+			Author:                author,
 		}
 
 		articlesWithContent = append(articlesWithContent, &ArticleWithContent{
@@ -103,22 +120,22 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 	return articlesWithContent
 }
 
-// extractImageURL extracts the image URL from a feed item
-func extractImageURL(item *gofeed.Item) string {
+// extractImageURL extracts the image URL from a feed item and resolves relative URLs
+func extractImageURL(item *gofeed.Item, feedURL string) string {
 	// Try item.Image first
 	if item.Image != nil {
-		return item.Image.URL
+		return resolveRelativeURL(item.Image.URL, feedURL)
 	}
 
 	// Try Media RSS thumbnail (YouTube feeds use this)
 	if thumbnailURL := extractMediaThumbnail(item); thumbnailURL != "" {
-		return thumbnailURL
+		return resolveRelativeURL(thumbnailURL, feedURL)
 	}
 
 	// Try enclosures for images (check various image MIME types)
 	for _, enc := range item.Enclosures {
 		if strings.HasPrefix(enc.Type, "image/") {
-			return enc.URL
+			return resolveRelativeURL(enc.URL, feedURL)
 		}
 	}
 
@@ -131,9 +148,104 @@ func extractImageURL(item *gofeed.Item) string {
 	re := regexp.MustCompile(`<img[^>]+src="([^">]+)"`)
 	matches := re.FindStringSubmatch(content)
 	if len(matches) > 1 {
-		return matches[1]
+		return resolveRelativeURL(matches[1], feedURL)
 	}
 
+	return ""
+}
+
+// ResolveRelativeURL converts a relative URL to an absolute URL based on the feed URL
+// If the URL is already absolute, it returns it as-is
+// It's exported so it can be used by other packages
+func ResolveRelativeURL(imageURL string, feedURL string) string {
+	if imageURL == "" {
+		return ""
+	}
+
+	// If it's already an absolute URL (http:// or https://), return as-is
+	if strings.HasPrefix(imageURL, "http://") || strings.HasPrefix(imageURL, "https://") {
+		return imageURL
+	}
+
+	// If feed URL is empty, can't resolve relative URLs
+	if feedURL == "" {
+		return imageURL
+	}
+
+	// Parse the feed URL to get the base URL
+	baseURL, err := url.Parse(feedURL)
+	if err != nil {
+		// If we can't parse the feed URL, return the original image URL
+		return imageURL
+	}
+
+	// Parse the image URL (which might be relative)
+	ref, err := url.Parse(imageURL)
+	if err != nil {
+		// If we can't parse the image URL, return the original
+		return imageURL
+	}
+
+	// Resolve the relative URL against the base URL
+	return baseURL.ResolveReference(ref).String()
+}
+
+// resolveRelativeURL is an internal wrapper for ResolveRelativeURL
+// This maintains backward compatibility with internal code
+func resolveRelativeURL(imageURL string, feedURL string) string {
+	return ResolveRelativeURL(imageURL, feedURL)
+}
+
+// ExtractFirstImageURLFromHTML extracts the first image URL from HTML content
+// This is used as a fallback when no image metadata is available in RSS/Atom feeds
+// It's exported so it can be used by FreshRSS sync and other modules
+func ExtractFirstImageURLFromHTML(htmlContent string) string {
+	urls := ExtractAllImageURLsFromHTML(htmlContent)
+	if len(urls) == 0 {
+		return ""
+	}
+
+	return urls[0]
+}
+
+// ExtractAllImageURLsFromHTML extracts all image URLs from HTML content
+// This returns all images found in the content, not just the first one
+// It's exported for use by the frontend to build image galleries
+func ExtractAllImageURLsFromHTML(htmlContent string) []string {
+	if htmlContent == "" {
+		return nil
+	}
+
+	var urls []string
+	seen := make(map[string]struct{})
+	imgTagRe := regexp.MustCompile(`(?i)<img\b[^>]*>`)
+	attrNames := []string{"data-original", "data-src", "src"}
+	imgTags := imgTagRe.FindAllString(htmlContent, -1)
+
+	for _, tag := range imgTags {
+		for _, attrName := range attrNames {
+			if imageURL := extractHTMLAttribute(tag, attrName); imageURL != "" {
+				unescapedURL := html.UnescapeString(imageURL)
+				if _, ok := seen[unescapedURL]; !ok {
+					urls = append(urls, unescapedURL)
+					seen[unescapedURL] = struct{}{}
+				}
+				break
+			}
+		}
+	}
+
+	return urls
+}
+
+func extractHTMLAttribute(tag string, attrName string) string {
+	re := regexp.MustCompile(`(?i)\s` + regexp.QuoteMeta(attrName) + `\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))`)
+	matches := re.FindStringSubmatch(tag)
+	for i := 1; i < len(matches); i++ {
+		if strings.TrimSpace(matches[i]) != "" {
+			return strings.TrimSpace(matches[i])
+		}
+	}
 	return ""
 }
 
@@ -150,8 +262,27 @@ func extractAudioURL(item *gofeed.Item) string {
 	return ""
 }
 
-// extractVideoURL extracts the video URL from a feed item (for YouTube videos)
+// extractVideoURL extracts the video URL from a feed item (for YouTube and Bilibili videos)
 func extractVideoURL(item *gofeed.Item) string {
+	// First check if this is a Bilibili video with iframe in content
+	// Some RSSHub feeds might include iframe in description/content with complete parameters (aid, cid, bvid)
+	// This should take priority over generating a simplified URL from the link
+	content := ExtractContent(item)
+	if bilibiliURL := extractBilibiliVideoURL(content); bilibiliURL != "" {
+		return bilibiliURL
+	}
+
+	// Check if this is a Bilibili video link (similar to YouTube detection)
+	// Bilibili URLs: https://www.bilibili.com/video/BV...
+	if item.Link != "" && strings.Contains(item.Link, "bilibili.com/video/") {
+		// Extract BVID from Bilibili URL
+		bvid := extractBilibiliBVID(item.Link)
+		if bvid != "" {
+			// Return embed URL for Bilibili player
+			return "https://www.bilibili.com/blackboard/html5mobileplayer.html?bvid=" + bvid + "&autoplay=0"
+		}
+	}
+
 	// Check if this is a YouTube link (watch, youtu.be, or shorts)
 	if item.Link != "" && (strings.Contains(item.Link, "youtube.com/watch") ||
 		strings.Contains(item.Link, "youtu.be/") ||
@@ -174,6 +305,27 @@ func extractVideoURL(item *gofeed.Item) string {
 				}
 			}
 		}
+	}
+
+	return ""
+}
+
+// extractBilibiliVideoURL extracts Bilibili iframe URL from HTML content
+func extractBilibiliVideoURL(content string) string {
+	if content == "" {
+		return ""
+	}
+
+	// Look for Bilibili iframe in the content
+	// Pattern matches: <iframe src="https://www.bilibili.com/blackboard/html5mobileplayer.html?...">
+	// Use (?s) flag to make . match newlines, and use [\s\S] instead of . to match any character including newlines
+	re := regexp.MustCompile(`(?s)<iframe[\s\S]+?src=["']([^"']*bilibili\.com/blackboard/html5mobileplayer\.html[^"']*)["']`)
+	matches := re.FindStringSubmatch(content)
+
+	if len(matches) > 1 {
+		// Unescape HTML entities (e.g., &amp; -> &)
+		unescapedURL := html.UnescapeString(matches[1])
+		return unescapedURL
 	}
 
 	return ""
@@ -202,6 +354,21 @@ func extractYouTubeVideoID(url string) string {
 	// Handle youtube.com/shorts/VIDEO_ID
 	if strings.Contains(url, "youtube.com/shorts/") {
 		re := regexp.MustCompile(`shorts/([^?&]+)`)
+		matches := re.FindStringSubmatch(url)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+	}
+
+	return ""
+}
+
+// extractBilibiliBVID extracts the BVID from a Bilibili URL
+// Similar to extractYouTubeVideoID
+func extractBilibiliBVID(url string) string {
+	// Handle bilibili.com/video/BV...
+	if strings.Contains(url, "bilibili.com/video/") {
+		re := regexp.MustCompile(`bilibili\.com/video/(BV[\w]+)`)
 		matches := re.FindStringSubmatch(url)
 		if len(matches) > 1 {
 			return matches[1]

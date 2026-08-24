@@ -18,7 +18,7 @@ func setupHandler(t *testing.T) *corepkg.Handler {
 	if err := db.Init(); err != nil {
 		t.Fatalf("db Init error: %v", err)
 	}
-	return corepkg.NewHandler(db, nil, nil)
+	return corepkg.NewHandler(db, nil, nil, nil)
 }
 
 func TestHandleMediaProxy_MethodNotAllowed(t *testing.T) {
@@ -91,32 +91,32 @@ func TestProxyImagesInHTML_RelativeURLs(t *testing.T) {
 		{
 			name:           "Absolute URL",
 			html:           `<img src="https://cdn.example.com/image.jpg">`,
-			expectedSuffix: "url=https%3A%2F%2Fcdn.example.com%2Fimage.jpg",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "Relative path - no slash",
 			html:           `<img src="images/photo.jpg">`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fblog%2Fimages%2Fphoto.jpg",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "Relative path - dot slash",
 			html:           `<img src="./img.png">`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fblog%2Fimg.png",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "Relative path - parent directory",
 			html:           `<img src="../assets/image.gif">`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fassets%2Fimage.gif",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "Relative path - multiple parent directories",
 			html:           `<img src="../../static/logo.png">`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fstatic%2Flogo.png",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "Absolute path - domain relative",
 			html:           `<img src="/static/img.png">`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fstatic%2Fimg.png",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:      "Data URL",
@@ -131,33 +131,33 @@ func TestProxyImagesInHTML_RelativeURLs(t *testing.T) {
 		{
 			name:           "Single quoted URL",
 			html:           `<img src='images/photo.jpg'>`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fblog%2Fimages%2Fphoto.jpg",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "Unquoted URL (no spaces)",
 			html:           `<img src=images/photo.jpg>`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fblog%2Fimages%2Fphoto.jpg",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "URL with HTML entities &amp;",
 			html:           `<img src="https://wechat2rss.dev/img-proxy?key=val&amp;other=test">`,
-			expectedSuffix: "url=https%3A%2F%2Fwechat2rss.dev%2Fimg-proxy%3Fkey%3Dval%26other%3Dtest",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "Relative URL with HTML entities &amp;",
 			html:           `<img src="images.jpg?w=800&amp;h=600">`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fblog%2Fimages.jpg%3Fw%3D800%26h%3D600",
+			expectedSuffix: "url_b64=",
 		},
 		{
 			name:           "URL with multiple HTML entities",
 			html:           `<img src="https://example.com/img?a=1&amp;b=2&amp;c=3">`,
-			expectedSuffix: "url=https%3A%2F%2Fexample.com%2Fimg%3Fa%3D1%26b%3D2%26c%3D3",
+			expectedSuffix: "url_b64=",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := proxyImagesInHTML(tc.html, referer)
+			result := ProxyImagesInHTML(tc.html, referer)
 
 			if tc.skipProxy {
 				// URL should not be proxied

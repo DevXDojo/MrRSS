@@ -10,7 +10,7 @@ MrRSS is a modern, privacy-focused, cross-platform desktop RSS reader built with
 
 ## Tech Stack
 
-- **Backend**: Go 1.24+ with Wails v3 (alpha) framework, SQLite with `modernc.org/sqlite`
+- **Backend**: Go 1.27+ with Wails v3 (beta) framework, SQLite with `modernc.org/sqlite`
 - **Frontend**: Vue 3.5+ Composition API, Pinia, Tailwind CSS 3.3+, Vite 5+
 - **Tools**: Wails CLI v3, npm, Go modules
 - **Icons**: Phosphor Icons | **I18n**: vue-i18n (English/Chinese)
@@ -20,6 +20,7 @@ MrRSS is a modern, privacy-focused, cross-platform desktop RSS reader built with
 ### Backend (Go)
 
 **Key Principles**:
+
 - Always use `context.Context` for exported methods
 - Error wrapping with `fmt.Errorf("operation failed: %w", err)`
 - Prepared statements for all database queries
@@ -30,7 +31,7 @@ MrRSS is a modern, privacy-focused, cross-platform desktop RSS reader built with
 
 ### Frontend (Vue 3)
 
-When writing Vue components, follow these patterns:
+When writing Vue components, follow this pattern:
 
 ```vue
 <script setup lang="ts">
@@ -95,20 +96,20 @@ window.showToast(t('successMessage'), 'success');
 
 ## UI Components
 
-### Toast HTML Structure
+### Common Patterns
+
+**Card Container**:
 
 ```html
 <div class="bg-bg-primary border border-border rounded-lg p-4">
   <h3 class="text-text-primary font-semibold">{{ t('title') }}</h3>
   <p class="text-text-secondary text-sm">{{ t('description') }}</p>
 </div>
+```
 
-<!-- Status Indicators -->
-<div class="status-indicator status-unread">{{ t('unread') }}</div>
-<div class="status-indicator status-read">{{ t('read') }}</div>
-<div class="status-indicator status-favorite">{{ t('favorite') }}</div>
+**Modal/Dialog**:
 
-<!-- Modal/Dialog -->
+```html
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
   <div class="bg-bg-primary w-full max-w-2xl rounded-2xl shadow-2xl border border-border">
     <div class="modal-header">
@@ -193,79 +194,6 @@ function handleMenuAction(action: string, item: Article) {
 </template>
 ```
 
-## Database Schema and Operations
-
-### Core Tables
-
-```sql
--- Feeds table
-CREATE TABLE feeds (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    url TEXT UNIQUE NOT NULL,
-    link TEXT,  -- Website homepage
-    description TEXT,
-    category TEXT,
-    image_url TEXT,
-    last_updated DATETIME,
-    last_error TEXT,
-    discovery_completed BOOLEAN DEFAULT FALSE
-);
-
--- Articles table
-CREATE TABLE articles (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    feed_id INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    url TEXT UNIQUE NOT NULL,
-    image_url TEXT,
-    content TEXT,
-    published_at DATETIME NOT NULL,
-    is_read BOOLEAN DEFAULT FALSE,
-    is_favorite BOOLEAN DEFAULT FALSE,
-    is_hidden BOOLEAN DEFAULT FALSE,
-    translated_title TEXT,
-    FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE
-);
-
--- Settings table (key-value store)
-CREATE TABLE settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-
--- Indexes for performance
-CREATE INDEX idx_articles_feed_id ON articles(feed_id);
-CREATE INDEX idx_articles_published_at ON articles(published_at);
-CREATE INDEX idx_articles_is_read ON articles(is_read);
-CREATE INDEX idx_articles_is_favorite ON articles(is_favorite);
-```
-
-### Cleanup Logic
-
-Auto-cleanup preserves favorites:
-
-```go
-func (db *DB) CleanupOldArticles(maxAgeDays int) (int64, error) {
-    cutoffDate := time.Now().AddDate(0, 0, -maxAgeDays)
-
-    // Delete old articles EXCEPT favorites
-    result, err := db.conn.Exec(`
-        DELETE FROM articles
-        WHERE published_at < ? AND is_favorite = 0
-    `, cutoffDate)
-
-    if err != nil {
-        return 0, fmt.Errorf("cleanup articles: %w", err)
-    }
-
-    // Run VACUUM to reclaim space
-    _, _ = db.conn.Exec("VACUUM")
-
-    return result.RowsAffected()
-}
-```
-
 ## Settings Management (OPTIMIZED)
 
 ✅ **The settings system has been optimized with schema-driven code generation!**
@@ -273,27 +201,30 @@ func (db *DB) CleanupOldArticles(maxAgeDays int) (int64, error) {
 ### Quick Method (3 Steps)
 
 **Step 1**: Edit `internal/config/settings_schema.json`
+
 ```json
-"new_feature_enabled": {
+"new_setting_key": {
   "type": "bool",
   "default": false,
   "category": "general",
   "encrypted": false,
-  "frontend_key": "newFeatureEnabled"
+  "frontend_key": "new_setting_key"
 }
 ```
 
 **Step 2**: Generate all code
+
 ```bash
 go run tools/settings-generator/main.go
 ```
 
 **Step 3**: Add UI (optional)
+
 ```vue
-<SettingItem :title="t('newFeatureEnabled')">
+<SettingItem :title="t('newSettingKey')">
   <Toggle
-    :model-value="settings.newFeatureEnabled"
-    @update:model-value="updateSetting('newFeatureEnabled', $event)"
+    :model-value="settings.new_setting_key"
+    @update:model-value="updateSetting('new_setting_key', $event)"
   />
 </SettingItem>
 ```
@@ -422,19 +353,28 @@ scheduleCleanup := func(filePath string, delay time.Duration) {
 ## Quick Reference
 
 **Build Commands**:
+
 - Development: `wails3 dev`
 - Production Build: `wails3 build`
 - Important: MrRSS uses HTTP API, not Wails bindings
 
-**Store Access**: `const store = useAppStore()`
-**i18n**: `const { t } = useI18n()`
-**Theme**: `store.theme` returns `'light'` or `'dark'`
-**Language**: `store.i18n.locale.value` returns `'en'` or `'zh'`
-**Toast**: `window.showToast(message, type)`
-**Confirm**: `await window.showConfirm(title, message, isDanger)`
-**Settings API**: `GET/POST /api/settings`
-**Articles API**: `GET /api/articles` with query params
-**Progress Polling**: `GET /api/progress` for async operations
+**Store Access**:
+
+- `const store = useAppStore()`
+- `const { t } = useI18n()`
+- Theme: `store.theme` returns `'light'` or `'dark'`
+- Language: `store.i18n.locale.value` returns `'en'` or `'zh'`
+
+**UI Helpers**:
+
+- Toast: `window.showToast(message, type)`
+- Confirm: `await window.showConfirm(title, message, isDanger)`
+
+**API Endpoints**:
+
+- Settings: `GET/POST /api/settings`
+- Articles: `GET /api/articles` with query params
+- Progress: `GET /api/progress` for async operations
 
 ---
 

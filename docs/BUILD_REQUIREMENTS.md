@@ -34,8 +34,8 @@ sudo apt-get update
 sudo apt-get install -y \
   gcc \
   pkg-config \
-  libgtk-3-dev \
-  libwebkit2gtk-4.1-dev \
+  libgtk-4-dev \
+  libwebkitgtk-6.0-dev \
   libsoup-3.0-dev
 ```
 
@@ -43,11 +43,11 @@ sudo apt-get install -y \
 
 - `gcc`: C compiler (required for CGO)
 - `pkg-config`: Build tool for finding libraries
-- `libgtk-3-dev`: GTK3 development headers (for Wails UI)
-- `libwebkit2gtk-4.1-dev`: WebKit2GTK 4.1 development headers (for Wails webview, **required for Wails v3**)
+- `libgtk-4-dev`: GTK4 development headers (for Wails UI)
+- `libwebkitgtk-6.0-dev`: WebKitGTK 6.0 development headers (for Wails webview, **required for current Wails v3**)
 - `libsoup-3.0-dev`: HTTP library 3.0 (required for Wails v3)
 
-**Important**: Wails v3 requires WebKit2GTK 4.1 and libsoup 3.0. Older versions (WebKit2GTK 4.0, libsoup 2.4) are not compatible.
+**Important**: Current Wails v3 requires GTK4, WebKitGTK 6.0, and libsoup 3.0. Older WebKitGTK 4.x and GTK3 packages are not sufficient.
 
 **Note for Linux Mint**: Also install `libxapp-dev`
 
@@ -55,8 +55,8 @@ sudo apt-get install -y \
 
 End users running the compiled binary will need:
 
-- `libgtk-3-0`
-- `libwebkit2gtk-4.1-0`
+- `libgtk-4-1`
+- `libwebkitgtk-6.0-4`
 - `libsoup-3.0-0`
 
 ### Windows
@@ -210,12 +210,12 @@ export CGO_ENABLED=1
 wails3 build
 ```
 
-### Linux: "Package webkit2gtk-4.1 was not found"
+### Linux: "Package webkitgtk-6.0 was not found"
 
-**Solution**: Install webkit2gtk-4.1 development headers:
+**Solution**: Install WebKitGTK 6.0 development headers:
 
 ```bash
-sudo apt-get install libwebkit2gtk-4.1-dev
+sudo apt-get install libwebkitgtk-6.0-dev
 ```
 
 ### Linux: "Package ayatana-appindicator3-0.1 was not found"

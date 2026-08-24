@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhNewspaper } from '@phosphor-icons/vue';
+import { PhNewspaper, PhCaretLeft, PhCaretRight } from '@phosphor-icons/vue';
 import { useArticleDetail } from '@/composables/article/useArticleDetail';
 import ArticleToolbar from './ArticleToolbar.vue';
 import ArticleContent from './ArticleContent.vue';
@@ -15,16 +15,25 @@ const {
   isLoadingContent,
   imageViewerSrc,
   imageViewerAlt,
+  imageViewerImages,
+  imageViewerInitialIndex,
+  hasPreviousArticle,
+  hasNextArticle,
   close,
   toggleRead,
   toggleFavorite,
   toggleReadLater,
   openOriginal,
   toggleContentView,
+  reloadArticleContent,
   closeImageViewer,
   attachImageEventListeners,
   exportToObsidian,
+  exportToNotion,
+  exportToZotero,
   handleRetryLoadContent,
+  goToPreviousArticle,
+  goToNextArticle,
   t,
 } = useArticleDetail();
 
@@ -52,10 +61,13 @@ function handleKeydown(e: KeyboardEvent) {
       openFindInPage();
     }
   }
-  // Close with Escape
-  if (e.key === 'Escape' && showFindInPage.value) {
-    closeFindInPage();
-  }
+
+  // Note: FindInPage component handles its own ESC key to close
+  // We don't handle ESC here to avoid conflicts - FindInPage will stopPropagation
+  // when it needs to handle the key (when search is focused or has content)
+
+  // Note: Arrow key navigation is now handled by the global keyboard shortcuts system
+  // See useKeyboardShortcuts.ts which properly checks for editable elements
 }
 
 onMounted(() => {
@@ -79,7 +91,7 @@ onBeforeUnmount(() => {
       class="hidden md:flex flex-col items-center justify-center h-full text-text-secondary text-center px-4"
     >
       <PhNewspaper :size="48" class="mb-4 sm:mb-5 opacity-50 sm:w-16 sm:h-16" />
-      <p class="text-sm sm:text-base">{{ t('selectArticle') }}</p>
+      <p class="text-sm sm:text-base">{{ t('article.content.selectArticle') }}</p>
     </div>
 
     <div v-else class="flex flex-col h-full bg-bg-primary">
@@ -94,11 +106,14 @@ onBeforeUnmount(() => {
         @toggle-read-later="toggleReadLater"
         @open-original="openOriginal"
         @toggle-translations="toggleTranslations"
+        @reload-content="reloadArticleContent"
         @export-to-obsidian="exportToObsidian"
+        @export-to-notion="exportToNotion"
+        @export-to-zotero="exportToZotero"
       />
 
       <!-- Original webpage view -->
-      <div v-if="!showContent" class="flex-1 bg-white w-full">
+      <div v-if="!showContent" class="flex-1 bg-bg-primary w-full">
         <iframe
           :key="article.id"
           :src="`/api/webpage/proxy?url=${encodeURIComponent(article.url)}`"
@@ -118,12 +133,43 @@ onBeforeUnmount(() => {
         :show-content="showContent"
         @retry-load-content="handleRetryLoadContent"
       />
+
+      <!-- Navigation buttons -->
+      <div
+        v-if="hasPreviousArticle || hasNextArticle"
+        class="flex items-center justify-between bg-bg-primary px-3 py-1.5"
+      >
+        <button
+          v-if="hasPreviousArticle"
+          :title="t('article.navigation.previousArticle') || 'Previous article'"
+          class="flex items-center gap-1.5 px-2 py-1 rounded text-text-secondary/70 hover:text-text-primary hover:bg-bg-secondary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          @click="goToPreviousArticle"
+        >
+          <PhCaretLeft :size="16" />
+          <span class="text-xs">{{ t('article.navigation.previousArticle') || 'Previous' }}</span>
+        </button>
+
+        <div v-else class="w-16"></div>
+
+        <button
+          v-if="hasNextArticle"
+          :title="t('article.navigation.nextArticle') || 'Next article'"
+          class="flex items-center gap-1.5 px-2 py-1 rounded text-text-secondary/70 hover:text-text-primary hover:bg-bg-secondary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          @click="goToNextArticle"
+        >
+          <span class="text-xs">{{ t('article.navigation.nextArticle') || 'Next' }}</span>
+          <PhCaretRight :size="16" />
+        </button>
+
+        <div v-else class="w-16"></div>
+      </div>
     </div>
 
     <!-- Find in Page (only shown in content mode) -->
     <FindInPage
       v-if="showFindInPage && showContent"
       container-selector=".prose-content"
+      :article-id="article?.id"
       @close="closeFindInPage"
     />
 
@@ -132,6 +178,8 @@ onBeforeUnmount(() => {
       v-if="imageViewerSrc"
       :src="imageViewerSrc"
       :alt="imageViewerAlt"
+      :images="imageViewerImages"
+      :initial-index="imageViewerInitialIndex"
       @close="closeImageViewer"
     />
   </main>

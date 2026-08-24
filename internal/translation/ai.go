@@ -1,13 +1,12 @@
 package translation
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"MrRSS/internal/ai"
 	"MrRSS/internal/config"
 )
 
@@ -18,14 +17,12 @@ type AITranslator struct {
 	Model         string
 	SystemPrompt  string
 	CustomHeaders string
-	client        *http.Client
-	db            DBInterface
+	client        *ai.Client
 }
 
 // NewAITranslator creates a new AI translator with the given credentials.
 // endpoint should be the full API URL (e.g., "https://api.openai.com/v1/chat/completions" for OpenAI, "http://localhost:11434/api/generate" for Ollama)
 // model should be the model name (e.g., "gpt-4o-mini", "claude-3-haiku-20240307")
-// db is optional - if nil, no proxy will be used
 func NewAITranslator(apiKey, endpoint, model string) *AITranslator {
 	defaults := config.Get()
 	// Default to OpenAI endpoint if not specified
@@ -36,14 +33,21 @@ func NewAITranslator(apiKey, endpoint, model string) *AITranslator {
 	if model == "" {
 		model = defaults.AIModel
 	}
+
+	clientConfig := ai.ClientConfig{
+		APIKey:   apiKey,
+		Endpoint: strings.TrimSuffix(endpoint, "/"),
+		Model:    model,
+		Timeout:  30 * time.Second,
+	}
+
 	return &AITranslator{
 		APIKey:        apiKey,
 		Endpoint:      strings.TrimSuffix(endpoint, "/"),
 		Model:         model,
 		SystemPrompt:  "", // Will be set from settings when used
 		CustomHeaders: "", // Will be set from settings when used
-		client:        &http.Client{Timeout: 30 * time.Second},
-		db:            nil,
+		client:        ai.NewClient(clientConfig),
 	}
 }
 
@@ -56,48 +60,62 @@ func NewAITranslatorWithDB(apiKey, endpoint, model string, db DBInterface) *AITr
 	if model == "" {
 		model = defaults.AIModel
 	}
-	client, err := CreateHTTPClientWithProxy(db, 30*time.Second)
+
+	httpClient, err := CreateHTTPClientWithProxy(db, 30*time.Second)
 	if err != nil {
 		// Fallback to default client if proxy creation fails
-		client = &http.Client{Timeout: 30 * time.Second}
+		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
+
+	clientConfig := ai.ClientConfig{
+		APIKey:   apiKey,
+		Endpoint: strings.TrimSuffix(endpoint, "/"),
+		Model:    model,
+		Timeout:  30 * time.Second,
+	}
+
 	return &AITranslator{
 		APIKey:        apiKey,
 		Endpoint:      strings.TrimSuffix(endpoint, "/"),
 		Model:         model,
 		SystemPrompt:  "",
 		CustomHeaders: "", // Will be set from settings when used
-		client:        client,
-		db:            db,
+		client:        ai.NewClientWithHTTPClient(clientConfig, httpClient),
 	}
 }
 
 // SetSystemPrompt sets a custom system prompt for the translator.
 func (t *AITranslator) SetSystemPrompt(prompt string) {
 	t.SystemPrompt = prompt
+	// Re-create client with updated system prompt
+	clientConfig := ai.ClientConfig{
+		APIKey:        t.APIKey,
+		Endpoint:      t.Endpoint,
+		Model:         t.Model,
+		SystemPrompt:  prompt,
+		CustomHeaders: t.CustomHeaders,
+		Timeout:       30 * time.Second,
+	}
+	t.client = ai.NewClient(clientConfig)
 }
 
 // SetCustomHeaders sets custom headers for AI requests.
 func (t *AITranslator) SetCustomHeaders(headers string) {
 	t.CustomHeaders = headers
-}
-
-// parseCustomHeaders parses the JSON string of custom headers into a map.
-func parseCustomHeaders(headersJSON string) (map[string]string, error) {
-	// Return empty map if headers string is empty
-	if headersJSON == "" {
-		return make(map[string]string), nil
+	// Re-create client with updated custom headers
+	clientConfig := ai.ClientConfig{
+		APIKey:        t.APIKey,
+		Endpoint:      t.Endpoint,
+		Model:         t.Model,
+		SystemPrompt:  t.SystemPrompt,
+		CustomHeaders: headers,
+		Timeout:       30 * time.Second,
 	}
-
-	var headers map[string]string
-	if err := json.Unmarshal([]byte(headersJSON), &headers); err != nil {
-		return nil, fmt.Errorf("failed to parse custom headers JSON: %w", err)
-	}
-	return headers, nil
+	t.client = ai.NewClient(clientConfig)
 }
 
 // Translate translates text to the target language using an OpenAI-compatible API.
-// Automatically detects and adapts to different API formats (OpenAI vs Ollama).
+// Automatically detects and adapts to different API formats (Gemini, OpenAI, Ollama).
 func (t *AITranslator) Translate(text, targetLang string) (string, error) {
 	if text == "" {
 		return "", nil
@@ -112,159 +130,35 @@ func (t *AITranslator) Translate(text, targetLang string) (string, error) {
 	}
 	userPrompt := fmt.Sprintf("Translate to %s:\n%s", langName, text)
 
-	// Try OpenAI format first
-	result, err := t.tryOpenAIFormat(systemPrompt, userPrompt)
-	if err == nil {
-		return result, nil
-	}
-
-	// If OpenAI format fails, try Ollama format
-	result, err = t.tryOllamaFormat(systemPrompt, userPrompt)
-	if err == nil {
-		return result, nil
-	}
-
-	// Both formats failed
-	return "", fmt.Errorf("all API formats failed: OpenAI error: %v, Ollama error: %v", err, err)
-}
-
-// tryOpenAIFormat attempts to use OpenAI-compatible API format
-func (t *AITranslator) tryOpenAIFormat(systemPrompt, userPrompt string) (string, error) {
-	requestBody := map[string]interface{}{
-		"model": t.Model,
-		"messages": []map[string]string{
-			{"role": "system", "content": systemPrompt},
-			{"role": "user", "content": userPrompt},
-		},
-		"temperature": 0.1, // Low temperature for consistent translations
-		"max_tokens":  256, // Limit output tokens for title translations
-	}
-
-	jsonBody, err := json.Marshal(requestBody)
+	// Use the universal client which handles format detection automatically
+	result, err := t.client.RequestWithThinking(systemPrompt, userPrompt)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal OpenAI request: %w", err)
+		return "", err
 	}
 
-	resp, err := t.sendRequest(jsonBody)
-	if err != nil {
-		return "", fmt.Errorf("OpenAI request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OpenAI API returned status: %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode OpenAI response: %w", err)
-	}
-
-	if len(result.Choices) > 0 && result.Choices[0].Message.Content != "" {
-		// Clean up the response - remove any quotes or extra whitespace
-		translated := strings.TrimSpace(result.Choices[0].Message.Content)
-		translated = strings.Trim(translated, "\"'")
-		return translated, nil
-	}
-
-	return "", fmt.Errorf("no translation found in OpenAI response")
-}
-
-// tryOllamaFormat attempts to use Ollama API format
-func (t *AITranslator) tryOllamaFormat(systemPrompt, userPrompt string) (string, error) {
-	// Combine system and user prompts for Ollama
-	fullPrompt := systemPrompt + "\n\n" + userPrompt
-
-	requestBody := map[string]interface{}{
-		"model":  t.Model,
-		"prompt": fullPrompt,
-		"stream": false,
-	}
-
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal Ollama request: %w", err)
-	}
-
-	resp, err := t.sendRequest(jsonBody)
-	if err != nil {
-		return "", fmt.Errorf("Ollama request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Ollama API returned status: %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Response string `json:"response"`
-		Done     bool   `json:"done"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode Ollama response: %w", err)
-	}
-
-	if result.Done && result.Response != "" {
-		// Clean up the response - remove any quotes or extra whitespace
-		translated := strings.TrimSpace(result.Response)
-		translated = strings.Trim(translated, "\"'")
-		return translated, nil
-	}
-
-	return "", fmt.Errorf("no translation found in Ollama response")
-}
-
-// sendRequest sends the HTTP request with proper headers
-func (t *AITranslator) sendRequest(jsonBody []byte) (*http.Response, error) {
-	apiURL := t.Endpoint
-	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	// Only add Authorization header if API key is provided
-	if t.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+t.APIKey)
-	}
-
-	// Parse and add custom headers if provided
-	if t.CustomHeaders != "" {
-		customHeaders, err := parseCustomHeaders(t.CustomHeaders)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse custom headers: %w", err)
-		}
-		// Apply custom headers
-		for key, value := range customHeaders {
-			req.Header.Set(key, value)
-		}
-	}
-
-	return t.client.Do(req)
+	// Clean up the response:
+	// 1) remove model thinking blocks if they leaked into main content
+	// 2) trim quotes/whitespace
+	translated := ai.RemoveThinkingTags(result.Content)
+	translated = strings.Trim(translated, "\"'")
+	return translated, nil
 }
 
 // getLanguageName converts a language code to a human-readable name.
 func getLanguageName(code string) string {
 	langNames := map[string]string{
-		"en": "English",
-		"zh": "Chinese",
-		"es": "Spanish",
-		"fr": "French",
-		"de": "German",
-		"ja": "Japanese",
-		"ko": "Korean",
-		"pt": "Portuguese",
-		"ru": "Russian",
-		"it": "Italian",
-		"ar": "Arabic",
+		"en":    "English",
+		"zh":    "Simplified Chinese",
+		"zh-TW": "Traditional Chinese",
+		"es":    "Spanish",
+		"fr":    "French",
+		"de":    "German",
+		"ja":    "Japanese",
+		"ko":    "Korean",
+		"pt":    "Portuguese",
+		"ru":    "Russian",
+		"it":    "Italian",
+		"ar":    "Arabic",
 	}
 	if name, ok := langNames[code]; ok {
 		return name

@@ -82,7 +82,11 @@
 .prose {
   color: var(--text-primary);
   font-size: 1rem;
-  line-height: 1.75;
+  line-height: var(--content-line-height, 1.75);
+  /* Prevent horizontal overflow from long content */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Enhanced heading typography with proper hierarchy */
@@ -146,7 +150,10 @@
 .prose p {
   margin-top: 1.25em;
   margin-bottom: 1.25em;
-  line-height: 1.75;
+  line-height: var(--content-line-height, 1.75);
+  /* Prevent overflow from long words/links */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .prose p:first-child {
@@ -165,6 +172,11 @@
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s ease-in-out;
+  /* Allow long URLs to wrap */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .prose a:hover {
@@ -218,7 +230,6 @@
 
 .prose img:hover {
   opacity: 0.95;
-  transform: translateY(-2px);
   box-shadow:
     0 10px 15px -3px rgba(0, 0, 0, 0.1),
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -244,9 +255,10 @@
   /* Tab size for proper indentation */
   -moz-tab-size: 2;
   tab-size: 2;
-  /* Enable word wrap for long lines */
-  white-space: pre;
-  word-wrap: normal;
+  /* Allow code to wrap instead of horizontal scroll */
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
   /* Scrollbar styling */
   scrollbar-width: thin;
   scrollbar-color: var(--border-color) transparent;
@@ -283,10 +295,11 @@
     'Courier New', monospace;
   line-height: inherit;
   display: block;
-  overflow-x: visible;
-  white-space: pre;
-  word-break: normal;
-  word-wrap: normal;
+  max-width: 100%;
+  /* Allow code to wrap */
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 /* Highlighted code block styling */
@@ -307,8 +320,11 @@
   font-family:
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
-  /* Prevent inline code from breaking across lines */
-  white-space: nowrap;
+  /* Allow inline code to wrap if too long */
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 /* Allow inline code in paragraphs to wrap if needed */
@@ -316,7 +332,8 @@
 .prose li code,
 .prose td code {
   white-space: normal;
-  word-break: break-word;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .prose blockquote {
@@ -372,7 +389,10 @@
 .prose li {
   margin-top: 0.375em;
   margin-bottom: 0.375em;
-  line-height: 1.75;
+  line-height: var(--content-line-height, 1.75);
+  /* Prevent overflow from long content */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .prose li p {
@@ -406,11 +426,98 @@
   display: none !important;
 }
 
+/* Translation-only mode: hide original text content that has been translated */
+.translation-only-mode .prose p:has(+ .translation-text),
+.translation-only-mode .prose h1:has(+ .translation-text),
+.translation-only-mode .prose h2:has(+ .translation-text),
+.translation-only-mode .prose h3:has(+ .translation-text),
+.translation-only-mode .prose h4:has(+ .translation-text),
+.translation-only-mode .prose h5:has(+ .translation-text),
+.translation-only-mode .prose h6:has(+ .translation-text) {
+  display: none !important;
+}
+
+/* Hide list items that have translations inside them */
+.translation-only-mode .prose li:has(> .translation-text) {
+  display: none !important;
+}
+
+/* Hide table cells that have translations inside them */
+.translation-only-mode .prose td:has(> .translation-text),
+.translation-only-mode .prose th:has(> .translation-text) {
+  display: none !important;
+}
+
+/* Hide figcaption that has translation following it */
+.translation-only-mode .prose figcaption:has(+ .translation-text) {
+  display: none !important;
+}
+
+/* Hide definition list items that have translations inside them */
+.translation-only-mode .prose dt:has(> .translation-text),
+.translation-only-mode .prose dd:has(> .translation-text) {
+  display: none !important;
+}
+
+/* In translation-only mode, hide elements that don't have translations */
+.translation-only-mode .prose p:empty,
+.translation-only-mode .prose h1:empty,
+.translation-only-mode .prose h2:empty,
+.translation-only-mode .prose h3:empty,
+.translation-only-mode .prose h4:empty,
+.translation-only-mode .prose h5:empty,
+.translation-only-mode .prose h6:empty {
+  display: none !important;
+}
+
+/* Translation-only mode: make translations look like main text */
+.translation-only-mode .prose .translation-text {
+  color: var(--text-primary);
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  padding-top: 0;
+  border-top: none;
+  opacity: 1;
+  line-height: var(--content-line-height, 1.75);
+}
+
+/* Translation-only mode: paragraph translations should match paragraph spacing */
+.translation-only-mode .prose p + .translation-text,
+.translation-only-mode .prose .translation-text.translation-inline {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+/* Translation-only mode: heading translations */
+.translation-only-mode .prose h1 + .translation-text {
+  font-size: 2.25em;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 0;
+  margin-bottom: 0.8888889em;
+}
+
+.translation-only-mode .prose h2 + .translation-text {
+  font-size: 1.5em;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+
+.translation-only-mode .prose h3 + .translation-text {
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 0;
+  margin-bottom: 1.6em;
+}
+
 /* Base translation style - consistent dashed line separator */
 .prose .translation-text {
   display: block;
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: var(--content-line-height, 1.6);
   margin-top: 0.2em;
   margin-bottom: 0;
   padding-top: 0.2em;
@@ -790,6 +897,9 @@
   vertical-align: top;
   color: var(--text-primary);
   line-height: 1.6;
+  /* Prevent overflow from long content */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .prose td:last-child {
@@ -834,7 +944,7 @@
   margin-left: 1.625em;
   padding-left: 1.625em;
   color: var(--text-secondary);
-  line-height: 1.75;
+  line-height: var(--content-line-height, 1.75);
 }
 
 /* Strong and emphasis styling */

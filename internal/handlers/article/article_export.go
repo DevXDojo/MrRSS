@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/models"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
@@ -22,55 +23,66 @@ type ExportToObsidianRequest struct {
 }
 
 // HandleExportToObsidian exports an article to Obsidian using direct file system access
+// @Summary      Export article to Obsidian
+// @Description  Export an article to Obsidian vault as a Markdown file (requires obsidian_enabled and obsidian_vault_path settings)
+// @Tags         articles
+// @Accept       json
+// @Produce      json
+// @Param        request  body      ExportToObsidianRequest  true  "Article export request"
+// @Success      200  {object}  map[string]string  "Export result (success, file_path, message)"
+// @Failure      400  {object}  map[string]string  "Bad request (Obsidian not configured or invalid article ID)"
+// @Failure      404  {object}  map[string]string  "Article not found"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /articles/export/obsidian [post]
 func HandleExportToObsidian(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req ExportToObsidianRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		response.Error(w, err, http.StatusBadRequest)
 		return
 	}
 
 	if req.ArticleID <= 0 {
-		http.Error(w, "Invalid article ID", http.StatusBadRequest)
+		response.Error(w, nil, http.StatusBadRequest)
 		return
 	}
 
 	// Get article from database
 	article, err := h.DB.GetArticleByID(int64(req.ArticleID))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Article not found: %v", err), http.StatusNotFound)
+		response.Error(w, err, http.StatusNotFound)
 		return
 	}
 
 	// Check if Obsidian integration is enabled
 	obsidianEnabled, _ := h.DB.GetSetting("obsidian_enabled")
 	if obsidianEnabled != "true" {
-		http.Error(w, "Obsidian integration is not enabled", http.StatusBadRequest)
+		response.Error(w, nil, http.StatusBadRequest)
 		return
 	}
 
 	// Get vault path (required for direct file access)
 	vaultPath, _ := h.DB.GetSetting("obsidian_vault_path")
 	if vaultPath == "" {
-		http.Error(w, "Obsidian vault path is not configured", http.StatusBadRequest)
+		response.Error(w, nil, http.StatusBadRequest)
 		return
 	}
 
 	// Validate vault path exists and is a directory
 	if info, err := os.Stat(vaultPath); os.IsNotExist(err) {
-		http.Error(w, "Obsidian vault path does not exist", http.StatusBadRequest)
+		response.Error(w, nil, http.StatusBadRequest)
 		return
 	} else if !info.IsDir() {
-		http.Error(w, "Obsidian vault path is not a directory", http.StatusBadRequest)
+		response.Error(w, nil, http.StatusBadRequest)
 		return
 	}
 
 	// Get article content
-	content, err := h.GetArticleContent(int64(req.ArticleID))
+	content, _, err := h.GetArticleContent(int64(req.ArticleID))
 	if err != nil {
 		// If content fetch fails, continue with empty content
 		content = ""
@@ -91,13 +103,12 @@ func HandleExportToObsidian(h *core.Handler, w http.ResponseWriter, r *http.Requ
 
 	// Write file to Obsidian vault
 	if err := os.WriteFile(filePath, []byte(markdownContent), 0644); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to write file to Obsidian vault: %v", err), http.StatusInternalServerError)
+		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
 	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	response.JSON(w, map[string]string{
 		"success":   "true",
 		"file_path": filePath,
 		"message":   "Article exported to Obsidian successfully",

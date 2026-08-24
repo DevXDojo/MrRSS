@@ -9,7 +9,6 @@ export function useFilterConditions(initialConditions: FilterCondition[] = []) {
   const { isMultiSelectField } = useFilterFields();
 
   const conditions: Ref<FilterCondition[]> = ref([]);
-  const openDropdownIndex: Ref<number | null> = ref(null);
 
   /**
    * Initialize conditions from props
@@ -54,35 +53,10 @@ export function useFilterConditions(initialConditions: FilterCondition[] = []) {
   }
 
   /**
-   * Toggle dropdown open/close
-   */
-  function toggleDropdown(index: number): void {
-    if (openDropdownIndex.value === index) {
-      openDropdownIndex.value = null;
-    } else {
-      openDropdownIndex.value = index;
-    }
-  }
-
-  /**
-   * Toggle a value in multi-select field
-   */
-  function toggleMultiSelectValue(index: number, val: string): void {
-    const condition = conditions.value[index];
-    const idx = condition.values.indexOf(val);
-    if (idx > -1) {
-      condition.values.splice(idx, 1);
-    } else {
-      condition.values.push(val);
-    }
-  }
-
-  /**
    * Clear all conditions
    */
   function clearConditions(): void {
     conditions.value = [];
-    openDropdownIndex.value = null;
   }
 
   /**
@@ -104,13 +78,10 @@ export function useFilterConditions(initialConditions: FilterCondition[] = []) {
 
   return {
     conditions,
-    openDropdownIndex,
     initializeConditions,
     addCondition,
     removeCondition,
     toggleNegate,
-    toggleDropdown,
-    toggleMultiSelectValue,
     clearConditions,
     getValidConditions,
   };

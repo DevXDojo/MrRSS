@@ -22,19 +22,37 @@ describe('Application Smoke Tests', () => {
     cy.get('[class*="sidebar"]').should('be.visible');
 
     // Check for common sidebar elements
-    cy.contains(/all|全部/i).should('exist');
-    cy.contains(/unread|未读/i).should('exist');
+    cy.get('button[title="All Articles"], button[title="所有文章"]').should('exist');
+    cy.get('button[title="Unread"], button[title="未读"]').should('exist');
+  });
+
+  it('should keep all activity bar icons on the same centre line', () => {
+    cy.viewport(1280, 720);
+
+    cy.get('.smart-activity-bar').then(($bar) => {
+      const bar = $bar[0].getBoundingClientRect();
+      const centreX = bar.left + bar.width / 2;
+
+      cy.wrap($bar)
+        .find('button:visible svg')
+        .each(($icon) => {
+          const icon = $icon[0].getBoundingClientRect();
+          const iconCentreX = icon.left + icon.width / 2;
+
+          expect(Math.abs(iconCentreX - centreX)).to.be.lessThan(0.6);
+        });
+    });
   });
 
   it('should have working navigation', () => {
     // Click on different navigation items
-    cy.contains(/all|全部/i).click({ force: true });
+    cy.get('button[title="All Articles"], button[title="所有文章"]').click({ force: true });
     cy.wait(500);
 
-    cy.contains(/unread|未读/i).click({ force: true });
+    cy.get('button[title="Unread"], button[title="未读"]').click({ force: true });
     cy.wait(500);
 
-    cy.contains(/favorite|收藏/i).click({ force: true });
+    cy.get('button[title="Favorites"], button[title="收藏"]').click({ force: true });
     cy.wait(500);
   });
 
@@ -43,15 +61,19 @@ describe('Application Smoke Tests', () => {
     cy.wait('@getFeeds', { timeout: 10000 });
 
     // Open settings - find the gear icon button
-    cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+    cy.get('button')
+      .filter('[title="Settings"], [title="设置"]')
+      .should('exist')
+      .click({ force: true });
 
     // Wait for modal to appear
     cy.wait(1000);
 
     // Verify modal content is visible (check for settings text or modal structure)
     cy.get('body').then(($body) => {
-      const hasSettingsModal = $body.find(/settings|设置|general|常规/i).length > 0 ||
-                              $body.find('[class*="modal"]').length > 0;
+      const hasSettingsModal =
+        $body.find(/settings|设置|general|常规/i).length > 0 ||
+        $body.find('[class*="modal"]').length > 0;
       if (hasSettingsModal) {
         cy.log('Settings modal opened successfully');
       } else {
@@ -150,11 +172,14 @@ describe('Application Smoke Tests', () => {
     cy.wait('@getFeeds', { timeout: 10000 });
 
     // Select unread filter
-    cy.contains(/unread|未读/i).click({ force: true });
+    cy.get('button[title="Unread"], button[title="未读"]').click({ force: true });
     cy.wait(500);
 
     // Open settings
-    cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+    cy.get('button')
+      .filter('[title="Settings"], [title="设置"]')
+      .should('exist')
+      .click({ force: true });
     cy.wait(500);
 
     // Close settings
@@ -162,8 +187,6 @@ describe('Application Smoke Tests', () => {
     cy.wait(500);
 
     // Verify unread filter is still active by checking if the element exists
-    cy.contains(/unread|未读/i)
-      .should('exist')
-      .and('be.visible');
+    cy.get('button[title="Unread"], button[title="未读"]').should('exist').and('be.visible');
   });
 });

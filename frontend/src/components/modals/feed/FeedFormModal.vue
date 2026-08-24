@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhCaretDown, PhCaretRight } from '@phosphor-icons/vue';
 import type { Feed } from '@/types/models';
-import { useModalClose } from '@/composables/ui/useModalClose';
 import { useFeedForm } from '@/composables/feed/useFeedForm';
+import { useSettings } from '@/composables/core/useSettings';
+import BaseModal from '@/components/common/BaseModal.vue';
+import ModalFooter from '@/components/common/ModalFooter.vue';
 import UrlInput from './parts/UrlInput.vue';
 import ScriptSelector from './parts/ScriptSelector.vue';
 import XPathConfig from './parts/XPathConfig.vue';
 import EmailConfig from './parts/EmailConfig.vue';
 import CategorySelector from './parts/CategorySelector.vue';
+import TagSelector from './parts/TagSelector.vue';
 import AdvancedSettings from './parts/AdvancedSettings.vue';
 
 interface Props {
@@ -19,6 +23,12 @@ interface Props {
 const props = defineProps<Props>();
 
 const { t } = useI18n();
+const { settings } = useSettings();
+
+// Check if RSSHub is enabled
+const isRSSHubEnabled = computed(() => {
+  return settings.value?.rsshub_enabled === true;
+});
 
 // Use the shared feed form composable
 const {
@@ -74,19 +84,21 @@ const {
   emailUsername,
   emailPassword,
   emailFolder,
+  selectedTags,
 } = useFeedForm(props.feed);
 
 const emit = defineEmits<{
   close: [];
-  added: [];
+  added: [feedId?: number];
   updated: [];
 }>();
 
-// Modal close handling
-useModalClose(() => close());
-
 function close() {
   emit('close');
+}
+
+function insertRSSHubPrefix() {
+  url.value = 'rsshub://';
 }
 
 async function submit() {
@@ -96,12 +108,13 @@ async function submit() {
   isSubmitting.value = true;
 
   try {
-    const body: Record<string, string | boolean | number> = {
+    const body: Record<string, string | boolean | number | number[]> = {
       category: category.value,
       title: title.value,
       hide_from_timeline: hideFromTimeline.value,
       is_image_mode: isImageMode.value,
       refresh_interval: getRefreshInterval(),
+      tags: selectedTags.value,
     };
 
     // Handle proxy settings
@@ -117,7 +130,7 @@ async function submit() {
     }
 
     if (feedType.value === 'url') {
-      body.url = url.value;
+      body.url = url.value.trim();
       if (props.mode === 'edit') {
         body.script_path = '';
       }
@@ -129,7 +142,7 @@ async function submit() {
         body.script_path = scriptPath.value;
       }
     } else if (feedType.value === 'xpath') {
-      body.url = url.value;
+      body.url = url.value.trim();
       if (props.mode === 'edit') {
         body.script_path = '';
       }
@@ -158,11 +171,19 @@ async function submit() {
     body.article_view_mode = articleViewMode.value;
 
     // Add auto expand content mode
-    body.auto_expand_content = autoExpandContent.value;
+    // For XPath feeds: if there's a link xpath but no content xpath, auto-enable full article extraction
+    if (feedType.value === 'xpath' && !body.xpath_item_content && body.xpath_item_uri) {
+      body.auto_expand_content = 'enabled';
+    } else {
+      body.auto_expand_content = autoExpandContent.value;
+    }
 
     if (props.mode === 'edit') {
       body.id = props.feed!.id;
     }
+
+    // Note: RSSHub URLs (rsshub://) are now handled through the standard feed endpoints
+    // to ensure all advanced settings (hide_from_timeline, is_image_mode, etc.) are properly saved
 
     const endpoint = props.mode === 'add' ? '/api/feeds/add' : '/api/feeds/update';
     const res = await fetch(endpoint, {
@@ -173,17 +194,38 @@ async function submit() {
 
     if (res.ok) {
       if (props.mode === 'add') {
-        emit('added');
+        const result = await res.json().catch(() => ({}));
+        emit('added', result.feed_id);
         resetForm();
-        window.showToast(t('feedAddedSuccess'), 'success');
+        window.showToast(t('modal.feed.feedAddedSuccess'), 'success');
       } else {
         emit('updated');
-        window.showToast(t('feedUpdatedSuccess'), 'success');
+        window.showToast(t('modal.feed.feedUpdatedSuccess'), 'success');
       }
       close();
     } else {
       // Read error message from response
       const errorText = await res.text();
+
+      // Check if it's a duplicate URL error (409 Conflict)
+      if (res.status === 409 || errorText.includes('already exists')) {
+        let existingFeedId: number | undefined;
+        try {
+          const errorData = JSON.parse(errorText);
+          existingFeedId = errorData.existing_feed_id;
+        } catch {
+          existingFeedId = undefined;
+        }
+
+        if (existingFeedId) {
+          emit('added', existingFeedId);
+          close();
+          window.showToast(t('modal.feed.duplicateFeedSelected'), 'info');
+        } else {
+          window.showToast(t('modal.feed.duplicateFeedURL'), 'error');
+        }
+        return;
+      }
 
       // Check if it's an XPath error for better display
       if (feedType.value === 'xpath' && errorText.includes('XPath')) {
@@ -206,377 +248,396 @@ async function submit() {
     isSubmitting.value = false;
   }
 }
+
+// Computed modal title
+const modalTitle = computed(() => {
+  return props.mode === 'add' ? t('modal.feed.addNewFeed') : t('modal.feed.editFeed');
+});
+
+// Computed submit button text
+const submitButtonText = computed(() => {
+  if (isSubmitting.value) {
+    return props.mode === 'add' ? t('modal.feed.adding') : t('common.pagination.saving');
+  }
+  return props.mode === 'add' ? t('modal.feed.addSubscription') : t('common.action.saveChanges');
+});
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4"
-    data-modal-open="true"
-    style="will-change: transform; transform: translateZ(0)"
-  >
-    <div
-      class="bg-bg-primary w-full max-w-md h-full sm:h-auto sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in"
-    >
-      <div class="p-3 sm:p-5 border-b border-border flex justify-between items-center shrink-0">
-        <h3 class="text-base sm:text-lg font-semibold m-0">
-          {{ mode === 'add' ? t('addNewFeed') : t('editFeed') }}
-        </h3>
-        <span
-          class="text-2xl cursor-pointer text-text-secondary hover:text-text-primary"
-          @click="close"
-          >&times;</span
-        >
-      </div>
-      <div class="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
-        <div class="mb-3 sm:mb-4">
-          <label
-            class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary"
-            >{{ t('title') }}</label
-          >
-          <input
-            v-model="title"
-            type="text"
-            :placeholder="mode === 'add' ? t('titlePlaceholder') : ''"
-            class="input-field"
-          />
-        </div>
-
-        <!-- Content switching with different modes -->
-        <!-- URL Input (default mode) -->
-        <div v-if="feedType === 'url'" key="url-mode" class="mb-3 sm:mb-4">
-          <UrlInput v-model="url" :mode="mode" :is-invalid="mode === 'add' && isUrlInvalid" />
-
-          <!-- Mode switching links -->
-          <div class="mt-3 text-center">
-            <div class="text-xs text-text-tertiary">
-              {{ mode === 'add' ? t('orTry') : t('switchTo') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'script'"
-              >
-                {{ t('customScript') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'xpath'"
-              >
-                {{ t('xpath') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'email'"
-              >
-                {{ t('emailNewsletter') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Script Selection (advanced mode) -->
-        <div v-else-if="feedType === 'script'" key="script-mode" class="mb-3 sm:mb-4">
-          <!-- Back to URL link -->
-          <div class="mb-3 text-center">
-            <button
-              type="button"
-              class="text-xs text-accent hover:underline transition-colors"
-              @click="feedType = 'url'"
-            >
-              ← {{ t('backToUrl') }}
-            </button>
-          </div>
-
-          <!-- Script Selection Component -->
-          <ScriptSelector
-            v-model="scriptPath"
-            :mode="mode"
-            :is-invalid="mode === 'add' && isScriptInvalid"
-            :available-scripts="availableScripts"
-            :scripts-dir="scriptsDir"
-            @open-scripts-folder="openScriptsFolder"
-          />
-
-          <!-- Switch to other mode links -->
-          <div class="mt-3 text-center">
-            <div class="text-xs text-text-tertiary">
-              {{ mode === 'add' ? t('orTry') : t('switchTo') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'url'"
-              >
-                {{ t('rssUrl') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'xpath'"
-              >
-                {{ t('xpath') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'email'"
-              >
-                {{ t('emailNewsletter') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- XPath Configuration (advanced mode) -->
-        <div v-else-if="feedType === 'xpath'" key="xpath-mode" class="mb-3 sm:mb-4">
-          <!-- Back to URL link -->
-          <div class="mb-3 text-center">
-            <button
-              type="button"
-              class="text-xs text-accent hover:underline transition-colors"
-              @click="feedType = 'url'"
-            >
-              ← {{ t('backToUrl') }}
-            </button>
-          </div>
-
-          <!-- XPath Configuration Component -->
-          <XPathConfig
-            :mode="mode"
-            :url="url"
-            :xpath-type="xpathType"
-            :xpath-item="xpathItem"
-            :xpath-item-title="xpathItemTitle"
-            :xpath-item-content="xpathItemContent"
-            :xpath-item-uri="xpathItemUri"
-            :xpath-item-author="xpathItemAuthor"
-            :xpath-item-timestamp="xpathItemTimestamp"
-            :xpath-item-time-format="xpathItemTimeFormat"
-            :xpath-item-thumbnail="xpathItemThumbnail"
-            :xpath-item-categories="xpathItemCategories"
-            :xpath-item-uid="xpathItemUid"
-            :is-xpath-item-invalid="mode === 'add' && isXpathItemInvalid"
-            @update:url="url = $event"
-            @update:xpath-type="xpathType = $event as 'HTML+XPath' | 'XML+XPath'"
-            @update:xpath-item="xpathItem = $event"
-            @update:xpath-item-title="xpathItemTitle = $event"
-            @update:xpath-item-content="xpathItemContent = $event"
-            @update:xpath-item-uri="xpathItemUri = $event"
-            @update:xpath-item-author="xpathItemAuthor = $event"
-            @update:xpath-item-timestamp="xpathItemTimestamp = $event"
-            @update:xpath-item-time-format="xpathItemTimeFormat = $event"
-            @update:xpath-item-thumbnail="xpathItemThumbnail = $event"
-            @update:xpath-item-categories="xpathItemCategories = $event"
-            @update:xpath-item-uid="xpathItemUid = $event"
-          />
-
-          <!-- Switch to other mode links -->
-          <div class="mt-3 text-center">
-            <div class="text-xs text-text-tertiary">
-              {{ mode === 'add' ? t('orTry') : t('switchTo') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'url'"
-              >
-                {{ t('rssUrl') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'script'"
-              >
-                {{ t('customScript') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'email'"
-              >
-                {{ t('emailNewsletter') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Email Configuration (newsletter mode) -->
-        <div v-else-if="feedType === 'email'" key="email-mode" class="mb-3 sm:mb-4">
-          <!-- Back to URL link -->
-          <div class="mb-3 text-center">
-            <button
-              type="button"
-              class="text-xs text-accent hover:underline transition-colors"
-              @click="feedType = 'url'"
-            >
-              ← {{ t('backToUrl') }}
-            </button>
-          </div>
-
-          <!-- Email Configuration Component -->
-          <EmailConfig
-            :mode="mode"
-            :email-address="emailAddress"
-            :imap-server="imapServer"
-            :imap-port="imapPort"
-            :username="emailUsername"
-            :password="emailPassword"
-            :folder="emailFolder"
-            @update:email-address="emailAddress = $event"
-            @update:imap-server="imapServer = $event"
-            @update:imap-port="imapPort = $event"
-            @update:username="emailUsername = $event"
-            @update:password="emailPassword = $event"
-            @update:folder="emailFolder = $event"
-          />
-
-          <!-- Switch to other mode links -->
-          <div class="mt-3 text-center">
-            <div class="text-xs text-text-tertiary">
-              {{ mode === 'add' ? t('orTry') : t('switchTo') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'url'"
-              >
-                {{ t('rssUrl') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'xpath'"
-              >
-                {{ t('xpath') }}
-              </button>
-              {{ t('or') }}
-              <button
-                type="button"
-                class="text-xs text-accent hover:underline mx-1"
-                @click="feedType = 'script'"
-              >
-                {{ t('customScript') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <CategorySelector
-          :category="category"
-          :category-selection="categorySelection"
-          :show-custom-category="showCustomCategory"
-          :existing-categories="existingCategories"
-          @update:category="category = $event"
-          @update:category-selection="categorySelection = $event"
-          @update:show-custom-category="showCustomCategory = $event"
-          @handle-category-change="handleCategoryChange"
+  <BaseModal :title="modalTitle" size="md" :z-index="60" @close="close">
+    <!-- Form Content -->
+    <div class="p-4 sm:p-6 scroll-smooth">
+      <div class="mb-3 sm:mb-4">
+        <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary">
+          {{ t('common.form.title') }}
+        </label>
+        <input
+          v-model="title"
+          type="text"
+          :placeholder="mode === 'add' ? t('modal.feed.titlePlaceholder') : ''"
+          class="input-field"
         />
+      </div>
 
-        <!-- Advanced Settings Toggle -->
-        <div class="mb-3 sm:mb-4">
+      <!-- Content switching with different modes -->
+      <!-- URL Input (default mode) -->
+      <div v-if="feedType === 'url'" key="url-mode" class="mb-3 sm:mb-4">
+        <UrlInput v-model="url" :mode="mode" :is-invalid="mode === 'add' && isUrlInvalid" />
+
+        <!-- Mode switching links -->
+        <div class="mt-3 text-center">
+          <div class="text-xs text-text-tertiary">
+            {{ mode === 'add' ? t('common.text.orTry') : t('common.action.switchTo') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'script'"
+            >
+              {{ t('setting.customization.script') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'xpath'"
+            >
+              {{ t('modal.feed.xpath') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'email'"
+            >
+              {{ t('modal.feed.email') }}
+            </button>
+            <template v-if="isRSSHubEnabled">
+              {{ t('common.text.or') }}
+              <button
+                type="button"
+                class="text-xs text-accent hover:underline mx-1 inline-flex items-center gap-1"
+                @click="insertRSSHubPrefix"
+              >
+                <img src="/assets/plugin_icons/rsshub.svg" class="w-3 h-3" alt="RSSHub" />
+                RSSHub
+              </button>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Script Selection (advanced mode) -->
+      <div v-else-if="feedType === 'script'" key="script-mode" class="mb-3 sm:mb-4">
+        <!-- Back to URL link -->
+        <div class="mb-3 text-center">
           <button
             type="button"
-            class="flex items-center gap-1 text-xs sm:text-sm text-accent hover:text-accent-hover transition-colors"
-            @click="showAdvancedSettings = !showAdvancedSettings"
+            class="text-xs text-accent hover:underline transition-colors"
+            @click="feedType = 'url'"
           >
-            <PhCaretRight
-              v-if="!showAdvancedSettings"
-              :size="12"
-              class="transition-transform duration-200"
-            />
-            <PhCaretDown v-else :size="12" class="transition-transform duration-200" />
-            <span class="hover:underline">
-              {{ showAdvancedSettings ? t('hideAdvancedSettings') : t('showAdvancedSettings') }}
-            </span>
+            ← {{ t('article.action.backToUrl') }}
           </button>
         </div>
 
-        <!-- Advanced Settings Section (Collapsible) -->
-        <AdvancedSettings
-          v-if="showAdvancedSettings"
-          :image-gallery-enabled="imageGalleryEnabled"
-          :is-image-mode="isImageMode"
-          :hide-from-timeline="hideFromTimeline"
-          :article-view-mode="articleViewMode"
-          :auto-expand-content="autoExpandContent"
-          :proxy-mode="proxyMode"
-          :proxy-type="proxyType"
-          :proxy-host="proxyHost"
-          :proxy-port="proxyPort"
-          :proxy-username="proxyUsername"
-          :proxy-password="proxyPassword"
-          :refresh-mode="refreshMode"
-          :refresh-interval="refreshInterval"
-          @update:is-image-mode="isImageMode = $event"
-          @update:hide-from-timeline="hideFromTimeline = $event"
-          @update:article-view-mode="articleViewMode = $event"
-          @update:auto-expand-content="autoExpandContent = $event"
-          @update:proxy-mode="proxyMode = $event"
-          @update:proxy-type="proxyType = $event"
-          @update:proxy-host="proxyHost = $event"
-          @update:proxy-port="proxyPort = $event"
-          @update:proxy-username="proxyUsername = $event"
-          @update:proxy-password="proxyPassword = $event"
-          @update:refresh-mode="refreshMode = $event"
-          @update:refresh-interval="refreshInterval = $event"
+        <!-- Script Selection Component -->
+        <ScriptSelector
+          v-model="scriptPath"
+          :mode="mode"
+          :is-invalid="mode === 'add' && isScriptInvalid"
+          :available-scripts="availableScripts"
+          :scripts-dir="scriptsDir"
+          @open-scripts-folder="openScriptsFolder"
         />
+
+        <!-- Switch to other mode links -->
+        <div class="mt-3 text-center">
+          <div class="text-xs text-text-tertiary">
+            {{ mode === 'add' ? t('common.text.orTry') : t('common.action.switchTo') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'url'"
+            >
+              {{ t('modal.feed.rssUrl') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'xpath'"
+            >
+              {{ t('modal.feed.xpath') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'email'"
+            >
+              {{ t('modal.feed.email') }}
+            </button>
+            <template v-if="isRSSHubEnabled">
+              {{ t('common.text.or') }}
+              <button
+                type="button"
+                class="text-xs text-accent hover:underline mx-1 inline-flex items-center gap-1"
+                @click="insertRSSHubPrefix"
+              >
+                <img src="/assets/plugin_icons/rsshub.svg" class="w-3 h-3" alt="RSSHub" />
+                RSSHub
+              </button>
+            </template>
+          </div>
+        </div>
       </div>
-      <div class="p-3 sm:p-5 border-t border-border bg-bg-secondary text-right shrink-0">
+
+      <!-- XPath Configuration (advanced mode) -->
+      <div v-else-if="feedType === 'xpath'" key="xpath-mode" class="mb-3 sm:mb-4">
+        <!-- Back to URL link -->
+        <div class="mb-3 text-center">
+          <button
+            type="button"
+            class="text-xs text-accent hover:underline transition-colors"
+            @click="feedType = 'url'"
+          >
+            ← {{ t('article.action.backToUrl') }}
+          </button>
+        </div>
+
+        <!-- XPath Configuration Component -->
+        <XPathConfig
+          :mode="mode"
+          :url="url"
+          :xpath-type="xpathType"
+          :xpath-item="xpathItem"
+          :xpath-item-title="xpathItemTitle"
+          :xpath-item-content="xpathItemContent"
+          :xpath-item-uri="xpathItemUri"
+          :xpath-item-author="xpathItemAuthor"
+          :xpath-item-timestamp="xpathItemTimestamp"
+          :xpath-item-time-format="xpathItemTimeFormat"
+          :xpath-item-thumbnail="xpathItemThumbnail"
+          :xpath-item-categories="xpathItemCategories"
+          :xpath-item-uid="xpathItemUid"
+          :is-xpath-item-invalid="mode === 'add' && isXpathItemInvalid"
+          @update:url="url = $event"
+          @update:xpath-type="xpathType = $event as 'HTML+XPath' | 'XML+XPath'"
+          @update:xpath-item="xpathItem = $event"
+          @update:xpath-item-title="xpathItemTitle = $event"
+          @update:xpath-item-content="xpathItemContent = $event"
+          @update:xpath-item-uri="xpathItemUri = $event"
+          @update:xpath-item-author="xpathItemAuthor = $event"
+          @update:xpath-item-timestamp="xpathItemTimestamp = $event"
+          @update:xpath-item-time-format="xpathItemTimeFormat = $event"
+          @update:xpath-item-thumbnail="xpathItemThumbnail = $event"
+          @update:xpath-item-categories="xpathItemCategories = $event"
+          @update:xpath-item-uid="xpathItemUid = $event"
+        />
+
+        <!-- Switch to other mode links -->
+        <div class="mt-3 text-center">
+          <div class="text-xs text-text-tertiary">
+            {{ mode === 'add' ? t('common.text.orTry') : t('common.action.switchTo') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'url'"
+            >
+              {{ t('modal.feed.rssUrl') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'script'"
+            >
+              {{ t('setting.customization.script') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'email'"
+            >
+              {{ t('modal.feed.email') }}
+            </button>
+            <template v-if="isRSSHubEnabled">
+              {{ t('common.text.or') }}
+              <button
+                type="button"
+                class="text-xs text-accent hover:underline mx-1 inline-flex items-center gap-1"
+                @click="insertRSSHubPrefix"
+              >
+                <img src="/assets/plugin_icons/rsshub.svg" class="w-3 h-3" alt="RSSHub" />
+                RSSHub
+              </button>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Email Configuration (newsletter mode) -->
+      <div v-else-if="feedType === 'email'" key="email-mode" class="mb-3 sm:mb-4">
+        <!-- Back to URL link -->
+        <div class="mb-3 text-center">
+          <button
+            type="button"
+            class="text-xs text-accent hover:underline transition-colors"
+            @click="feedType = 'url'"
+          >
+            ← {{ t('article.action.backToUrl') }}
+          </button>
+        </div>
+
+        <!-- Email Configuration Component -->
+        <EmailConfig
+          :mode="mode"
+          :email-address="emailAddress"
+          :imap-server="imapServer"
+          :imap-port="imapPort"
+          :username="emailUsername"
+          :password="emailPassword"
+          :folder="emailFolder"
+          @update:email-address="emailAddress = $event"
+          @update:imap-server="imapServer = $event"
+          @update:imap-port="imapPort = $event"
+          @update:username="emailUsername = $event"
+          @update:password="emailPassword = $event"
+          @update:folder="emailFolder = $event"
+        />
+
+        <!-- Switch to other mode links -->
+        <div class="mt-3 text-center">
+          <div class="text-xs text-text-tertiary">
+            {{ mode === 'add' ? t('common.text.orTry') : t('common.action.switchTo') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'url'"
+            >
+              {{ t('modal.feed.rssUrl') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'xpath'"
+            >
+              {{ t('modal.feed.xpath') }}
+            </button>
+            {{ t('common.text.or') }}
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline mx-1"
+              @click="feedType = 'script'"
+            >
+              {{ t('setting.customization.script') }}
+            </button>
+            <template v-if="isRSSHubEnabled">
+              {{ t('common.text.or') }}
+              <button
+                type="button"
+                class="text-xs text-accent hover:underline mx-1 inline-flex items-center gap-1"
+                @click="insertRSSHubPrefix"
+              >
+                <img src="/assets/plugin_icons/rsshub.svg" class="w-3 h-3" alt="RSSHub" />
+                RSSHub
+              </button>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <CategorySelector
+        :category="category"
+        :category-selection="categorySelection"
+        :show-custom-category="showCustomCategory"
+        :existing-categories="existingCategories"
+        @update:category="category = $event"
+        @update:category-selection="categorySelection = $event"
+        @update:show-custom-category="showCustomCategory = $event"
+        @handle-category-change="handleCategoryChange"
+      />
+
+      <TagSelector :selected-tags="selectedTags" @update:selected-tags="selectedTags = $event" />
+
+      <!-- Advanced Settings Toggle -->
+      <div class="mb-3 sm:mb-4">
         <button
-          :disabled="isSubmitting || !isFormValid"
-          class="btn-primary text-sm sm:text-base"
-          @click="submit"
+          type="button"
+          class="flex items-center gap-1 text-xs sm:text-sm text-accent hover:text-accent-hover transition-colors"
+          @click="showAdvancedSettings = !showAdvancedSettings"
         >
-          {{
-            isSubmitting
-              ? mode === 'add'
-                ? t('adding')
-                : t('saving')
-              : mode === 'add'
-                ? t('addSubscription')
-                : t('saveChanges')
-          }}
+          <PhCaretRight
+            v-if="!showAdvancedSettings"
+            :size="12"
+            class="transition-transform duration-200"
+          />
+          <PhCaretDown v-else :size="12" class="transition-transform duration-200" />
+          <span class="hover:underline">
+            {{
+              showAdvancedSettings
+                ? t('setting.reading.hideAdvancedSettings')
+                : t('setting.reading.showAdvancedSettings')
+            }}
+          </span>
         </button>
       </div>
+
+      <!-- Advanced Settings Section (Collapsible) -->
+      <AdvancedSettings
+        v-if="showAdvancedSettings"
+        :image-gallery-enabled="imageGalleryEnabled"
+        :is-image-mode="isImageMode"
+        :hide-from-timeline="hideFromTimeline"
+        :article-view-mode="articleViewMode"
+        :auto-expand-content="autoExpandContent"
+        :proxy-mode="proxyMode"
+        :proxy-type="proxyType"
+        :proxy-host="proxyHost"
+        :proxy-port="proxyPort"
+        :proxy-username="proxyUsername"
+        :proxy-password="proxyPassword"
+        :refresh-mode="refreshMode"
+        :refresh-interval="refreshInterval"
+        @update:is-image-mode="isImageMode = $event"
+        @update:hide-from-timeline="hideFromTimeline = $event"
+        @update:article-view-mode="articleViewMode = $event"
+        @update:auto-expand-content="autoExpandContent = $event"
+        @update:proxy-mode="proxyMode = $event"
+        @update:proxy-type="proxyType = $event"
+        @update:proxy-host="proxyHost = $event"
+        @update:proxy-port="proxyPort = $event"
+        @update:proxy-username="proxyUsername = $event"
+        @update:proxy-password="proxyPassword = $event"
+        @update:refresh-mode="refreshMode = $event"
+        @update:refresh-interval="refreshInterval = $event"
+      />
     </div>
-  </div>
+
+    <!-- Footer -->
+    <template #footer>
+      <ModalFooter
+        align="right"
+        :secondary-button="{
+          label: t('common.cancel'),
+          disabled: isSubmitting,
+          onClick: close,
+        }"
+        :primary-button="{
+          label: submitButtonText,
+          disabled: isSubmitting || !isFormValid,
+          loading: isSubmitting,
+          onClick: submit,
+        }"
+      />
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
 @reference "../../../style.css";
-
 .input-field {
   @apply w-full p-2 sm:p-2.5 border border-border rounded-md bg-bg-tertiary text-text-primary text-xs sm:text-sm focus:border-accent focus:outline-none transition-colors;
-}
-.btn-primary {
-  @apply bg-accent text-white border-none px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg cursor-pointer font-semibold hover:bg-accent-hover transition-colors disabled:opacity-70;
-}
-.toggle {
-  @apply w-10 h-5 appearance-none bg-bg-tertiary rounded-full relative cursor-pointer border border-border transition-colors checked:bg-accent checked:border-accent shrink-0;
-}
-.toggle::after {
-  content: '';
-  @apply absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-transform;
-}
-.toggle:checked::after {
-  transform: translateX(20px);
-}
-.animate-fade-in {
-  animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes modalFadeIn {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 </style>

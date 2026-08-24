@@ -1,8 +1,16 @@
 import js from '@eslint/js';
 import vue from 'eslint-plugin-vue';
-import typescript from '@typescript-eslint/eslint-plugin';
-import typescriptParser from '@typescript-eslint/parser';
+import babelParser from '@babel/eslint-parser';
 import prettierConfig from '@vue/eslint-config-prettier';
+
+const typescriptParserOptions = {
+  requireConfigFile: false,
+  babelOptions: {
+    plugins: ['@babel/plugin-syntax-typescript'],
+  },
+  ecmaVersion: 'latest',
+  sourceType: 'module',
+};
 
 export default [
   js.configs.recommended,
@@ -13,9 +21,13 @@ export default [
     languageOptions: {
       parser: vue.parser,
       parserOptions: {
-        parser: typescriptParser,
+        parser: babelParser,
         ecmaVersion: 'latest',
         sourceType: 'module',
+        requireConfigFile: false,
+        babelOptions: {
+          plugins: ['@babel/plugin-syntax-typescript'],
+        },
         extraFileExtensions: ['.vue'],
       },
       globals: {
@@ -56,6 +68,11 @@ export default [
         WheelEvent: 'readonly',
         localStorage: 'readonly',
         File: 'readonly',
+        Blob: 'readonly',
+        Image: 'readonly',
+        ClipboardItem: 'readonly',
+        btoa: 'readonly',
+        atob: 'readonly',
         // Node.js globals (for config files)
         process: 'readonly',
         global: 'readonly',
@@ -69,16 +86,15 @@ export default [
     },
     rules: {
       'vue/multi-word-component-names': 'off',
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
     },
   },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
-      parser: typescriptParser,
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-      },
+      parser: babelParser,
+      parserOptions: typescriptParserOptions,
       globals: {
         // Browser globals
         window: 'readonly',
@@ -110,6 +126,11 @@ export default [
         Element: 'readonly',
         localStorage: 'readonly',
         File: 'readonly',
+        Blob: 'readonly',
+        Image: 'readonly',
+        ClipboardItem: 'readonly',
+        btoa: 'readonly',
+        atob: 'readonly',
         // Node.js globals (for config files)
         process: 'readonly',
         global: 'readonly',
@@ -121,14 +142,11 @@ export default [
         cordova: 'readonly',
       },
     },
-    plugins: {
-      '@typescript-eslint': typescript,
-    },
     rules: {
       'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
       'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
+      'no-undef': 'off',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
     },
   },
   {

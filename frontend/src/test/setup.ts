@@ -1,5 +1,4 @@
 // src/test/setup.ts
-/* eslint-disable no-undef */
 import { vi } from 'vitest';
 
 // Mock window.matchMedia

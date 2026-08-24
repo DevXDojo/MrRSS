@@ -2,11 +2,14 @@ package translation
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"MrRSS/internal/ai"
 )
 
 type rtFunc func(*http.Request) (*http.Response, error)
@@ -68,11 +71,19 @@ func TestAITranslate_SuccessAndEmpty(t *testing.T) {
 		t.Fatalf("expected empty translate for empty input, got %q err=%v", out, err)
 	}
 
-	// Mock AI response
-	t1.client = &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
+	// Mock AI response with custom HTTP client
+	testHTTPClient := &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
 		body := `{"choices":[{"message":{"content":"Bonjour"}}]}`
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{"Content-Type": {"application/json"}}}, nil
 	}), Timeout: 5 * time.Second}
+
+	// Re-create AI client with custom HTTP client
+	t1.client = ai.NewClientWithHTTPClient(ai.ClientConfig{
+		APIKey:   "apikey",
+		Endpoint: "https://api.test",
+		Model:    "m1",
+		Timeout:  5 * time.Second,
+	}, testHTTPClient)
 
 	out2, err := t1.Translate("Hello", "fr")
 	if err != nil {
@@ -86,18 +97,32 @@ func TestAITranslate_SuccessAndEmpty(t *testing.T) {
 func TestAITranslate_AutoDetectOllama(t *testing.T) {
 	t1 := NewAITranslator("", "http://localhost:11434/api/generate", "llama3.2:1b")
 
-	// Mock Ollama response (first try OpenAI format, which should fail, then try Ollama format)
+	// Mock Ollama response (since endpoint is localhost, Ollama format is tried first and should succeed)
 	callCount := 0
-	t1.client = &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
+	testHTTPClient := &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
 		callCount++
-		if callCount == 1 {
-			// First call - OpenAI format fails
-			return &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Invalid format"}}`)), Header: http.Header{"Content-Type": {"application/json"}}}, nil
+		// Read request body to verify Ollama format
+		bodyBytes, _ := io.ReadAll(req.Body)
+		var requestBody map[string]interface{}
+		json.Unmarshal(bodyBytes, &requestBody)
+
+		// Ollama format should have "prompt" and "model" fields, not "messages"
+		if _, hasPrompt := requestBody["prompt"]; !hasPrompt {
+			t.Fatalf("expected Ollama format request with 'prompt' field, got: %s", string(bodyBytes))
 		}
-		// Second call - Ollama format succeeds
+
+		// Return successful Ollama response
 		body := `{"response":"Bonjour","done":true}`
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{"Content-Type": {"application/json"}}}, nil
 	}), Timeout: 5 * time.Second}
+
+	// Re-create AI client with custom HTTP client
+	t1.client = ai.NewClientWithHTTPClient(ai.ClientConfig{
+		APIKey:   "",
+		Endpoint: "http://localhost:11434/api/generate",
+		Model:    "llama3.2:1b",
+		Timeout:  5 * time.Second,
+	}, testHTTPClient)
 
 	out, err := t1.Translate("Hello", "fr")
 	if err != nil {
@@ -106,8 +131,32 @@ func TestAITranslate_AutoDetectOllama(t *testing.T) {
 	if out != "Bonjour" {
 		t.Fatalf("expected Bonjour, got %s", out)
 	}
-	if callCount != 2 {
-		t.Fatalf("expected 2 API calls (OpenAI then Ollama), got %d", callCount)
+	if callCount != 1 {
+		t.Fatalf("expected 1 API call (Ollama format should succeed on first try), got %d", callCount)
+	}
+}
+
+func TestAITranslate_RemovesThinkingBlocks(t *testing.T) {
+	t1 := NewAITranslator("apikey", "https://api.test", "m1")
+
+	testHTTPClient := &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
+		body := `{"choices":[{"message":{"content":"<thinking>analyze first</thinking>\nBonjour"}}]}`
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{"Content-Type": {"application/json"}}}, nil
+	}), Timeout: 5 * time.Second}
+
+	t1.client = ai.NewClientWithHTTPClient(ai.ClientConfig{
+		APIKey:   "apikey",
+		Endpoint: "https://api.test",
+		Model:    "m1",
+		Timeout:  5 * time.Second,
+	}, testHTTPClient)
+
+	out, err := t1.Translate("Hello", "fr")
+	if err != nil {
+		t.Fatalf("AI translate failed: %v", err)
+	}
+	if out != "Bonjour" {
+		t.Fatalf("expected thinking-free translation, got %q", out)
 	}
 }
 

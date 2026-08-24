@@ -106,7 +106,7 @@ export function useDragDrop() {
     }
 
     // Calculate drop position based on mouse Y position relative to element
-    let beforeTarget = true;
+    let beforeTarget: boolean;
     if (targetFeedId !== null && event.target instanceof HTMLElement) {
       // Use target instead of currentTarget to get the actual element being hovered
       const target = event.target;
@@ -213,7 +213,7 @@ export function useDragDrop() {
 
     // Calculate the visual target index (0-based)
     // This is where the feed should appear in the sorted list
-    let targetIndex = 0;
+    let targetIndex: number;
 
     if (targetFeedId !== null) {
       const targetIdx = sortedFeeds.findIndex((f) => f.id === targetFeedId);
@@ -382,14 +382,12 @@ export function useDragDrop() {
       if (scrollableContainer.scrollTop > 0) {
         // Calculate scroll speed based on proximity to edge
         // When above the top edge (negative), scroll faster
-        let speedMultiplier = 1;
-        if (distanceFromTop >= 0) {
-          // Inside: closer = faster (1x to 2x)
-          speedMultiplier = 1 + (SCROLL_THRESHOLD - distanceFromTop) / SCROLL_THRESHOLD;
-        } else {
-          // Above: farther = faster (1x to 2x)
-          speedMultiplier = 1 + (SCROLL_THRESHOLD + distanceFromTop) / SCROLL_THRESHOLD;
-        }
+        const speedMultiplier =
+          distanceFromTop >= 0
+            ? // Inside: closer = faster (1x to 2x)
+              1 + (SCROLL_THRESHOLD - distanceFromTop) / SCROLL_THRESHOLD
+            : // Above: farther = faster (1x to 2x)
+              1 + (SCROLL_THRESHOLD + distanceFromTop) / SCROLL_THRESHOLD;
         scrollableContainer.scrollTop -= SCROLL_SPEED * speedMultiplier;
       }
     }
@@ -400,14 +398,12 @@ export function useDragDrop() {
       if (scrollableContainer.scrollTop < maxScroll) {
         // Calculate scroll speed based on proximity to edge
         // When below the bottom edge (negative), scroll faster
-        let speedMultiplier = 1;
-        if (distanceFromBottom >= 0) {
-          // Inside: closer = faster (1x to 2x)
-          speedMultiplier = 1 + (SCROLL_THRESHOLD - distanceFromBottom) / SCROLL_THRESHOLD;
-        } else {
-          // Below: farther = faster (1x to 2x)
-          speedMultiplier = 1 + (SCROLL_THRESHOLD + distanceFromBottom) / SCROLL_THRESHOLD;
-        }
+        const speedMultiplier =
+          distanceFromBottom >= 0
+            ? // Inside: closer = faster (1x to 2x)
+              1 + (SCROLL_THRESHOLD - distanceFromBottom) / SCROLL_THRESHOLD
+            : // Below: farther = faster (1x to 2x)
+              1 + (SCROLL_THRESHOLD + distanceFromBottom) / SCROLL_THRESHOLD;
         scrollableContainer.scrollTop += SCROLL_SPEED * speedMultiplier;
       }
     }

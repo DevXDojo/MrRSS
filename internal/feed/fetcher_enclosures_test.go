@@ -2,7 +2,6 @@ package feed
 
 import (
 	"MrRSS/internal/database"
-	"MrRSS/internal/translation"
 	"context"
 	"testing"
 	"time"
@@ -19,7 +18,7 @@ func TestFetchFeedWithAudioEnclosure(t *testing.T) {
 		t.Fatalf("Failed to init db: %v", err)
 	}
 
-	fetcher := NewFetcher(db, translation.NewMockTranslator())
+	fetcher := NewFetcher(db)
 
 	mockFeed := &gofeed.Feed{
 		Title:       "Test Podcast",
@@ -77,7 +76,7 @@ func TestFetchFeedWithImageEnclosure(t *testing.T) {
 		t.Fatalf("Failed to init db: %v", err)
 	}
 
-	fetcher := NewFetcher(db, translation.NewMockTranslator())
+	fetcher := NewFetcher(db)
 
 	mockFeed := &gofeed.Feed{
 		Title:       "Test Feed",
@@ -150,7 +149,7 @@ func TestFetchFeedWithMultipleEnclosures(t *testing.T) {
 		t.Fatalf("Failed to init db: %v", err)
 	}
 
-	fetcher := NewFetcher(db, translation.NewMockTranslator())
+	fetcher := NewFetcher(db)
 
 	mockFeed := &gofeed.Feed{
 		Title:       "Test Podcast",

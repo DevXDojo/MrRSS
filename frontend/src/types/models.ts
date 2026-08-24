@@ -1,5 +1,12 @@
 // Type definitions for models
 
+export interface Tag {
+  id: number;
+  name: string;
+  color: string; // Hex color code
+  position?: number;
+}
+
 export interface Article {
   id: number;
   feed_id: number;
@@ -17,7 +24,9 @@ export interface Article {
   is_favorite: boolean;
   is_hidden: boolean;
   is_read_later: boolean;
+  author?: string; // Article author
   summary?: string; // Cached AI-generated summary
+  original_summary?: string; // Summary/description provided by the RSS item
   freshrss_item_id?: string; // FreshRSS/Google Reader item ID
 }
 
@@ -50,7 +59,7 @@ export interface Feed {
   xpath_item_thumbnail?: string;
   xpath_item_categories?: string;
   xpath_item_uid?: string;
-  article_view_mode?: string; // Article view mode override ('global', 'webpage', 'rendered')
+  article_view_mode?: string; // Article view mode override ('global', 'webpage', 'rendered', 'external')
   auto_expand_content?: string; // Auto expand content mode ('global', 'enabled', 'disabled')
   // Email/Newsletter support
   email_address?: string;
@@ -66,6 +75,8 @@ export interface Feed {
   latest_article_time?: string; // Latest article publish time
   articles_per_month?: number; // Average articles per month (calculated from last 90 days)
   last_update_status?: string; // Last update status ("success" or "failed")
+  // Tags (populated by API handlers)
+  tags?: Tag[]; // Tags assigned to this feed
 }
 
 export interface UnreadCounts {
@@ -145,6 +156,7 @@ export interface FilterCondition {
   field:
     | 'feed_name'
     | 'feed_category'
+    | 'feed_tags'
     | 'article_title'
     | 'is_read'
     | 'is_favorite'

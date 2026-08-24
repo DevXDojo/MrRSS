@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import DataManagementSettings from './DataManagementSettings.vue';
 import FeedManagementSettings from './FeedManagementSettings.vue';
 import DiscoverySettings from './DiscoverySettings.vue';
+import TagManagementModal from '../tags/TagManagementModal.vue';
 import type { Feed } from '@/types/models';
 import type { SettingsData } from '@/types/settings';
 import { useSettingsAutoSave } from '@/composables/core/useSettingsAutoSave';
@@ -22,8 +23,12 @@ const emit = defineEmits<{
   'delete-feed': [id: number];
   'batch-delete': [ids: number[]];
   'batch-move': [ids: number[]];
+  'batch-add-tags': [ids: number[]];
+  'batch-set-image-mode': [ids: number[]];
+  'batch-unset-image-mode': [ids: number[]];
   'discover-all': [];
   'update:settings': [settings: SettingsData];
+  'select-feed': [feedId: number];
 }>();
 
 // Create a computed ref that returns the settings object
@@ -32,6 +37,9 @@ const settingsRef = computed(() => props.settings);
 
 // Use composable for auto-save with reactivity
 useSettingsAutoSave(settingsRef);
+
+// Tag management modal state
+const showTagManagement = ref(false);
 
 // Event handlers that pass through to parent
 function handleImportOPML() {
@@ -69,6 +77,26 @@ function handleBatchDelete(ids: number[]) {
 function handleBatchMove(ids: number[]) {
   emit('batch-move', ids);
 }
+
+function handleBatchAddTags(ids: number[]) {
+  emit('batch-add-tags', ids);
+}
+
+function handleBatchSetImageMode(ids: number[]) {
+  emit('batch-set-image-mode', ids);
+}
+
+function handleBatchUnsetImageMode(ids: number[]) {
+  emit('batch-unset-image-mode', ids);
+}
+
+function handleSelectFeed(feedId: number) {
+  emit('select-feed', feedId);
+}
+
+function handleManageTags() {
+  showTagManagement.value = true;
+}
 </script>
 
 <template>
@@ -85,8 +113,18 @@ function handleBatchMove(ids: number[]) {
       @delete-feed="handleDeleteFeed"
       @batch-delete="handleBatchDelete"
       @batch-move="handleBatchMove"
+      @batch-add-tags="handleBatchAddTags"
+      @batch-set-image-mode="handleBatchSetImageMode"
+      @batch-unset-image-mode="handleBatchUnsetImageMode"
+      @select-feed="handleSelectFeed"
+      @manage-tags="handleManageTags"
     />
 
     <DiscoverySettings @discover-all="handleDiscoverAll" />
   </div>
+
+  <!-- Tag Management Modal (Teleported to body) -->
+  <Teleport to="body">
+    <TagManagementModal v-if="showTagManagement" @close="showTagManagement = false" />
+  </Teleport>
 </template>

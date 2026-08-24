@@ -34,7 +34,7 @@ func TestFetchFeed_SavesArticlesAndAppliesRules(t *testing.T) {
 	defer srv.Close()
 
 	// Use fetcher
-	ffetcher := NewFetcher(db, nil)
+	ffetcher := NewFetcher(db)
 
 	// Insert feed into DB
 	id, err := db.AddFeed(&models.Feed{Title: "itest", URL: srv.URL})

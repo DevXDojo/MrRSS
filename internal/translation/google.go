@@ -96,7 +96,13 @@ func (t *GoogleFreeTranslator) translateGoogleChunk(text, targetLang string) (st
 	q := u.Query()
 	q.Set("client", clientParam)
 	q.Set("sl", "auto")
-	q.Set("tl", targetLang)
+	// Map zh-TW to zh-TW for Google Translate
+	// Google Translate uses "zh-TW" for Traditional Chinese and "zh-CN" for Simplified
+	googleLang := targetLang
+	if targetLang == "zh" {
+		googleLang = "zh-CN"
+	}
+	q.Set("tl", googleLang)
 	q.Set("dt", "t")
 	q.Set("q", text)
 	u.RawQuery = q.Encode()

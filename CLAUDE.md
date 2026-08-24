@@ -122,7 +122,7 @@ pre-commit run --all-files
 
 ### High-Level Structure
 
-- **Backend**: Go 1.24+ with Wails v3, SQLite database
+- **Backend**: Go 1.27+ with Wails v3, SQLite database
 - **Frontend**: Vue 3.5+ Composition API, Pinia state management, TypeScript
 - **Communication**: HTTP API (primary) + Wails bindings (system integration)
 - **Build System**: Wails v3 + Task runner + Vite
@@ -131,23 +131,32 @@ pre-commit run --all-files
 
 ```plaintext
 MrRSS/
-├── main.go                    # Application entry point
-├── internal/                 # Go backend packages
-│   ├── database/            # Data layer, models, migrations
-│   ├── handlers/            # HTTP API handlers by feature
-│   ├── feed/               # RSS fetching and processing
-│   ├── translation/        # Multi-language support
-│   ├── discovery/          # Feed discovery engine
-│   └── utils/              # Shared utilities
-├── frontend/                 # Vue.js frontend
+├── main.go                    # Desktop application entry point
+├── main-core.go               # Headless server entry point
+├── internal/                  # Go backend packages
+│   ├── ai/                   # AI configuration and utilities
+│   ├── aiusage/              # AI usage tracking and limits
+│   ├── cache/                # Media cache management
+│   ├── config/               # Configuration with schema-driven generation
+│   ├── database/             # SQLite operations with WAL mode
+│   ├── discovery/            # Feed discovery engine
+│   ├── feed/                 # RSS fetching and processing
+│   ├── handlers/             # HTTP API handlers by feature
+│   ├── models/               # Core data structures
+│   ├── summary/              # TF-IDF + TextRank + AI summarization
+│   ├── translation/          # Multi-service translation
+│   └── utils/                # Platform utilities
+├── frontend/                  # Vue.js frontend
 │   ├── src/
-│   │   ├── components/      # UI components
-│   │   ├── stores/          # Pinia state management
-│   │   ├── composables/    # Vue composables
-│   │   ├── types/           # TypeScript definitions
-│   │   └── i18n/            # Internationalization
-│   └── dist/                # Built assets (embedded)
-└── wails.json               # Wails configuration
+│   │   ├── components/       # UI components (article/, sidebar/, modals/)
+│   │   ├── composables/      # Vue composables (article/, feed/, ui/)
+│   │   ├── stores/           # Pinia state management
+│   │   ├── types/            # TypeScript definitions
+│   │   └── i18n/             # Internationalization (en, zh)
+│   └── dist/                 # Built assets (embedded)
+├── docs/                      # Comprehensive documentation
+├── tools/                     # Development tools (settings generator)
+└── scripts/                   # Automation scripts
 ```
 
 ### Communication Pattern
@@ -233,3 +242,34 @@ Important: The database uses SQLite with WAL mode for better concurrency.
 2. **Build Requirements**: Ensure platform-specific dependencies are installed
 3. **Frontend Hot Reload**: Use `wails3 dev` for development with hot reload
 4. **Database Migrations**: Handle schema changes carefully with proper versioning
+
+## Quick Reference
+
+### Build Commands
+- Development: `wails3 dev`
+- Production Build: `wails3 build`
+- Important: MrRSS uses HTTP API, not Wails bindings
+
+### Store Access
+- `const store = useAppStore()`
+- `const { t } = useI18n()`
+- Theme: `store.theme` returns `'light'` or `'dark'`
+- Language: `store.i18n.locale.value` returns `'en'` or `'zh'`
+
+### UI Helpers
+- Toast: `window.showToast(message, type)`
+- Confirm: `await window.showConfirm(title, message, isDanger)`
+
+### API Endpoints
+- Settings: `GET/POST /api/settings`
+- Articles: `GET /api/articles` with query params
+- Progress: `GET /api/progress` for async operations
+
+## Related Documentation
+
+- [AGENTS.md](AGENTS.md) - Comprehensive AI agent guidelines
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
+- [docs/CODE_PATTERNS.md](docs/CODE_PATTERNS.md) - Coding patterns
+- [docs/SETTINGS.md](docs/SETTINGS.md) - Settings system
+- [docs/TESTING.md](docs/TESTING.md) - Testing guide
+- [docs/BUILD_REQUIREMENTS.md](docs/BUILD_REQUIREMENTS.md) - Build dependencies

@@ -125,5 +125,8 @@ func (e *ScriptExecutor) ExecuteScript(ctx context.Context, scriptPath string) (
 		return nil, fmt.Errorf("failed to parse script output as feed: %v", err)
 	}
 
+	// Fix Atom authors for feeds that use simple text format
+	fixFeedAuthors(feed, cleanedOutput)
+
 	return feed, nil
 }

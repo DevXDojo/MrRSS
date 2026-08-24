@@ -55,12 +55,15 @@ export function useWindowState() {
       // Use browser window properties to get approximate state
       // Note: These values may not be 100% accurate due to browser limitations,
       // but they provide a reasonable approximation for window state persistence
+      const currentStateResponse = await fetch('/api/window/state');
+      const currentState = currentStateResponse.ok ? await currentStateResponse.json() : {};
+
       const state: WindowState = {
         x: window.screenX || 0,
         y: window.screenY || 0,
         width: window.innerWidth || 1024,
         height: window.innerHeight || 768,
-        maximized: false, // Browser can't reliably detect maximized state
+        maximized: currentState.maximized === true || currentState.maximized === 'true',
       };
 
       // Only save if values are reasonable

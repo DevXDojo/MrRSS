@@ -2,8 +2,10 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -49,6 +51,37 @@ func TestDatabaseInitialization(t *testing.T) {
 	}
 
 	// Schema version table removed in development - skip version check
+}
+
+func TestGetTagsReturnsEmptyJSONArray(t *testing.T) {
+	db, err := NewDB(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Init(); err != nil {
+		t.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	tags, err := db.GetTags()
+	if err != nil {
+		t.Fatalf("Failed to get tags: %v", err)
+	}
+	if tags == nil {
+		t.Fatal("Expected an empty tag slice, got nil")
+	}
+	if len(tags) != 0 {
+		t.Fatalf("Expected no tags, got %d", len(tags))
+	}
+
+	encoded, err := json.Marshal(tags)
+	if err != nil {
+		t.Fatalf("Failed to encode tags: %v", err)
+	}
+	if string(encoded) != "[]" {
+		t.Fatalf("Expected empty JSON array, got %s", encoded)
+	}
 }
 
 func TestDatabasePerformanceWithIndexes(t *testing.T) {
@@ -323,9 +356,7 @@ func TestCleanupOldArticles(t *testing.T) {
 }
 
 func TestCleanupUnimportantArticles(t *testing.T) {
-	// Create temporary database
-	dbFile := "test_cleanup_unimportant.db"
-	defer os.Remove(dbFile)
+	dbFile := filepath.Join(t.TempDir(), "test_cleanup_unimportant.db")
 
 	db, err := NewDB(dbFile)
 	if err != nil {
@@ -357,7 +388,8 @@ func TestCleanupUnimportantArticles(t *testing.T) {
 		{FeedID: feedID, Title: "Unread Unfav", URL: "https://example.com/1", PublishedAt: time.Now(), IsRead: false, IsFavorite: false},
 		{FeedID: feedID, Title: "Read Unfav", URL: "https://example.com/2", PublishedAt: time.Now(), IsRead: true, IsFavorite: false},
 		{FeedID: feedID, Title: "Unread Fav", URL: "https://example.com/3", PublishedAt: time.Now(), IsRead: false, IsFavorite: true},
-		{FeedID: feedID, Title: "Read Fav", URL: "https://example.com/4", PublishedAt: time.Now(), IsRead: true, IsFavorite: true},
+		{FeedID: feedID, Title: "Unread Read Later", URL: "https://example.com/4", PublishedAt: time.Now(), IsReadLater: true},
+		{FeedID: feedID, Title: "Read Fav", URL: "https://example.com/5", PublishedAt: time.Now(), IsRead: true, IsFavorite: true},
 	}
 
 	for _, article := range articles {
@@ -365,6 +397,28 @@ func TestCleanupUnimportantArticles(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to save article: %v", err)
 		}
+	}
+
+	savedArticles, err := db.GetArticles("", feedID, "", false, 100, 0)
+	if err != nil {
+		t.Fatalf("Failed to load saved articles: %v", err)
+	}
+	articleIDs := make(map[string]int64, len(savedArticles))
+	for _, article := range savedArticles {
+		articleIDs[article.Title] = article.ID
+		if err := db.SetArticleContent(article.ID, "cached content for "+article.Title); err != nil {
+			t.Fatalf("Failed to cache content for %q: %v", article.Title, err)
+		}
+	}
+	if _, err := db.Exec(`UPDATE article_contents SET fetched_at = datetime('now', '-8 days')`); err != nil {
+		t.Fatalf("Failed to age article content cache: %v", err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO translation_cache (
+			source_text_hash, source_text, target_lang, translated_text, provider, created_at
+		) VALUES ('old-hash', 'source', 'en', 'translated', 'test', datetime('now', '-8 days'))
+	`); err != nil {
+		t.Fatalf("Failed to insert translation cache: %v", err)
 	}
 
 	// Run cleanup
@@ -380,8 +434,8 @@ func TestCleanupUnimportantArticles(t *testing.T) {
 
 	// Verify remaining articles
 	remainingArticles, _ := db.GetArticles("", feedID, "", false, 100, 0)
-	if len(remainingArticles) != 3 {
-		t.Errorf("Expected 3 articles after cleanup, got %d", len(remainingArticles))
+	if len(remainingArticles) != 4 {
+		t.Errorf("Expected 4 articles after cleanup, got %d", len(remainingArticles))
 	}
 
 	// Verify the right articles remain
@@ -390,10 +444,36 @@ func TestCleanupUnimportantArticles(t *testing.T) {
 		titles[a.Title] = true
 	}
 
-	expectedTitles := []string{"Read Unfav", "Unread Fav", "Read Fav"}
+	expectedTitles := []string{"Read Unfav", "Unread Fav", "Unread Read Later", "Read Fav"}
 	for _, expected := range expectedTitles {
 		if !titles[expected] {
 			t.Errorf("Expected article '%s' to remain after cleanup", expected)
 		}
+		content, found, err := db.GetArticleContent(articleIDs[expected])
+		if err != nil || !found || content == "" {
+			t.Errorf("Expected cached content for %q to remain, found=%v, err=%v", expected, found, err)
+		}
+	}
+
+	if _, found, err := db.GetArticleContent(articleIDs["Unread Unfav"]); err != nil {
+		t.Fatalf("Failed to check deleted article content: %v", err)
+	} else if found {
+		t.Error("Expected deleted article content to be removed by cascade")
+	}
+
+	var translationCacheCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM translation_cache WHERE source_text_hash = 'old-hash'`).Scan(&translationCacheCount); err != nil {
+		t.Fatalf("Failed to count translation cache: %v", err)
+	}
+	if translationCacheCount != 1 {
+		t.Fatalf("Expected unrelated translation cache to remain, got %d", translationCacheCount)
+	}
+
+	secondCount, err := db.CleanupUnimportantArticles()
+	if err != nil {
+		t.Fatalf("Second cleanup failed: %v", err)
+	}
+	if secondCount != 0 {
+		t.Fatalf("Expected idempotent cleanup to delete 0 articles, deleted %d", secondCount)
 	}
 }

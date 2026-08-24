@@ -72,8 +72,11 @@ tasks:
       - "darwin/icons.icns"
       - "windows/icon.ico"
     cmds:
-      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns
-      - wails3 generate icons -input windows/icon.png -windowsfilename windows/icon.ico
+      # Wails supplies build/windows and build/darwin defaults for omitted output
+      # flags. This task already runs from build/, so explicitly disable the
+      # unrelated output while preserving the platform-specific source images.
+      - wails3 generate icons -input appicon.png -windowsfilename= -macfilename darwin/icons.icns
+      - wails3 generate icons -input windows/icon.png -windowsfilename windows/icon.ico -macfilename=
 
   dev:frontend:
     summary: Runs the frontend in development mode

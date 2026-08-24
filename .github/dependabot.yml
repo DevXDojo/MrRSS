@@ -6,10 +6,12 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 10
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
     labels:
-      - "dependencies"
-      - "go"
+      - "🛠️dependencies"
     commit-message:
       prefix: "chore(go-deps:backend)"
       include: "scope"
@@ -20,10 +22,12 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 10
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
     labels:
-      - "dependencies"
-      - "npm"
+      - "🛠️dependencies"
     commit-message:
       prefix: "chore(npm-deps:frontend)"
       include: "scope"
@@ -34,10 +38,12 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 10
+    groups:
+      website-dependencies:
+        patterns:
+          - "*"
     labels:
-      - "dependencies"
-      - "npm"
+      - "🛠️dependencies"
     commit-message:
       prefix: "chore(npm-deps:website)"
       include: "scope"
@@ -48,8 +54,11 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     labels:
-      - "dependencies"
-      - "github-actions"
+      - "🛠️dependencies"
     commit-message:
       prefix: "chore(actions-deps)"

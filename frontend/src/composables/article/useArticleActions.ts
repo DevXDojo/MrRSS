@@ -4,77 +4,181 @@ import { useAppStore } from '@/stores/app';
 import type { Article } from '@/types/models';
 import type { Composer } from 'vue-i18n';
 
+type ViewMode = 'original' | 'rendered' | 'external';
+
 export function useArticleActions(
   t: Composer['t'],
-  defaultViewMode: { value: 'original' | 'rendered' },
+  defaultViewMode: { value: ViewMode },
   onReadStatusChange?: () => void
 ) {
   const store = useAppStore();
+
+  // Get effective view mode for an article based on feed settings and global settings
+  function getEffectiveViewMode(article: Article): ViewMode {
+    const feed = store.feeds.find((f) => f.id === article.feed_id);
+    if (!feed) return defaultViewMode.value;
+
+    if (feed.article_view_mode === 'webpage') {
+      return 'original';
+    } else if (feed.article_view_mode === 'rendered') {
+      return 'rendered';
+    } else if (feed.article_view_mode === 'external') {
+      return 'external';
+    } else {
+      // 'global' or undefined - use global setting
+      return defaultViewMode.value;
+    }
+  }
   // Show context menu for article
   function showArticleContextMenu(e: MouseEvent, article: Article): void {
     e.preventDefault();
     e.stopPropagation();
 
-    // Determine context menu text based on default view mode
-    const contentActionLabel =
-      defaultViewMode.value === 'rendered' ? t('showOriginal') : t('renderContent');
-    const contentActionIcon = defaultViewMode.value === 'rendered' ? 'ph-globe' : 'ph-article';
+    // Get effective view mode for this article
+    const effectiveMode = getEffectiveViewMode(article);
+
+    // Build menu items array
+    const menuItems = [
+      {
+        label: article.is_read ? t('article.action.markAsUnread') : t('article.action.markAsRead'),
+        action: 'toggleRead',
+        icon: article.is_read ? 'ph-envelope' : 'ph-envelope-open',
+      },
+      {
+        label: t('article.action.markAboveAsRead'),
+        action: 'markAboveAsRead',
+        icon: 'ph-arrow-bend-right-up',
+      },
+      {
+        label: t('article.action.markBelowAsRead'),
+        action: 'markBelowAsRead',
+        icon: 'ph-arrow-bend-left-down',
+      },
+      {
+        label: article.is_favorite
+          ? t('article.action.removeFromFavorites')
+          : t('article.action.addToFavorite'),
+        action: 'toggleFavorite',
+        icon: 'ph-star',
+        iconWeight: article.is_favorite ? 'fill' : 'regular',
+        iconColor: article.is_favorite ? 'text-yellow-500' : '',
+      },
+      {
+        label: article.is_read_later
+          ? t('article.action.removeFromReadLater')
+          : t('article.action.addToReadLater'),
+        action: 'toggleReadLater',
+        icon: 'ph-clock-countdown',
+        iconWeight: article.is_read_later ? 'fill' : 'regular',
+        iconColor: article.is_read_later ? 'text-blue-500' : '',
+      },
+      { separator: true },
+    ];
+
+    // Add view mode specific menu items
+    if (effectiveMode === 'external') {
+      // When mode is external, show both "View Original" and "Render Content" options
+      menuItems.push({
+        label: t('article.action.viewModeOriginal'),
+        action: 'viewInAppOriginal',
+        icon: 'ph-globe',
+      });
+      menuItems.push({
+        label: t('article.action.viewModeRendered'),
+        action: 'viewInAppRendered',
+        icon: 'ph-article',
+      });
+    } else if (effectiveMode === 'rendered') {
+      // When mode is rendered, show "View Original" option
+      menuItems.push({
+        label: t('article.action.viewOriginal'),
+        action: 'renderContent',
+        icon: 'ph-globe',
+      });
+    } else {
+      // When mode is original, show "Render Content" option
+      menuItems.push({
+        label: t('article.content.renderContent'),
+        action: 'renderContent',
+        icon: 'ph-article',
+      });
+    }
+
+    // Add remaining menu items
+    menuItems.push(
+      { separator: true },
+      {
+        label: article.is_hidden
+          ? t('article.action.unhideArticle')
+          : t('article.action.hideArticle'),
+        action: 'toggleHide',
+        icon: article.is_hidden ? 'ph-eye' : 'ph-eye-slash',
+        danger: !article.is_hidden,
+      },
+      { separator: true },
+      {
+        label: t('common.contextMenu.copyTitle'),
+        action: 'copyTitle',
+        icon: 'ph-text-t',
+      },
+      {
+        label: t('common.contextMenu.copyLink'),
+        action: 'copyLink',
+        icon: 'ph-link-simple',
+      }
+    );
+
+    // Only add "Open in Browser" option if not in external mode
+    if (effectiveMode !== 'external') {
+      menuItems.push(
+        { separator: true },
+        {
+          label: t('article.action.openInBrowser'),
+          action: 'openBrowser',
+          icon: 'ph-arrow-square-out',
+        }
+      );
+    }
+
+    // Add export options based on enabled plugins
+    const exportItems = [];
+
+    // Check each export option
+    if (store.settings?.obsidian_enabled) {
+      exportItems.push({
+        label: t('setting.plugins.obsidian.exportTo'),
+        action: 'exportToObsidian',
+        icon: 'obsidian',
+      });
+    }
+
+    if (store.settings?.notion_enabled) {
+      exportItems.push({
+        label: t('setting.plugins.notion.exportTo'),
+        action: 'exportToNotion',
+        icon: 'notion',
+      });
+    }
+
+    if (store.settings?.zotero_enabled) {
+      exportItems.push({
+        label: t('setting.plugins.zotero.exportTo'),
+        action: 'exportToZotero',
+        icon: 'zotero',
+      });
+    }
+
+    // Add separator and export items if any export options are enabled
+    if (exportItems.length > 0) {
+      menuItems.push({ separator: true }, ...exportItems);
+    }
 
     window.dispatchEvent(
       new CustomEvent('open-context-menu', {
         detail: {
           x: e.clientX,
           y: e.clientY,
-          items: [
-            {
-              label: article.is_read ? t('markAsUnread') : t('markAsRead'),
-              action: 'toggleRead',
-              icon: article.is_read ? 'ph-envelope' : 'ph-envelope-open',
-            },
-            {
-              label: article.is_favorite ? t('removeFromFavorites') : t('addToFavorites'),
-              action: 'toggleFavorite',
-              icon: 'ph-star',
-              iconWeight: article.is_favorite ? 'fill' : 'regular',
-              iconColor: article.is_favorite ? 'text-yellow-500' : '',
-            },
-            {
-              label: article.is_read_later ? t('removeFromReadLater') : t('addToReadLater'),
-              action: 'toggleReadLater',
-              icon: 'ph-clock-countdown',
-              iconWeight: article.is_read_later ? 'fill' : 'regular',
-              iconColor: article.is_read_later ? 'text-blue-500' : '',
-            },
-            { separator: true },
-            {
-              label: contentActionLabel,
-              action: 'renderContent',
-              icon: contentActionIcon,
-            },
-            {
-              label: article.is_hidden ? t('unhideArticle') : t('hideArticle'),
-              action: 'toggleHide',
-              icon: article.is_hidden ? 'ph-eye' : 'ph-eye-slash',
-              danger: !article.is_hidden,
-            },
-            { separator: true },
-            {
-              label: t('copyLink'),
-              action: 'copyLink',
-              icon: 'ph-link',
-            },
-            {
-              label: t('copyTitle'),
-              action: 'copyTitle',
-              icon: 'ph-text-t',
-            },
-            { separator: true },
-            {
-              label: t('openInBrowser'),
-              action: 'openBrowser',
-              icon: 'ph-arrow-square-out',
-            },
-          ],
+          items: menuItems,
           data: article,
           callback: (action: string, article: Article) =>
             handleArticleAction(action, article, onReadStatusChange),
@@ -93,7 +197,9 @@ export function useArticleActions(
       const newState = !article.is_read;
       article.is_read = newState;
       try {
-        await fetch(`/api/articles/read?id=${article.id}&read=${newState}`, { method: 'POST' });
+        await fetch(`/api/articles/read?id=${article.id}&read=${newState}`, {
+          method: 'POST',
+        });
         // Update unread counts after toggling read status
         if (onReadStatusChange) {
           onReadStatusChange();
@@ -102,18 +208,87 @@ export function useArticleActions(
         console.error('Error toggling read status:', e);
         // Revert the state change on error
         article.is_read = !newState;
-        window.showToast(t('errorSavingSettings'), 'error');
+        window.showToast(t('common.errors.savingSettings'), 'error');
+      }
+    } else if (action === 'markAboveAsRead' || action === 'markBelowAsRead') {
+      try {
+        const direction = action === 'markAboveAsRead' ? 'above' : 'below';
+
+        // Show confirmation dialog
+        const confirmTitle =
+          action === 'markAboveAsRead'
+            ? t('article.action.markAboveReadConfirmTitle')
+            : t('article.action.markBelowReadConfirmTitle');
+        const confirmMessage =
+          action === 'markAboveAsRead'
+            ? t('article.action.markAboveReadConfirmMessage')
+            : t('article.action.markBelowReadConfirmMessage');
+
+        const confirmed = await window.showConfirm({
+          title: confirmTitle,
+          message: confirmMessage,
+          confirmText: t('common.confirm'),
+          cancelText: t('common.cancel'),
+          isDanger: false,
+        });
+
+        if (!confirmed) {
+          return;
+        }
+
+        // Build query parameters
+        const params = new URLSearchParams({
+          id: article.id.toString(),
+          direction: direction,
+        });
+
+        // Add feed_id or category if we're in a filtered view
+        if (store.currentFeedId) {
+          params.append('feed_id', store.currentFeedId.toString());
+        } else if (store.currentCategory) {
+          params.append('category', store.currentCategory);
+        }
+
+        const res = await fetch(`/api/articles/mark-relative?${params.toString()}`, {
+          method: 'POST',
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to mark articles');
+        }
+
+        const data = await res.json();
+
+        // Refresh the article list to show updated read status
+        if (onReadStatusChange) {
+          onReadStatusChange();
+        }
+
+        // Refresh articles from server
+        await store.fetchArticles();
+
+        window.showToast(
+          t('article.action.markedNArticlesAsRead', { count: data.count || 0 }),
+          'success'
+        );
+      } catch (e) {
+        console.error('Error marking articles as read:', e);
+        window.showToast(t('common.errors.savingSettings'), 'error');
       }
     } else if (action === 'toggleFavorite') {
       const newState = !article.is_favorite;
       article.is_favorite = newState;
       try {
         await fetch(`/api/articles/favorite?id=${article.id}`, { method: 'POST' });
+        // Update filter counts after toggling favorite status
+        if (onReadStatusChange) {
+          onReadStatusChange();
+        }
       } catch (e) {
         console.error('Error toggling favorite:', e);
         // Revert the state change on error
         article.is_favorite = !newState;
-        window.showToast(t('errorSavingSettings'), 'error');
+        window.showToast(t('common.errors.savingSettings'), 'error');
       }
     } else if (action === 'toggleReadLater') {
       const newState = !article.is_read_later;
@@ -132,7 +307,7 @@ export function useArticleActions(
         console.error('Error toggling read later:', e);
         // Revert the state change on error
         article.is_read_later = !newState;
-        window.showToast(t('errorSavingSettings'), 'error');
+        window.showToast(t('common.errors.savingSettings'), 'error');
       }
     } else if (action === 'toggleHide') {
       try {
@@ -141,7 +316,7 @@ export function useArticleActions(
         window.dispatchEvent(new CustomEvent('refresh-articles'));
       } catch (e) {
         console.error('Error toggling hide:', e);
-        window.showToast(t('errorSavingSettings'), 'error');
+        window.showToast(t('common.errors.savingSettings'), 'error');
       }
     } else if (action === 'renderContent') {
       // Determine the action based on default view mode
@@ -161,7 +336,9 @@ export function useArticleActions(
       if (!article.is_read) {
         article.is_read = true;
         try {
-          await fetch(`/api/articles/read?id=${article.id}&read=true`, { method: 'POST' });
+          await fetch(`/api/articles/read?id=${article.id}&read=true`, {
+            method: 'POST',
+          });
           if (onReadStatusChange) {
             onReadStatusChange();
           }
@@ -176,22 +353,187 @@ export function useArticleActions(
           detail: { action: renderAction },
         })
       );
+    } else if (action === 'viewInAppOriginal') {
+      // View article in app as original (webpage) - override external mode
+      store.currentArticleId = article.id;
+
+      // Dispatch explicit action to show original
+      window.dispatchEvent(
+        new CustomEvent('explicit-render-action', {
+          detail: { action: 'showOriginal' },
+        })
+      );
+
+      // Mark as read
+      if (!article.is_read) {
+        article.is_read = true;
+        try {
+          await fetch(`/api/articles/read?id=${article.id}&read=true`, {
+            method: 'POST',
+          });
+          if (onReadStatusChange) {
+            onReadStatusChange();
+          }
+        } catch (e) {
+          console.error('Error marking as read:', e);
+        }
+      }
+
+      // Trigger the render action
+      window.dispatchEvent(
+        new CustomEvent('render-article-content', {
+          detail: { action: 'showOriginal' },
+        })
+      );
+    } else if (action === 'viewInAppRendered') {
+      // View article in app as rendered content - override external mode
+      store.currentArticleId = article.id;
+
+      // Dispatch explicit action to show rendered content
+      window.dispatchEvent(
+        new CustomEvent('explicit-render-action', {
+          detail: { action: 'showContent' },
+        })
+      );
+
+      // Mark as read
+      if (!article.is_read) {
+        article.is_read = true;
+        try {
+          await fetch(`/api/articles/read?id=${article.id}&read=true`, {
+            method: 'POST',
+          });
+          if (onReadStatusChange) {
+            onReadStatusChange();
+          }
+        } catch (e) {
+          console.error('Error marking as read:', e);
+        }
+      }
+
+      // Trigger the render action
+      window.dispatchEvent(
+        new CustomEvent('render-article-content', {
+          detail: { action: 'showContent' },
+        })
+      );
     } else if (action === 'copyLink') {
       const success = await copyArticleLink(article.url);
       if (success) {
-        window.showToast(t('copiedToClipboard'), 'success');
+        window.showToast(t('common.toast.copiedToClipboard'), 'success');
       } else {
-        window.showToast(t('failedToCopy'), 'error');
+        window.showToast(t('common.errors.failedToCopy'), 'error');
       }
     } else if (action === 'copyTitle') {
       const success = await copyArticleTitle(article.title);
       if (success) {
-        window.showToast(t('copiedToClipboard'), 'success');
+        window.showToast(t('common.toast.copiedToClipboard'), 'success');
       } else {
-        window.showToast(t('failedToCopy'), 'error');
+        window.showToast(t('common.errors.failedToCopy'), 'error');
       }
     } else if (action === 'openBrowser') {
       openInBrowser(article.url);
+    } else if (action === 'exportToObsidian') {
+      await handleExportToObsidian(article);
+    } else if (action === 'exportToNotion') {
+      await handleExportToNotion(article);
+    } else if (action === 'exportToZotero') {
+      await handleExportToZotero(article);
+    }
+  }
+
+  // Export to Obsidian
+  async function handleExportToObsidian(article: Article): Promise<void> {
+    try {
+      window.showToast(t('setting.plugins.obsidian.exporting'), 'info');
+
+      const response = await fetch('/api/articles/export/obsidian', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          article_id: article.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const data = await response.json();
+
+      const message = data.message || t('setting.plugins.obsidian.exported');
+      const filePath = data.file_path ? ` (${data.file_path})` : '';
+      window.showToast(message + filePath, 'success');
+    } catch (error) {
+      console.error('Failed to export to Obsidian:', error);
+      const message =
+        error instanceof Error ? error.message : t('setting.plugins.obsidian.exportFailed');
+      window.showToast(message, 'error');
+    }
+  }
+
+  // Export to Notion
+  async function handleExportToNotion(article: Article): Promise<void> {
+    try {
+      window.showToast(t('setting.plugins.notion.exporting'), 'info');
+
+      const response = await fetch('/api/articles/export/notion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          article_id: article.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const data = await response.json();
+
+      const message = data.message || t('setting.plugins.notion.exported');
+      window.showToast(message, 'success');
+
+      if (data.page_url) {
+        openInBrowser(data.page_url);
+      }
+    } catch (error) {
+      console.error('Failed to export to Notion:', error);
+      const message =
+        error instanceof Error ? error.message : t('setting.plugins.notion.exportFailed');
+      window.showToast(message, 'error');
+    }
+  }
+
+  // Export to Zotero
+  async function handleExportToZotero(article: Article): Promise<void> {
+    try {
+      window.showToast(t('setting.plugins.zotero.exporting'), 'info');
+
+      const response = await fetch('/api/articles/export/zotero', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          article_id: article.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const data = await response.json();
+
+      const message = data.message || t('setting.plugins.zotero.exported');
+      window.showToast(message, 'success');
+    } catch (error) {
+      console.error('Failed to export to Zotero:', error);
+      const message =
+        error instanceof Error ? error.message : t('setting.plugins.zotero.exportFailed');
+      window.showToast(message, 'error');
     }
   }
 

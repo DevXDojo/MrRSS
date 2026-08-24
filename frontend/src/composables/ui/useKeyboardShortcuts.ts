@@ -2,9 +2,11 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
 
-export interface KeyboardShortcuts {
+interface KeyboardShortcuts {
   nextArticle: string;
   previousArticle: string;
+  nextArticleArrow: string;
+  previousArticleArrow: string;
   openArticle: string;
   closeArticle: string;
   toggleReadStatus: string;
@@ -18,13 +20,16 @@ export interface KeyboardShortcuts {
   addFeed: string;
   focusSearch: string;
   toggleFilter: string;
+  toggleUnreadFilter: string;
+  toggleFavoritesFilter: string;
+  toggleReadLaterFilter: string;
   goToAllArticles: string;
   goToUnread: string;
   goToFavorites: string;
   goToReadLater: string;
 }
 
-export interface KeyboardShortcutCallbacks {
+interface KeyboardShortcutCallbacks {
   onOpenSettings: () => void;
   onAddFeed: () => void;
   onMarkAllRead: () => Promise<void>;
@@ -37,6 +42,8 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   const shortcuts = ref<KeyboardShortcuts>({
     nextArticle: 'j',
     previousArticle: 'k',
+    nextArticleArrow: 'ArrowRight',
+    previousArticleArrow: 'ArrowLeft',
     openArticle: 'Enter',
     closeArticle: 'Escape',
     toggleReadStatus: 'r',
@@ -50,6 +57,9 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
     addFeed: 'a',
     focusSearch: '/',
     toggleFilter: 'f',
+    toggleUnreadFilter: 'Alt+r',
+    toggleFavoritesFilter: 'Alt+s',
+    toggleReadLaterFilter: 'Alt+l',
     goToAllArticles: '1',
     goToUnread: '2',
     goToFavorites: '3',
@@ -173,10 +183,78 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
     }
   }
 
+  function toggleListFilter(filter: 'unread' | 'favorites' | 'readLater'): void {
+    store.setFilter(store.currentFilter === filter ? 'all' : filter);
+  }
+
+  // Check if an article detail panel is open and scrollable
+  function isArticleDetailOpen(): boolean {
+    // Check if there's a current article selected
+    if (!store.currentArticleId) return false;
+
+    // Check if the article detail panel is visible
+    const articleDetail = document.querySelector('main[class*="flex-1 bg-bg-primary"]');
+    if (!articleDetail) return false;
+
+    // Check if the article detail has scrollable content
+    // Check for both overflow-y-auto and overflow-y-scroll
+    const scrollableContent = articleDetail.querySelector('.overflow-y-auto, .overflow-y-scroll');
+    if (!scrollableContent) return false;
+
+    return true;
+  }
+
+  // Check if currently viewing original webpage (iframe mode)
+  function isWebpageViewMode(): boolean {
+    const iframe = document.querySelector('iframe[src*="/api/webpage/proxy"]');
+    return iframe !== null;
+  }
+
+  // Scroll the article detail panel
+  function scrollArticleDetail(direction: 'up' | 'down' | 'pageDown' | 'pageUp'): void {
+    const articleDetail = document.querySelector('main[class*="flex-1 bg-bg-primary"]');
+    if (!articleDetail) return;
+
+    // Check for both overflow-y-auto and overflow-y-scroll
+    const scrollableContent = articleDetail.querySelector(
+      '.overflow-y-auto, .overflow-y-scroll'
+    ) as HTMLElement;
+    if (!scrollableContent) return;
+
+    const scrollAmount =
+      direction === 'pageDown' || direction === 'pageUp'
+        ? scrollableContent.clientHeight * 0.9
+        : 100; // For arrow keys
+
+    const newScrollTop =
+      direction === 'down' || direction === 'pageDown'
+        ? scrollableContent.scrollTop + scrollAmount
+        : scrollableContent.scrollTop - scrollAmount;
+
+    scrollableContent.scrollTo({
+      top: newScrollTop,
+      behavior: 'smooth',
+    });
+  }
+
   // Keyboard event handler
   function handleKeyboardShortcut(e: KeyboardEvent): void {
     // Skip if shortcuts are disabled
     if (!shortcutsEnabled.value) {
+      return;
+    }
+
+    // Check if image viewer is open - if so, let it handle arrow keys
+    const imageViewerOpen = document.querySelector('[data-image-viewer="true"]') !== null;
+    if (imageViewerOpen) {
+      // Image viewer handles its own keyboard events
+      // Only ESC key should be handled here to close the viewer
+      const key = buildKeyCombo(e);
+      if (key === shortcuts.value.closeArticle) {
+        // Let the image viewer's ESC handler close it
+        return;
+      }
+      // Block all other shortcuts when image viewer is open
       return;
     }
 
@@ -202,8 +280,57 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
 
     const key = buildKeyCombo(e);
 
+    // Handle article detail scrolling when article is open
+    // Only in RSS content view mode, not in webpage (iframe) view mode
+    if (isArticleDetailOpen() && !isWebpageViewMode()) {
+      // Space key - scroll page down
+      if (key === 'Space') {
+        // Prevent default only if not in input field
+        if (!isInput && !isEditable) {
+          e.preventDefault();
+          scrollArticleDetail('pageDown');
+          return;
+        }
+      }
+
+      // ArrowDown - scroll down
+      if (key === 'ArrowDown') {
+        if (!isInput && !isEditable) {
+          e.preventDefault();
+          scrollArticleDetail('down');
+          return;
+        }
+      }
+
+      // ArrowUp - scroll up
+      if (key === 'ArrowUp') {
+        if (!isInput && !isEditable) {
+          e.preventDefault();
+          scrollArticleDetail('up');
+          return;
+        }
+      }
+
+      // Shift+Space - scroll page up
+      if (key === 'Shift+Space') {
+        if (!isInput && !isEditable) {
+          e.preventDefault();
+          scrollArticleDetail('pageUp');
+          return;
+        }
+      }
+    }
+
     // Check for escape key to close modals first (always allow, even when shortcuts disabled)
     if (key === shortcuts.value.closeArticle) {
+      // Check if the find in page search input is focused
+      const findInputFocused = document.activeElement?.classList.contains('find-input');
+
+      // If find input is focused, don't handle ESC here - let FindInPage component handle it
+      if (findInputFocused) {
+        return;
+      }
+
       // Check if there are any open modals
       const hasOpenModal = document.querySelector('[data-modal-open="true"]') !== null;
 
@@ -236,6 +363,12 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
         navigateArticle(1);
         break;
       case 'previousArticle':
+        navigateArticle(-1);
+        break;
+      case 'nextArticleArrow':
+        navigateArticle(1);
+        break;
+      case 'previousArticleArrow':
         navigateArticle(-1);
         break;
       case 'openArticle':
@@ -275,6 +408,15 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
         break;
       case 'toggleFilter':
         window.dispatchEvent(new CustomEvent('toggle-filter'));
+        break;
+      case 'toggleUnreadFilter':
+        toggleListFilter('unread');
+        break;
+      case 'toggleFavoritesFilter':
+        toggleListFilter('favorites');
+        break;
+      case 'toggleReadLaterFilter':
+        toggleListFilter('readLater');
         break;
       case 'goToAllArticles':
         store.setFilter('all');

@@ -8,7 +8,9 @@ import {
   PhCircleNotch,
   PhGear,
   PhGithubLogo,
+  PhDownloadSimple,
 } from '@phosphor-icons/vue';
+import { openInBrowser } from '@/utils/browser';
 
 const { t } = useI18n();
 
@@ -41,7 +43,8 @@ const emit = defineEmits<{
   'download-install-update': [];
 }>();
 
-const appVersion: Ref<string> = ref('1.3.13');
+const appVersion: Ref<string> = ref('');
+const isLoadingVersion: Ref<boolean> = ref(true);
 
 onMounted(async () => {
   // Fetch current version from API
@@ -50,9 +53,15 @@ onMounted(async () => {
     if (versionRes.ok) {
       const versionData = await versionRes.json();
       appVersion.value = versionData.version;
+    } else {
+      console.error('Failed to fetch version:', versionRes.status, versionRes.statusText);
+      appVersion.value = 'Unknown';
     }
   } catch (e) {
     console.error('Error fetching version:', e);
+    appVersion.value = 'Unknown';
+  } finally {
+    isLoadingVersion.value = false;
   }
 });
 
@@ -63,18 +72,30 @@ function handleCheckUpdates() {
 function handleDownloadInstall() {
   emit('download-install-update');
 }
+
+function openGitHubRepo() {
+  openInBrowser('https://github.com/DevXDojo/MrRSS');
+}
+
+function openGitHubRelease() {
+  openInBrowser('https://github.com/DevXDojo/MrRSS/releases/latest');
+}
 </script>
 
 <template>
   <div class="text-center py-6 sm:py-10 px-2">
     <img src="/assets/logo.svg" alt="Logo" class="h-12 sm:h-16 w-auto mb-3 sm:mb-4 mx-auto" />
     <h3 class="text-lg sm:text-xl font-bold mb-2">{{ t('appName') }}</h3>
-    <p class="text-text-secondary text-xs sm:text-sm">{{ t('version') }} {{ appVersion }}</p>
+    <p class="text-text-secondary text-xs sm:text-sm">
+      {{ t('setting.about.version') }}
+      <span v-if="isLoadingVersion" class="inline-block animate-pulse">Loading...</span>
+      <span v-else>{{ appVersion }}</span>
+    </p>
 
     <div class="mt-4 sm:mt-6 mb-4 sm:mb-6 flex justify-center">
       <button
         :disabled="checkingUpdates"
-        class="btn-secondary justify-center text-sm sm:text-base"
+        class="btn btn-secondary justify-center text-sm sm:text-base"
         @click="handleCheckUpdates"
       >
         <PhArrowsClockwise
@@ -82,7 +103,7 @@ function handleDownloadInstall() {
           class="sm:w-5 sm:h-5"
           :class="{ 'animate-spin': checkingUpdates }"
         />
-        {{ checkingUpdates ? t('checking') : t('checkForUpdates') }}
+        {{ checkingUpdates ? t('common.checking') : t('setting.update.checkForUpdates') }}
       </button>
     </div>
 
@@ -99,12 +120,18 @@ function handleDownloadInstall() {
         <PhCheckCircle v-else :size="28" class="text-accent mt-0.5 shrink-0 sm:w-8 sm:h-8" />
         <div class="flex-1 min-w-0">
           <h4 class="font-semibold mb-1 text-sm sm:text-base">
-            {{ updateInfo.has_update ? t('updateAvailable') : t('upToDate') }}
+            {{
+              updateInfo.has_update
+                ? t('setting.update.updateAvailable')
+                : t('setting.update.upToDate')
+            }}
           </h4>
           <div class="text-xs sm:text-sm text-text-secondary space-y-1">
-            <div class="truncate">{{ t('currentVersion') }}: {{ updateInfo.current_version }}</div>
+            <div class="truncate">
+              {{ t('setting.update.currentVersion') }}: {{ updateInfo.current_version }}
+            </div>
             <div v-if="updateInfo.has_update" class="truncate">
-              {{ t('latestVersion') }}: {{ updateInfo.latest_version }}
+              {{ t('setting.update.latestVersion') }}: {{ updateInfo.latest_version }}
             </div>
           </div>
 
@@ -112,7 +139,7 @@ function handleDownloadInstall() {
           <div v-if="updateInfo.has_update && updateInfo.download_url" class="mt-2 sm:mt-3">
             <button
               :disabled="downloadingUpdate || installingUpdate"
-              class="btn-primary w-full justify-center text-sm sm:text-base"
+              class="btn btn-primary w-full justify-center text-sm sm:text-base"
               @click="handleDownloadInstall"
             >
               <PhCircleNotch
@@ -122,21 +149,10 @@ function handleDownloadInstall() {
               />
               <PhGear v-else-if="installingUpdate" :size="18" class="animate-spin sm:w-5 sm:h-5" />
               <PhDownloadSimple v-else :size="18" class="sm:w-5 sm:h-5" />
-              <span v-if="downloadingUpdate">{{ t('downloading') }} {{ downloadProgress }}%</span>
-              <span v-else-if="installingUpdate">{{ t('installingUpdate') }}</span>
-              <span v-else>{{ t('downloadUpdate') }}</span>
+              <span v-if="downloadingUpdate">{{ t('common.action.downloading') }}</span>
+              <span v-else-if="installingUpdate">{{ t('setting.update.installingUpdate') }}</span>
+              <span v-else>{{ t('modal.update.downloadUpdate') }}</span>
             </button>
-
-            <!-- Progress bar -->
-            <div
-              v-if="downloadingUpdate"
-              class="mt-2 w-full bg-bg-tertiary rounded-full h-1.5 sm:h-2 overflow-hidden"
-            >
-              <div
-                class="bg-accent h-full transition-all duration-300"
-                :style="{ width: downloadProgress + '%' }"
-              ></div>
-            </div>
           </div>
 
           <!-- Fallback to GitHub if no download URL -->
@@ -145,27 +161,27 @@ function handleDownloadInstall() {
             class="mt-2 sm:mt-3 text-xs text-text-secondary"
           >
             <p class="mb-2">No installer available for your platform. Please download manually:</p>
-            <a
-              href="https://github.com/WCY-dt/MrRSS/releases/latest"
-              target="_blank"
+            <button
+              type="button"
               class="text-accent hover:underline break-all"
+              @click="openGitHubRelease"
             >
               View on GitHub
-            </a>
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <div class="mt-4 sm:mt-6">
-      <a
-        href="https://github.com/WCY-dt/MrRSS"
-        target="_blank"
+      <button
+        type="button"
         class="inline-flex items-center gap-1.5 sm:gap-2 text-accent hover:text-accent-hover transition-colors text-xs sm:text-sm font-medium"
+        @click="openGitHubRepo"
       >
         <PhGithubLogo :size="20" class="sm:w-6 sm:h-6" />
-        {{ t('viewOnGitHub') }}
-      </a>
+        {{ t('setting.about.viewOnGitHub') }}
+      </button>
     </div>
 
     <!-- Copyright information at the bottom -->
@@ -178,19 +194,19 @@ function handleDownloadInstall() {
 
 <style scoped>
 @reference "../../../../style.css";
-
-.btn-secondary {
-  @apply bg-bg-tertiary border border-border text-text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-medium hover:bg-bg-secondary transition-colors;
+.btn {
+  @apply px-3 sm:px-4 py-1.5 sm:py-2 rounded-md cursor-pointer flex items-center gap-1.5 sm:gap-2 font-medium transition-colors;
 }
-.btn-secondary:disabled {
+.btn:disabled {
   @apply opacity-50 cursor-not-allowed;
 }
 .btn-primary {
-  @apply bg-accent text-white border-none px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg cursor-pointer font-semibold hover:bg-accent-hover transition-colors flex items-center gap-1.5 sm:gap-2;
+  @apply bg-accent text-white border-none hover:bg-accent-hover;
 }
-.btn-primary:disabled {
-  @apply opacity-50 cursor-not-allowed;
+.btn-secondary {
+  @apply bg-bg-tertiary border border-border text-text-primary hover:bg-bg-secondary;
 }
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
