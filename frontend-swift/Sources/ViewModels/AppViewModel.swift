@@ -292,6 +292,15 @@ final class AppViewModel: ObservableObject {
         refreshFolders()
     }
 
+    /// Moves everything a drag carried. Identifiers that no longer match a
+    /// subscription are skipped rather than failing the whole drop.
+    func moveFeeds(ids: [Int], toFolder folder: String?) async {
+        for id in ids {
+            guard let feed = feeds.first(where: { $0.id == id }) else { continue }
+            await moveFeed(feed, toFolder: folder)
+        }
+    }
+
     func renameFolder(_ folder: String, to newName: String) async {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != folder else { return }
