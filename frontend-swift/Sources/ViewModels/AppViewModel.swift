@@ -28,6 +28,15 @@ enum ArticleFilter: String, CaseIterable, Identifiable {
     }
 }
 
+/// The live picture of a drag in progress: which subscription is travelling,
+/// and where the sidebar currently offers to put it. It drives the preview
+/// only; nothing is written until the drop happens.
+struct FeedDragSession: Equatable {
+    let feedID: Int
+    var folder: String
+    var index: Int
+}
+
 enum SidebarItem: Hashable {
     case filter(ArticleFilter)
     case folder(String)
@@ -250,6 +259,23 @@ final class AppViewModel: ObservableObject {
         feeds.filter { $0.category == folder }
     }
 
+    /// The folder's rows as they should read while a drag is in flight: the
+    /// travelling subscription is lifted out of where it came from and shown
+    /// where it would land, so the rows around it open up for it.
+    func arrangedFeeds(inFolder folder: String, previewing session: FeedDragSession?) -> [Feed] {
+        var rows = feeds(inFolder: folder)
+        guard let session else { return rows }
+
+        rows.removeAll { $0.id == session.feedID }
+        guard session.folder == folder,
+              let travelling = feeds.first(where: { $0.id == session.feedID }) else {
+            return rows
+        }
+
+        rows.insert(travelling, at: min(max(0, session.index), rows.count))
+        return rows
+    }
+
     var unfiledFeeds: [Feed] {
         feeds.filter { $0.category.isEmpty }
     }
@@ -320,6 +346,18 @@ final class AppViewModel: ObservableObject {
             anchorID = id
             above = false
         }
+    }
+
+    /// Commits what the drag preview was showing.
+    func placeFeed(id: Int, inFolder folder: String, at index: Int) async {
+        guard let feed = feeds.first(where: { $0.id == id }) else { return }
+
+        let siblings = feeds(inFolder: folder).filter { $0.id != id }
+        let clamped = min(max(0, index), siblings.count)
+        let currentIndex = feeds(inFolder: folder).firstIndex(where: { $0.id == id })
+        guard feed.category != folder || currentIndex != clamped else { return }
+
+        await reorderFeed(id: id, category: folder, index: clamped)
     }
 
     private func reorderFeed(id: Int, category: String, index: Int) async {

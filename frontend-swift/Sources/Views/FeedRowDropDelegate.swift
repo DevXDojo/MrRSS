@@ -37,9 +37,3 @@ struct FeedRowDropDelegate: DropDelegate {
         info.location.y < rowHeight / 2
     }
 }
-
-/// Where the sidebar will place a dragged subscription.
-struct FeedInsertionPoint: Equatable {
-    let feedID: Int
-    let above: Bool
-}
