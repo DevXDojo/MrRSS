@@ -101,6 +101,22 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
+  test-swiftui-macos:
+    name: Test SwiftUI macOS Client
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Swift tests
+        working-directory: ./frontend-swift
+        run: swift test
+
+      - name: Build release executable
+        working-directory: ./frontend-swift
+        run: swift build -c release
+
   build-check:
     name: Build Check
     runs-on: ubuntu-latest
