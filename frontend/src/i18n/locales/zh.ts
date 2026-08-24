@@ -132,6 +132,12 @@ const zh: TranslationMessages = {
     foundResults: '找到 {count} 篇文章',
     noResults: '没有找到符合搜索条件的文章',
     placeholder: '描述你想要查找的内容...',
+    relevanceScore: '相关度 {score}',
+    matchFields: {
+      title: '标题命中',
+      summary: '摘要命中',
+      content: '正文命中',
+    },
     searchFailed: 'AI 搜索失败，请检查 AI 设置。',
     showingResults: '正在显示 AI 搜索结果',
   },
