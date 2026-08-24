@@ -7,13 +7,12 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            List {
+            List(selection: $viewModel.selection) {
                 Section("Library") {
                     ForEach(ArticleFilter.allCases) { filter in
-                        sidebarButton(for: .filter(filter)) {
-                            Label(filter.title, systemImage: filter.icon)
-                        }
-                        .badge(badge(for: filter))
+                        Label(filter.title, systemImage: filter.icon)
+                            .badge(badge(for: filter))
+                            .tag(SidebarItem.filter(filter))
                     }
                 }
 
@@ -31,15 +30,14 @@ struct SidebarView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(viewModel.feeds) { feed in
-                            sidebarButton(for: .feed(feed.id)) {
-                                FeedLabel(feed: feed)
-                            }
-                            .badge(viewModel.unreadCounts.feedCounts[feed.id] ?? 0)
-                            .contextMenu {
-                                Button("Delete Feed", systemImage: "trash", role: .destructive) {
-                                    feedPendingDeletion = feed
+                            FeedLabel(feed: feed)
+                                .badge(viewModel.unreadCounts.feedCounts[feed.id] ?? 0)
+                                .tag(SidebarItem.feed(feed.id))
+                                .contextMenu {
+                                    Button("Delete Feed", systemImage: "trash", role: .destructive) {
+                                        feedPendingDeletion = feed
+                                    }
                                 }
-                            }
                         }
                     }
                 }
@@ -110,25 +108,6 @@ struct SidebarView: View {
         case .favorites, .readLater:
             0
         }
-    }
-
-    private func sidebarButton<Label: View>(
-        for item: SidebarItem,
-        @ViewBuilder label: () -> Label
-    ) -> some View {
-        Button {
-            viewModel.selection = item
-        } label: {
-            label()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .listRowBackground(
-            viewModel.selection == item
-                ? Color.accentColor.opacity(0.16)
-                : Color.clear
-        )
     }
 }
 
