@@ -152,7 +152,7 @@ final class AppViewModel: ObservableObject {
                 let (loadedFeeds, loadedCounts) = try await (feedsRequest, countsRequest)
                 try Task.checkCancellation()
                 guard requestID == feedRequestID else { return }
-                feeds = loadedFeeds
+                feeds = AppViewModel.ordered(loadedFeeds)
                 refreshFolders()
                 unreadCounts = loadedCounts
                 connectionState = .connected
@@ -298,6 +298,63 @@ final class AppViewModel: ObservableObject {
         for id in ids {
             guard let feed = feeds.first(where: { $0.id == id }) else { continue }
             await moveFeed(feed, toFolder: folder)
+        }
+    }
+
+    /// Files everything a drag carried directly above or below one of the rows
+    /// it was dropped on, which is how the sidebar's own order is changed.
+    func moveFeeds(ids: [Int], relativeTo referenceID: Int, placeAbove: Bool) async {
+        var anchorID = referenceID
+        var above = placeAbove
+
+        for id in ids where id != referenceID {
+            guard let anchor = feeds.first(where: { $0.id == anchorID }),
+                  feeds.contains(where: { $0.id == id }) else { continue }
+
+            let siblings = feeds(inFolder: anchor.category).filter { $0.id != id }
+            let anchorIndex = siblings.firstIndex(where: { $0.id == anchorID }) ?? siblings.count
+            await reorderFeed(id: id, category: anchor.category, index: above ? anchorIndex : anchorIndex + 1)
+
+            // Anything after the first lands just below what came before it, so
+            // a multiple selection keeps the order it was dragged in.
+            anchorID = id
+            above = false
+        }
+    }
+
+    private func reorderFeed(id: Int, category: String, index: Int) async {
+        do {
+            try await api.reorderFeed(id: id, category: category, position: index)
+        } catch {
+            errorMessage = error.localizedDescription
+            refreshFeeds()
+            return
+        }
+
+        applyLocalOrder(feedID: id, category: category, index: index)
+        refreshFolders()
+    }
+
+    /// Mirrors the ranking the server just performed so the sidebar settles
+    /// immediately instead of waiting for the next load.
+    private func applyLocalOrder(feedID: Int, category: String, index: Int) {
+        guard var moving = feeds.first(where: { $0.id == feedID }) else { return }
+        moving.category = category
+
+        var siblings = feeds.filter { $0.category == category && $0.id != feedID }
+        siblings.insert(moving, at: min(max(0, index), siblings.count))
+
+        for (rank, sibling) in siblings.enumerated() {
+            guard let position = feeds.firstIndex(where: { $0.id == sibling.id }) else { continue }
+            feeds[position].category = category
+            feeds[position].position = rank
+        }
+        feeds = AppViewModel.ordered(feeds)
+    }
+
+    private static func ordered(_ feeds: [Feed]) -> [Feed] {
+        feeds.sorted { lhs, rhs in
+            lhs.position == rhs.position ? lhs.id < rhs.id : lhs.position < rhs.position
         }
     }
 

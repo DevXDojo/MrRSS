@@ -10,6 +10,7 @@ struct SidebarView: View {
     @State private var folderPrompt: FolderPrompt?
     @State private var dropTargetFolder: String?
     @State private var isDropTargetingRoot = false
+    @State private var insertionPoint: FeedInsertionPoint?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -226,8 +227,36 @@ struct SidebarView: View {
         FeedLabel(feed: feed)
             .badge(viewModel.unreadCounts.feedCounts[feed.id] ?? 0)
             .tag(SidebarItem.feed(feed.id))
+            .overlay(alignment: .top) {
+                insertionIndicator(showing: insertionPoint == FeedInsertionPoint(feedID: feed.id, above: true))
+            }
+            .overlay(alignment: .bottom) {
+                insertionIndicator(showing: insertionPoint == FeedInsertionPoint(feedID: feed.id, above: false))
+            }
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.onDrop(
+                        of: [.mrrssFeed],
+                        delegate: FeedRowDropDelegate(
+                            rowHeight: geometry.size.height,
+                            onHover: { above in
+                                insertionPoint = FeedInsertionPoint(feedID: feed.id, above: above)
+                            },
+                            onExit: {
+                                if insertionPoint?.feedID == feed.id {
+                                    insertionPoint = nil
+                                }
+                            },
+                            onDrop: { above, providers in
+                                insert(providers, relativeTo: feed, above: above)
+                            }
+                        )
+                    )
+                }
+            }
             .onDrag {
-                FeedTransfer(feedID: feed.id).itemProvider
+                insertionPoint = nil
+                return FeedTransfer(feedID: feed.id).itemProvider
             } preview: {
                 FeedLabel(feed: feed)
                     .padding(6)
@@ -264,6 +293,26 @@ struct SidebarView: View {
                     feedPendingDeletion = feed
                 }
             }
+    }
+
+    private func insertionIndicator(showing: Bool) -> some View {
+        Capsule()
+            .fill(Color.accentColor)
+            .frame(height: 2)
+            .padding(.horizontal, 2)
+            .opacity(showing ? 1 : 0)
+            .scaleEffect(x: showing ? 1 : 0.4, anchor: .leading)
+            .animation(.easeOut(duration: 0.12), value: showing)
+            .allowsHitTesting(false)
+    }
+
+    private func insert(_ providers: [NSItemProvider], relativeTo feed: Feed, above: Bool) -> Bool {
+        guard !providers.isEmpty else { return false }
+        Task {
+            let ids = await FeedTransfer.feedIDs(from: providers)
+            await viewModel.moveFeeds(ids: ids, relativeTo: feed.id, placeAbove: above)
+        }
+        return true
     }
 
     private func move(_ providers: [NSItemProvider], toFolder folder: String?) -> Bool {

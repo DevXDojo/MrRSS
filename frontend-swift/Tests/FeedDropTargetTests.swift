@@ -4,53 +4,6 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import MrRSS
 
-/// Enough of a dragging session to drive a real drop through AppKit. The drop
-/// path cannot be reached from SwiftUI alone, and it is exactly where a
-/// mismatch between the dragged type and the target's registered types goes
-/// unnoticed: the drag still starts, and nothing accepts it.
-private final class StubDraggingInfo: NSObject, NSDraggingInfo {
-    var draggingDestinationWindow: NSWindow?
-    var draggingSourceOperationMask: NSDragOperation = .move
-    var draggingLocation: NSPoint = .zero
-    var draggedImageLocation: NSPoint = .zero
-    var draggedImage: NSImage?
-    var draggingPasteboard: NSPasteboard
-    var draggingSource: Any?
-    var draggingSequenceNumber: Int = 1
-    var draggingFormation: NSDraggingFormation = .default
-    var animatesToDestination: Bool = false
-    var numberOfValidItemsForDrop: Int = 1
-    var springLoadingHighlight: NSSpringLoadingHighlight = .none
-    var items: [NSDraggingItem] = []
-
-    init(pasteboard: NSPasteboard) {
-        draggingPasteboard = pasteboard
-        super.init()
-    }
-
-    func slideDraggedImage(to screenPoint: NSPoint) {}
-
-    override func namesOfPromisedFilesDropped(atDestination dropDestination: URL) -> [String]? {
-        nil
-    }
-
-    func enumerateDraggingItems(
-        options enumOpts: NSDraggingItemEnumerationOptions,
-        for view: NSView?,
-        classes classArray: [AnyClass],
-        searchOptions: [NSPasteboard.ReadingOptionKey: Any],
-        using block: (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void
-    ) {
-        var stop: ObjCBool = false
-        for (index, item) in items.enumerated() {
-            block(item, index, &stop)
-            if stop.boolValue { return }
-        }
-    }
-
-    func resetSpringLoading() {}
-}
-
 @MainActor
 final class FeedDropTargetTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -99,23 +52,13 @@ final class FeedDropTargetTests: XCTestCase {
     }
 
     private func drop(_ transfer: FeedTransfer, on target: NSView) async throws {
-        let item = NSPasteboardItem()
-        item.setData(try JSONEncoder().encode(transfer), forType: .init(UTType.mrrssFeed.identifier))
-
-        let pasteboard = NSPasteboard(name: .init("MrRSSDropTargetTests-\(UUID().uuidString)"))
-        pasteboard.clearContents()
-        pasteboard.writeObjects([item])
-
-        let info = StubDraggingInfo(pasteboard: pasteboard)
-        info.draggingDestinationWindow = target.window
-        info.draggingLocation = target.convert(NSPoint(x: 4, y: 4), to: nil)
-        info.items = [NSDraggingItem(pasteboardWriter: item)]
+        let result = try SidebarDropProbe.drop(transfer, on: target, at: NSPoint(x: 4, y: 4))
 
         XCTAssertNotEqual(
-            target.draggingEntered(info), [],
+            result.entered, [],
             "The target refused the drag, so the pointer would show no drop cursor."
         )
-        XCTAssertTrue(target.performDragOperation(info))
+        XCTAssertTrue(result.performed)
         try await Task.sleep(for: .milliseconds(600))
     }
 
@@ -154,13 +97,6 @@ final class FeedDropTargetTests: XCTestCase {
     }
 
     private func dropDestinations(in view: NSView) -> [NSView] {
-        var found: [NSView] = []
-        if !view.registeredDraggedTypes.isEmpty, !(view is NSTableView) {
-            found.append(view)
-        }
-        for subview in view.subviews {
-            found.append(contentsOf: dropDestinations(in: subview))
-        }
-        return found
+        SidebarDropProbe.destinations(in: view)
     }
 }

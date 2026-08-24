@@ -99,6 +99,7 @@ final class DelayedAPIClient: APIClient {
     private(set) var categoryMutations: [(id: Int, category: String)] = []
     var categoryUpdateError: Error?
     private(set) var lastArticleQuery: (feedID: Int?, category: String?, filter: String)?
+    private(set) var reorderMutations: [(id: Int, category: String, position: Int)] = []
 
     func checkConnection() async throws {}
     func fetchFeeds() async throws -> [Feed] { defaultFeeds }
@@ -110,6 +111,11 @@ final class DelayedAPIClient: APIClient {
     func updateFeedCategory(id: Int, category: String) async throws {
         if let categoryUpdateError { throw categoryUpdateError }
         categoryMutations.append((id, category))
+    }
+
+    func reorderFeed(id: Int, category: String, position: Int) async throws {
+        if let categoryUpdateError { throw categoryUpdateError }
+        reorderMutations.append((id, category, position))
     }
     func refreshAllFeeds() async throws {}
     func fetchRefreshProgress() async throws -> RefreshProgress {
