@@ -79,3 +79,25 @@ frontend/cypress/downloads/
 # Claude
 .claude/
 .plan/
+
+# Swift Frontend
+#
+# Packages
+.swiftpm
+.build
+
+# Xcode
+#
+# Any generated Xcode project or workspace
+*.xcodeproj
+*.xcworkspace
+# Derived data (includes intermediate build results)
+DerivedData/
+# Swift Package Manager checkouts (if managed by Xcode)
+Checkouts/
+
+# MacOS
+.DS_Store
+
+
+
