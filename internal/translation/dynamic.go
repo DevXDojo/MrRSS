@@ -121,7 +121,7 @@ func (t *DynamicTranslator) getTranslatorWithProvider() (Translator, string, err
 	var translator Translator
 	switch provider {
 	case "google":
-		translator = NewGoogleFreeTranslator()
+		translator = NewGoogleFreeTranslatorWithDB(t.settings)
 	case "deepl":
 		// For deeplx self-hosted, endpoint is required but API key is optional
 		if endpoint == "" && apiKey == "" {
@@ -151,7 +151,7 @@ func (t *DynamicTranslator) getTranslatorWithProvider() (Translator, string, err
 		}
 		translator = aiTranslator
 	default:
-		translator = NewGoogleFreeTranslator()
+		translator = NewGoogleFreeTranslatorWithDB(t.settings)
 	}
 
 	// Cache the translator
