@@ -95,9 +95,10 @@ final class DelayedAPIClient: APIClient {
     ]
     private(set) var lastReadMutation: ReadMutation?
     var articleContent = ArticleContent(content: "", feedURL: nil)
+    var defaultFeeds: [Feed] = []
 
     func checkConnection() async throws {}
-    func fetchFeeds() async throws -> [Feed] { [] }
+    func fetchFeeds() async throws -> [Feed] { defaultFeeds }
     func fetchUnreadCounts() async throws -> UnreadCounts { .empty }
     func addFeed(url: String, title: String, category: String) async throws {}
     func deleteFeed(id: Int) async throws {}
