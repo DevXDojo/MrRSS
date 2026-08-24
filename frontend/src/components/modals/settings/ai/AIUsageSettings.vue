@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhChartLine, PhArrowCounterClockwise } from '@phosphor-icons/vue';
 import { SettingGroup, SettingItem, StatusBoxGroup } from '@/components/settings';
@@ -18,6 +18,13 @@ const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
 }>();
 
+const usageRefreshIntervalMs = 15_000;
+let usageRefreshTimer: ReturnType<typeof setInterval> | null = null;
+let usageRequestInFlight: Promise<void> | null = null;
+let usageRefreshQueued = false;
+let usageMounted = false;
+let usageFetchErrorShown = false;
+
 // AI usage tracking
 const aiUsage = ref<{
   usage: number;
@@ -29,15 +36,41 @@ const aiUsage = ref<{
   limit_reached: false,
 });
 
-async function fetchAIUsage() {
-  try {
-    const response = await fetch('/api/ai-usage');
-    if (response.ok) {
-      aiUsage.value = await response.json();
-    }
-  } catch (e) {
-    console.error('Failed to fetch AI usage:', e);
+async function fetchAIUsage(): Promise<void> {
+  if (usageRequestInFlight) {
+    usageRefreshQueued = true;
+    return usageRequestInFlight;
   }
+
+  usageRequestInFlight = (async () => {
+    try {
+      const response = await fetch('/api/ai-usage');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch AI usage: HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      aiUsage.value = {
+        usage: Number.isFinite(Number(result.usage)) ? Number(result.usage) : 0,
+        limit: Number.isFinite(Number(result.limit)) ? Number(result.limit) : 0,
+        limit_reached: Boolean(result.limit_reached),
+      };
+      usageFetchErrorShown = false;
+    } catch (error) {
+      console.error('Failed to fetch AI usage:', error);
+      if (!usageFetchErrorShown) {
+        usageFetchErrorShown = true;
+        window.showToast(t('common.errors.loadingSettings'), 'error');
+      }
+    } finally {
+      usageRequestInFlight = null;
+      if (usageRefreshQueued && usageMounted) {
+        usageRefreshQueued = false;
+        queueMicrotask(() => void fetchAIUsage());
+      }
+    }
+  })();
+
+  return usageRequestInFlight;
 }
 
 async function resetAIUsage() {
@@ -50,46 +83,75 @@ async function resetAIUsage() {
 
   try {
     const response = await fetch('/api/ai-usage/reset', { method: 'POST' });
-    if (response.ok) {
-      await fetchAIUsage();
-      // Reset the local settings value as well
-      emit('update:settings', {
-        ...props.settings,
-        ai_usage_tokens: '0',
-      });
-      window.showToast(t('setting.ai.aiUsageResetSuccess'), 'success');
+    if (!response.ok) {
+      throw new Error(`Failed to reset AI usage: HTTP ${response.status}`);
     }
-  } catch (e) {
-    console.error('Failed to reset AI usage:', e);
+
+    aiUsage.value.usage = 0;
+    await fetchAIUsage();
+    // Reset the local settings value as well
+    emit('update:settings', {
+      ...props.settings,
+      ai_usage_tokens: '0',
+    });
+    window.showToast(t('setting.ai.aiUsageResetSuccess'), 'success');
+  } catch (error) {
+    console.error('Failed to reset AI usage:', error);
     window.showToast(t('setting.ai.aiUsageResetError'), 'error');
   }
 }
 
-// Calculate usage percentage
-function getUsagePercentage(): number {
-  if (aiUsage.value.limit === 0) return 0;
-  return Math.min(100, (aiUsage.value.usage / aiUsage.value.limit) * 100);
-}
+const currentUsageLimit = computed(() => {
+  const parsed = Number(props.settings.ai_usage_limit.trim());
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+});
+
+const usageLimitReached = computed(
+  () => currentUsageLimit.value > 0 && aiUsage.value.usage >= currentUsageLimit.value
+);
+
+// Calculate usage percentage from the current input value so the card updates
+// immediately, before the debounced settings request finishes.
+const usagePercentage = computed(() => {
+  if (currentUsageLimit.value === 0) return 0;
+  return Math.min(100, (aiUsage.value.usage / currentUsageLimit.value) * 100);
+});
 
 // Status box type based on usage
 const statusType = computed(() => {
-  if (aiUsage.value.limit === 0) return 'neutral';
-  if (aiUsage.value.limit_reached) return 'error';
-  const percentage = getUsagePercentage();
-  if (percentage > 80) return 'warning';
+  if (currentUsageLimit.value === 0) return 'neutral';
+  if (usageLimitReached.value) return 'error';
+  if (usagePercentage.value > 80) return 'warning';
   return 'success';
 });
 
 // Token display value
 const tokenDisplay = computed(() => {
-  if (aiUsage.value.limit > 0) {
-    return `${aiUsage.value.usage.toLocaleString()} / ${aiUsage.value.limit.toLocaleString()}`;
+  if (currentUsageLimit.value > 0) {
+    return `${aiUsage.value.usage.toLocaleString()} / ${currentUsageLimit.value.toLocaleString()}`;
   }
   return `${aiUsage.value.usage.toLocaleString()} / ∞`;
 });
 
+function handleSettingsUpdated() {
+  void fetchAIUsage();
+}
+
 onMounted(() => {
-  fetchAIUsage();
+  usageMounted = true;
+  void fetchAIUsage();
+  window.addEventListener('settings-updated', handleSettingsUpdated);
+  usageRefreshTimer = setInterval(() => void fetchAIUsage(), usageRefreshIntervalMs);
+});
+
+onUnmounted(() => {
+  usageMounted = false;
+  usageRefreshQueued = false;
+  window.removeEventListener('settings-updated', handleSettingsUpdated);
+  if (usageRefreshTimer) {
+    clearInterval(usageRefreshTimer);
+    usageRefreshTimer = null;
+  }
 });
 </script>
 
@@ -97,12 +159,13 @@ onMounted(() => {
   <SettingGroup :icon="PhChartLine" :title="t('setting.ai.aiUsage')">
     <!-- AI Usage Display -->
     <StatusBoxGroup
+      data-testid="ai-usage-status"
       class="ai-usage-status-group"
       :statuses="[
         {
           label: t('setting.ai.aiUsageTokens'),
           value: tokenDisplay,
-          unit: aiUsage.limit > 0 ? t('setting.ai.tokens') : '',
+          unit: currentUsageLimit > 0 ? t('setting.ai.tokens') : '',
           type: statusType,
         },
       ]"
@@ -112,10 +175,10 @@ onMounted(() => {
         onClick: resetAIUsage,
       }"
       :status-info="
-        aiUsage.limit > 0
+        currentUsageLimit > 0
           ? {
               label: t('common.text.progress'),
-              time: getUsagePercentage().toFixed(2) + '%',
+              time: usagePercentage.toFixed(2) + '%',
             }
           : undefined
       "
@@ -128,6 +191,7 @@ onMounted(() => {
       :description="t('setting.ai.setUsageLimitDesc')"
     >
       <input
+        data-testid="ai-usage-limit-input"
         :value="props.settings.ai_usage_limit"
         type="number"
         min="0"
