@@ -82,6 +82,8 @@ struct ArticleListView: View {
         switch viewModel.selection {
         case .filter(let filter):
             filter.title
+        case .folder(let name):
+            name
         case .feed(let id):
             viewModel.feeds.first(where: { $0.id == id })?.title ?? "Feed"
         case .none:

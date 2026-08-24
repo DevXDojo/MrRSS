@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"MrRSS/internal/handlers/core"
@@ -192,6 +193,38 @@ func HandleDeleteFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if err := h.DB.DeleteFeed(id); err != nil {
+		response.Error(w, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// HandleUpdateFeedCategory moves a feed into a category.
+// @Summary      Set a feed's category
+// @Description  Update only the category of a feed, leaving its other settings untouched
+// @Tags         feeds
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object  true  "Feed identifier and category name"
+// @Success      200  {string}  string  "Category updated successfully"
+// @Failure      400  {object}  map[string]string  "Bad request"
+// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Router       /feeds/category [post]
+func HandleUpdateFeedCategory(h *core.Handler, w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID       int64  `json:"id"`
+		Category string `json:"category"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, err, http.StatusBadRequest)
+		return
+	}
+	if req.ID <= 0 {
+		response.Error(w, nil, http.StatusBadRequest)
+		return
+	}
+
+	if err := h.DB.UpdateFeedCategory(req.ID, strings.TrimSpace(req.Category)); err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
