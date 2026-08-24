@@ -5,11 +5,13 @@ struct Feed: Identifiable, Codable, Hashable {
     let url: String
     let title: String
     var category: String
+    /// Rank inside its category, as the server keeps it.
+    var position: Int
     let lastUpdated: String
     let iconURL: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, url, title, category
+        case id, url, title, category, position
         case lastUpdated = "last_updated"
         case iconURL = "image_url"
     }
@@ -19,6 +21,7 @@ struct Feed: Identifiable, Codable, Hashable {
         url: String,
         title: String,
         category: String,
+        position: Int = 0,
         lastUpdated: String = "",
         iconURL: String? = nil
     ) {
@@ -26,6 +29,7 @@ struct Feed: Identifiable, Codable, Hashable {
         self.url = url
         self.title = title
         self.category = category
+        self.position = position
         self.lastUpdated = lastUpdated
         self.iconURL = iconURL?.nilIfEmpty
     }
@@ -36,6 +40,7 @@ struct Feed: Identifiable, Codable, Hashable {
         url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? url
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? ""
+        position = try container.decodeIfPresent(Int.self, forKey: .position) ?? 0
         lastUpdated = try container.decodeIfPresent(String.self, forKey: .lastUpdated) ?? ""
         iconURL = try container.decodeIfPresent(String.self, forKey: .iconURL)?.nilIfEmpty
     }

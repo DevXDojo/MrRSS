@@ -74,6 +74,7 @@ protocol APIClient: AnyObject {
     func addFeed(url: String, title: String, category: String) async throws
     func deleteFeed(id: Int) async throws
     func updateFeedCategory(id: Int, category: String) async throws
+    func reorderFeed(id: Int, category: String, position: Int) async throws
     func refreshAllFeeds() async throws
     func fetchRefreshProgress() async throws -> RefreshProgress
     func fetchArticles(
@@ -151,6 +152,13 @@ final class APIService: APIClient {
         try await post(
             "feeds/category",
             jsonBody: ["id": id, "category": category]
+        )
+    }
+
+    func reorderFeed(id: Int, category: String, position: Int) async throws {
+        try await post(
+            "feeds/reorder",
+            jsonBody: ["feed_id": id, "category": category, "position": position]
         )
     }
 
