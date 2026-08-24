@@ -23,30 +23,30 @@ final class FeedDragAndDropTests: XCTestCase {
     }
 
     func testTheDraggedPayloadUsesTheApplicationsOwnType() {
-        let provider = NSItemProvider()
-        provider.register(FeedTransfer(feedID: 1))
-
-        XCTAssertEqual(UTType.mrrssFeed.identifier, "com.devxdojo.mrrss.feed")
+        XCTAssertTrue(UTType.mrrssFeed.conforms(to: .data))
+        XCTAssertFalse(UTType.mrrssFeed.conforms(to: .plainText))
+        XCTAssertNotEqual(UTType.mrrssFeed, .data)
         XCTAssertEqual(
-            provider.registeredTypeIdentifiers,
+            FeedTransfer(feedID: 1).itemProvider.registeredTypeIdentifiers,
             [UTType.mrrssFeed.identifier],
-            "A subscription travels under an identifier of our own, not as generic text."
+            "A subscription must not travel under a broad type such as public.data, which the list claims for row reordering."
         )
     }
 
-    func testTheDraggedPayloadSurvivesTheRoundTrip() async throws {
-        let provider = NSItemProvider()
-        provider.register(FeedTransfer(feedID: 42))
+    func testTheDraggedPayloadSurvivesTheRoundTrip() async {
+        let providers = [FeedTransfer(feedID: 42), FeedTransfer(feedID: 7)].map(\.itemProvider)
 
-        XCTAssertTrue(provider.registeredTypeIdentifiers.contains(UTType.mrrssFeed.identifier))
+        let ids = await FeedTransfer.feedIDs(from: providers)
 
-        let restored: FeedTransfer = try await withCheckedThrowingContinuation { continuation in
-            _ = provider.loadTransferable(type: FeedTransfer.self) { result in
-                continuation.resume(with: result)
-            }
-        }
+        XCTAssertEqual(ids, [42, 7])
+    }
 
-        XCTAssertEqual(restored, FeedTransfer(feedID: 42))
+    func testAProviderOfAnotherKindContributesNothing() async {
+        let foreign = NSItemProvider(object: NSString(string: "https://example.com"))
+
+        let ids = await FeedTransfer.feedIDs(from: [foreign, FeedTransfer(feedID: 3).itemProvider])
+
+        XCTAssertEqual(ids, [3])
     }
 
     func testDroppingOnAFolderMovesEveryFeedInTheDrag() async throws {
