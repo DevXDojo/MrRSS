@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhMagnifyingGlass, PhX, PhSparkle, PhSpinner } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
+import { getAIErrorMessage } from '@/utils/aiError';
 
 const { t } = useI18n();
 
@@ -37,7 +38,7 @@ async function performAISearch() {
     const data = await response.json();
 
     if (!data.success) {
-      errorMessage.value = data.error || t('aiSearch.searchFailed');
+      errorMessage.value = getAIErrorMessage(data, response.status);
       window.showToast(errorMessage.value, 'error');
       return;
     }

@@ -149,7 +149,7 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 					apiKey = cfg.APIKey
 					endpoint = cfg.Endpoint
 					model = cfg.Model
-					log.Printf("Using AI profile for summarization (endpoint: %s, model: %s)", endpoint, model)
+					log.Printf("AI summary profile selected endpoint=%s model=%s", ai.RedactEndpoint(endpoint), model)
 				}
 			}
 
@@ -182,7 +182,8 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 			}
 			aiResult, err := aiSummarizer.Summarize(content, summaryLength)
 			if err != nil {
-				log.Printf("Error generating AI summary, falling back to local: %v", err)
+				publicErr := ai.ClassifyUserFacingError(err)
+				log.Printf("AI summary failed code=%s status=%d; using local fallback", publicErr.Code, publicErr.HTTPStatus)
 				// Fallback to local algorithm on any AI error
 				summarizer := summary.NewSummarizer()
 				result = summarizer.Summarize(content, summaryLength)

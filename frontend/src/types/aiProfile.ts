@@ -22,6 +22,7 @@ export interface AIProfileTestResult {
   model_available: boolean;
   response_time_ms: number;
   error_message?: string;
+  error_code?: string;
 }
 
 export interface AIProfileFormData {

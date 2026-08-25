@@ -44,6 +44,7 @@ type ProfileTestResult struct {
 	ModelAvailable    bool   `json:"model_available"`
 	ResponseTimeMs    int64  `json:"response_time_ms"`
 	ErrorMessage      string `json:"error_message,omitempty"`
+	ErrorCode         string `json:"error_code,omitempty"`
 }
 
 // HandleListAIProfiles handles GET /api/ai/profiles
@@ -477,7 +478,8 @@ func testAIProfileConnection(h *core.Handler, profile *models.AIProfile) Profile
 	}
 
 	if !result.ConfigValid {
-		result.ErrorMessage = "Configuration incomplete: " + strings.Join(validationErrors, ", ")
+		result.ErrorMessage = ai.UserFacingErrorForCode(ai.ErrorCodeConfigurationInvalid).Message
+		result.ErrorCode = ai.ErrorCodeConfigurationInvalid
 		result.ResponseTimeMs = time.Since(startTime).Milliseconds()
 		return result
 	}
@@ -486,14 +488,16 @@ func testAIProfileConnection(h *core.Handler, profile *models.AIProfile) Profile
 	parsedURL, err := url.Parse(profile.Endpoint)
 	if err != nil {
 		result.ConfigValid = false
-		result.ErrorMessage = "Invalid endpoint URL: " + err.Error()
+		result.ErrorMessage = ai.UserFacingErrorForCode(ai.ErrorCodeConfigurationInvalid).Message
+		result.ErrorCode = ai.ErrorCodeConfigurationInvalid
 		result.ResponseTimeMs = time.Since(startTime).Milliseconds()
 		return result
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		result.ConfigValid = false
-		result.ErrorMessage = "API endpoint must use HTTP or HTTPS"
+		result.ErrorMessage = ai.UserFacingErrorForCode(ai.ErrorCodeConfigurationInvalid).Message
+		result.ErrorCode = ai.ErrorCodeConfigurationInvalid
 		result.ResponseTimeMs = time.Since(startTime).Milliseconds()
 		return result
 	}
@@ -501,9 +505,11 @@ func testAIProfileConnection(h *core.Handler, profile *models.AIProfile) Profile
 	// Create HTTP client with proxy support if configured
 	httpClient, err := createHTTPClientWithProxyForProfile(h)
 	if err != nil {
+		publicErr := ai.ClassifyUserFacingError(err)
 		result.ConnectionSuccess = false
 		result.ModelAvailable = false
-		result.ErrorMessage = fmt.Sprintf("Failed to create HTTP client: %v", err)
+		result.ErrorMessage = publicErr.Message
+		result.ErrorCode = publicErr.Code
 		result.ResponseTimeMs = time.Since(startTime).Milliseconds()
 		return result
 	}
@@ -524,9 +530,11 @@ func testAIProfileConnection(h *core.Handler, profile *models.AIProfile) Profile
 	_, err = client.Request("", "test")
 
 	if err != nil {
+		publicErr := ai.ClassifyUserFacingError(err)
 		result.ConnectionSuccess = false
 		result.ModelAvailable = false
-		result.ErrorMessage = fmt.Sprintf("Connection failed: %v", err)
+		result.ErrorMessage = publicErr.Message
+		result.ErrorCode = publicErr.Code
 	} else {
 		result.ConnectionSuccess = true
 		result.ModelAvailable = true

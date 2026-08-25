@@ -1,6 +1,7 @@
 import { ref, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Article } from '@/types/models';
+import { getAIErrorMessage, readAIError } from '@/utils/aiError';
 
 interface SummarySettings {
   enabled: boolean;
@@ -116,18 +117,7 @@ export function useArticleSummary() {
 
         return data;
       } else {
-        // Handle API errors properly
-        let errorMessage = `${t('setting.content.summaryGenerationFailed')}: ${res.status} ${res.statusText}`;
-
-        try {
-          const errorData = await res.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch (jsonError) {
-          // If we can't parse JSON, use the status text
-          console.error('Error parsing error response:', jsonError);
-        }
+        const { message: errorMessage } = await readAIError(res);
 
         console.error('Summary generation failed:', errorMessage);
 
@@ -148,7 +138,7 @@ export function useArticleSummary() {
         return null;
       }
 
-      const errorMessage = `${t('setting.content.summaryGenerationFailed')}: ${e instanceof Error ? e.message : t('common.errors.unknownError')}`;
+      const errorMessage = getAIErrorMessage(e);
       console.error('Error generating summary:', e);
 
       // Cache the error to show in UI
