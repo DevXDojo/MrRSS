@@ -10,7 +10,9 @@ final class AppViewModelTests: XCTestCase {
         viewModel.reloadArticles()
         try await Task.sleep(for: .milliseconds(20))
         viewModel.selection = .feed(2)
-        try await Task.sleep(for: .milliseconds(300))
+        try await waitUntil("the newer response to replace the older one") {
+            viewModel.articles.map(\.id) == [2]
+        }
 
         XCTAssertEqual(viewModel.articles.map(\.id), [2])
     }
@@ -21,12 +23,12 @@ final class AppViewModelTests: XCTestCase {
         let viewModel = AppViewModel(api: client, autoLoad: false)
 
         viewModel.reloadArticles()
-        try await Task.sleep(for: .milliseconds(220))
+        try await waitUntil("the articles to load") { !viewModel.articles.isEmpty }
         let article = try XCTUnwrap(viewModel.articles.first)
         viewModel.setArticleRead(article, read: false)
 
         XCTAssertEqual(viewModel.articles.first?.isRead, false)
-        try await Task.sleep(for: .milliseconds(20))
+        try await waitUntil("the server to be told") { client.lastReadMutation != nil }
         XCTAssertEqual(client.lastReadMutation, .init(id: 1, read: false))
     }
 
@@ -35,14 +37,14 @@ final class AppViewModelTests: XCTestCase {
         let viewModel = AppViewModel(api: client, autoLoad: false)
 
         viewModel.reloadArticles()
-        try await Task.sleep(for: .milliseconds(220))
+        try await waitUntil("the first response to arrive") { !viewModel.articles.isEmpty }
         XCTAssertEqual(viewModel.articles.map(\.id), [1])
 
         client.defaultArticles = [Self.article(id: 3, feedID: 1)]
         viewModel.reloadArticles()
 
         XCTAssertEqual(viewModel.articles.map(\.id), [1])
-        try await Task.sleep(for: .milliseconds(220))
+        try await waitUntil("the replacement to arrive") { viewModel.articles.map(\.id) == [3] }
         XCTAssertEqual(viewModel.articles.map(\.id), [3])
     }
 
@@ -52,7 +54,7 @@ final class AppViewModelTests: XCTestCase {
         let viewModel = AppViewModel(api: client, autoLoad: false)
 
         viewModel.reloadArticles()
-        try await Task.sleep(for: .milliseconds(220))
+        try await waitUntil("the articles to load") { !viewModel.articles.isEmpty }
         let article = try XCTUnwrap(viewModel.articles.first)
 
         viewModel.selectArticle(article)

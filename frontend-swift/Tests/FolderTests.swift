@@ -27,7 +27,7 @@ final class FolderTests: XCTestCase {
         ]
         let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
         viewModel.refreshFeeds()
-        try await Task.sleep(for: .milliseconds(250))
+        try await waitUntil("the feeds to load") { !viewModel.feeds.isEmpty }
         return viewModel
     }
 
@@ -137,7 +137,9 @@ final class FolderTests: XCTestCase {
         let viewModel = try await makeViewModel(client)
 
         viewModel.selection = .folder("Tech")
-        try await Task.sleep(for: .milliseconds(300))
+        try await waitUntil("the folder's articles to be requested") {
+            client.lastArticleQuery?.category == "Tech"
+        }
 
         XCTAssertEqual(client.lastArticleQuery?.category, "Tech")
         XCTAssertNil(client.lastArticleQuery?.feedID)

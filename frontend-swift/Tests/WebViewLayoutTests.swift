@@ -39,7 +39,7 @@ final class WebViewLayoutTests: XCTestCase {
         let viewModel = AppViewModel(api: client, autoLoad: false)
 
         viewModel.reloadArticles()
-        try await Task.sleep(for: .milliseconds(220))
+        try await waitUntil("the articles to load") { !viewModel.articles.isEmpty }
         let article = try XCTUnwrap(viewModel.articles.first)
 
         let window = NSWindow(
@@ -54,10 +54,13 @@ final class WebViewLayoutTests: XCTestCase {
         hostingView.layoutSubtreeIfNeeded()
 
         viewModel.selectArticle(article)
-        try await Task.sleep(for: .milliseconds(600))
+        // The detail pane builds its web view once the article content has
+        // loaded, which is the point the layout is worth measuring.
+        try await waitUntil("the detail pane to be built") {
+            firstDescendant(of: WKWebView.self, in: hostingView) != nil
+        }
         window.layoutIfNeeded()
         hostingView.layoutSubtreeIfNeeded()
-        try await Task.sleep(for: .milliseconds(400))
 
         let splitView = try XCTUnwrap(firstDescendant(of: NSSplitView.self, in: hostingView))
         XCTAssertEqual(splitView.frame.height, hostingView.bounds.height, accuracy: 1)
@@ -114,7 +117,9 @@ final class WebViewLayoutTests: XCTestCase {
         window.contentView = hostingView
         window.makeKeyAndOrderFront(nil)
         hostingView.layoutSubtreeIfNeeded()
-        try await Task.sleep(for: .milliseconds(600))
+        try await waitUntil("the detail pane to be built") {
+            firstDescendant(of: WKWebView.self, in: hostingView) != nil
+        }
         hostingView.layoutSubtreeIfNeeded()
 
         // A pane whose reported size follows the article text makes
