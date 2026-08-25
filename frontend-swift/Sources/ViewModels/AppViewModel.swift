@@ -28,15 +28,6 @@ enum ArticleFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// The live picture of a drag in progress: which subscription is travelling,
-/// and where the sidebar currently offers to put it. It drives the preview
-/// only; nothing is written until the drop happens.
-struct FeedDragSession: Equatable {
-    let feedID: Int
-    var folder: String
-    var index: Int
-}
-
 enum SidebarItem: Hashable {
     case filter(ArticleFilter)
     case folder(String)
@@ -257,23 +248,6 @@ final class AppViewModel: ObservableObject {
 
     func feeds(inFolder folder: String) -> [Feed] {
         feeds.filter { $0.category == folder }
-    }
-
-    /// The folder's rows as they should read while a drag is in flight: the
-    /// travelling subscription is lifted out of where it came from and shown
-    /// where it would land, so the rows around it open up for it.
-    func arrangedFeeds(inFolder folder: String, previewing session: FeedDragSession?) -> [Feed] {
-        var rows = feeds(inFolder: folder)
-        guard let session else { return rows }
-
-        rows.removeAll { $0.id == session.feedID }
-        guard session.folder == folder,
-              let travelling = feeds.first(where: { $0.id == session.feedID }) else {
-            return rows
-        }
-
-        rows.insert(travelling, at: min(max(0, session.index), rows.count))
-        return rows
     }
 
     var unfiledFeeds: [Feed] {

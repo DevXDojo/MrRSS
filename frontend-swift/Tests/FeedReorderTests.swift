@@ -1,6 +1,3 @@
-import AppKit
-import SwiftUI
-import UniformTypeIdentifiers
 import XCTest
 @testable import MrRSS
 
@@ -93,46 +90,31 @@ final class FeedReorderTests: XCTestCase {
         XCTAssertEqual(viewModel.unfiledFeeds.map(\.id), [1, 2, 3])
     }
 
-    func testTheRowUnderThePointerDecidesWhereTheFeedLands() async throws {
-        for dropOnUpperHalf in [true, false] {
-            let client = DelayedAPIClient()
-            client.defaultFeeds = [
-                Feed(id: 1, url: "https://a.example.com/feed", title: "A", category: "", position: 0),
-                Feed(id: 2, url: "https://b.example.com/feed", title: "B", category: "", position: 1)
-            ]
-            let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
-            viewModel.refreshFeeds()
-            try await Task.sleep(for: .milliseconds(250))
+    func testCommittingWhereTheRowsOpenedUpRanksTheSubscriptionThere() async throws {
+        let (client, viewModel) = try await makeViewModel()
 
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 260, height: 600),
-                styleMask: [.titled, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            let hostingView = NSHostingView(rootView: SidebarView(viewModel: viewModel))
-            window.contentView = hostingView
-            window.makeKeyAndOrderFront(nil)
-            hostingView.layoutSubtreeIfNeeded()
-            try await Task.sleep(for: .milliseconds(600))
+        await viewModel.placeFeed(id: 3, inFolder: "", at: 0)
 
-            // The first wide destination is the topmost row, which is feed A.
-            let rows = SidebarDropProbe.destinations(in: hostingView).filter { $0.bounds.width > 100 }
-            let target = try XCTUnwrap(rows.first)
+        XCTAssertEqual(client.reorderMutations.map(\.id), [3])
+        XCTAssertEqual(client.reorderMutations.map(\.position), [0])
+        XCTAssertEqual(viewModel.unfiledFeeds.map(\.id), [3, 1, 2])
+    }
 
-            // The sidebar's views are flipped, so the smaller y is the top half.
-            let y = dropOnUpperHalf ? target.bounds.minY + 2 : target.bounds.maxY - 2
-            let result = try SidebarDropProbe.drop(FeedTransfer(feedID: 2), on: target, at: NSPoint(x: 20, y: y))
-            XCTAssertNotEqual(result.entered, [])
-            XCTAssertTrue(result.performed)
-            try await Task.sleep(for: .milliseconds(600))
+    func testCommittingAPositionThatChangesNothingSkipsTheServer() async throws {
+        let (client, viewModel) = try await makeViewModel()
 
-            XCTAssertEqual(
-                client.reorderMutations.map(\.position),
-                [dropOnUpperHalf ? 0 : 1],
-                "Dropping on the \(dropOnUpperHalf ? "upper" : "lower") half should rank the feed \(dropOnUpperHalf ? "before" : "after") the row."
-            )
-        }
+        await viewModel.placeFeed(id: 2, inFolder: "", at: 1)
+
+        XCTAssertTrue(client.reorderMutations.isEmpty)
+    }
+
+    func testCommittingIntoAnotherFolderFilesItThere() async throws {
+        let (client, viewModel) = try await makeViewModel()
+
+        await viewModel.placeFeed(id: 1, inFolder: "Tech", at: 0)
+
+        XCTAssertEqual(client.reorderMutations.map(\.category), ["Tech"])
+        XCTAssertEqual(viewModel.feeds(inFolder: "Tech").map(\.id), [1, 4])
     }
 
     private func makeViewModel() async throws -> (DelayedAPIClient, AppViewModel) {
