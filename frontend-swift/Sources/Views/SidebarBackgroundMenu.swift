@@ -8,6 +8,9 @@ import SwiftUI
 struct SidebarBackgroundMenu: NSViewRepresentable {
     let title: String
     let action: () -> Void
+    /// Handed the sidebar's scroll view once the list has built it, so a drag
+    /// can follow the pointer past the top and bottom of the visible rows.
+    let onResolveScrollView: (NSScrollView) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(title: title, action: action)
@@ -21,6 +24,7 @@ struct SidebarBackgroundMenu: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.action = action
+        context.coordinator.onResolveScrollView = onResolveScrollView
         (nsView as? MenuInstaller)?.installMenu()
     }
 
@@ -31,6 +35,7 @@ struct SidebarBackgroundMenu: NSViewRepresentable {
     final class Coordinator: NSObject {
         let menu: NSMenu
         var action: () -> Void
+        var onResolveScrollView: (NSScrollView) -> Void = { _ in }
 
         init(title: String, action: @escaping () -> Void) {
             self.action = action
@@ -66,6 +71,7 @@ struct SidebarBackgroundMenu: NSViewRepresentable {
                 // is the first place that can answer for the empty area.
                 scrollView.contentView.menu = coordinator.menu
                 scrollView.menu = coordinator.menu
+                coordinator.onResolveScrollView(scrollView)
                 return
             }
 

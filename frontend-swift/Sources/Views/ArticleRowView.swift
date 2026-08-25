@@ -52,23 +52,11 @@ struct ArticleRowView: View {
 
             if let imageURL = article.imageURL,
                let url = URL(string: imageURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        imagePlaceholder
-                            .overlay { ProgressView().controlSize(.mini) }
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        imagePlaceholder
-                            .overlay { Image(systemName: "photo") }
-                    @unknown default:
-                        imagePlaceholder
-                    }
+                RemoteImage(url: url, displaySize: CGSize(width: 76, height: 58)) {
+                    imagePlaceholder
                 }
                 .frame(width: 76, height: 58)
+                .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             }
         }
