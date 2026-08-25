@@ -11,7 +11,7 @@ struct SidebarView: View {
     @State private var dropTargetFolder: String?
     @State private var isDropTargetingRoot = false
     @State private var dragSession: FeedDragSession?
-    @State private var hoverGeneration = 0
+    @State private var dragCoordinator = SidebarDragCoordinator()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -103,9 +103,11 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .background {
-            SidebarBackgroundMenu(title: "New Folder…") {
-                folderPrompt = .create
-            }
+            SidebarBackgroundMenu(
+                title: "New Folder…",
+                action: { folderPrompt = .create },
+                onResolveScrollView: { dragCoordinator.scrollView = $0 }
+            )
         }
     }
 
@@ -307,7 +309,8 @@ struct SidebarView: View {
     /// row itself changes nothing, which is what keeps the preview from
     /// oscillating as the rows move out of the way.
     private func previewInsertion(near feed: Feed, above: Bool) {
-        hoverGeneration += 1
+        dragCoordinator.hoverGeneration += 1
+        dragCoordinator.beginAutoscroll()
         guard let session = dragSession, session.feedID != feed.id else { return }
 
         let siblings = viewModel.feeds(inFolder: feed.category).filter { $0.id != session.feedID }
@@ -319,7 +322,7 @@ struct SidebarView: View {
         )
 
         guard updated != session else { return }
-        withAnimation(.snappy(duration: 0.18)) {
+        withAnimation(SidebarView.reflow) {
             dragSession = updated
         }
     }
@@ -327,21 +330,27 @@ struct SidebarView: View {
     /// A drag that leaves one row usually enters another straight away, so the
     /// preview is only dropped once nothing has claimed it.
     private func scheduleDragSessionClear() {
-        hoverGeneration += 1
-        let generation = hoverGeneration
+        dragCoordinator.hoverGeneration += 1
+        let generation = dragCoordinator.hoverGeneration
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            guard generation == hoverGeneration else { return }
-            withAnimation(.snappy(duration: 0.18)) {
+            guard generation == dragCoordinator.hoverGeneration else { return }
+            dragCoordinator.endAutoscroll()
+            withAnimation(SidebarView.reflow) {
                 dragSession = nil
             }
         }
     }
 
+    /// A calm spring, so the rows settle the way the system's own lists do
+    /// rather than snapping into place.
+    private static let reflow = Animation.smooth(duration: 0.22)
+
     private func drop(_ providers: [NSItemProvider], near feed: Feed, above: Bool) -> Bool {
         guard !providers.isEmpty else { return false }
 
         let session = dragSession
-        withAnimation(.snappy(duration: 0.18)) {
+        dragCoordinator.endAutoscroll()
+        withAnimation(SidebarView.reflow) {
             dragSession = nil
         }
 
@@ -368,7 +377,8 @@ struct SidebarView: View {
     /// Lifts the travelling subscription out of the list it came from while the
     /// pointer rests on a folder, so the gap it leaves behind closes up.
     private func previewMove(intoFolder folder: String) {
-        hoverGeneration += 1
+        dragCoordinator.hoverGeneration += 1
+        dragCoordinator.beginAutoscroll()
         guard let session = dragSession else { return }
 
         let updated = FeedDragSession(
@@ -377,14 +387,15 @@ struct SidebarView: View {
             index: viewModel.feeds(inFolder: folder).filter { $0.id != session.feedID }.count
         )
         guard updated != session else { return }
-        withAnimation(.snappy(duration: 0.18)) {
+        withAnimation(SidebarView.reflow) {
             dragSession = updated
         }
     }
 
     private func move(_ providers: [NSItemProvider], toFolder folder: String?) -> Bool {
         guard !providers.isEmpty else { return false }
-        withAnimation(.snappy(duration: 0.18)) {
+        dragCoordinator.endAutoscroll()
+        withAnimation(SidebarView.reflow) {
             dragSession = nil
         }
         Task {
@@ -460,14 +471,11 @@ private struct FeedLabel: View {
         } icon: {
             if let iconURL = feed.iconURL,
                let url = URL(string: iconURL) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
+                RemoteImage(url: url, displaySize: CGSize(width: 16, height: 16)) {
                     fallbackIcon
                 }
                 .frame(width: 16, height: 16)
+                .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 3))
             } else {
                 fallbackIcon
