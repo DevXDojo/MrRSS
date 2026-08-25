@@ -20,7 +20,9 @@ final class AddFeedLayoutTests: XCTestCase {
         window.contentView = hostingView
         window.makeKeyAndOrderFront(nil)
         hostingView.layoutSubtreeIfNeeded()
-        try await Task.sleep(for: .milliseconds(300))
+        try await waitUntil("the sheet to lay its fields out") {
+            descendants(of: NSTextField.self, in: hostingView).filter(\.isEditable).count == 3
+        }
 
         XCTAssertTrue(
             descendants(of: NSScrollView.self, in: hostingView).isEmpty,

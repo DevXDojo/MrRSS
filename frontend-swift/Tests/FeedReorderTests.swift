@@ -28,7 +28,7 @@ final class FeedReorderTests: XCTestCase {
         ]
         let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
         viewModel.refreshFeeds()
-        try await Task.sleep(for: .milliseconds(250))
+        try await waitUntil("the feeds to load") { !viewModel.feeds.isEmpty }
 
         XCTAssertEqual(viewModel.feeds.map(\.id), [2, 3, 1])
     }
@@ -127,7 +127,7 @@ final class FeedReorderTests: XCTestCase {
         ]
         let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
         viewModel.refreshFeeds()
-        try await Task.sleep(for: .milliseconds(250))
+        try await waitUntil("the feeds to load") { !viewModel.feeds.isEmpty }
         return (client, viewModel)
     }
 }

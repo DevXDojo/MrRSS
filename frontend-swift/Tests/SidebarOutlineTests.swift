@@ -67,7 +67,7 @@ final class SidebarOutlineTests: XCTestCase {
 
     func testAFolderCarriesTheUnreadCountOfEverythingInside() throws {
         let (outlineView, _) = makeOutline(counts: UnreadCounts(total: 9, feedCounts: [3: 4, 4: 5]))
-        let folder = try XCTUnwrap(node(named: "Tech", in: outlineView) as SidebarNode?)
+        let folder = try XCTUnwrap(node(named: "Tech", in: outlineView))
 
         XCTAssertEqual(folder.badge, 9)
     }
@@ -168,7 +168,7 @@ final class SidebarOutlineTests: XCTestCase {
 
         // A is first of the loose subscriptions; dropping it after B means the
         // row it vacates no longer counts.
-        let destination = coordinator.destination(for: heading as? SidebarNode, childIndex: 3, feedID: 1)
+        let destination = coordinator.destination(for: heading, childIndex: 3, feedID: 1)
 
         XCTAssertEqual(destination?.folder, "")
         XCTAssertEqual(destination?.index, 1)
@@ -178,7 +178,7 @@ final class SidebarOutlineTests: XCTestCase {
         let (outlineView, coordinator) = makeOutline()
         let heading = try XCTUnwrap(node(named: "Feeds", in: outlineView))
 
-        let destination = coordinator.destination(for: heading as? SidebarNode, childIndex: 1, feedID: 2)
+        let destination = coordinator.destination(for: heading, childIndex: 1, feedID: 2)
 
         XCTAssertEqual(destination?.index, 0)
     }
@@ -200,7 +200,7 @@ final class SidebarOutlineTests: XCTestCase {
         let items = coordinator.menuItems(for: folder)
 
         XCTAssertEqual(items.map(\.title), ["Rename Folder…", "Delete Folder"])
-        items[1].target?.perform(items[1].action, with: items[1])
+        _ = items[1].target?.perform(items[1].action, with: items[1])
         XCTAssertEqual(deletedFolders, ["Tech"])
     }
 
@@ -212,7 +212,7 @@ final class SidebarOutlineTests: XCTestCase {
 
         XCTAssertEqual(items.map(\.title), ["Move to Folder", "", "Delete Feed"])
         XCTAssertEqual(items[0].submenu?.items.map(\.title), ["Tech", "", "New Folder…"])
-        items[2].target?.perform(items[2].action, with: items[2])
+        _ = items[2].target?.perform(items[2].action, with: items[2])
         XCTAssertEqual(deletedFeeds, [1])
     }
 
