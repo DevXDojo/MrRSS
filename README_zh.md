@@ -133,6 +133,48 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
 
 </details>
 
+### 原生 macOS 客户端
+
+<details>
+
+<summary>展开 SwiftUI macOS 客户端说明</summary>
+
+<div markdown="1">
+
+`frontend-swift` 目录包含面向 macOS 14 及以上版本的原生 SwiftUI 客户端。它调用与
+Wails 应用相同的 Go HTTP 接口，不改动 Vue 前端。
+
+在仓库根目录运行：
+
+```bash
+./frontend-swift/run.sh
+```
+
+该脚本会编译 Go 服务端并在 `http://127.0.0.1:1234` 启动，等待接口就绪后再启动客户端。
+若该地址已有服务在运行，则直接复用。
+
+也可以分别启动前后端：
+
+```bash
+go run -tags server . -host 127.0.0.1 -port 1234
+swift run --package-path frontend-swift MrRSS
+```
+
+构建、测试，以及生成发布所用的通用 `.app` 与 DMG：
+
+```bash
+swift build --package-path frontend-swift
+swift test --package-path frontend-swift
+./frontend-swift/build-app.sh 1.2.3
+```
+
+打包会嵌入 `frontend/dist`，因此需要先在 `frontend` 目录执行 `npm ci && npm run build`。
+完整说明见 [frontend-swift/README.md](frontend-swift/README.md)。
+
+</div>
+
+</details>
+
 ### 数据存储
 
 <details>
