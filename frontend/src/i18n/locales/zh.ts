@@ -61,6 +61,7 @@ const zh: TranslationMessages = {
     chat: {
       aiChat: 'AI 聊天',
       aiChatError: '无法获取 AI 响应，请重试。',
+      historySaveFailed: '回答已生成，但未能保存到历史记录。',
       aiChatInputPlaceholder: '输入消息...',
       aiChatWelcome: '请问关于这篇文章的任何问题！',
       confirmDeleteSession: '确定要删除这个对话吗？',

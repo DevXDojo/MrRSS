@@ -64,6 +64,7 @@ const en: TranslationMessages = {
     chat: {
       aiChat: 'AI Chat',
       aiChatError: 'Failed to get response from AI. Please try again.',
+      historySaveFailed: 'The answer was generated but could not be saved to chat history.',
       aiChatInputPlaceholder: 'Type a message...',
       aiChatWelcome: 'Ask me anything about this article!',
       confirmDeleteSession: 'Are you sure you want to delete this chat session?',
