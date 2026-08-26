@@ -487,4 +487,65 @@ describe('Settings Persistence', () => {
       expect(layoutMode).to.eq('normal');
     });
   });
+
+  it('updates the AI usage limit immediately and refreshes usage while visible', () => {
+    let usage = 120;
+    let savedLimit = '20000';
+    let usageRequests = 0;
+
+    cy.intercept('GET', '/api/ai/profiles', { statusCode: 200, body: [] });
+    cy.intercept('GET', '/api/ai-usage', (req) => {
+      usageRequests += 1;
+      const limit = Number(savedLimit);
+      req.reply({
+        statusCode: 200,
+        body: {
+          usage,
+          limit,
+          limit_reached: limit > 0 && usage >= limit,
+        },
+      });
+    }).as('getAIUsage');
+    cy.intercept('POST', '/api/settings', (req) => {
+      if (req.body.ai_usage_limit !== undefined) {
+        savedLimit = String(req.body.ai_usage_limit);
+      }
+      req.reply({ statusCode: 200, body: req.body });
+    }).as('saveAIUsageLimit');
+
+    cy.clock();
+    cy.get('button')
+      .filter('[title="Settings"], [title="设置"]')
+      .should('exist')
+      .click({ force: true });
+    cy.wait('@getSettings');
+    cy.contains('button', /^AI$/i).click({ force: true });
+    cy.wait('@getAIUsage');
+
+    cy.get('[data-testid="ai-usage-status"]').should('contain.text', '120 / 20,000');
+    cy.get('[data-testid="ai-usage-limit-input"]').clear().type('400');
+    cy.get('[data-testid="ai-usage-status"]').should('contain.text', '120 / 400');
+
+    cy.tick(500);
+    cy.wait('@saveAIUsageLimit').its('request.body.ai_usage_limit').should('eq', '400');
+    cy.wait('@getAIUsage');
+    cy.get('[data-testid="ai-usage-status"]').should('contain.text', '120 / 400');
+
+    cy.then(() => {
+      usage = 300;
+    });
+    cy.tick(15_000);
+    cy.wait('@getAIUsage');
+    cy.get('[data-testid="ai-usage-status"]').should('contain.text', '300 / 400');
+
+    let requestsBeforeUnmount = 0;
+    cy.then(() => {
+      requestsBeforeUnmount = usageRequests;
+    });
+    cy.contains('button', /^(General|常规)$/i).click({ force: true });
+    cy.tick(30_000);
+    cy.then(() => {
+      expect(usageRequests).to.eq(requestsBeforeUnmount);
+    });
+  });
 });
