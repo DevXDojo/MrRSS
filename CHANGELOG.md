@@ -5,7 +5,23 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.28] - 2026-08-29
+
+### Added
+
+- Persist article AI chat exchanges in the existing chat session tables so conversations remain accessible after creating a new conversation, switching sessions, or restarting the app. (#1038) (@marcomarcogd)
+
+### Changed
+
+- Makes AI search results explainable and navigable. (#1027) (@marcomarcogd)
+- Updates the AI usage card immediately while the user edits the token limit and refreshes actual usage while the AI settings page remains visible. (#1028) (@marcomarcogd)
+- Classifies AI provider and transport failures into stable, user-facing error codes and short localized messages. (#1034) (@marcomarcogd)
+
+### Fixed
+
+- Makes SaveArticles atomic under SQLite write contention. (#1029) (@marcomarcogd)
+- Keep toast notifications inside narrow application windows even when messages contain long continuous text. (#1036) (@marcomarcogd)
+- Restore a stable, aligned feed-management table in Settings and keep row interaction inside the settings workflow. (#1023) (@marcomarcogd)
 
 ## [1.3.27] - 2026-08-22
 
