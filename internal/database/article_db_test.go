@@ -2,7 +2,11 @@ package database_test
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"log"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -415,6 +419,122 @@ func TestSaveArticlesBatchContextCancel(t *testing.T) {
 
 	if err := db.SaveArticles(ctx, articles); err == nil {
 		t.Fatalf("expected error due to canceled context")
+	}
+}
+
+func TestSaveArticlesRollsBackEntireBatchOnPermanentError(t *testing.T) {
+	db := setupDBWithFeed(t)
+
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds WHERE url = ?`, "https://example.com/feed").Scan(&feedID); err != nil {
+		t.Fatalf("scan feed id: %v", err)
+	}
+
+	articles := []*models.Article{
+		{
+			FeedID:                feedID,
+			Title:                 "valid article must be rolled back",
+			URL:                   "https://example.com/atomic-valid",
+			PublishedAt:           time.Now().UTC(),
+			HasValidPublishedTime: true,
+		},
+		{
+			FeedID:                feedID + 10000,
+			Title:                 "invalid feed",
+			URL:                   "https://example.com/atomic-invalid",
+			PublishedAt:           time.Now().UTC(),
+			HasValidPublishedTime: true,
+		},
+	}
+
+	err := db.SaveArticles(context.Background(), articles)
+	if err == nil {
+		t.Fatal("expected the invalid foreign key to fail the batch")
+	}
+	if !strings.Contains(err.Error(), "article 2/2") || !strings.Contains(err.Error(), "attempt(s)") {
+		t.Fatalf("expected batch and attempt context, got %v", err)
+	}
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM articles WHERE url IN (?, ?)`, articles[0].URL, articles[1].URL).Scan(&count); err != nil {
+		t.Fatalf("count batch articles: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("batch committed partially: got %d stored articles, want 0", count)
+	}
+}
+
+func TestSaveArticlesRetriesSQLiteWriteContention(t *testing.T) {
+	databasePath := filepath.Join(t.TempDir(), "write-contention.db")
+	db, err := dbpkg.NewDB(databasePath)
+	if err != nil {
+		t.Fatalf("NewDB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := db.Init(); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	if _, err := db.Exec(`PRAGMA busy_timeout = 1`); err != nil {
+		t.Fatalf("set short busy timeout: %v", err)
+	}
+	result, err := db.Exec(`INSERT INTO feeds (title, url, category) VALUES (?, ?, ?)`, "Locked Feed", "https://example.com/locked-feed", "news")
+	if err != nil {
+		t.Fatalf("insert feed: %v", err)
+	}
+	feedID, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("feed id: %v", err)
+	}
+
+	locker, err := dbpkg.NewDB(databasePath)
+	if err != nil {
+		t.Fatalf("NewDB locker: %v", err)
+	}
+	t.Cleanup(func() { _ = locker.Close() })
+	lockTx, err := locker.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("begin lock transaction: %v", err)
+	}
+	if _, err := lockTx.Exec(`UPDATE settings SET value = value WHERE key = 'theme'`); err != nil {
+		t.Fatalf("acquire write lock: %v", err)
+	}
+
+	previousLogWriter := log.Writer()
+	var retryLog strings.Builder
+	log.SetOutput(&retryLog)
+	t.Cleanup(func() { log.SetOutput(previousLogWriter) })
+
+	releaseDone := make(chan error, 1)
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		releaseDone <- lockTx.Rollback()
+	}()
+
+	article := &models.Article{
+		FeedID:                feedID,
+		Title:                 "saved after lock retry",
+		URL:                   "https://example.com/saved-after-lock-retry",
+		PublishedAt:           time.Now().UTC(),
+		HasValidPublishedTime: true,
+	}
+	if err := db.SaveArticles(context.Background(), []*models.Article{article}); err != nil {
+		t.Fatalf("SaveArticles after temporary lock: %v", err)
+	}
+	if err := <-releaseDone; err != nil && !errors.Is(err, sql.ErrTxDone) {
+		t.Fatalf("release lock: %v", err)
+	}
+	if !strings.Contains(retryLog.String(), "retrying") {
+		t.Fatalf("expected a contention retry, logs: %s", retryLog.String())
+	}
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM articles WHERE url = ?`, article.URL).Scan(&count); err != nil {
+		t.Fatalf("count retried article: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("retried article count = %d, want 1", count)
 	}
 }
 

@@ -2,12 +2,24 @@ package feed
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/models"
 )
+
+func addIntelligentRefreshTestFeed(t *testing.T, db *database.DB) models.Feed {
+	t.Helper()
+	feed := models.Feed{Title: "Test Feed", URL: "https://example.com/test-feed", Type: "rss"}
+	feedID, err := db.AddFeed(&feed)
+	if err != nil {
+		t.Fatalf("AddFeed error: %v", err)
+	}
+	feed.ID = feedID
+	return feed
+}
 
 func TestIntelligentRefreshCalculator_NoArticles(t *testing.T) {
 	tmpFile := t.TempDir() + "/test.db"
@@ -21,7 +33,7 @@ func TestIntelligentRefreshCalculator_NoArticles(t *testing.T) {
 	defer db.Close()
 
 	calculator := NewIntelligentRefreshCalculator(db)
-	feed := models.Feed{ID: 1, Title: "Test Feed"}
+	feed := addIntelligentRefreshTestFeed(t, db)
 
 	// Test with no articles - should return default interval
 	interval := calculator.CalculateInterval(feed)
@@ -57,17 +69,18 @@ func TestIntelligentRefreshCalculator_Bounds(t *testing.T) {
 	defer db.Close()
 
 	calculator := NewIntelligentRefreshCalculator(db)
-	feed := models.Feed{ID: 1, Title: "Test Feed"}
+	feed := addIntelligentRefreshTestFeed(t, db)
 
 	// Create articles with very high frequency (every 10 seconds)
 	now := time.Now()
 	articles := make([]*models.Article, 10)
 	for i := 0; i < 10; i++ {
 		articles[i] = &models.Article{
-			FeedID:      1,
-			Title:       "Article",
-			URL:         "http://example.com/article",
-			PublishedAt: now.Add(time.Duration(-i) * 10 * time.Second),
+			FeedID:                feed.ID,
+			Title:                 fmt.Sprintf("Article %d", i),
+			URL:                   fmt.Sprintf("http://example.com/article/%d", i),
+			PublishedAt:           now.Add(time.Duration(-i) * 10 * time.Second),
+			HasValidPublishedTime: true,
 		}
 	}
 
@@ -100,17 +113,18 @@ func TestIntelligentRefreshCalculator_LowFrequency(t *testing.T) {
 	defer db.Close()
 
 	calculator := NewIntelligentRefreshCalculator(db)
-	feed := models.Feed{ID: 1, Title: "Test Feed"}
+	feed := addIntelligentRefreshTestFeed(t, db)
 
 	// Create articles with very low frequency (every 48 hours)
 	now := time.Now()
 	articles := make([]*models.Article, 10)
 	for i := 0; i < 10; i++ {
 		articles[i] = &models.Article{
-			FeedID:      1,
-			Title:       "Article",
-			URL:         "http://example.com/article",
-			PublishedAt: now.Add(time.Duration(-i) * 48 * time.Hour),
+			FeedID:                feed.ID,
+			Title:                 fmt.Sprintf("Article %d", i),
+			URL:                   fmt.Sprintf("http://example.com/article/%d", i),
+			PublishedAt:           now.Add(time.Duration(-i) * 48 * time.Hour),
+			HasValidPublishedTime: true,
 		}
 	}
 
@@ -156,17 +170,18 @@ func TestIntelligentRefreshCalculator_WithArticles(t *testing.T) {
 	defer db.Close()
 
 	calculator := NewIntelligentRefreshCalculator(db)
-	feed := models.Feed{ID: 1, Title: "Test Feed"}
+	feed := addIntelligentRefreshTestFeed(t, db)
 
 	// Create articles published every 2 hours
 	now := time.Now()
 	articles := make([]*models.Article, 20)
 	for i := 0; i < 20; i++ {
 		articles[i] = &models.Article{
-			FeedID:      1,
-			Title:       "Article",
-			URL:         "http://example.com/article",
-			PublishedAt: now.Add(time.Duration(-i*2) * time.Hour),
+			FeedID:                feed.ID,
+			Title:                 fmt.Sprintf("Article %d", i),
+			URL:                   fmt.Sprintf("http://example.com/article/%d", i),
+			PublishedAt:           now.Add(time.Duration(-i*2) * time.Hour),
+			HasValidPublishedTime: true,
 		}
 	}
 
