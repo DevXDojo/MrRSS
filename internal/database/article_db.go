@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -10,7 +11,16 @@ import (
 
 	"MrRSS/internal/models"
 	"MrRSS/internal/utils/urlutil"
+
+	"modernc.org/sqlite"
 )
+
+const saveArticlesMaxAttempts = 3
+
+var saveArticlesRetryDelays = [...]time.Duration{
+	100 * time.Millisecond,
+	250 * time.Millisecond,
+}
 
 // SaveArticle saves a single article to the database.
 func (db *DB) SaveArticle(article *models.Article) error {
@@ -45,9 +55,43 @@ func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) erro
 		}
 	}
 
+	for attempt := 1; attempt <= saveArticlesMaxAttempts; attempt++ {
+		err := db.saveArticlesOnce(ctx, articles)
+		if err == nil {
+			return nil
+		}
+		if !isRetryableSQLiteWriteError(err) || attempt == saveArticlesMaxAttempts {
+			return fmt.Errorf("save %d articles after %d attempt(s): %w", len(articles), attempt, err)
+		}
+
+		delay := saveArticlesRetryDelays[attempt-1]
+		log.Printf(
+			"SaveArticles write contention on attempt %d/%d; retrying in %s: %v",
+			attempt,
+			saveArticlesMaxAttempts,
+			delay,
+			err,
+		)
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return fmt.Errorf("save %d articles while waiting to retry: %w", len(articles), ctx.Err())
+		case <-timer.C:
+		}
+	}
+
+	return fmt.Errorf("save %d articles: retry attempts exhausted", len(articles))
+}
+
+// saveArticlesOnce performs one all-or-nothing transaction. Any error aborts
+// the batch so callers never observe a successful partial refresh.
+func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -77,15 +121,15 @@ func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) erro
 			author = excluded.author
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare article upsert: %w", err)
 	}
 	defer stmt.Close()
 
-	for _, article := range articles {
+	for index, article := range articles {
 		// Check context before each insert
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("article %d/%d: %w", index+1, len(articles), ctx.Err())
 		default:
 		}
 
@@ -128,6 +172,14 @@ func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) erro
 				article.OriginalSummary != existingOriginalSummary ||
 				article.Author != existingAuthor
 			updatePublishedAt = article.HasValidPublishedTime || articleChanged
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf(
+				"article %d/%d (feed %d): load existing state: %w",
+				index+1,
+				len(articles),
+				article.FeedID,
+				err,
+			)
 		}
 
 		updateTime := 0
@@ -136,12 +188,36 @@ func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) erro
 		}
 		_, err = stmt.ExecContext(ctx, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, isRead, isFavorite, isHidden, isReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author, updateTime)
 		if err != nil {
-			log.Println("Error saving article in batch:", err)
-			// Continue even if one fails
+			return fmt.Errorf(
+				"article %d/%d (feed %d): upsert: %w",
+				index+1,
+				len(articles),
+				article.FeedID,
+				err,
+			)
 		}
 	}
 
-	return tx.Commit()
+	if err := stmt.Close(); err != nil {
+		return fmt.Errorf("close article upsert statement: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
+func isRetryableSQLiteWriteError(err error) bool {
+	var sqliteErr *sqlite.Error
+	if !errors.As(err, &sqliteErr) {
+		return false
+	}
+
+	// SQLite extended result codes retain the primary result in the low byte.
+	// This covers SQLITE_BUSY (5), SQLITE_LOCKED (6), and variants such as
+	// SQLITE_BUSY_SNAPSHOT (517).
+	primaryCode := sqliteErr.Code() & 0xff
+	return primaryCode == 5 || primaryCode == 6
 }
 
 // GetArticles retrieves articles with filtering, pagination, and sorting.

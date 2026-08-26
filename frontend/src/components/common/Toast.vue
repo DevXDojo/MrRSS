@@ -38,13 +38,16 @@ function handleClose() {
 
 <template>
   <div v-if="show" :class="['toast', `toast-${type}`, show ? 'toast-show' : 'toast-hide']">
-    <div class="flex items-center gap-3">
-      <PhCheckCircle v-if="type === 'success'" :size="20" />
-      <PhXCircle v-else-if="type === 'error'" :size="20" />
-      <PhWarning v-else-if="type === 'warning'" :size="20" />
-      <PhInfo v-else :size="20" />
-      <span class="flex-1 toast-message selectable-text">{{ message }}</span>
-      <button class="text-xl opacity-70 hover:opacity-100 transition-opacity" @click="handleClose">
+    <div class="flex min-w-0 items-center gap-3">
+      <PhCheckCircle v-if="type === 'success'" :size="20" class="shrink-0" />
+      <PhXCircle v-else-if="type === 'error'" :size="20" class="shrink-0" />
+      <PhWarning v-else-if="type === 'warning'" :size="20" class="shrink-0" />
+      <PhInfo v-else :size="20" class="shrink-0" />
+      <span class="min-w-0 flex-1 toast-message selectable-text">{{ message }}</span>
+      <button
+        class="shrink-0 text-xl opacity-70 hover:opacity-100 transition-opacity"
+        @click="handleClose"
+      >
         <PhX :size="20" />
       </button>
     </div>
@@ -54,7 +57,7 @@ function handleClose() {
 <style scoped>
 @reference "../../style.css";
 .toast {
-  @apply z-[60] px-5 py-3 rounded-lg shadow-lg border min-w-[300px] max-w-md;
+  @apply z-[60] px-5 py-3 rounded-lg shadow-lg border w-[min(28rem,calc(100vw-2rem))] max-w-md;
 }
 .toast-show {
   animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -92,6 +95,8 @@ function handleClose() {
   -moz-user-select: text;
   -ms-user-select: text;
   cursor: text;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 @keyframes slideIn {
   from {

@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
 	"MrRSS/internal/ai"
 	"MrRSS/internal/config"
+	"MrRSS/internal/database"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
 )
@@ -22,11 +24,12 @@ type AISearchRequest struct {
 
 // AISearchResponse represents the response from AI search
 type AISearchResponse struct {
-	Success     bool             `json:"success"`
-	Articles    []map[string]any `json:"articles,omitempty"`
-	SearchTerms string           `json:"search_terms,omitempty"`
-	Error       string           `json:"error,omitempty"`
-	TotalCount  int              `json:"total_count"`
+	Success       bool             `json:"success"`
+	Articles      []map[string]any `json:"articles,omitempty"`
+	SearchTerms   string           `json:"search_terms,omitempty"`
+	ExpandedTerms *SearchTerms     `json:"expanded_terms,omitempty"`
+	Error         string           `json:"error,omitempty"`
+	TotalCount    int              `json:"total_count"`
 }
 
 // extractSearchTerms extracts the search terms from AI response
@@ -78,7 +81,55 @@ func parseSearchTermsAdvanced(response string) (*SearchTerms, error) {
 		return nil, fmt.Errorf("no search terms extracted")
 	}
 
+	terms.Required = normalizeTerms(terms.Required, 8)
+	terms.Optional = normalizeTerms(terms.Optional, 12)
+	terms.Patterns = normalizeSearchPatterns(terms.Patterns, 4)
 	return &terms, nil
+}
+
+func normalizeSearchPatterns(values []string, max int) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range normalizeTerms(values, max) {
+		plain := strings.Join(strings.Fields(strings.ReplaceAll(value, "%", " ")), " ")
+		if plain == "" {
+			continue
+		}
+		result = append(result, value)
+	}
+	return result
+}
+
+func endpointForLog(rawEndpoint string) string {
+	parsed, err := url.Parse(strings.TrimSpace(rawEndpoint))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "<configured>"
+	}
+	parsed.User = nil
+	parsed.RawQuery = ""
+	parsed.ForceQuery = false
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
+func normalizeTerms(values []string, max int) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{})
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		key := strings.ToLower(value)
+		if value == "" || len([]rune(value)) > 80 {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, value)
+		if len(result) >= max {
+			break
+		}
+	}
+	return result
 }
 
 // buildAISearchPrompt creates a concise system prompt for keyword expansion
@@ -102,95 +153,6 @@ Output: {"required":["LLM","大语言模型","large language model"],"optional":
 
 Input: "Python web框架"
 Output: {"required":["Python","web框架","web framework"],"optional":["Django","Flask","FastAPI","后端","backend"],"patterns":["Python%web","Python%框架"]}`
-}
-
-// buildSearchSQL builds the SQL query from search terms with relevance scoring
-func buildSearchSQL(terms *SearchTerms, limit int) string {
-	if terms == nil || (len(terms.Required) == 0 && len(terms.Patterns) == 0) {
-		return ""
-	}
-
-	// Build required conditions (must match at least one)
-	var requiredConditions []string
-	for _, term := range terms.Required {
-		escapedTerm := strings.ReplaceAll(term, "'", "''")
-		condition := fmt.Sprintf(
-			"(a.title LIKE '%%%s%%' OR c.content LIKE '%%%s%%' OR a.summary LIKE '%%%s%%')",
-			escapedTerm, escapedTerm, escapedTerm,
-		)
-		requiredConditions = append(requiredConditions, condition)
-	}
-
-	// Build pattern conditions
-	for _, pattern := range terms.Patterns {
-		escapedPattern := strings.ReplaceAll(pattern, "'", "''")
-		condition := fmt.Sprintf(
-			"(a.title LIKE '%%%s%%' OR c.content LIKE '%%%s%%' OR a.summary LIKE '%%%s%%')",
-			escapedPattern, escapedPattern, escapedPattern,
-		)
-		requiredConditions = append(requiredConditions, condition)
-	}
-
-	// Build relevance score with weighted scoring
-	var scoreTerms []string
-
-	// Required terms get higher base weight
-	for _, term := range terms.Required {
-		escapedTerm := strings.ReplaceAll(term, "'", "''")
-		scoreTerm := fmt.Sprintf(
-			"(CASE WHEN a.title LIKE '%%%s%%' THEN 5 ELSE 0 END + "+
-				"CASE WHEN c.content LIKE '%%%s%%' THEN 2 ELSE 0 END + "+
-				"CASE WHEN a.summary LIKE '%%%s%%' THEN 3 ELSE 0 END)",
-			escapedTerm, escapedTerm, escapedTerm,
-		)
-		scoreTerms = append(scoreTerms, scoreTerm)
-	}
-
-	// Patterns get highest weight (exact phrase match)
-	for _, pattern := range terms.Patterns {
-		escapedPattern := strings.ReplaceAll(pattern, "'", "''")
-		scoreTerm := fmt.Sprintf(
-			"(CASE WHEN a.title LIKE '%%%s%%' THEN 8 ELSE 0 END + "+
-				"CASE WHEN c.content LIKE '%%%s%%' THEN 4 ELSE 0 END + "+
-				"CASE WHEN a.summary LIKE '%%%s%%' THEN 5 ELSE 0 END)",
-			escapedPattern, escapedPattern, escapedPattern,
-		)
-		scoreTerms = append(scoreTerms, scoreTerm)
-	}
-
-	// Optional terms get lower weight
-	for _, term := range terms.Optional {
-		escapedTerm := strings.ReplaceAll(term, "'", "''")
-		scoreTerm := fmt.Sprintf(
-			"(CASE WHEN a.title LIKE '%%%s%%' THEN 2 ELSE 0 END + "+
-				"CASE WHEN c.content LIKE '%%%s%%' THEN 1 ELSE 0 END + "+
-				"CASE WHEN a.summary LIKE '%%%s%%' THEN 1 ELSE 0 END)",
-			escapedTerm, escapedTerm, escapedTerm,
-		)
-		scoreTerms = append(scoreTerms, scoreTerm)
-	}
-
-	relevanceScore := "0"
-	if len(scoreTerms) > 0 {
-		relevanceScore = strings.Join(scoreTerms, " + ")
-	}
-
-	// Build full query with LEFT JOIN to article_contents for content search
-	whereClause := strings.Join(requiredConditions, " OR ")
-	query := fmt.Sprintf(`
-		SELECT a.id, a.feed_id, a.title, a.url, a.image_url, a.audio_url, a.video_url,
-			   a.published_at, a.is_read, a.is_favorite, a.is_hidden, a.is_read_later,
-			   a.translated_title, a.summary, a.freshrss_item_id, f.title AS feed_title, a.author,
-			   (%s) AS relevance_score
-		FROM articles a
-		JOIN feeds f ON a.feed_id = f.id
-		LEFT JOIN article_contents c ON a.id = c.article_id
-		WHERE a.is_hidden = 0 AND (%s)
-		ORDER BY relevance_score DESC, a.published_at DESC
-		LIMIT %d
-	`, relevanceScore, whereClause, limit)
-
-	return query
 }
 
 // HandleAISearch handles POST /api/ai/search for AI-powered article search
@@ -228,7 +190,8 @@ func HandleAISearch(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[AI Search] User query: %s", req.Query)
+	query := strings.TrimSpace(req.Query)
+	log.Printf("[AI Search] Starting search (query length: %d)", len([]rune(query)))
 
 	// Get AI settings - try ProfileProvider first
 	var apiKey, endpoint, model string
@@ -238,7 +201,7 @@ func HandleAISearch(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			apiKey = cfg.APIKey
 			endpoint = cfg.Endpoint
 			model = cfg.Model
-			log.Printf("[AI Search] Using AI profile for search (endpoint: %s, model: %s)", endpoint, model)
+			log.Printf("[AI Search] Using AI profile for search (endpoint: %s, model: %s)", endpointForLog(endpoint), model)
 		}
 	}
 
@@ -256,7 +219,7 @@ func HandleAISearch(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		if model == "" {
 			model = defaults.AIModel
 		}
-		log.Printf("[AI Search] Using global AI settings for search (endpoint: %s, model: %s)", endpoint, model)
+		log.Printf("[AI Search] Using global AI settings for search (endpoint: %s, model: %s)", endpointForLog(endpoint), model)
 	}
 
 	// Validate AI configuration
@@ -298,8 +261,6 @@ func HandleAISearch(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[AI Search] AI response: %s", aiResponse)
-
 	// Parse search terms from AI response
 	searchTerms, err := parseSearchTermsAdvanced(aiResponse)
 	if err != nil {
@@ -315,14 +276,20 @@ func HandleAISearch(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	allTerms = append(allTerms, searchTerms.Required...)
 	allTerms = append(allTerms, searchTerms.Optional...)
 	allTerms = append(allTerms, searchTerms.Patterns...)
-	log.Printf("[AI Search] Required: %v, Optional: %v, Patterns: %v", searchTerms.Required, searchTerms.Optional, searchTerms.Patterns)
+	log.Printf(
+		"[AI Search] Expanded terms (required=%d optional=%d patterns=%d)",
+		len(searchTerms.Required), len(searchTerms.Optional), len(searchTerms.Patterns),
+	)
 
-	// Build and execute search query
-	searchSQL := buildSearchSQL(searchTerms, 100)
-	log.Printf("[AI Search] SQL query:\n%s", searchSQL)
-
-	// Execute search
-	articles, err := h.DB.SearchArticlesWithSQL(searchSQL)
+	// Execute a parameterized candidate query and deterministic local ranking.
+	// The AI response is never treated as SQL.
+	results, err := h.DB.SearchArticlesWithTerms(database.AISearchQuery{
+		Original: query,
+		Required: searchTerms.Required,
+		Optional: searchTerms.Optional,
+		Patterns: searchTerms.Patterns,
+		Limit:    100,
+	})
 	if err != nil {
 		log.Printf("[AI Search] Query error: %v", err)
 		response.JSON(w, AISearchResponse{
@@ -333,11 +300,12 @@ func HandleAISearch(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[AI Search] Found %d articles", len(articles))
+	log.Printf("[AI Search] Found %d articles", len(results))
 
 	// Convert articles to response format
-	articleMaps := make([]map[string]any, len(articles))
-	for i, article := range articles {
+	articleMaps := make([]map[string]any, len(results))
+	for i, result := range results {
+		article := result.Article
 		articleMaps[i] = map[string]any{
 			"id":               article.ID,
 			"feed_id":          article.FeedID,
@@ -355,13 +323,19 @@ func HandleAISearch(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			"author":           article.Author,
 			"translated_title": article.TranslatedTitle,
 			"summary":          article.Summary,
+			"original_summary": article.OriginalSummary,
+			"relevance_score":  result.RelevanceScore,
+			"matched_terms":    result.MatchedTerms,
+			"matched_fields":   result.MatchedFields,
+			"excerpt":          result.Excerpt,
 		}
 	}
 
 	response.JSON(w, AISearchResponse{
-		Success:     true,
-		Articles:    articleMaps,
-		SearchTerms: strings.Join(allTerms, ", "),
-		TotalCount:  len(articles),
+		Success:       true,
+		Articles:      articleMaps,
+		SearchTerms:   strings.Join(allTerms, ", "),
+		ExpandedTerms: searchTerms,
+		TotalCount:    len(results),
 	})
 }

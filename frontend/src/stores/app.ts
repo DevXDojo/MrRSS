@@ -33,6 +33,7 @@ export interface AppState {
   showOnlyUnread: Ref<boolean>;
   activeFilters: Ref<FilterCondition[]>;
   filteredArticlesFromServer: Ref<Article[]>;
+  articleNavigationContext: Ref<Article[] | null>;
   isFilterLoading: Ref<boolean>;
 }
 
@@ -57,6 +58,7 @@ export interface AppActions {
   startAutoRefresh: (minutes: number) => void;
   toggleShowOnlyUnread: () => void;
   setActiveFilters: (filters: FilterCondition[]) => void;
+  setArticleNavigationContext: (articles: Article[] | null) => void;
 }
 
 export const useAppStore = defineStore('app', () => {
@@ -99,6 +101,13 @@ export const useAppStore = defineStore('app', () => {
   const showOnlyUnread = ref<boolean>(localStorage.getItem('showOnlyUnread') === 'true');
   const activeFilters = ref<FilterCondition[]>([]);
   const filteredArticlesFromServer = ref<Article[]>([]);
+  // A temporary ordered list used by result views (for example AI search).
+  // Keeping this in the store lets ArticleDetail resolve and navigate articles
+  // which are not part of the currently paginated timeline.
+  const articleNavigationContext = ref<Article[] | null>(null);
+  const navigableArticles = computed<Article[]>(
+    () => articleNavigationContext.value ?? articles.value
+  );
   const isFilterLoading = ref(false);
 
   // Article view mode preferences (persisted across component mounts)
@@ -782,6 +791,10 @@ export const useAppStore = defineStore('app', () => {
     filteredArticlesFromServer.value = articles;
   }
 
+  function setArticleNavigationContext(articles: Article[] | null): void {
+    articleNavigationContext.value = articles;
+  }
+
   function setIsFilterLoading(loading: boolean): void {
     isFilterLoading.value = loading;
   }
@@ -826,6 +839,8 @@ export const useAppStore = defineStore('app', () => {
     showOnlyUnread,
     activeFilters,
     filteredArticlesFromServer,
+    articleNavigationContext,
+    navigableArticles,
     isFilterLoading,
     articleViewModePreferences,
 
@@ -855,6 +870,7 @@ export const useAppStore = defineStore('app', () => {
     toggleShowOnlyUnread,
     setActiveFilters,
     setFilteredArticlesFromServer,
+    setArticleNavigationContext,
     setIsFilterLoading,
     fetchTaskDetails,
   };

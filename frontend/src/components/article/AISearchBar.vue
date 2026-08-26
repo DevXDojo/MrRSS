@@ -60,6 +60,13 @@ async function performAISearch() {
       author: item.author as string,
       translated_title: item.translated_title as string,
       summary: item.summary as string,
+      original_summary: item.original_summary as string,
+      relevance_score: item.relevance_score as number,
+      matched_terms: Array.isArray(item.matched_terms) ? (item.matched_terms as string[]) : [],
+      matched_fields: Array.isArray(item.matched_fields)
+        ? (item.matched_fields as Article['matched_fields'])
+        : [],
+      excerpt: typeof item.excerpt === 'string' ? item.excerpt : '',
     }));
 
     hasResults.value = true;
