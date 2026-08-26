@@ -137,6 +137,12 @@ const en: TranslationMessages = {
     foundResults: 'Found {count} articles',
     noResults: 'No articles found matching your search',
     placeholder: 'Describe what you want to find...',
+    relevanceScore: 'Relevance {score}',
+    matchFields: {
+      title: 'Title match',
+      summary: 'Summary match',
+      content: 'Content match',
+    },
     searchFailed: 'AI search failed. Please check your AI settings.',
     showingResults: 'Showing AI search results',
   },

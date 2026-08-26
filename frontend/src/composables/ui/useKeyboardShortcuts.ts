@@ -83,7 +83,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   }
 
   function navigateArticle(direction: number): void {
-    const articles = store.articles;
+    const articles = store.navigableArticles;
     if (!articles || articles.length === 0) return;
 
     const currentIndex = store.currentArticleId
@@ -103,7 +103,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   }
 
   function selectArticleByIndex(index: number): void {
-    const article = store.articles[index];
+    const article = store.navigableArticles[index];
     if (!article) return;
 
     store.currentArticleId = article.id;
@@ -126,7 +126,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   }
 
   function toggleCurrentArticleRead(): void {
-    const article = store.articles.find((a) => a.id === store.currentArticleId);
+    const article = store.navigableArticles.find((a) => a.id === store.currentArticleId);
     if (!article) return;
 
     const newState = !article.is_read;
@@ -140,7 +140,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   }
 
   function toggleCurrentArticleFavorite(): void {
-    const article = store.articles.find((a) => a.id === store.currentArticleId);
+    const article = store.navigableArticles.find((a) => a.id === store.currentArticleId);
     if (!article) return;
 
     const newState = !article.is_favorite;
@@ -152,7 +152,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   }
 
   function toggleCurrentArticleReadLater(): void {
-    const article = store.articles.find((a) => a.id === store.currentArticleId);
+    const article = store.navigableArticles.find((a) => a.id === store.currentArticleId);
     if (!article) return;
 
     const newState = !article.is_read_later;
@@ -170,7 +170,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   }
 
   function openCurrentArticleInBrowser(): void {
-    const article = store.articles.find((a) => a.id === store.currentArticleId);
+    const article = store.navigableArticles.find((a) => a.id === store.currentArticleId);
     if (article && article.url) {
       openInBrowser(article.url);
     }
@@ -372,7 +372,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
         navigateArticle(-1);
         break;
       case 'openArticle':
-        if (store.articles.length > 0 && !store.currentArticleId) {
+        if (store.navigableArticles.length > 0 && !store.currentArticleId) {
           selectArticleByIndex(0);
         }
         break;

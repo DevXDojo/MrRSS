@@ -151,14 +151,17 @@ async function exportToZotero() {
 }
 
 // Navigation
+const navigationArticles = computed(() => store.navigableArticles);
 const currentArticleIndex = computed(() => {
   if (!props.article) return -1;
-  return store.articles.findIndex((a) => a.id === props.article.id);
+  return navigationArticles.value.findIndex((a) => a.id === props.article.id);
 });
 
 const hasPreviousArticle = computed(() => currentArticleIndex.value > 0);
 const hasNextArticle = computed(
-  () => currentArticleIndex.value >= 0 && currentArticleIndex.value < store.articles.length - 1
+  () =>
+    currentArticleIndex.value >= 0 &&
+    currentArticleIndex.value < navigationArticles.value.length - 1
 );
 
 // Load default view mode on mount

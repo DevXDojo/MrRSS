@@ -163,4 +163,150 @@ describe('Article Operations', () => {
       }
     });
   });
+
+  it('should explain AI search results and keep list and card navigation in search context', () => {
+    const settingsState: Record<string, string> = {
+      language: 'en-US',
+      theme: 'light',
+      layout_mode: 'normal',
+      default_view_mode: 'rendered',
+      ai_search_enabled: 'true',
+      translation_mode: 'off',
+      summary_enabled: 'false',
+      full_text_fetch_enabled: 'false',
+      update_check_enabled: 'false',
+    };
+    const feed = {
+      id: 1,
+      title: 'Search Feed',
+      url: 'https://example.com/feed.xml',
+      category: '',
+      article_view_mode: 'global',
+    };
+    const timelineArticle = {
+      id: 1,
+      feed_id: 1,
+      feed_title: feed.title,
+      title: 'Timeline article outside search results',
+      url: 'https://example.com/timeline',
+      published_at: '2026-08-20T00:00:00Z',
+      is_read: false,
+      is_favorite: false,
+      is_hidden: false,
+      is_read_later: false,
+    };
+    const searchArticles = [101, 102, 103].map((id, index) => ({
+      id,
+      feed_id: 1,
+      feed_title: feed.title,
+      title: `Search result ${index + 1}`,
+      url: `https://example.com/search/${id}`,
+      published_at: `2026-08-${23 - index}T00:00:00Z`,
+      is_read: false,
+      is_favorite: false,
+      is_hidden: false,
+      is_read_later: false,
+      relevance_score: 90 - index,
+      matched_terms: ['privacy'],
+      matched_fields: index === 0 ? ['title', 'summary'] : ['content'],
+      excerpt: `This privacy excerpt explains result ${index + 1}`,
+    }));
+
+    cy.intercept('/api/**', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/settings', (req) => {
+      req.reply({ statusCode: 200, body: settingsState });
+    });
+    cy.intercept('GET', '/api/feeds', { statusCode: 200, body: [feed] }).as('searchFeeds');
+    cy.intercept('GET', '/api/tags', { statusCode: 200, body: [] });
+    cy.intercept('GET', '/api/saved-filters', { statusCode: 200, body: [] });
+    cy.intercept(
+      { method: 'GET', pathname: '/api/articles' },
+      { statusCode: 200, body: [timelineArticle] }
+    ).as('timelineArticles');
+    cy.intercept('GET', '/api/articles/unread-counts', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/articles/filter-counts', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/progress', { statusCode: 200, body: { is_running: false } });
+    cy.intercept('POST', '/api/ai/search', (req) => {
+      const noResults = req.body?.query === 'nothing matches';
+      req.reply({
+        statusCode: 200,
+        body: {
+          success: true,
+          articles: noResults ? [] : searchArticles,
+          total_count: noResults ? 0 : searchArticles.length,
+        },
+      });
+    }).as('aiSearch');
+    cy.intercept('GET', '/api/articles/content*', (req) => {
+      req.reply({
+        statusCode: 200,
+        body: { content: `<p>Body for search result ${req.query.id}</p>`, cached: true },
+      });
+    }).as('searchArticleContent');
+    cy.intercept('POST', '/api/articles/read*', { statusCode: 200, body: { success: true } });
+    cy.intercept('POST', '/api/articles/favorite*', {
+      statusCode: 200,
+      body: { success: true },
+    });
+    cy.intercept('POST', '/api/articles/toggle-read-later*', {
+      statusCode: 200,
+      body: { success: true },
+    });
+
+    cy.window().then((win) => win.localStorage.setItem('showOnlyUnread', 'true'));
+    cy.reload();
+    cy.wait('@searchFeeds');
+    cy.wait('@timelineArticles');
+
+    cy.get('input[placeholder="Describe what you want to find..."]').type('privacy');
+    cy.contains('button', /^AI Search$/).click();
+    cy.wait('@aiSearch');
+    cy.contains('Title match').should('be.visible');
+    cy.contains('Summary match').should('be.visible');
+    cy.contains('This privacy excerpt explains result 1').should('be.visible');
+
+    cy.get('[data-article-id="101"]').click();
+    cy.wait('@searchArticleContent');
+    cy.contains('Body for search result 101').should('be.visible');
+
+    // The next result is marked read when opened, but must remain selected and
+    // renderable while the unread-only preference is active.
+    cy.get('button[title="Next Article"]').click();
+    cy.wait('@searchArticleContent');
+    cy.contains('Body for search result 102').should('be.visible');
+    cy.get('[data-article-id="102"]').should('exist');
+
+    // Global shortcuts must use the same ordered search context instead of the
+    // separately paginated timeline.
+    cy.get('body').trigger('keydown', { key: 'j' });
+    cy.wait('@searchArticleContent');
+    cy.contains('Body for search result 103').should('be.visible');
+    cy.get('button[title="Previous Article"]').click();
+    cy.wait('@searchArticleContent');
+    cy.contains('Body for search result 102').should('be.visible');
+
+    cy.contains('button', /^Clear$/).click();
+    cy.get('input[placeholder="Describe what you want to find..."]').type('nothing matches');
+    cy.contains('button', /^AI Search$/).click();
+    cy.wait('@aiSearch');
+    cy.contains('No articles found matching your search').should('be.visible');
+
+    // Card mode uses ArticleDetailModal, which must use the same navigation
+    // context instead of hiding navigation for off-page search results.
+    cy.then(() => {
+      settingsState.layout_mode = 'card';
+    });
+    cy.reload();
+    cy.wait('@searchFeeds');
+    cy.wait('@timelineArticles');
+    cy.get('input[placeholder="Describe what you want to find..."]').type('privacy');
+    cy.contains('button', /^AI Search$/).click();
+    cy.wait('@aiSearch');
+    cy.get('.article-card-item[data-article-id="101"]').click();
+    cy.wait('@searchArticleContent');
+    cy.contains('Body for search result 101').should('be.visible');
+    cy.get('button[title="Next Article"]').should('be.visible').click();
+    cy.wait('@searchArticleContent');
+    cy.contains('Body for search result 102').should('be.visible');
+  });
 });
