@@ -17,6 +17,8 @@ export interface TempSelection {
 export interface AppState {
   articles: Ref<Article[]>;
   feeds: Ref<Feed[]>;
+  feedsLoading: Ref<boolean>;
+  feedsLoadError: Ref<string | null>;
   unreadCounts: Ref<UnreadCounts>;
   currentFilter: Ref<Filter>;
   currentFeedId: Ref<number | null>;
@@ -68,6 +70,8 @@ export const useAppStore = defineStore('app', () => {
   // State
   const articles = ref<Article[]>([]);
   const feeds = ref<Feed[]>([]);
+  const feedsLoading = ref(false);
+  const feedsLoadError = ref<string | null>(null);
   // Feed map for O(1) lookups - computed from feeds array
   const feedMap = computed(() => {
     const map = new Map<number, Feed>();
@@ -116,6 +120,8 @@ export const useAppStore = defineStore('app', () => {
   // Refresh progress
   const refreshProgress = ref<RefreshProgress>({ isRunning: false });
   let refreshInterval: ReturnType<typeof setInterval> | null = null;
+  let latestFeedsRequestId = 0;
+  let activeFeedsRequests = 0;
 
   // Actions - Article Management
   async function setFilter(filter: Filter): Promise<void> {
@@ -234,8 +240,17 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function fetchFeeds(): Promise<void> {
+    const requestId = ++latestFeedsRequestId;
+    activeFeedsRequests++;
+    feedsLoading.value = true;
+    feedsLoadError.value = null;
+
     try {
       const res = await fetch('/api/feeds');
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch feeds: HTTP ${res.status}`);
+      }
 
       const text = await res.text();
 
@@ -248,7 +263,15 @@ export const useAppStore = defineStore('app', () => {
         throw e;
       }
 
+      if (!Array.isArray(data)) {
+        throw new Error('Failed to fetch feeds: response is not an array');
+      }
+
+      // Only the newest refresh may replace the feed list.
+      if (requestId !== latestFeedsRequestId) return;
+
       feeds.value = data;
+      feedsLoadError.value = null;
 
       // Fetch unread counts and filter counts after fetching feeds
       await fetchUnreadCounts();
@@ -257,7 +280,13 @@ export const useAppStore = defineStore('app', () => {
       await fetchTags();
     } catch (e) {
       console.error('[App Store] Fetch feeds error:', e);
-      feeds.value = [];
+      if (requestId === latestFeedsRequestId) {
+        feedsLoadError.value = e instanceof Error ? e.message : String(e);
+      }
+      // Keep the last successful list visible when a refresh fails.
+    } finally {
+      activeFeedsRequests--;
+      feedsLoading.value = activeFeedsRequests > 0;
     }
   }
 
@@ -819,6 +848,8 @@ export const useAppStore = defineStore('app', () => {
     // State
     articles,
     feeds,
+    feedsLoading,
+    feedsLoadError,
     feedMap,
     tags,
     tagMap,
