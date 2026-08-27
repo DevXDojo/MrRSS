@@ -15,6 +15,7 @@ import type { AIProfile, AIProfileTestResult, AIProfileFormData } from '@/types/
 import { useAIProfiles } from '@/composables/ai/useAIProfiles';
 import { getProviderIconUrl } from '@/composables/ai/useAIProvider';
 import AIProfileModal from './AIProfileModal.vue';
+import { getAIErrorMessage } from '@/utils/aiError';
 
 const { t } = useI18n();
 const {
@@ -130,6 +131,11 @@ function getTestStatus(profileId: number): 'success' | 'error' | 'unknown' {
   if (!result) return 'unknown';
   return result.config_valid && result.connection_success ? 'success' : 'error';
 }
+
+function getTestError(profileId: number): string {
+  const result = testResults.value.get(profileId);
+  return result ? getAIErrorMessage(result) : '';
+}
 </script>
 
 <template>
@@ -216,7 +222,7 @@ function getTestStatus(profileId: number): 'success' | 'error' | 'unknown' {
             <div
               v-else-if="getTestStatus(profile.id) === 'error'"
               class="status-indicator status-error"
-              :title="testResults.get(profile.id)?.error_message"
+              :title="getTestError(profile.id)"
             >
               <PhX :size="14" class="text-red-500" />
             </div>
@@ -254,7 +260,7 @@ function getTestStatus(profileId: number): 'success' | 'error' | 'unknown' {
           v-if="testResults.get(profile.id)?.error_message && getTestStatus(profile.id) === 'error'"
           class="mt-2 text-xs text-red-500 bg-red-500/5 rounded p-2 break-words"
         >
-          {{ testResults.get(profile.id)?.error_message }}
+          {{ getTestError(profile.id) }}
         </div>
       </div>
     </div>

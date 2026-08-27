@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue';
 import type { AIProfile, AIProfileTestResult, AIProfileFormData } from '@/types/aiProfile';
 import { defaultAIProfileFormData } from '@/types/aiProfile';
+import { readAIError } from '@/utils/aiError';
 
 // Shared state for AI profiles
 const profiles = ref<AIProfile[]>([]);
@@ -59,8 +60,7 @@ export function useAIProfiles() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Failed to create profile: ${response.status}`);
+        throw new Error((await readAIError(response)).message);
       }
 
       const newProfile = await response.json();
@@ -82,8 +82,7 @@ export function useAIProfiles() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Failed to update profile: ${response.status}`);
+        throw new Error((await readAIError(response)).message);
       }
 
       const updatedProfile = await response.json();
