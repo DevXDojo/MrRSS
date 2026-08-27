@@ -67,7 +67,7 @@ func (db *DB) GetChatSessionsByArticle(articleID int64) ([]ChatSession, error) {
 		       (SELECT COUNT(*) FROM chat_messages WHERE session_id = chat_sessions.id) as message_count
 		FROM chat_sessions
 		WHERE article_id = ?
-		ORDER BY updated_at DESC
+		ORDER BY updated_at DESC, id DESC
 	`, articleID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chat sessions: %w", err)
@@ -149,7 +149,7 @@ func (db *DB) GetChatMessages(sessionID int64) ([]ChatMessage, error) {
 		SELECT id, session_id, role, content, thinking, created_at
 		FROM chat_messages
 		WHERE session_id = ?
-		ORDER BY created_at ASC
+		ORDER BY created_at ASC, id ASC
 	`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chat messages: %w", err)

@@ -605,6 +605,39 @@ func TestSaveArticlesUpdatePreservesRelatedData(t *testing.T) {
 	if session == nil || session.MessageCount != 1 {
 		t.Fatalf("chat data was not preserved: session=%+v", session)
 	}
+
+	newerSessionID, err := db.CreateChatSession(articleID, "New conversation")
+	if err != nil {
+		t.Fatalf("CreateChatSession(newer) error: %v", err)
+	}
+	if _, err := db.Exec(
+		`UPDATE chat_sessions SET updated_at = '2026-08-25 10:00:00' WHERE id IN (?, ?)`,
+		sessionID, newerSessionID,
+	); err != nil {
+		t.Fatalf("align chat session timestamps: %v", err)
+	}
+	firstMessageID, err := db.CreateChatMessage(newerSessionID, "user", "First in the same second", "")
+	if err != nil {
+		t.Fatalf("CreateChatMessage(first) error: %v", err)
+	}
+	secondMessageID, err := db.CreateChatMessage(newerSessionID, "assistant", "Second in the same second", "thinking")
+	if err != nil {
+		t.Fatalf("CreateChatMessage(second) error: %v", err)
+	}
+	if _, err := db.Exec(
+		`UPDATE chat_sessions SET updated_at = '2026-08-25 10:00:00' WHERE id IN (?, ?)`,
+		sessionID, newerSessionID,
+	); err != nil {
+		t.Fatalf("restore aligned chat session timestamps: %v", err)
+	}
+	sessions, err := db.GetChatSessionsByArticle(articleID)
+	if err != nil || len(sessions) != 2 || sessions[0].ID != newerSessionID {
+		t.Fatalf("chat session order = %+v, err=%v", sessions, err)
+	}
+	messages, err := db.GetChatMessages(newerSessionID)
+	if err != nil || len(messages) != 2 || messages[0].ID != firstMessageID || messages[1].ID != secondMessageID {
+		t.Fatalf("chat message order = %+v, err=%v", messages, err)
+	}
 }
 
 func TestArticleDeduplicationByUniqueID(t *testing.T) {
