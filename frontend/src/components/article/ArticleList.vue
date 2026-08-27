@@ -94,14 +94,18 @@ const isFilterLoading = computed(() => store.isFilterLoading);
 
 // Computed filtered articles - optimized to avoid excessive recomputation
 const filteredArticles = computed(() => {
-  const usesClientSideUnreadFilter =
-    activeFilters.value.length > 0 || (isAISearchActive.value && aiSearchResults.value.length > 0);
+  const usesClientSideUnreadFilter = activeFilters.value.length > 0 || isAISearchActive.value;
 
   // If AI search is active, use AI search results
-  if (isAISearchActive.value && aiSearchResults.value.length > 0) {
+  if (isAISearchActive.value) {
     let articles = aiSearchResults.value;
     if (store.showOnlyUnread) {
-      articles = articles.filter((article) => !article.is_read);
+      articles = articles.filter(
+        (article) =>
+          !article.is_read ||
+          temporarilyKeepArticles.value.has(article.id) ||
+          article.id === store.currentArticleId
+      );
     }
     return articles;
   }
@@ -129,13 +133,66 @@ const filteredArticles = computed(() => {
 
 // AI Search handlers
 function handleAISearchResults(articles: Article[]) {
+  temporarilyKeepArticles.value.clear();
   aiSearchResults.value = articles;
   isAISearchActive.value = true;
+  store.setArticleNavigationContext(articles);
 }
 
 function handleAISearchClear() {
+  temporarilyKeepArticles.value.clear();
   aiSearchResults.value = [];
   isAISearchActive.value = false;
+  store.setArticleNavigationContext(null);
+  if (
+    store.currentArticleId !== null &&
+    !store.articles.some((article) => article.id === store.currentArticleId)
+  ) {
+    store.currentArticleId = null;
+  }
+}
+
+interface SearchExcerptPart {
+  text: string;
+  matched: boolean;
+}
+
+function searchExcerptParts(article: Article): SearchExcerptPart[] {
+  const excerpt = article.excerpt || '';
+  const terms = (article.matched_terms || [])
+    .map((term) => term.replaceAll('%', ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  if (!excerpt || terms.length === 0) return excerpt ? [{ text: excerpt, matched: false }] : [];
+
+  const result: SearchExcerptPart[] = [];
+  const lowerExcerpt = excerpt.toLocaleLowerCase();
+  let position = 0;
+  while (position < excerpt.length) {
+    let nextIndex = -1;
+    let nextTerm = '';
+    for (const term of terms) {
+      const index = lowerExcerpt.indexOf(term.toLocaleLowerCase(), position);
+      if (index >= 0 && (nextIndex < 0 || index < nextIndex)) {
+        nextIndex = index;
+        nextTerm = term;
+      }
+    }
+    if (nextIndex < 0) {
+      result.push({ text: excerpt.slice(position), matched: false });
+      break;
+    }
+    if (nextIndex > position) {
+      result.push({ text: excerpt.slice(position, nextIndex), matched: false });
+    }
+    result.push({ text: excerpt.slice(nextIndex, nextIndex + nextTerm.length), matched: true });
+    position = nextIndex + nextTerm.length;
+  }
+  return result;
+}
+
+function searchFieldLabel(field: 'title' | 'summary' | 'content'): string {
+  return t(`aiSearch.matchFields.${field}`);
 }
 
 const { showArticleContextMenu } = useArticleActions(t, defaultViewMode, async () => {
@@ -308,7 +365,34 @@ watch(
   }
 );
 
+// Keep detail navigation aligned with the currently visible AI result order,
+// including the unread-only preference, without replacing the main timeline.
+watch(
+  () => (isAISearchActive.value ? filteredArticles.value.map((article) => article.id) : []),
+  () => {
+    if (isAISearchActive.value) {
+      store.setArticleNavigationContext([...filteredArticles.value]);
+    }
+  }
+);
+
+// Detail buttons and global shortcuts can move inside the search result set
+// without going through selectArticle(). Keep only the newly selected result
+// visible when the unread-only filter marks it as read.
+watch(
+  () => store.currentArticleId,
+  (articleId) => {
+    if (!isAISearchActive.value) return;
+    if (articleId !== null && aiSearchResults.value.some((article) => article.id === articleId)) {
+      temporarilyKeepArticles.value.add(articleId);
+    }
+  }
+);
+
 onBeforeUnmount(() => {
+  if (isAISearchActive.value) {
+    store.setArticleNavigationContext(null);
+  }
   cleanupTranslation();
   // Clear scroll throttle timer
   if (scrollThrottleTimer) {
@@ -452,7 +536,7 @@ function selectArticle(article: Article): void {
 
   // Normal article selection - show in app
   // If switching from one article to another, remove the previous one from temp list
-  if (store.currentArticleId) {
+  if (store.currentArticleId && !isAISearchActive.value) {
     temporarilyKeepArticles.value.delete(store.currentArticleId);
   }
 
@@ -1021,27 +1105,85 @@ async function markAllVisibleAsRead(): Promise<void> {
       <!-- Article list with content-visibility for performance -->
       <!-- Card mode: grid layout -->
       <div v-if="isCardMode" class="card-grid-container">
-        <ArticleCardItem
+        <div
           v-for="article in visibleArticles"
           :key="article.id"
-          :article="article"
-          :is-active="cardModalArticle?.id === article.id"
-          @click="selectArticle(article)"
-          @contextmenu="(e) => showArticleContextMenu(e, article)"
-        />
+          class="min-w-0 overflow-hidden rounded-lg"
+        >
+          <ArticleCardItem
+            :article="article"
+            :is-active="cardModalArticle?.id === article.id"
+            @click="selectArticle(article)"
+            @contextmenu="(e) => showArticleContextMenu(e, article)"
+          />
+          <div
+            v-if="isAISearchActive && article.excerpt"
+            class="border-t border-border/50 bg-bg-secondary/70 px-3 py-2 text-xs text-text-secondary"
+          >
+            <div class="mb-1 flex flex-wrap items-center gap-1.5">
+              <span class="font-medium text-accent">
+                {{
+                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
+                }}
+              </span>
+              <span
+                v-for="field in article.matched_fields || []"
+                :key="field"
+                class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+              >
+                {{ searchFieldLabel(field) }}
+              </span>
+            </div>
+            <p class="line-clamp-3 leading-5">
+              <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
+                  part.text
+                }}</mark>
+                <span v-else>{{ part.text }}</span>
+              </template>
+            </p>
+          </div>
+        </div>
       </div>
       <!-- Normal/Compact mode: list layout -->
       <div v-else class="article-list-container">
-        <ArticleItem
-          v-for="article in visibleArticles"
-          :key="article.id"
-          :article="article"
-          :is-active="store.currentArticleId === article.id"
-          @click="selectArticle(article)"
-          @contextmenu="(e) => showArticleContextMenu(e, article)"
-          @observe-element="observeArticle"
-          @hover-mark-as-read="handleHoverMarkAsRead"
-        />
+        <div v-for="article in visibleArticles" :key="article.id" class="min-w-0">
+          <ArticleItem
+            :article="article"
+            :is-active="store.currentArticleId === article.id"
+            @click="selectArticle(article)"
+            @contextmenu="(e) => showArticleContextMenu(e, article)"
+            @observe-element="observeArticle"
+            @hover-mark-as-read="handleHoverMarkAsRead"
+          />
+          <div
+            v-if="isAISearchActive && article.excerpt"
+            class="border-b border-border bg-bg-secondary/60 px-3 pb-2 pt-1.5 text-xs text-text-secondary"
+          >
+            <div class="mb-1 flex flex-wrap items-center gap-1.5">
+              <span class="font-medium text-accent">
+                {{
+                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
+                }}
+              </span>
+              <span
+                v-for="field in article.matched_fields || []"
+                :key="field"
+                class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+              >
+                {{ searchFieldLabel(field) }}
+              </span>
+            </div>
+            <p class="line-clamp-2 leading-5">
+              <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
+                  part.text
+                }}</mark>
+                <span v-else>{{ part.text }}</span>
+              </template>
+            </p>
+          </div>
+        </div>
       </div>
 
       <!-- Bottom: Mark All Visible as Read button (inserted at end of list) -->

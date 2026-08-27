@@ -24,14 +24,16 @@ export function useArticleDetail() {
   const store = useAppStore();
   const { t, locale } = useI18n();
 
+  const navigationArticles = computed(() => store.navigableArticles);
+
   const article = computed<Article | undefined>(() =>
-    store.articles.find((a) => a.id === store.currentArticleId)
+    navigationArticles.value.find((a) => a.id === store.currentArticleId)
   );
 
   // Get current article index in the filtered list
   const currentArticleIndex = computed(() => {
     if (!store.currentArticleId) return -1;
-    return store.articles.findIndex((a) => a.id === store.currentArticleId);
+    return navigationArticles.value.findIndex((a) => a.id === store.currentArticleId);
   });
 
   // Check if there's a previous article
@@ -39,13 +41,15 @@ export function useArticleDetail() {
 
   // Check if there's a next article
   const hasNextArticle = computed(
-    () => currentArticleIndex.value >= 0 && currentArticleIndex.value < store.articles.length - 1
+    () =>
+      currentArticleIndex.value >= 0 &&
+      currentArticleIndex.value < navigationArticles.value.length - 1
   );
 
   // Navigate to previous article
   function goToPreviousArticle() {
     if (hasPreviousArticle.value) {
-      const prevArticle = store.articles[currentArticleIndex.value - 1];
+      const prevArticle = navigationArticles.value[currentArticleIndex.value - 1];
       store.currentArticleId = prevArticle.id;
       markAsReadIfNeeded(prevArticle);
       scrollArticleIntoView(prevArticle.id);
@@ -55,7 +59,7 @@ export function useArticleDetail() {
   // Navigate to next article
   function goToNextArticle() {
     if (hasNextArticle.value) {
-      const nextArticle = store.articles[currentArticleIndex.value + 1];
+      const nextArticle = navigationArticles.value[currentArticleIndex.value + 1];
       store.currentArticleId = nextArticle.id;
       markAsReadIfNeeded(nextArticle);
       scrollArticleIntoView(nextArticle.id);
@@ -88,7 +92,7 @@ export function useArticleDetail() {
   }
 
   // Expose articles list and index for UI display
-  const articles = computed(() => store.articles);
+  const articles = computed(() => navigationArticles.value);
   const currentArticleIndexForDisplay = computed(() => currentArticleIndex.value + 1);
 
   // Get effective view mode based on feed settings and global settings

@@ -28,7 +28,6 @@ const emit = defineEmits<{
   'batch-unset-image-mode': [ids: number[]];
   'discover-all': [];
   'update:settings': [settings: SettingsData];
-  'select-feed': [feedId: number];
 }>();
 
 // Create a computed ref that returns the settings object
@@ -90,10 +89,6 @@ function handleBatchUnsetImageMode(ids: number[]) {
   emit('batch-unset-image-mode', ids);
 }
 
-function handleSelectFeed(feedId: number) {
-  emit('select-feed', feedId);
-}
-
 function handleManageTags() {
   showTagManagement.value = true;
 }
@@ -116,7 +111,6 @@ function handleManageTags() {
       @batch-add-tags="handleBatchAddTags"
       @batch-set-image-mode="handleBatchSetImageMode"
       @batch-unset-image-mode="handleBatchUnsetImageMode"
-      @select-feed="handleSelectFeed"
       @manage-tags="handleManageTags"
     />
 

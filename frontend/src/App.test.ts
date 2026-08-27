@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
@@ -15,6 +16,14 @@ const createStub = (name: string) => ({
 });
 
 describe('App', () => {
+  it('keeps long toast messages inside narrow viewports', () => {
+    const toast = readFileSync('src/components/common/Toast.vue', 'utf8');
+    expect(toast).toContain('calc(100vw-2rem)');
+    expect(toast).toContain('overflow-wrap: anywhere');
+    expect(toast).toContain('min-w-0 flex-1');
+    expect(toast).toContain('shrink-0');
+  });
+
   it('renders and reacts to interface typography settings', async () => {
     setSettingsFromRawData({});
     const pinia = createPinia();

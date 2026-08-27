@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhMagnifyingGlass, PhX, PhSparkle, PhSpinner } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
+import { getAIErrorMessage } from '@/utils/aiError';
 
 const { t } = useI18n();
 
@@ -37,7 +38,7 @@ async function performAISearch() {
     const data = await response.json();
 
     if (!data.success) {
-      errorMessage.value = data.error || t('aiSearch.searchFailed');
+      errorMessage.value = getAIErrorMessage(data, response.status);
       window.showToast(errorMessage.value, 'error');
       return;
     }
@@ -60,6 +61,13 @@ async function performAISearch() {
       author: item.author as string,
       translated_title: item.translated_title as string,
       summary: item.summary as string,
+      original_summary: item.original_summary as string,
+      relevance_score: item.relevance_score as number,
+      matched_terms: Array.isArray(item.matched_terms) ? (item.matched_terms as string[]) : [],
+      matched_fields: Array.isArray(item.matched_fields)
+        ? (item.matched_fields as Article['matched_fields'])
+        : [],
+      excerpt: typeof item.excerpt === 'string' ? item.excerpt : '',
     }));
 
     hasResults.value = true;

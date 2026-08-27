@@ -17,6 +17,7 @@ import type { AIProfileFormData, AIProfileTestResult } from '@/types/aiProfile';
 import type { Status } from '@/components/settings/base/StatusBox.vue';
 import { defaultAIProfileFormData } from '@/types/aiProfile';
 import { useAIProfiles } from '@/composables/ai/useAIProfiles';
+import { getAIErrorMessage } from '@/utils/aiError';
 import { openInBrowser } from '@/utils/browser';
 
 const { t, locale } = useI18n();
@@ -105,7 +106,7 @@ async function testConfiguration() {
     if (result) {
       testResult.value = result;
       if (!result.config_valid || !result.connection_success) {
-        testError.value = result.error_message || t('setting.ai.aiTestFailed');
+        testError.value = getAIErrorMessage(result);
       }
     } else {
       testError.value = t('setting.ai.aiTestFailed');
@@ -155,7 +156,7 @@ async function saveProfile() {
     }
   } catch (e) {
     console.error('Save failed:', e);
-    saveError.value = e instanceof Error ? e.message : t('setting.ai.saveFailed');
+    saveError.value = getAIErrorMessage(e);
   } finally {
     isSaving.value = false;
   }

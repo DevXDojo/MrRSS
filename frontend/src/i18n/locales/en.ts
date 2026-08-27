@@ -64,6 +64,7 @@ const en: TranslationMessages = {
     chat: {
       aiChat: 'AI Chat',
       aiChatError: 'Failed to get response from AI. Please try again.',
+      historySaveFailed: 'The answer was generated but could not be saved to chat history.',
       aiChatInputPlaceholder: 'Type a message...',
       aiChatWelcome: 'Ask me anything about this article!',
       confirmDeleteSession: 'Are you sure you want to delete this chat session?',
@@ -137,8 +138,34 @@ const en: TranslationMessages = {
     foundResults: 'Found {count} articles',
     noResults: 'No articles found matching your search',
     placeholder: 'Describe what you want to find...',
+    relevanceScore: 'Relevance {score}',
+    matchFields: {
+      title: 'Title match',
+      summary: 'Summary match',
+      content: 'Content match',
+    },
     searchFailed: 'AI search failed. Please check your AI settings.',
     showingResults: 'Showing AI search results',
+  },
+  aiErrors: {
+    configuration_invalid:
+      'The AI configuration is incomplete or invalid. Check the endpoint and model.',
+    usage_limit_reached:
+      'The AI usage limit configured in MrRSS has been reached. Adjust it and try again.',
+    rate_limited: 'The AI service is receiving too many requests. Please try again later.',
+    authentication_failed: 'AI authentication failed. Check the API key and access permissions.',
+    payment_required:
+      'The AI service has insufficient quota or balance. Check the provider account.',
+    model_or_endpoint_not_found:
+      'The AI model or endpoint is unavailable. Check the configuration.',
+    request_too_large: 'The content sent to AI is too large. Shorten it or choose another model.',
+    timeout: 'The AI service response timed out. Please try again.',
+    network_error: 'Could not reach the AI service. Check the network, proxy, and endpoint.',
+    provider_unavailable: 'The AI service is temporarily unavailable. Please try again later.',
+    invalid_response: 'The AI service returned an invalid response. Retry or choose another model.',
+    provider_rejected_request:
+      'The AI service rejected the request. Check the model and endpoint settings.',
+    request_failed: 'The AI request failed. Check the AI configuration and try again.',
   },
   common: {
     cancel: 'Cancel',
@@ -389,6 +416,13 @@ const en: TranslationMessages = {
       unsetImageModeTitle: 'Unset Multimedia Mode',
       manageFeeds: 'Manage Feeds',
       noFeeds: 'No feeds yet',
+      originalOrder: 'Original order',
+      sortAscending: 'Sort ascending',
+      sortDescending: 'Sort descending',
+      loadFailed: 'Unable to load feeds',
+      loadFailedDesc: 'Check your connection and try again.',
+      loadFailedKeepingData: 'Refresh failed. Showing the last successfully loaded feeds.',
+      retry: 'Retry',
       proxy: 'Feed Proxy',
       proxyDesc: 'Configure proxy settings for this feed',
       proxyHost: 'Proxy Host',
