@@ -24,7 +24,11 @@ if ! curl --silent --fail --max-time 1 "${SERVER_URL}" >/dev/null 2>&1; then
     (cd "${PROJECT_DIR}" && go build -o "${BACKEND_BIN}" .)
 
     echo "Starting the MrRSS backend on 127.0.0.1:1234..."
-    "${BACKEND_BIN}" -host 127.0.0.1 -port 1234 &
+    # The backend keeps its database in ./data, so the working directory is
+    # pinned to the repository: a development run then reads the same library
+    # whichever directory the script was called from.
+    echo "Data directory: ${PROJECT_DIR}/data"
+    (cd "${PROJECT_DIR}" && "${BACKEND_BIN}" -host 127.0.0.1 -port 1234) &
     BACKEND_PID=$!
 
     for _ in {1..100}; do
