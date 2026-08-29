@@ -74,7 +74,8 @@ final class Localization: ObservableObject {
         case .english: json = LocalizationTables.english
         case .chineseSimplified: json = LocalizationTables.chineseSimplified
         }
-        let parsed = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: String] ?? [:]
+        var parsed = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: String] ?? [:]
+        parsed.merge(ClientStrings.table(for: language)) { _, client in client }
         tables[language] = parsed
         return parsed
     }

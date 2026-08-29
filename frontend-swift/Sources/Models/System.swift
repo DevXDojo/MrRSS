@@ -201,62 +201,65 @@ struct StatisticsSummary: Codable, Equatable {
     }
 }
 
-/// Size and item counts for the article content cache.
+/// How many articles have cached content.
 struct ContentCacheInfo: Codable, Equatable {
-    let count: Int
-    let sizeBytes: Int
+    let cachedArticles: Int
 
     enum CodingKeys: String, CodingKey {
-        case count
-        case sizeBytes = "size_bytes"
+        case cachedArticles = "cached_articles"
+    }
+
+    init(cachedArticles: Int) {
+        self.cachedArticles = cachedArticles
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
-        if let bytes = try container.decodeIfPresent(Int.self, forKey: .sizeBytes) {
-            sizeBytes = bytes
-        } else {
-            sizeBytes = 0
-        }
+        cachedArticles = try container.decodeIfPresent(Int.self, forKey: .cachedArticles) ?? 0
     }
 }
 
-/// Size information for the media cache.
+/// How much disk the media cache uses.
 struct MediaCacheInfo: Codable, Equatable {
-    let fileCount: Int
-    let totalSizeMB: Double
+    let cacheSizeMB: Double
 
     enum CodingKeys: String, CodingKey {
-        case fileCount = "file_count"
-        case totalSizeMB = "total_size_mb"
+        case cacheSizeMB = "cache_size_mb"
+    }
+
+    init(cacheSizeMB: Double) {
+        self.cacheSizeMB = cacheSizeMB
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        fileCount = try container.decodeIfPresent(Int.self, forKey: .fileCount) ?? 0
-        totalSizeMB = try container.decodeIfPresent(Double.self, forKey: .totalSizeMB) ?? 0
+        cacheSizeMB = try container.decodeIfPresent(Double.self, forKey: .cacheSizeMB) ?? 0
     }
 }
 
-/// The connection state reported by the FreshRSS integration.
+/// What the FreshRSS integration reports about pending synchronisation.
 struct FreshRSSStatus: Codable, Equatable {
-    let enabled: Bool
-    let connected: Bool
-    let lastSync: String?
-    let message: String?
+    let pendingChanges: Int
+    let failedItems: Int
+    let lastSyncTime: String?
 
     enum CodingKeys: String, CodingKey {
-        case enabled, connected, message
-        case lastSync = "last_sync"
+        case pendingChanges = "pending_changes"
+        case failedItems = "failed_items"
+        case lastSyncTime = "last_sync_time"
+    }
+
+    init(pendingChanges: Int, failedItems: Int, lastSyncTime: String?) {
+        self.pendingChanges = pendingChanges
+        self.failedItems = failedItems
+        self.lastSyncTime = lastSyncTime
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
-        connected = try container.decodeIfPresent(Bool.self, forKey: .connected) ?? false
-        lastSync = try container.decodeIfPresent(String.self, forKey: .lastSync)?.nilIfBlank
-        message = try container.decodeIfPresent(String.self, forKey: .message)?.nilIfBlank
+        pendingChanges = try container.decodeIfPresent(Int.self, forKey: .pendingChanges) ?? 0
+        failedItems = try container.decodeIfPresent(Int.self, forKey: .failedItems) ?? 0
+        lastSyncTime = try container.decodeIfPresent(String.self, forKey: .lastSyncTime)?.nilIfBlank
     }
 }
 

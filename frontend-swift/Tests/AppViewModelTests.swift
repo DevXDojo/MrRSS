@@ -78,13 +78,12 @@ final class AppViewModelTests: XCTestCase {
     }
 }
 
-final class DelayedAPIClient: APIClient {
+final class DelayedAPIClient: StubAPIClient {
     struct ReadMutation: Equatable {
         let id: Int
         let read: Bool
     }
 
-    let baseURL = URL(string: "http://127.0.0.1:1234/api")!
     var defaultArticles = [
         Article(
             id: 1,
@@ -102,29 +101,26 @@ final class DelayedAPIClient: APIClient {
     var categoryUpdateError: Error?
     private(set) var lastArticleQuery: (feedID: Int?, category: String?, filter: String)?
     private(set) var reorderMutations: [(id: Int, category: String, position: Int)] = []
-
-    func checkConnection() async throws {}
-    func fetchFeeds() async throws -> [Feed] { defaultFeeds }
     var unreadCounts = UnreadCounts.empty
-    func fetchUnreadCounts() async throws -> UnreadCounts { unreadCounts }
-    func addFeed(url: String, title: String, category: String) async throws {}
-    func deleteFeed(id: Int) async throws {}
 
-    func updateFeedCategory(id: Int, category: String) async throws {
+    override func fetchFeeds() async throws -> [Feed] { defaultFeeds }
+    override func fetchUnreadCounts() async throws -> UnreadCounts { unreadCounts }
+    override func addFeed(_ draft: FeedDraft) async throws {}
+    override func deleteFeed(id: Int) async throws {}
+
+    override func updateFeedCategory(id: Int, category: String) async throws {
         if let categoryUpdateError { throw categoryUpdateError }
         categoryMutations.append((id, category))
     }
 
-    func reorderFeed(id: Int, category: String, position: Int) async throws {
+    override func reorderFeed(id: Int, category: String, position: Int) async throws {
         if let categoryUpdateError { throw categoryUpdateError }
         reorderMutations.append((id, category, position))
     }
-    func refreshAllFeeds() async throws {}
-    func fetchRefreshProgress() async throws -> RefreshProgress {
-        RefreshProgress(isRunning: false)
-    }
 
-    func fetchArticles(
+    override func refreshAllFeeds() async throws {}
+
+    override func fetchArticles(
         feedID: Int?,
         category: String?,
         filter: String,
@@ -150,29 +146,31 @@ final class DelayedAPIClient: APIClient {
         return defaultArticles
     }
 
-    func setArticleRead(id: Int, read: Bool) async throws {
+    override func setArticleRead(id: Int, read: Bool) async throws {
         lastReadMutation = ReadMutation(id: id, read: read)
     }
 
-    func toggleFavorite(id: Int) async throws {}
+    override func toggleFavorite(id: Int) async throws {}
 
-    func fetchArticleContent(id: Int) async throws -> ArticleContent {
+    override func fetchArticleContent(id: Int) async throws -> ArticleContent {
         articleContent
     }
 
-    func fetchSettings() async throws -> [String: String] { [:] }
-    func updateSettings(_ settings: [String: String]) async throws {}
-    func translateTitle(
+    override func updateSettings(_ settings: [String: String]) async throws {}
+
+    override func translateTitle(
         articleID: Int,
         title: String,
         targetLanguage: String
     ) async throws -> TitleTranslationResponse {
         TitleTranslationResponse(translatedTitle: title, limitReached: false)
     }
-    func translateText(_ text: String, targetLanguage: String) async throws -> TextTranslationResponse {
+
+    override func translateText(_ text: String, targetLanguage: String) async throws -> TextTranslationResponse {
         TextTranslationResponse(translatedText: text, html: text)
     }
-    func summarize(articleID: Int, length: String, content: String?) async throws -> SummaryResult {
+
+    override func summarize(articleID: Int, length: String, content: String?) async throws -> SummaryResult {
         SummaryResult(
             summary: "Summary",
             html: nil,
@@ -185,13 +183,17 @@ final class DelayedAPIClient: APIClient {
             cached: false
         )
     }
-    func clearTranslations() async throws {}
-    func clearSummaries() async throws {}
-    func applyRule(_ rule: AutomationRule) async throws -> RuleApplicationResult {
+
+    override func clearTranslations() async throws {}
+    override func clearSummaries() async throws {}
+
+    override func applyRule(_ rule: AutomationRule) async throws -> RuleApplicationResult {
         RuleApplicationResult(success: true, affected: 0)
     }
-    func fetchAIUsage() async throws -> AIUsage {
+
+    override func fetchAIUsage() async throws -> AIUsage {
         AIUsage(usage: 0, limit: 20_000, limitReached: false)
     }
-    func resetAIUsage() async throws {}
+
+    override func resetAIUsage() async throws {}
 }

@@ -203,15 +203,17 @@ final class AppViewModel: ObservableObject {
               let scheme = parsedURL.scheme?.lowercased(),
               ["http", "https"].contains(scheme),
               parsedURL.host != nil else {
-            errorMessage = "Enter a valid HTTP or HTTPS feed URL."
+            errorMessage = t("client.feed.invalidURL")
             return false
         }
 
         do {
             try await api.addFeed(
-                url: url.trimmingCharacters(in: .whitespacesAndNewlines),
-                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                category: category.trimmingCharacters(in: .whitespacesAndNewlines)
+                FeedDraft(
+                    url: url.trimmingCharacters(in: .whitespacesAndNewlines),
+                    title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                    category: category.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
             )
             refreshAll()
             return true

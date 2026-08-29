@@ -51,34 +51,40 @@ struct AIProfile: Identifiable, Codable, Hashable {
 /// The outcome of testing one AI profile.
 struct AIProfileTestResult: Codable, Equatable, Identifiable {
     let profileID: Int
-    let name: String
-    let success: Bool
-    let message: String
+    let profileName: String
+    let configValid: Bool
+    let connectionSuccess: Bool
+    let modelAvailable: Bool
+    let responseTimeMs: Int
+    let errorMessage: String?
+    let errorCode: String?
 
     var id: Int { profileID }
 
-    enum CodingKeys: String, CodingKey {
-        case name, success, message
-        case profileID = "profile_id"
-    }
+    /// True when the profile is usable end to end.
+    var succeeded: Bool { configValid && connectionSuccess }
 
-    init(profileID: Int, name: String, success: Bool, message: String) {
-        self.profileID = profileID
-        self.name = name
-        self.success = success
-        self.message = message
+    enum CodingKeys: String, CodingKey {
+        case profileID = "profile_id"
+        case profileName = "profile_name"
+        case configValid = "config_valid"
+        case connectionSuccess = "connection_success"
+        case modelAvailable = "model_available"
+        case responseTimeMs = "response_time_ms"
+        case errorMessage = "error_message"
+        case errorCode = "error_code"
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         profileID = try container.decodeIfPresent(Int.self, forKey: .profileID) ?? 0
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
-        success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? false
-        if let message = try container.decodeIfPresent(String.self, forKey: .message) {
-            self.message = message
-        } else {
-            message = ""
-        }
+        profileName = try container.decodeIfPresent(String.self, forKey: .profileName) ?? ""
+        configValid = try container.decodeIfPresent(Bool.self, forKey: .configValid) ?? false
+        connectionSuccess = try container.decodeIfPresent(Bool.self, forKey: .connectionSuccess) ?? false
+        modelAvailable = try container.decodeIfPresent(Bool.self, forKey: .modelAvailable) ?? false
+        responseTimeMs = try container.decodeIfPresent(Int.self, forKey: .responseTimeMs) ?? 0
+        errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)?.nilIfBlank
+        errorCode = try container.decodeIfPresent(String.self, forKey: .errorCode)?.nilIfBlank
     }
 }
 
@@ -191,31 +197,66 @@ struct ChatResponse: Codable, Equatable {
     }
 }
 
-/// A single hit from the AI-assisted article search.
-struct AISearchResult: Identifiable, Codable, Hashable {
-    let articleID: Int
-    let title: String
-    let url: String
-    let feedTitle: String?
-    let reason: String?
-    let score: Double?
+/// One hit from the AI-assisted search: the article plus why it matched.
+struct AISearchHit: Identifiable, Codable, Hashable {
+    let article: Article
+    let relevanceScore: Double
+    let matchedTerms: [String]
+    let matchedFields: [String]
+    let excerpt: String?
 
-    var id: Int { articleID }
+    var id: Int { article.id }
 
     enum CodingKeys: String, CodingKey {
-        case title, url, reason, score
-        case articleID = "article_id"
-        case feedTitle = "feed_title"
+        case excerpt
+        case relevanceScore = "relevance_score"
+        case matchedTerms = "matched_terms"
+        case matchedFields = "matched_fields"
+    }
+
+    init(from decoder: Decoder) throws {
+        article = try Article(from: decoder)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        relevanceScore = try container.decodeIfPresent(Double.self, forKey: .relevanceScore) ?? 0
+        matchedTerms = try container.decodeIfPresent([String].self, forKey: .matchedTerms) ?? []
+        matchedFields = try container.decodeIfPresent([String].self, forKey: .matchedFields) ?? []
+        excerpt = try container.decodeIfPresent(String.self, forKey: .excerpt)?.nilIfBlank
+    }
+
+    func encode(to encoder: Encoder) throws {
+        try article.encode(to: encoder)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(relevanceScore, forKey: .relevanceScore)
+        try container.encode(matchedTerms, forKey: .matchedTerms)
+        try container.encode(matchedFields, forKey: .matchedFields)
+        try container.encodeIfPresent(excerpt, forKey: .excerpt)
+    }
+}
+
+/// What `/api/ai/search` returns.
+struct AISearchResponse: Codable, Equatable {
+    let success: Bool
+    let articles: [AISearchHit]
+    let searchTerms: String?
+    let error: String?
+    let errorCode: String?
+    let totalCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case success, articles, error
+        case searchTerms = "search_terms"
+        case errorCode = "error_code"
+        case totalCount = "total_count"
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        articleID = try container.decodeIfPresent(Int.self, forKey: .articleID) ?? 0
-        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
-        url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
-        feedTitle = try container.decodeIfPresent(String.self, forKey: .feedTitle)?.nilIfBlank
-        reason = try container.decodeIfPresent(String.self, forKey: .reason)?.nilIfBlank
-        score = try container.decodeIfPresent(Double.self, forKey: .score)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? false
+        articles = try container.decodeIfPresent([AISearchHit].self, forKey: .articles) ?? []
+        searchTerms = try container.decodeIfPresent(String.self, forKey: .searchTerms)?.nilIfBlank
+        error = try container.decodeIfPresent(String.self, forKey: .error)?.nilIfBlank
+        errorCode = try container.decodeIfPresent(String.self, forKey: .errorCode)?.nilIfBlank
+        totalCount = try container.decodeIfPresent(Int.self, forKey: .totalCount) ?? 0
     }
 }
 

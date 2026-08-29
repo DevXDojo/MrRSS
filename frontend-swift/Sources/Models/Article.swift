@@ -78,6 +78,28 @@ struct Article: Identifiable, Codable, Hashable {
         self.freshRSSItemID = freshRSSItemID?.nilIfBlank
     }
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        feedID = try container.decodeIfPresent(Int.self, forKey: .feedID) ?? 0
+        feedTitle = try container.decodeIfPresent(String.self, forKey: .feedTitle)?.nilIfBlank
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+        imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)?.nilIfBlank
+        audioURL = try container.decodeIfPresent(String.self, forKey: .audioURL)?.nilIfBlank
+        videoURL = try container.decodeIfPresent(String.self, forKey: .videoURL)?.nilIfBlank
+        author = try container.decodeIfPresent(String.self, forKey: .author)?.nilIfBlank
+        publishedAt = try container.decodeIfPresent(String.self, forKey: .publishedAt) ?? ""
+        isRead = try container.decodeIfPresent(Bool.self, forKey: .isRead) ?? false
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+        isReadLater = try container.decodeIfPresent(Bool.self, forKey: .isReadLater) ?? false
+        translatedTitle = try container.decodeIfPresent(String.self, forKey: .translatedTitle)?.nilIfBlank
+        summary = try container.decodeIfPresent(String.self, forKey: .summary)?.nilIfBlank
+        originalSummary = try container.decodeIfPresent(String.self, forKey: .originalSummary)?.nilIfBlank
+        freshRSSItemID = try container.decodeIfPresent(String.self, forKey: .freshRSSItemID)?.nilIfBlank
+    }
+
     /// The title to show, preferring the translation when one exists.
     func displayTitle(preferTranslation: Bool) -> String {
         guard preferTranslation, let translatedTitle, !translatedTitle.isEmpty else { return title }
