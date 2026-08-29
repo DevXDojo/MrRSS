@@ -239,12 +239,52 @@ final class ArticleListStateTests: XCTestCase {
         XCTAssertEqual(viewModel.displayedArticles.map(\.id), [2, 1])
     }
 
-    func testHidingAnArticleRemovesItWhenHiddenArticlesAreNotShown() async {
+    func testHidingAnArticleRemovesItWhenHiddenArticlesAreNotShown() async throws {
         let (viewModel, _) = makeViewModel(articles: [.stub(id: 1, published: "2026-08-16T08:00:00Z")])
 
         viewModel.toggleHidden(viewModel.articles[0])
 
-        XCTAssertTrue(viewModel.articles.isEmpty)
+        // The row is dropped once the server has accepted the change, so that a
+        // rejected one can still be rolled back.
+        try await waitUntil("the hidden article to leave the list") {
+            viewModel.articles.isEmpty
+        }
+    }
+
+    func testAHiddenArticleStaysWhenHiddenArticlesAreShown() async throws {
+        let defaults = UserDefaults(suiteName: "ArticleListStateTests")!
+        defaults.removePersistentDomain(forName: "ArticleListStateTests")
+        let client = ListAPIClient()
+        let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
+        viewModel.articles = [.stub(id: 1, published: "2026-08-16T08:00:00Z")]
+        viewModel.updateBoolSetting("show_hidden_articles", value: true)
+
+        viewModel.toggleHidden(viewModel.articles[0])
+
+        try await waitUntil("the change to reach the server") {
+            client.hiddenToggles == [1]
+        }
+        XCTAssertEqual(viewModel.articles.map(\.id), [1])
+        XCTAssertTrue(viewModel.articles[0].isHidden)
+    }
+
+    func testTagAssignmentsComeFromTheFeedListing() async throws {
+        let defaults = UserDefaults(suiteName: "ArticleListStateTests")!
+        defaults.removePersistentDomain(forName: "ArticleListStateTests")
+        let client = ListAPIClient()
+        client.feeds = [
+            Feed(id: 1, url: "https://a.example.com/feed", title: "A", category: "", tags: [
+                Tag(id: 7, name: "Swift", color: "#ff0000")
+            ]),
+            Feed(id: 2, url: "https://b.example.com/feed", title: "B", category: "")
+        ]
+        let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
+
+        viewModel.refreshFeeds()
+
+        try await waitUntil("the feeds to load") { viewModel.feeds.count == 2 }
+        XCTAssertEqual(viewModel.feedTags[1], [7])
+        XCTAssertNil(viewModel.feedTags[2], "a feed with no tags carries no entry")
     }
 
     func testMarkAboveMarksEverythingPublishedLater() async {
@@ -336,8 +376,10 @@ final class ListAPIClient: StubAPIClient {
     var relativeCount = 0
     private(set) var markedRelative: [(id: Int, direction: String)] = []
     private(set) var lastScope: (feedID: Int?, category: String?)?
+    private(set) var hiddenToggles: [Int] = []
+    var feeds: [Feed] = []
 
-    override func fetchFeeds() async throws -> [Feed] { [] }
+    override func fetchFeeds() async throws -> [Feed] { feeds }
     override func fetchArticles(
         feedID: Int?,
         category: String?,
@@ -346,7 +388,9 @@ final class ListAPIClient: StubAPIClient {
         limit: Int
     ) async throws -> [Article] { articles }
     override func fetchImageArticles(page: Int, limit: Int) async throws -> [Article] { imageArticles }
-    override func toggleHidden(id: Int) async throws {}
+    override func toggleHidden(id: Int) async throws {
+        hiddenToggles.append(id)
+    }
     override func setArticleRead(id: Int, read: Bool) async throws {}
     override func markRelative(
         id: Int,

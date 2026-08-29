@@ -328,6 +328,7 @@ final class AppViewModel: ObservableObject {
                 guard requestID == feedRequestID else { return }
                 feeds = AppViewModel.ordered(loadedFeeds)
                 refreshFolders()
+                refreshFeedTagAssignments()
                 unreadCounts = loadedCounts
                 connectionState = .connected
                 isLoadingFeeds = false

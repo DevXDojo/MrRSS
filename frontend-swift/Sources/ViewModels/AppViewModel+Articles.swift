@@ -82,14 +82,14 @@ extension AppViewModel {
     }
 
     func toggleHidden(_ article: Article) {
+        let willHide = !article.isHidden
         mutateArticle(article.id, apply: { $0.isHidden.toggle() }) { [weak self] in
             try await self?.api.toggleHidden(id: article.id)
-        }
-
-        // A hidden article leaves the list unless hidden articles are shown.
-        if !boolSetting("show_hidden_articles"), let index = articles.firstIndex(where: { $0.id == article.id }),
-           articles[index].isHidden {
-            articles.remove(at: index)
+            // A hidden article leaves the list unless hidden articles are shown.
+            // Removing it only after the server agrees keeps the rollback in
+            // `mutateArticle` able to find the row.
+            guard let self, willHide, !boolSetting("show_hidden_articles") else { return }
+            articles.removeAll { $0.id == article.id }
             if selectedArticleID == article.id {
                 selectedArticleID = nil
             }
@@ -270,13 +270,17 @@ extension AppViewModel {
 
     func loadTags() async {
         tags = (try? await api.fetchTags())?.sorted { $0.position < $1.position } ?? []
-        var assignments: [Int: [Int]] = [:]
-        for feed in feeds {
-            if let ids = try? await api.fetchFeedTags(feedID: feed.id), !ids.isEmpty {
-                assignments[feed.id] = ids
-            }
-        }
-        feedTags = assignments
+        refreshFeedTagAssignments()
+    }
+
+    /// The feed listing already carries each feed's tags, so the assignments are
+    /// read from what was loaded rather than asked for one feed at a time.
+    func refreshFeedTagAssignments() {
+        feedTags = Dictionary(
+            uniqueKeysWithValues: feeds
+                .filter { !$0.tags.isEmpty }
+                .map { ($0.id, $0.tags.map(\.id)) }
+        )
     }
 
     // MARK: - Helpers

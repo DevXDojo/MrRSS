@@ -40,6 +40,8 @@ struct Feed: Identifiable, Codable, Hashable {
     var emailPassword: String
     var emailFolder: String
     var isFreshRSSSource: Bool
+    /// The tags assigned to this feed, which the feed listing includes.
+    var tags: [Tag]
 
     enum CodingKeys: String, CodingKey {
         case id, url, title, category, position, link, type
@@ -72,6 +74,7 @@ struct Feed: Identifiable, Codable, Hashable {
         case emailPassword = "email_password"
         case emailFolder = "email_folder"
         case isFreshRSSSource = "is_freshrss_source"
+        case tags
     }
 
     init(
@@ -110,7 +113,8 @@ struct Feed: Identifiable, Codable, Hashable {
         emailUsername: String = "",
         emailPassword: String = "",
         emailFolder: String = "INBOX",
-        isFreshRSSSource: Bool = false
+        isFreshRSSSource: Bool = false,
+        tags: [Tag] = []
     ) {
         self.id = id
         self.url = url
@@ -148,6 +152,7 @@ struct Feed: Identifiable, Codable, Hashable {
         self.emailPassword = emailPassword
         self.emailFolder = emailFolder
         self.isFreshRSSSource = isFreshRSSSource
+        self.tags = tags
     }
 
     init(from decoder: Decoder) throws {
@@ -188,6 +193,7 @@ struct Feed: Identifiable, Codable, Hashable {
         emailPassword = try container.decodeIfPresent(String.self, forKey: .emailPassword) ?? ""
         emailFolder = try container.decodeIfPresent(String.self, forKey: .emailFolder) ?? "INBOX"
         isFreshRSSSource = try container.decodeIfPresent(Bool.self, forKey: .isFreshRSSSource) ?? false
+        tags = try container.decodeIfPresent([Tag].self, forKey: .tags) ?? []
     }
 
     /// True when the feed is scraped from a page rather than parsed from a feed document.

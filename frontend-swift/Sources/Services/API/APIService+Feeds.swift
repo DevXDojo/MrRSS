@@ -60,15 +60,6 @@ extension APIService {
         return response.message ?? t("common.connectionSuccessful")
     }
 
-    func fetchFeedTags(feedID: Int) async throws -> [Int] {
-        struct Response: Decodable { let tags: [Int]? }
-        let response: Response = try await get(
-            "tags",
-            queryItems: [URLQueryItem(name: "feed_id", value: String(feedID))]
-        )
-        return response.tags ?? []
-    }
-
     // MARK: - Discovery
 
     func startDiscovery(feedID: Int) async throws {

@@ -21,7 +21,6 @@ protocol APIClient: AnyObject {
     func refreshFeed(id: Int) async throws
     func fetchRefreshProgress() async throws -> RefreshProgress
     func testIMAPConnection(_ draft: FeedDraft) async throws -> String
-    func fetchFeedTags(feedID: Int) async throws -> [Int]
 
     // Discovery
     func startDiscovery(feedID: Int) async throws

@@ -386,7 +386,18 @@ func HandleUpdateFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.DB.UpdateFeed(req.ID, finalTitle, req.URL, req.Category, req.ScriptPath, req.HideFromTimeline, req.ProxyURL, req.ProxyEnabled, req.RefreshInterval, req.IsImageMode, req.Type, req.XPathItem, req.XPathItemTitle, req.XPathItemContent, req.XPathItemUri, req.XPathItemAuthor, req.XPathItemTimestamp, req.XPathItemTimeFormat, req.XPathItemThumbnail, req.XPathItemCategories, req.XPathItemUid, req.ArticleViewMode, req.AutoExpandContent, req.EmailAddress, req.EmailIMAPServer, req.EmailUsername, req.EmailPassword, req.EmailFolder, req.EmailIMAPPort); err != nil {
+	// The feed listing never sends the IMAP password back, so a client editing
+	// a newsletter feed has nothing to put in that field. An empty value
+	// therefore means "leave it as it is" rather than "clear it"; removing a
+	// password is done by removing the subscription.
+	emailPassword := req.EmailPassword
+	if emailPassword == "" {
+		if existing, err := h.DB.GetFeedByID(req.ID); err == nil && existing != nil {
+			emailPassword = existing.EmailPassword
+		}
+	}
+
+	if err := h.DB.UpdateFeed(req.ID, finalTitle, req.URL, req.Category, req.ScriptPath, req.HideFromTimeline, req.ProxyURL, req.ProxyEnabled, req.RefreshInterval, req.IsImageMode, req.Type, req.XPathItem, req.XPathItemTitle, req.XPathItemContent, req.XPathItemUri, req.XPathItemAuthor, req.XPathItemTimestamp, req.XPathItemTimeFormat, req.XPathItemThumbnail, req.XPathItemCategories, req.XPathItemUid, req.ArticleViewMode, req.AutoExpandContent, req.EmailAddress, req.EmailIMAPServer, req.EmailUsername, emailPassword, req.EmailFolder, req.EmailIMAPPort); err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}

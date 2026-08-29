@@ -26,7 +26,6 @@ class StubAPIClient: APIClient {
     func refreshFeed(id: Int) async throws { throw unimplemented() }
     func fetchRefreshProgress() async throws -> RefreshProgress { RefreshProgress(isRunning: false) }
     func testIMAPConnection(_ draft: FeedDraft) async throws -> String { throw unimplemented() }
-    func fetchFeedTags(feedID: Int) async throws -> [Int] { [] }
 
     // Discovery
     func startDiscovery(feedID: Int) async throws { throw unimplemented() }
