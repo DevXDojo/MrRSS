@@ -197,3 +197,129 @@ final class DelayedAPIClient: StubAPIClient {
 
     override func resetAIUsage() async throws {}
 }
+
+@MainActor
+final class ArticleListStateTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        Localization.shared.setLanguage(.english)
+    }
+
+    private func makeViewModel(
+        articles: [Article],
+        defaults: UserDefaults = UserDefaults(suiteName: "ArticleListStateTests")!
+    ) -> (AppViewModel, ListAPIClient) {
+        defaults.removePersistentDomain(forName: "ArticleListStateTests")
+        let client = ListAPIClient()
+        client.articles = articles
+        let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
+        viewModel.articles = articles
+        return (viewModel, client)
+    }
+
+    func testNewestFirstOrdersByPublicationDate() {
+        let (viewModel, _) = makeViewModel(articles: [
+            .stub(id: 1, published: "2026-08-10T08:00:00Z"),
+            .stub(id: 2, published: "2026-08-16T08:00:00Z")
+        ])
+
+        viewModel.sortOrder = .newestFirst
+
+        XCTAssertEqual(viewModel.displayedArticles.map(\.id), [2, 1])
+    }
+
+    func testUnreadFirstKeepsUnreadAtTheTop() {
+        let (viewModel, _) = makeViewModel(articles: [
+            .stub(id: 1, published: "2026-08-16T08:00:00Z", isRead: true),
+            .stub(id: 2, published: "2026-08-10T08:00:00Z", isRead: false)
+        ])
+
+        viewModel.sortOrder = .unreadFirst
+
+        XCTAssertEqual(viewModel.displayedArticles.map(\.id), [2, 1])
+    }
+
+    func testHidingAnArticleRemovesItWhenHiddenArticlesAreNotShown() async {
+        let (viewModel, _) = makeViewModel(articles: [.stub(id: 1, published: "2026-08-16T08:00:00Z")])
+
+        viewModel.toggleHidden(viewModel.articles[0])
+
+        XCTAssertTrue(viewModel.articles.isEmpty)
+    }
+
+    func testMarkAboveMarksOnlyTheEarlierRows() async {
+        let (viewModel, client) = makeViewModel(articles: [
+            .stub(id: 1, published: "2026-08-18T08:00:00Z"),
+            .stub(id: 2, published: "2026-08-17T08:00:00Z"),
+            .stub(id: 3, published: "2026-08-16T08:00:00Z")
+        ])
+        client.relativeCount = 1
+
+        await viewModel.markRelative(to: viewModel.articles[1], direction: .above)
+
+        XCTAssertEqual(viewModel.articles.filter(\.isRead).map(\.id), [1])
+    }
+
+    func testUnreadOnlyRestrictsTheMultimediaListing() async throws {
+        let defaults = UserDefaults(suiteName: "ArticleListStateTests")!
+        defaults.removePersistentDomain(forName: "ArticleListStateTests")
+        let client = ListAPIClient()
+        client.imageArticles = [
+            .stub(id: 1, published: "2026-08-18T08:00:00Z", isRead: true),
+            .stub(id: 2, published: "2026-08-17T08:00:00Z", isRead: false)
+        ]
+        let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
+        viewModel.showOnlyUnread = true
+        viewModel.selection = .filter(.imageGallery)
+
+        try await waitUntil("the multimedia listing to drop read items") {
+            viewModel.articles.map(\.id) == [2]
+        }
+    }
+
+    func testArticleListTitleFollowsTheSelection() {
+        let (viewModel, _) = makeViewModel(articles: [])
+        viewModel.feeds = [Feed(id: 7, url: "https://example.com/feed", title: "Example", category: "")]
+
+        viewModel.selection = .feed(7)
+
+        XCTAssertEqual(viewModel.articleListTitle, "Example")
+    }
+}
+
+final class ListAPIClient: StubAPIClient {
+    var articles: [Article] = []
+    var imageArticles: [Article] = []
+    var relativeCount = 0
+    private(set) var markedRelative: [(id: Int, direction: String)] = []
+
+    override func fetchFeeds() async throws -> [Feed] { [] }
+    override func fetchArticles(
+        feedID: Int?,
+        category: String?,
+        filter: String,
+        page: Int,
+        limit: Int
+    ) async throws -> [Article] { articles }
+    override func fetchImageArticles(page: Int, limit: Int) async throws -> [Article] { imageArticles }
+    override func toggleHidden(id: Int) async throws {}
+    override func setArticleRead(id: Int, read: Bool) async throws {}
+    override func markRelative(id: Int, direction: String) async throws -> Int {
+        markedRelative.append((id, direction))
+        return relativeCount
+    }
+}
+
+private extension Article {
+    static func stub(id: Int, published: String, isRead: Bool = false) -> Article {
+        Article(
+            id: id,
+            feedID: 1,
+            feedTitle: "Feed",
+            title: "Article \(id)",
+            url: "https://example.com/\(id)",
+            publishedAt: published,
+            isRead: isRead
+        )
+    }
+}

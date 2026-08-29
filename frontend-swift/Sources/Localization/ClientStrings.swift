@@ -23,13 +23,31 @@ enum ClientStrings {
         "client.sidebar.uncategorised": "Uncategorised",
         "client.sidebar.newFolder": "New Folder",
         "client.settings.allSettings": "All Settings",
+        "client.sidebar.library": "Library",
+        "client.article.showArticle": "Show Article",
         "client.settings.searchSettings": "Search settings",
         "client.settings.connection": "Connection",
         "client.settings.noResults": "No settings match the search.",
         "client.action.retry": "Retry",
         "client.action.dismiss": "Dismiss",
         "client.action.showInFinder": "Show in Finder",
-        "client.feed.invalidURL": "Enter a valid HTTP or HTTPS feed address."
+        "client.feed.invalidURL": "Enter a valid HTTP or HTTPS feed address.",
+        "client.sort.oldestFirst": "Oldest first",
+        "client.sort.unreadFirst": "Unread first",
+        "client.sort.title": "Sort order",
+        "client.layout.compact": "Compact",
+        "client.layout.comfortable": "Comfortable",
+        "client.layout.cards": "Cards",
+        "client.layout.title": "Layout",
+        "client.folder.nameRequired": "Enter a folder name.",
+        "client.folder.alreadyExists": "A folder named {name} already exists.",
+        "client.server.invalidAddress": "Enter a valid HTTP or HTTPS server address.",
+        "client.settings.saved": "Settings saved.",
+        "client.rule.applied": "The rule was applied to {count} articles.",
+        "client.ai.limitReachedFallback":
+            "The AI usage limit was reached, so a fallback provider was used.",
+        "client.ai.usageReset": "AI usage was reset.",
+        "client.maintenance.cleared": "Cached translations and summaries were cleared."
     ]
 
     static let chineseSimplified: [String: String] = [
@@ -51,13 +69,30 @@ enum ClientStrings {
         "client.sidebar.uncategorised": "未分类",
         "client.sidebar.newFolder": "新建文件夹",
         "client.settings.allSettings": "全部设置",
+        "client.sidebar.library": "资料库",
+        "client.article.showArticle": "显示文章",
         "client.settings.searchSettings": "搜索设置",
         "client.settings.connection": "连接",
         "client.settings.noResults": "没有符合搜索条件的设置。",
         "client.action.retry": "重试",
         "client.action.dismiss": "关闭",
         "client.action.showInFinder": "在访达中显示",
-        "client.feed.invalidURL": "请输入有效的 HTTP 或 HTTPS 订阅地址。"
+        "client.feed.invalidURL": "请输入有效的 HTTP 或 HTTPS 订阅地址。",
+        "client.sort.oldestFirst": "由旧到新",
+        "client.sort.unreadFirst": "未读优先",
+        "client.sort.title": "排序方式",
+        "client.layout.compact": "紧凑",
+        "client.layout.comfortable": "标准",
+        "client.layout.cards": "卡片",
+        "client.layout.title": "布局",
+        "client.folder.nameRequired": "请输入文件夹名称。",
+        "client.folder.alreadyExists": "名为 {name} 的文件夹已存在。",
+        "client.server.invalidAddress": "请输入有效的 HTTP 或 HTTPS 服务器地址。",
+        "client.settings.saved": "设置已保存。",
+        "client.rule.applied": "规则已应用于 {count} 篇文章。",
+        "client.ai.limitReachedFallback": "已达到 AI 使用上限，因此使用了备用服务。",
+        "client.ai.usageReset": "AI 用量已重置。",
+        "client.maintenance.cleared": "已清除缓存的翻译和摘要。"
     ]
 
     static func table(for language: AppLanguage) -> [String: String] {

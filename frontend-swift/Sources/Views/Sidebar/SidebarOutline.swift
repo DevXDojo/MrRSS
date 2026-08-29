@@ -23,6 +23,9 @@ struct SidebarOutline: NSViewRepresentable {
     let feeds: [Feed]
     let folders: [String]
     let counts: UnreadCounts
+    var filterCounts: FilterCounts = .empty
+    var savedFilters: [SavedFilter] = []
+    var showsImageGallery = true
     @Binding var selection: SidebarItem?
     let actions: SidebarActions
 
@@ -43,6 +46,9 @@ struct SidebarOutline: NSViewRepresentable {
             feeds: feeds,
             folders: folders,
             counts: counts,
+            filterCounts: filterCounts,
+            savedFilters: savedFilters,
+            showsImageGallery: showsImageGallery,
             selection: selection
         )
         return scrollView
@@ -84,6 +90,9 @@ struct SidebarOutline: NSViewRepresentable {
             feeds: feeds,
             folders: folders,
             counts: counts,
+            filterCounts: filterCounts,
+            savedFilters: savedFilters,
+            showsImageGallery: showsImageGallery,
             selection: selection
         )
     }
@@ -103,6 +112,9 @@ struct SidebarOutline: NSViewRepresentable {
             let feeds: [Feed]
             let folders: [String]
             let counts: UnreadCounts
+            let filterCounts: FilterCounts
+            let savedFilters: [SavedFilter]
+            let showsImageGallery: Bool
         }
 
         init(selection: Binding<SidebarItem?>, actions: SidebarActions) {
@@ -112,13 +124,35 @@ struct SidebarOutline: NSViewRepresentable {
 
         // MARK: - Contents
 
-        func apply(feeds: [Feed], folders: [String], counts: UnreadCounts, selection item: SidebarItem?) {
+        func apply(
+            feeds: [Feed],
+            folders: [String],
+            counts: UnreadCounts,
+            filterCounts: FilterCounts = .empty,
+            savedFilters: [SavedFilter] = [],
+            showsImageGallery: Bool = true,
+            selection item: SidebarItem?
+        ) {
             guard let outlineView else { return }
 
-            let incoming = Snapshot(feeds: feeds, folders: folders, counts: counts)
+            let incoming = Snapshot(
+                feeds: feeds,
+                folders: folders,
+                counts: counts,
+                filterCounts: filterCounts,
+                savedFilters: savedFilters,
+                showsImageGallery: showsImageGallery
+            )
             if incoming != snapshot {
                 snapshot = incoming
-                roots = SidebarNode.tree(feeds: feeds, folders: folders, counts: counts)
+                roots = SidebarNode.tree(
+                    feeds: feeds,
+                    folders: folders,
+                    counts: counts,
+                    filterCounts: filterCounts,
+                    savedFilters: savedFilters,
+                    showImageGallery: showsImageGallery
+                )
                 outlineView.reloadData()
                 restoreExpansion()
             }

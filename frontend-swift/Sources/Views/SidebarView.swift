@@ -14,6 +14,9 @@ struct SidebarView: View {
                 feeds: viewModel.feeds,
                 folders: viewModel.folders,
                 counts: viewModel.unreadCounts,
+                filterCounts: viewModel.filterCounts,
+                savedFilters: viewModel.savedFilters,
+                showsImageGallery: viewModel.boolSetting("image_gallery_enabled", default: true),
                 selection: $viewModel.selection,
                 actions: actions
             )

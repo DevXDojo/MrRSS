@@ -76,6 +76,9 @@ final class SidebarRowView: NSTableCellView {
         case .filter(let filter):
             icon.contentTintColor = .controlAccentColor
             icon.image = NSImage(systemSymbolName: filter.icon, accessibilityDescription: nil)
+        case .savedFilter:
+            icon.contentTintColor = .controlAccentColor
+            icon.image = NSImage(systemSymbolName: "line.3.horizontal.decrease.circle", accessibilityDescription: nil)
         case .folder:
             icon.contentTintColor = .controlAccentColor
             icon.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)

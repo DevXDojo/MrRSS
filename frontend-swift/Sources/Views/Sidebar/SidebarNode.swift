@@ -9,6 +9,7 @@ final class SidebarNode: NSObject {
     enum Kind {
         case group(String)
         case filter(ArticleFilter)
+        case savedFilter(SavedFilter)
         case folder(String)
         case feed(Feed)
     }
@@ -32,6 +33,7 @@ final class SidebarNode: NSObject {
         switch kind {
         case .group(let title): title
         case .filter(let filter): filter.title
+        case .savedFilter(let filter): filter.name
         case .folder(let name): name
         case .feed(let feed): feed.title
         }
@@ -42,6 +44,7 @@ final class SidebarNode: NSObject {
         switch kind {
         case .group: nil
         case .filter(let filter): .filter(filter)
+        case .savedFilter(let filter): .savedFilter(filter.id)
         case .folder(let name): .folder(name)
         case .feed(let feed): .feed(feed.id)
         }
@@ -57,10 +60,16 @@ final class SidebarNode: NSObject {
         return nil
     }
 
+    var savedFilter: SavedFilter? {
+        if case .savedFilter(let filter) = kind { return filter }
+        return nil
+    }
+
     private var identity: String {
         switch kind {
         case .group(let title): "group:\(title)"
         case .filter(let filter): "filter:\(filter.rawValue)"
+        case .savedFilter(let filter): "savedFilter:\(filter.id)"
         case .folder(let name): "folder:\(name)"
         case .feed(let feed): "feed:\(feed.id)"
         }
@@ -77,21 +86,54 @@ final class SidebarNode: NSObject {
 
     // MARK: - Building
 
-    static let libraryTitle = "Library"
-    static let feedsTitle = "Feeds"
+    static var libraryTitle: String { t("client.sidebar.library") }
+    static var feedsTitle: String { t("sidebar.feedList.feeds") }
+    static var savedFiltersTitle: String { t("sidebar.savedFilters.title") }
 
-    static func tree(feeds: [Feed], folders: [String], counts: UnreadCounts) -> [SidebarNode] {
-        [library(counts: counts), feedsSection(feeds: feeds, folders: folders, counts: counts)]
+    /// Builds the outline. `activity` decides which per-feed count is shown as
+    /// a badge, matching the activity the reader is currently in.
+    static func tree(
+        feeds: [Feed],
+        folders: [String],
+        counts: UnreadCounts,
+        filterCounts: FilterCounts = .empty,
+        savedFilters: [SavedFilter] = [],
+        showImageGallery: Bool = true
+    ) -> [SidebarNode] {
+        var sections = [
+            library(counts: counts, filterCounts: filterCounts, showImageGallery: showImageGallery)
+        ]
+        if !savedFilters.isEmpty {
+            sections.append(
+                SidebarNode(
+                    kind: .group(savedFiltersTitle),
+                    children: savedFilters.map { SidebarNode(kind: .savedFilter($0)) }
+                )
+            )
+        }
+        sections.append(feedsSection(feeds: feeds, folders: folders, counts: counts))
+        return sections
     }
 
-    private static func library(counts: UnreadCounts) -> SidebarNode {
-        SidebarNode(
+    private static func library(
+        counts: UnreadCounts,
+        filterCounts: FilterCounts,
+        showImageGallery: Bool
+    ) -> SidebarNode {
+        let activities = ArticleFilter.allCases.filter { showImageGallery || $0 != .imageGallery }
+        return SidebarNode(
             kind: .group(libraryTitle),
-            children: ArticleFilter.allCases.map { filter in
+            children: activities.map { filter in
                 let badge: Int
                 switch filter {
-                case .all, .unread: badge = counts.total
-                case .favorites, .readLater: badge = 0
+                case .all, .unread:
+                    badge = counts.total
+                case .favorites:
+                    badge = filterCounts.total(for: \.favorites)
+                case .readLater:
+                    badge = filterCounts.total(for: \.readLater)
+                case .imageGallery:
+                    badge = filterCounts.total(for: \.imagesUnread)
                 }
                 return SidebarNode(kind: .filter(filter), badge: badge)
             }

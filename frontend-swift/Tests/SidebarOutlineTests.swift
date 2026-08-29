@@ -14,6 +14,12 @@ final class SidebarOutlineTests: XCTestCase {
     private var deletedFeeds: [Int] = []
     private var newFolderRequests = 0
 
+    override func setUp() {
+        super.setUp()
+        // Row titles are translated, so pin the language the assertions expect.
+        Localization.shared.setLanguage(.english)
+    }
+
     private let feeds = [
         Feed(id: 1, url: "https://a.example.com/feed", title: "A", category: "", position: 0),
         Feed(id: 2, url: "https://b.example.com/feed", title: "B", category: "", position: 1),
@@ -28,8 +34,8 @@ final class SidebarOutlineTests: XCTestCase {
         let (outlineView, _) = makeOutline()
 
         XCTAssertEqual(titles(of: outlineView), [
-            "Library", "All Articles", "Unread", "Favorites", "Read Later",
-            "Feeds", "Tech", "A", "B"
+            "Library", "All Articles", "Unread Articles", "Favorites", "Read Later",
+            "Multimedia Gallery", "Feeds", "Tech", "A", "B"
         ])
     }
 
@@ -40,8 +46,8 @@ final class SidebarOutlineTests: XCTestCase {
         outlineView.expandItem(folder)
 
         XCTAssertEqual(titles(of: outlineView), [
-            "Library", "All Articles", "Unread", "Favorites", "Read Later",
-            "Feeds", "Tech", "C", "D", "A", "B"
+            "Library", "All Articles", "Unread Articles", "Favorites", "Read Later",
+            "Multimedia Gallery", "Feeds", "Tech", "C", "D", "A", "B"
         ])
     }
 

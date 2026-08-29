@@ -6,15 +6,17 @@ enum ArticleFilter: String, CaseIterable, Identifiable {
     case unread
     case favorites
     case readLater
+    case imageGallery
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .all: "All Articles"
-        case .unread: "Unread"
-        case .favorites: "Favorites"
-        case .readLater: "Read Later"
+        case .all: t("sidebar.activity.allArticles")
+        case .unread: t("sidebar.activity.unreadArticles")
+        case .favorites: t("sidebar.activity.favorites")
+        case .readLater: t("sidebar.activity.readLater")
+        case .imageGallery: t("sidebar.activity.imageGallery")
         }
     }
 
@@ -24,6 +26,83 @@ enum ArticleFilter: String, CaseIterable, Identifiable {
         case .unread: "circle.fill"
         case .favorites: "star.fill"
         case .readLater: "clock.fill"
+        case .imageGallery: "photo.on.rectangle.angled"
+        }
+    }
+
+    /// The value `/api/articles` expects for this activity.
+    var queryValue: String {
+        switch self {
+        case .all: "all"
+        case .unread: "unread"
+        case .favorites: "favorites"
+        case .readLater: "readLater"
+        case .imageGallery: "all"
+        }
+    }
+
+    /// Which per-feed count in `/api/articles/filter-counts` belongs to this activity.
+    var countsKeyPath: KeyPath<FilterCounts, [Int: Int]>? {
+        switch self {
+        case .all: nil
+        case .unread: \FilterCounts.unread
+        case .favorites: \FilterCounts.favorites
+        case .readLater: \FilterCounts.readLater
+        case .imageGallery: \FilterCounts.images
+        }
+    }
+
+    /// The count to show when only unread items are being counted.
+    var unreadCountsKeyPath: KeyPath<FilterCounts, [Int: Int]>? {
+        switch self {
+        case .all, .unread: \FilterCounts.unread
+        case .favorites: \FilterCounts.favoritesUnread
+        case .readLater: \FilterCounts.readLaterUnread
+        case .imageGallery: \FilterCounts.imagesUnread
+        }
+    }
+}
+
+/// How the article list is ordered.
+enum ArticleSortOrder: String, CaseIterable, Identifiable {
+    case newestFirst
+    case oldestFirst
+    case unreadFirst
+    case byTitle
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .newestFirst: t("sidebar.sort.latest")
+        case .oldestFirst: t("client.sort.oldestFirst")
+        case .unreadFirst: t("client.sort.unreadFirst")
+        case .byTitle: t("sidebar.sort.byName")
+        }
+    }
+}
+
+/// How each article is presented in the list.
+enum ArticleListLayout: String, CaseIterable, Identifiable {
+    case compact
+    case comfortable
+    case cards
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .compact: t("client.layout.compact")
+        case .comfortable: t("client.layout.comfortable")
+        case .cards: t("client.layout.cards")
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .compact: "list.bullet"
+        case .comfortable: "list.dash"
+        case .cards: "square.grid.2x2"
         }
     }
 }
@@ -32,6 +111,7 @@ enum SidebarItem: Hashable {
     case filter(ArticleFilter)
     case folder(String)
     case feed(Int)
+    case savedFilter(Int)
 }
 
 enum ConnectionState: Equatable {
@@ -41,9 +121,9 @@ enum ConnectionState: Equatable {
 
     var title: String {
         switch self {
-        case .connecting: "Connecting"
-        case .connected: "Connected"
-        case .disconnected: "Offline"
+        case .connecting: t("client.connection.connecting")
+        case .connected: t("client.connection.connected")
+        case .disconnected: t("client.connection.offline")
         }
     }
 
@@ -56,25 +136,89 @@ enum ConnectionState: Equatable {
     }
 }
 
+/// What the article list should ask the backend for.
+struct ArticleQuery: Equatable {
+    var filter: ArticleFilter?
+    var feedID: Int?
+    var category: String?
+    var conditions: [FilterCondition]
+
+    init(
+        filter: ArticleFilter? = nil,
+        feedID: Int? = nil,
+        category: String? = nil,
+        conditions: [FilterCondition] = []
+    ) {
+        self.filter = filter
+        self.feedID = feedID
+        self.category = category
+        self.conditions = conditions
+    }
+
+    /// True when the request goes to the saved-filter endpoint instead of the
+    /// plain listing endpoint.
+    var usesConditions: Bool { !conditions.isEmpty }
+
+    /// True when the request should come from the multimedia listing.
+    var usesImageGallery: Bool { filter == .imageGallery }
+}
+
 @MainActor
 final class AppViewModel: ObservableObject {
-    @Published private(set) var feeds: [Feed] = []
+    @Published var feeds: [Feed] = []
     @Published private(set) var folders: [String] = []
-    @Published private(set) var articles: [Article] = []
-    @Published private(set) var unreadCounts = UnreadCounts.empty
-    @Published private(set) var isLoadingArticles = false
+    @Published var articles: [Article] = []
+    @Published var unreadCounts = UnreadCounts.empty
+    @Published var isLoadingArticles = false
     @Published private(set) var isLoadingFeeds = false
     @Published private(set) var isRefreshingSources = false
     @Published private(set) var connectionState: ConnectionState = .connecting
     @Published private(set) var settings: [String: String] = [:]
     @Published private(set) var rules: [AutomationRule] = []
-    @Published private(set) var aiUsage: AIUsage?
+    @Published var aiUsage: AIUsage?
     @Published private(set) var isLoadingSettings = false
     @Published private(set) var isSavingSettings = false
     @Published var statusMessage: String?
     @Published var errorMessage: String?
     @Published var selectedArticleID: Int?
     @Published var serverURLText: String
+
+    /// Per-feed counts for each activity, used for the sidebar badges.
+    @Published var filterCounts = FilterCounts.empty
+    /// Saved filters, which appear in the sidebar under their own heading.
+    @Published var savedFilters: [SavedFilter] = []
+    /// Tags, which are assigned to feeds in the feed editor.
+    @Published var tags: [Tag] = []
+    /// The tag identifiers assigned to each feed.
+    @Published var feedTags: [Int: [Int]] = [:]
+    /// How far the running refresh has progressed.
+    @Published var refreshProgress = RefreshProgress(isRunning: false)
+
+    /// Restrict the current activity to unread items only.
+    @Published var showOnlyUnread = false {
+        didSet {
+            guard showOnlyUnread != oldValue else { return }
+            defaults.set(showOnlyUnread, forKey: Self.showOnlyUnreadKey)
+            reloadArticles()
+        }
+    }
+
+    /// How the list is ordered. Ordering is applied on this Mac so switching is
+    /// instant and does not refetch.
+    @Published var sortOrder: ArticleSortOrder = .newestFirst {
+        didSet {
+            guard sortOrder != oldValue else { return }
+            defaults.set(sortOrder.rawValue, forKey: Self.sortOrderKey)
+        }
+    }
+
+    /// How much of each article the list shows.
+    @Published var listLayout: ArticleListLayout = .comfortable {
+        didSet {
+            guard listLayout != oldValue else { return }
+            defaults.set(listLayout.rawValue, forKey: Self.listLayoutKey)
+        }
+    }
 
     @Published var selection: SidebarItem? = .filter(.all) {
         didSet {
@@ -84,10 +228,16 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    static let showOnlyUnreadKey = "MrRSS.showOnlyUnread"
+    static let sortOrderKey = "MrRSS.sortOrder"
+    static let listLayoutKey = "MrRSS.listLayout"
+
     private var page = 0
     private var hasMore = true
     private let limit: Int
-    private var api: APIClient
+    /// Not private so the feature extensions in the neighbouring files can
+    /// reach the backend.
+    private(set) var api: APIClient
     private let defaults: UserDefaults
     private var feedTask: Task<Void, Never>?
     private var sourceRefreshTask: Task<Void, Never>?
@@ -105,6 +255,11 @@ final class AppViewModel: ObservableObject {
         self.limit = limit
         self.defaults = defaults
         serverURLText = api.baseURL.absoluteString
+        showOnlyUnread = defaults.bool(forKey: Self.showOnlyUnreadKey)
+        sortOrder = ArticleSortOrder(rawValue: defaults.string(forKey: Self.sortOrderKey) ?? "")
+            ?? .newestFirst
+        listLayout = ArticleListLayout(rawValue: defaults.string(forKey: Self.listLayoutKey) ?? "")
+            ?? .comfortable
         refreshFolders()
 
         if autoLoad {
@@ -115,7 +270,13 @@ final class AppViewModel: ObservableObject {
     func refreshAll() {
         refreshFeeds()
         reloadArticles()
-        Task { await loadSettings() }
+        Task { [weak self] in
+            guard let self else { return }
+            await loadSettings()
+            await refreshCounts()
+            await loadSavedFilters()
+            await loadTags()
+        }
     }
 
     func start() async {
@@ -264,11 +425,11 @@ final class AppViewModel: ObservableObject {
     func createFolder(named name: String) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            errorMessage = "Enter a folder name."
+            errorMessage = t("client.folder.nameRequired")
             return false
         }
         guard !folders.contains(trimmed) else {
-            errorMessage = "A folder named \(trimmed) already exists."
+            errorMessage = t("client.folder.alreadyExists", ["name": trimmed])
             return false
         }
 
@@ -376,7 +537,7 @@ final class AppViewModel: ObservableObject {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != folder else { return }
         guard !folders.contains(trimmed) else {
-            errorMessage = "A folder named \(trimmed) already exists."
+            errorMessage = t("client.folder.alreadyExists", ["name": trimmed])
             return
         }
 
@@ -443,7 +604,18 @@ final class AppViewModel: ObservableObject {
 
     func selectArticle(_ article: Article) {
         selectedArticleID = article.id
+        markReadOnOpen(article)
     }
+
+    /// Opening an article marks it read, which is what the previous interface
+    /// did. Articles kept for later are left alone.
+    func markReadOnOpen(_ article: Article) {
+        guard !article.isRead, !article.isReadLater else { return }
+        setArticleRead(article, read: true)
+    }
+
+    /// True while more pages remain for the current selection.
+    var hasMoreArticles: Bool { hasMore }
 
     func loadMore() {
         guard hasMore, !isLoadingArticles else { return }
@@ -504,7 +676,7 @@ final class AppViewModel: ObservableObject {
     @discardableResult
     func saveServerAddress() -> Bool {
         guard let url = ServerConfiguration.normalizedURL(from: serverURLText) else {
-            errorMessage = "Enter a valid HTTP or HTTPS server address."
+            errorMessage = t("client.server.invalidAddress")
             return false
         }
 
@@ -536,6 +708,7 @@ final class AppViewModel: ObservableObject {
         do {
             settings = try await api.fetchSettings()
             decodeRules()
+            applyLanguageSetting()
             aiUsage = try? await api.fetchAIUsage()
         } catch {
             errorMessage = error.localizedDescription
@@ -566,7 +739,7 @@ final class AppViewModel: ObservableObject {
         isSavingSettings = true
         do {
             try await api.updateSettings(settings)
-            statusMessage = "Settings saved."
+            statusMessage = t("client.settings.saved")
             decodeRules()
             isSavingSettings = false
             return true
@@ -593,7 +766,7 @@ final class AppViewModel: ObservableObject {
     func applyRule(_ rule: AutomationRule) async -> RuleApplicationResult? {
         do {
             let result = try await api.applyRule(rule)
-            statusMessage = "Rule applied to \(result.affected) articles."
+            statusMessage = t("client.rule.applied", ["count": result.affected])
             refreshAll()
             return result
         } catch {
@@ -613,7 +786,7 @@ final class AppViewModel: ObservableObject {
             articles[index].translatedTitle = result.translatedTitle
         }
         if result.limitReached {
-            statusMessage = "The AI usage limit was reached; a fallback provider was used."
+            statusMessage = t("client.ai.limitReachedFallback")
         }
         return result.translatedTitle
     }
@@ -641,7 +814,7 @@ final class AppViewModel: ObservableObject {
         do {
             try await api.clearTranslations()
             try await api.clearSummaries()
-            statusMessage = "Cached translations and summaries cleared."
+            statusMessage = t("client.maintenance.cleared")
             reloadArticles()
         } catch {
             errorMessage = error.localizedDescription
@@ -652,7 +825,7 @@ final class AppViewModel: ObservableObject {
         do {
             try await api.resetAIUsage()
             aiUsage = try await api.fetchAIUsage()
-            statusMessage = "AI usage reset."
+            statusMessage = t("client.ai.usageReset")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -668,6 +841,12 @@ final class AppViewModel: ObservableObject {
 
     func clearStatusMessage() {
         statusMessage = nil
+    }
+
+    /// Follows the language stored on the server, which is where the previous
+    /// interface kept it too.
+    func applyLanguageSetting() {
+        Localization.shared.setLanguage(AppLanguage.from(settingValue: settings["language"]))
     }
 
     private func decodeRules() {
@@ -693,13 +872,7 @@ final class AppViewModel: ObservableObject {
         articleTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let loadedArticles = try await api.fetchArticles(
-                    feedID: query.feedID,
-                    category: query.category,
-                    filter: query.filter,
-                    page: targetPage,
-                    limit: limit
-                )
+                let loadedArticles = try await load(query: query, page: targetPage)
                 try Task.checkCancellation()
                 guard requestID == articleRequestID else { return }
 
@@ -725,16 +898,54 @@ final class AppViewModel: ObservableObject {
         }
     }
 
-    private var articleQuery: (feedID: Int?, category: String?, filter: String) {
+    /// Runs one page of whichever request the current selection needs.
+    private func load(query: ArticleQuery, page: Int) async throws -> [Article] {
+        if query.usesConditions {
+            let response = try await api.filterArticles(
+                conditions: query.conditions,
+                page: page,
+                limit: limit
+            )
+            return applyUnreadRestriction(response.articles)
+        }
+
+        if query.usesImageGallery {
+            return applyUnreadRestriction(try await api.fetchImageArticles(page: page, limit: limit))
+        }
+
+        let filterValue = query.filter?.queryValue ?? (showOnlyUnread ? "unread" : "")
+        let articles = try await api.fetchArticles(
+            feedID: query.feedID,
+            category: query.category,
+            filter: filterValue,
+            page: page,
+            limit: limit
+        )
+        return applyUnreadRestriction(articles)
+    }
+
+    /// The plain listing understands "unread only" through its filter, but the
+    /// multimedia and saved-filter endpoints do not, so the restriction is
+    /// applied here for those.
+    private func applyUnreadRestriction(_ articles: [Article]) -> [Article] {
+        guard showOnlyUnread else { return articles }
+        return articles.filter { !$0.isRead }
+    }
+
+    /// The request the current sidebar selection maps to.
+    var articleQuery: ArticleQuery {
         switch selection {
         case .filter(let filter):
-            return (nil, nil, filter.rawValue)
+            return ArticleQuery(filter: filter)
         case .folder(let name):
-            return (nil, name, "")
+            return ArticleQuery(category: name)
         case .feed(let id):
-            return (id, nil, "")
+            return ArticleQuery(feedID: id)
+        case .savedFilter(let id):
+            let conditions = savedFilters.first(where: { $0.id == id })?.conditions ?? []
+            return ArticleQuery(conditions: conditions)
         case .none:
-            return (nil, nil, ArticleFilter.all.rawValue)
+            return ArticleQuery(filter: .all)
         }
     }
 }
