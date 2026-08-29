@@ -21,6 +21,7 @@ struct ArticleDetailView: View {
     @State private var galleryImages: [String] = []
     @State private var isShowingGallery = false
     @State private var isShowingChat = false
+    @State private var scrollTarget: String?
 
     // NavigationSplitView measures its columns, and a column whose ideal size
     // follows the article text makes the split view lay itself out around that
@@ -164,20 +165,12 @@ struct ArticleDetailView: View {
                 }
 
                 if let audioURL = article.audioURL, let url = URL(string: audioURL) {
-                    MediaLinkBar(
-                        title: t("article.audioPlayer.podcastAudio"),
-                        icon: "waveform",
-                        url: url
-                    )
+                    AudioPlayerBar(url: url)
                     Divider()
                 }
 
                 if let videoURL = article.videoURL, let url = URL(string: videoURL) {
-                    MediaLinkBar(
-                        title: t("article.videoPlayer.youtubeVideo"),
-                        icon: "play.rectangle",
-                        url: url
-                    )
+                    VideoPlayerBar(url: url)
                     Divider()
                 }
 
@@ -195,10 +188,21 @@ struct ArticleDetailView: View {
                 WebView(
                     source: webSource,
                     typography: typography,
-                    findQuery: findQuery
+                    findQuery: findQuery,
+                    scrollTarget: scrollTarget
                 )
                 .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 .clipped()
+                .overlay(alignment: .topTrailing) {
+                    if showsTableOfContents {
+                        TableOfContentsPanel(entries: tableOfContents) { entry in
+                            scrollTarget = entry.id
+                        }
+                        .padding(.top, 16)
+                        .padding(.trailing, 16)
+                        .frame(maxHeight: 360)
+                    }
+                }
             }
         }
     }
@@ -207,7 +211,22 @@ struct ArticleDetailView: View {
         if viewMode == .webpage, let url = URL(string: article.url) {
             return .url(url)
         }
-        return .html(displayedContent, baseURL: URL(string: articleContent.feedURL ?? article.url))
+        let markup = showsTableOfContents
+            ? ArticleTableOfContents.anchored(displayedContent)
+            : displayedContent
+        return .html(markup, baseURL: URL(string: articleContent.feedURL ?? article.url))
+    }
+
+    /// The headings of the article currently being read.
+    private var tableOfContents: [TableOfContentsEntry] {
+        ArticleTableOfContents.entries(in: displayedContent)
+    }
+
+    /// The list is only worth showing for a rendered article with real structure.
+    private var showsTableOfContents: Bool {
+        viewMode == .rendered
+            && viewModel.boolSetting("show_floating_toc")
+            && tableOfContents.count > 2
     }
 
     private var typography: WebViewTypography {
@@ -418,6 +437,7 @@ struct ArticleDetailView: View {
         translatedContent = nil
         displayTranslation = false
         galleryImages = []
+        scrollTarget = nil
         viewModel.markReadOnOpen(article)
         await loadContent()
 
@@ -554,28 +574,6 @@ private enum ArticleOperation {
     case summarize
     case reload
     case fetchFull
-}
-
-/// A row offering the article's audio or video in an external player.
-private struct MediaLinkBar: View {
-    let title: String
-    let icon: String
-    let url: URL
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Label(title, systemImage: icon)
-                .font(.callout)
-            Spacer()
-            Button(t("common.action.openWebsite")) {
-                NSWorkspace.shared.open(url)
-            }
-            .controlSize(.small)
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 10)
-        .background(Color.accentColor.opacity(0.05))
-    }
 }
 
 private struct SummaryCard: View {

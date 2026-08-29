@@ -46,11 +46,19 @@ struct WebView: NSViewRepresentable {
     var typography: WebViewTypography = .default
     /// Text to highlight, driven by the find bar.
     var findQuery: String = ""
+    /// The heading to scroll to, set when a table of contents entry is chosen.
+    var scrollTarget: String?
 
-    init(source: WebViewSource, typography: WebViewTypography = .default, findQuery: String = "") {
+    init(
+        source: WebViewSource,
+        typography: WebViewTypography = .default,
+        findQuery: String = "",
+        scrollTarget: String? = nil
+    ) {
         self.source = source
         self.typography = typography
         self.findQuery = findQuery
+        self.scrollTarget = scrollTarget
     }
 
     /// Convenience for the common case of rendering article text.
@@ -101,6 +109,7 @@ struct WebView: NSViewRepresentable {
         }
 
         context.coordinator.applyFind(findQuery, in: webView)
+        context.coordinator.scroll(to: scrollTarget, in: webView)
     }
 
     /// The container never reports a size of its own. Web content can be far
@@ -129,6 +138,19 @@ struct WebView: NSViewRepresentable {
         var loadedDocument = ""
         var loadedBaseURL: URL?
         private var lastFindQuery = ""
+
+        private var lastScrollTarget: String?
+
+        /// Scrolls the rendered document to one of its headings.
+        func scroll(to anchor: String?, in webView: WKWebView) {
+            guard let anchor, anchor != lastScrollTarget else { return }
+            lastScrollTarget = anchor
+            // The document is rendered with scripting disabled, so the anchor is
+            // reached through the fragment rather than through a script.
+            webView.evaluateJavaScript(
+                "document.getElementById('\(anchor)')?.scrollIntoView({behavior:'smooth'})"
+            ) { _, _ in }
+        }
 
         /// Highlights the find bar's text. An empty query clears the highlight.
         func applyFind(_ query: String, in webView: WKWebView) {
