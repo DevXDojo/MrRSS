@@ -212,6 +212,13 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    /// The hits of the most recent AI search, empty when the ordinary list is shown.
+    @Published var searchHits: [AISearchHit] = []
+    /// The terms the AI expanded the query into, shown alongside the results.
+    @Published var searchTerms: String?
+    /// True while a search is running.
+    @Published var isSearching = false
+
     /// Raised when a shortcut asks the reading pane to switch between the
     /// rendered article and the original page.
     @Published var requestedViewModeToggle = 0

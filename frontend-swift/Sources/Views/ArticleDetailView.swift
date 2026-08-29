@@ -20,6 +20,7 @@ struct ArticleDetailView: View {
     @State private var findQuery = ""
     @State private var galleryImages: [String] = []
     @State private var isShowingGallery = false
+    @State private var isShowingChat = false
 
     // NavigationSplitView measures its columns, and a column whose ideal size
     // follows the article text makes the split view lay itself out around that
@@ -48,6 +49,13 @@ struct ArticleDetailView: View {
         }
         .sheet(isPresented: $isShowingGallery) {
             ImageGalleryView(images: galleryImages, title: article.title)
+        }
+        .sheet(isPresented: $isShowingChat) {
+            ArticleChatView(
+                article: article,
+                articleContent: plainText(from: articleContent.content),
+                viewModel: viewModel
+            )
         }
         .alert(t("common.errors.unknownError"), isPresented: Binding(
             get: { operationError != nil },
@@ -351,6 +359,15 @@ struct ArticleDetailView: View {
                 }
             } label: {
                 Label(t("client.article.more"), systemImage: "ellipsis.circle")
+            }
+
+            if viewModel.boolSetting("ai_chat_enabled") {
+                Button {
+                    isShowingChat = true
+                } label: {
+                    Label(t("article.chat.aiChat"), systemImage: "bubble.left.and.text.bubble.right")
+                }
+                .help(t("article.chat.aiChat"))
             }
 
             Button {

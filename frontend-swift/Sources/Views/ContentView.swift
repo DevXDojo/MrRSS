@@ -21,6 +21,7 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 620)
+        .overlay(alignment: .bottom) { StatusOverlay(viewModel: viewModel) }
         .onAppear(perform: installKeyMonitor)
         .onDisappear(perform: removeKeyMonitor)
         .sheet(isPresented: $viewModel.isPresentingAddFeed) {

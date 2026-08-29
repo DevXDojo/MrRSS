@@ -5,25 +5,17 @@ struct ArticleListView: View {
     @State private var isConfirmingMarkAllRead = false
     @State private var isConfirmingClearReadLater = false
     @State private var relativeMarkRequest: RelativeMarkRequest?
+    @State private var searchQuery = ""
+    @State private var isShowingSearch = false
 
     var body: some View {
-        List(selection: selectionBinding) {
-            ForEach(viewModel.displayedArticles) { article in
-                row(for: article)
+        VStack(spacing: 0) {
+            if isShowingSearch {
+                searchBar
+                Divider()
             }
-
-            if viewModel.isLoadingArticles && !viewModel.articles.isEmpty {
-                loadingFooter
-            } else if !viewModel.articles.isEmpty && !viewModel.hasMoreArticles {
-                Text(t("article.list.allArticlesLoaded"))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .listRowSeparator(.hidden)
-            }
+            list
         }
-        .listStyle(.inset)
-        .overlay { emptyState }
         .navigationTitle(viewModel.articleListTitle)
         .toolbar { toolbarContent }
         .confirmationDialog(
@@ -62,6 +54,60 @@ struct ArticleListView: View {
         } message: {
             Text(relativeMarkRequest?.message ?? "")
         }
+    }
+
+    /// The search field, shown above the list while a search is being made.
+    private var searchBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkle.magnifyingglass")
+                    .foregroundStyle(.tint)
+                TextField(t("aiSearch.placeholder"), text: $searchQuery)
+                    .textFieldStyle(.plain)
+                    .onSubmit {
+                        Task { await viewModel.runAISearch(searchQuery) }
+                    }
+                if viewModel.isSearching {
+                    ProgressView().controlSize(.small)
+                }
+                Button(t("aiSearch.clearResults")) {
+                    searchQuery = ""
+                    isShowingSearch = false
+                    viewModel.clearAISearch()
+                }
+                .buttonStyle(.borderless)
+            }
+
+            if let terms = viewModel.searchTerms {
+                Text("\(t("aiSearch.showingResults")) · \(terms)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.bar)
+    }
+
+    private var list: some View {
+        List(selection: selectionBinding) {
+            ForEach(viewModel.displayedArticles) { article in
+                row(for: article)
+            }
+
+            if viewModel.isLoadingArticles && !viewModel.articles.isEmpty {
+                loadingFooter
+            } else if !viewModel.articles.isEmpty && !viewModel.hasMoreArticles {
+                Text(t("article.list.allArticlesLoaded"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
+            }
+        }
+        .listStyle(.inset)
+        .overlay { emptyState }
     }
 
     // MARK: - Rows
@@ -221,6 +267,19 @@ struct ArticleListView: View {
                 .pickerStyle(.inline)
             } label: {
                 Label(t("client.sort.title"), systemImage: "arrow.up.arrow.down")
+            }
+
+            if viewModel.boolSetting("ai_search_enabled", default: true) {
+                Button {
+                    isShowingSearch.toggle()
+                    if !isShowingSearch {
+                        searchQuery = ""
+                        viewModel.clearAISearch()
+                    }
+                } label: {
+                    Label(t("aiSearch.button"), systemImage: "sparkle.magnifyingglass")
+                }
+                .help(t("aiSearch.buttonTitle"))
             }
 
             Button {

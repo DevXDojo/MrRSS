@@ -11,6 +11,8 @@ struct SidebarView: View {
     @State private var filterBeingEdited: SavedFilter?
     @State private var isCreatingSavedFilter = false
     @State private var discoverySource: Feed?
+    @State private var isManagingTags = false
+    @State private var isDiscoveringAll = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +46,12 @@ struct SidebarView: View {
         }
         .sheet(item: $discoverySource) { feed in
             DiscoveryView(feed: feed, viewModel: viewModel)
+        }
+        .sheet(isPresented: $isManagingTags) {
+            TagManagerView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $isDiscoveringAll) {
+            DiscoveryView(feed: nil, viewModel: viewModel)
         }
         .confirmationDialog(
             t("modal.feed.unsubscribeTitle"),
@@ -169,6 +177,12 @@ struct SidebarView: View {
                 }
                 Button(t("sidebar.savedFilters.saveFilter"), systemImage: "line.3.horizontal.decrease.circle") {
                     isCreatingSavedFilter = true
+                }
+                Button(t("modal.tag.manageTags"), systemImage: "tag") {
+                    isManagingTags = true
+                }
+                Button(t("modal.discovery.discoverAllFeeds"), systemImage: "sparkle.magnifyingglass") {
+                    isDiscoveringAll = true
                 }
                 Divider()
                 Button(t("modal.opml.import"), systemImage: "square.and.arrow.down") {

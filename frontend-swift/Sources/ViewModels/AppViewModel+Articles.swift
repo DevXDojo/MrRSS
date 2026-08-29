@@ -202,6 +202,47 @@ extension AppViewModel {
         ((try? await api.extractImages(id: id))?.images ?? []).filter { !$0.isEmpty }
     }
 
+    // MARK: - AI search
+
+    /// Runs the AI-assisted search and shows the hits in place of the list.
+    func runAISearch(_ query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            clearAISearch()
+            return
+        }
+
+        isSearching = true
+        defer { isSearching = false }
+
+        do {
+            let response = try await api.aiSearch(query: trimmed)
+            if !response.success, let error = response.error {
+                errorMessage = error
+                return
+            }
+            searchHits = response.articles
+            articles = response.articles.map(\.article)
+            searchTerms = response.searchTerms
+            statusMessage = t("aiSearch.foundResults", ["count": response.totalCount])
+        } catch {
+            errorMessage = "\(t("aiSearch.searchFailed")) \(error.localizedDescription)"
+        }
+    }
+
+    /// Puts the ordinary list back.
+    func clearAISearch() {
+        guard !searchHits.isEmpty || searchTerms != nil else { return }
+        searchHits = []
+        searchTerms = nil
+        reloadArticles()
+    }
+
+    /// Why one article matched the search, when it came from one.
+    func searchHit(for articleID: Int) -> AISearchHit? {
+        searchHits.first { $0.id == articleID }
+    }
+
     // MARK: - Loading side data
 
     func refreshCounts() async {
