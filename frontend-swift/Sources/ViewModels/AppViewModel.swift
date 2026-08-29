@@ -401,13 +401,19 @@ final class AppViewModel: ObservableObject {
         }
     }
 
-    func deleteFeed(_ feed: Feed) async {
+    /// Removes a subscription.
+    ///
+    /// Pass `reloading: false` when removing several in a row, and reload once
+    /// afterwards, so a bulk removal does not refetch per feed.
+    func deleteFeed(_ feed: Feed, reloading: Bool = true) async {
         do {
             try await api.deleteFeed(id: feed.id)
             if selection == .feed(feed.id) {
                 selection = .filter(.all)
             }
-            refreshAll()
+            if reloading {
+                refreshAll()
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

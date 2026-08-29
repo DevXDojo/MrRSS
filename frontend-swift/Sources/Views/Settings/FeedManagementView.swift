@@ -302,8 +302,9 @@ struct FeedManagementView: View {
     private func deleteSelected() async {
         for id in selection {
             guard let feed = viewModel.feeds.first(where: { $0.id == id }) else { continue }
-            await viewModel.deleteFeed(feed)
+            await viewModel.deleteFeed(feed, reloading: false)
         }
+        await viewModel.reloadAfterFeedChange()
         viewModel.statusMessage = t("modal.feed.feedsDeletedSuccess")
         selection.removeAll()
     }
