@@ -268,6 +268,7 @@ struct ArticleListView: View {
             } label: {
                 Label(t("client.sort.title"), systemImage: "arrow.up.arrow.down")
             }
+            .help(t("client.help.sortAndLayout"))
 
             if viewModel.boolSetting("ai_search_enabled", default: true) {
                 Button {

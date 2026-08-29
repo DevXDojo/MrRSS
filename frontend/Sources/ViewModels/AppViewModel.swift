@@ -739,6 +739,12 @@ final class AppViewModel: ObservableObject {
         isLoadingSettings = false
     }
 
+    /// Replaces the loaded settings outright. Tests use it to set up a state
+    /// the backend would normally provide.
+    func updateSettingsForTesting(_ newSettings: [String: String]) {
+        settings = newSettings
+    }
+
     func setting(_ key: String, default defaultValue: String = "") -> String {
         settings[key] ?? defaultValue
     }
@@ -882,10 +888,29 @@ final class AppViewModel: ObservableObject {
         statusMessage = nil
     }
 
+    static let didAdoptSystemLanguageKey = "MrRSS.didAdoptSystemLanguage"
+
     /// Follows the language stored on the server, which is where the previous
     /// interface kept it too.
+    ///
+    /// The stored default is English. On a Mac set to another language that
+    /// would leave a first-time reader with an interface they did not ask for,
+    /// so the system language is adopted once and written back to the server.
+    /// Whatever the reader chooses afterwards is left alone.
     func applyLanguageSetting() {
-        Localization.shared.setLanguage(AppLanguage.from(settingValue: settings["language"]))
+        var stored = settings["language"]
+
+        if !defaults.bool(forKey: Self.didAdoptSystemLanguageKey) {
+            defaults.set(true, forKey: Self.didAdoptSystemLanguageKey)
+
+            let system = AppLanguage.systemDefault
+            if stored == AppLanguage.schemaDefault.rawValue, system != .english {
+                stored = system.rawValue
+                updateSetting("language", value: system.rawValue)
+            }
+        }
+
+        Localization.shared.setLanguage(AppLanguage.from(settingValue: stored))
     }
 
     private func decodeRules() {

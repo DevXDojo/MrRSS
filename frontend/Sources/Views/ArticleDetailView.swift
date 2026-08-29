@@ -282,7 +282,7 @@ struct ArticleDetailView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .help(t("shortcut.toggle.contentView"))
+            .help(t("client.help.viewMode"))
 
             Button {
                 viewModel.setArticleRead(article, read: !article.isRead)
@@ -345,10 +345,11 @@ struct ArticleDetailView: View {
                 if activeOperation != nil {
                     ProgressView().controlSize(.small)
                 } else {
-                    Label(t("article.summary.articleSummary"), systemImage: "sparkles")
+                    Label(t("client.help.languageTools"), systemImage: "sparkles")
                 }
             }
             .disabled(activeOperation != nil)
+            .help(t("client.help.languageTools"))
 
             Menu {
                 Button {
@@ -397,6 +398,7 @@ struct ArticleDetailView: View {
             } label: {
                 Label(t("client.article.more"), systemImage: "ellipsis.circle")
             }
+            .help(t("client.help.moreActions"))
 
             if viewModel.boolSetting("ai_chat_enabled") {
                 Button {

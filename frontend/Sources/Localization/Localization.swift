@@ -15,6 +15,10 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The value the backend ships with, used to tell an untouched setting from
+    /// a deliberate choice of English.
+    static let schemaDefault = AppLanguage.english
+
     /// The language to use when the stored setting is missing or unknown.
     static var systemDefault: AppLanguage {
         let preferred = Locale.preferredLanguages.first ?? "en"

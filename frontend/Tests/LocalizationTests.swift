@@ -150,3 +150,62 @@ final class RecordingSettingsClient: StubAPIClient {
         saved.append(settings)
     }
 }
+
+@MainActor
+final class LanguageAdoptionTests: XCTestCase {
+    private let suite = "LanguageAdoptionTests"
+
+    private func makeDefaults() -> UserDefaults {
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    override func tearDown() {
+        Localization.shared.setLanguage(.english)
+        super.tearDown()
+    }
+
+    func testAnUntouchedSettingAdoptsTheSystemLanguageOnce() async throws {
+        let defaults = makeDefaults()
+        let client = RecordingSettingsClient()
+        let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
+        viewModel.updateSettingsForTesting(["language": AppLanguage.schemaDefault.rawValue])
+
+        viewModel.applyLanguageSetting()
+
+        // On an English Mac there is nothing to adopt, so only assert the part
+        // that holds either way: the choice is recorded and not repeated.
+        XCTAssertTrue(defaults.bool(forKey: AppViewModel.didAdoptSystemLanguageKey))
+        if AppLanguage.systemDefault != .english {
+            XCTAssertEqual(Localization.shared.language, AppLanguage.systemDefault)
+            try await waitUntil("the adopted language to be written back") {
+                client.saved.last?["language"] == AppLanguage.systemDefault.rawValue
+            }
+        }
+    }
+
+    func testADeliberateChoiceIsNeverOverridden() {
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: AppViewModel.didAdoptSystemLanguageKey)
+        let client = RecordingSettingsClient()
+        let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
+        viewModel.updateSettingsForTesting(["language": "en-US"])
+
+        viewModel.applyLanguageSetting()
+
+        XCTAssertEqual(Localization.shared.language, .english)
+        XCTAssertTrue(client.saved.isEmpty, "an existing choice is not written back")
+    }
+
+    func testAStoredChineseSettingWins() {
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: AppViewModel.didAdoptSystemLanguageKey)
+        let viewModel = AppViewModel(api: RecordingSettingsClient(), autoLoad: false, defaults: defaults)
+        viewModel.updateSettingsForTesting(["language": "zh-CN"])
+
+        viewModel.applyLanguageSetting()
+
+        XCTAssertEqual(Localization.shared.language, .chineseSimplified)
+    }
+}
