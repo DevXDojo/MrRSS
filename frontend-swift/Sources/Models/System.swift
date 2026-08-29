@@ -344,3 +344,73 @@ struct SummaryResult: Codable, Equatable {
         case usedFallback = "used_fallback"
     }
 }
+
+/// The window geometry the backend remembers between launches.
+struct WindowState: Codable, Equatable {
+    var x: Int
+    var y: Int
+    var width: Int
+    var height: Int
+    var maximized: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case x, y, width, height, maximized
+    }
+
+    init(x: Int, y: Int, width: Int, height: Int, maximized: Bool = false) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.maximized = maximized
+    }
+
+    /// The values arrive as strings, so each one is read leniently.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        func number(_ key: CodingKeys, default fallback: Int) -> Int {
+            if let value = try? container.decode(Int.self, forKey: key) { return value }
+            if let text = try? container.decode(String.self, forKey: key), let value = Int(text) {
+                return value
+            }
+            return fallback
+        }
+        x = number(.x, default: 0)
+        y = number(.y, default: 0)
+        width = number(.width, default: 1_280)
+        height = number(.height, default: 780)
+        if let value = try? container.decode(Bool.self, forKey: .maximized) {
+            maximized = value
+        } else if let text = try? container.decode(String.self, forKey: .maximized) {
+            maximized = text == "true" || text == "1"
+        } else {
+            maximized = false
+        }
+    }
+
+    var jsonBody: [String: Any] {
+        ["x": x, "y": y, "width": width, "height": height, "maximized": maximized]
+    }
+}
+
+/// The custom fetch scripts the backend has available.
+struct ScriptList: Codable, Equatable {
+    let scripts: [String]
+    let scriptsDir: String
+
+    enum CodingKeys: String, CodingKey {
+        case scripts
+        case scriptsDir = "scripts_dir"
+    }
+
+    init(scripts: [String], scriptsDir: String) {
+        self.scripts = scripts
+        self.scriptsDir = scriptsDir
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        scripts = try container.decodeIfPresent([String].self, forKey: .scripts) ?? []
+        scriptsDir = try container.decodeIfPresent(String.self, forKey: .scriptsDir) ?? ""
+    }
+}

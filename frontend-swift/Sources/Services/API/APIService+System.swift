@@ -77,6 +77,40 @@ extension APIService {
         )
     }
 
+    // MARK: - Window state
+
+    func fetchWindowState() async throws -> WindowState {
+        try await get("window/state")
+    }
+
+    func saveWindowState(_ state: WindowState) async throws {
+        try await post("window/save", jsonBody: state.jsonBody)
+    }
+
+    // MARK: - Scripts and custom styling
+
+    func fetchScripts() async throws -> ScriptList {
+        try await get("scripts/list")
+    }
+
+    func uploadCustomCSS(data: Data, filename: String) async throws {
+        _ = try await upload(
+            "custom-css/upload",
+            data: data,
+            contentType: "text/css",
+            queryItems: [URLQueryItem(name: "filename", value: filename)]
+        )
+    }
+
+    func deleteCustomCSS() async throws {
+        try await post("custom-css/delete")
+    }
+
+    func fetchCustomCSS() async throws -> String {
+        let data = try await getData("custom-css")
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
     // MARK: - Browser
 
     /// Asks the backend to open a link. It answers with the URL to open, which

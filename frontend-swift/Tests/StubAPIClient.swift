@@ -148,4 +148,10 @@ class StubAPIClient: APIClient {
     func exportOPML() async throws -> Data { throw unimplemented() }
     func importOPML(data: Data, filename: String) async throws { throw unimplemented() }
     func openInBrowser(url: String) async throws -> String? { nil }
+    func fetchWindowState() async throws -> WindowState { throw unimplemented() }
+    func saveWindowState(_ state: WindowState) async throws {}
+    func fetchScripts() async throws -> ScriptList { throw unimplemented() }
+    func uploadCustomCSS(data: Data, filename: String) async throws { throw unimplemented() }
+    func deleteCustomCSS() async throws { throw unimplemented() }
+    func fetchCustomCSS() async throws -> String { throw unimplemented() }
 }

@@ -60,6 +60,24 @@ extension AppViewModel {
         }
     }
 
+    /// True when there is an article before the current one.
+    var hasPreviousArticle: Bool {
+        guard let current = selectedArticleID,
+              let index = displayedArticles.firstIndex(where: { $0.id == current }) else {
+            return false
+        }
+        return index > 0
+    }
+
+    /// True when there is an article after the current one, or more to load.
+    var hasNextArticle: Bool {
+        guard let current = selectedArticleID,
+              let index = displayedArticles.firstIndex(where: { $0.id == current }) else {
+            return !displayedArticles.isEmpty
+        }
+        return index + 1 < displayedArticles.count || hasMoreArticles
+    }
+
     /// The article the reading pane is showing.
     var currentArticle: Article? {
         article(withID: selectedArticleID)

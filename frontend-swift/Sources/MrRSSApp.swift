@@ -14,6 +14,7 @@ struct MrRSSApp: App {
                 // the environment, so the tree is rebuilt when the language changes.
                 .id(localization.language)
                 .environmentObject(localization)
+                .persistingWindowState(with: viewModel)
                 .task {
                     await viewModel.start()
                 }

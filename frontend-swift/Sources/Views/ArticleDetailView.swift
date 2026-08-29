@@ -236,6 +236,24 @@ struct ArticleDetailView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) {
+            Button {
+                viewModel.selectRelativeArticle(offset: -1)
+            } label: {
+                Label(t("article.navigation.previousArticle"), systemImage: "chevron.up")
+            }
+            .disabled(!viewModel.hasPreviousArticle)
+            .help(t("article.navigation.previousArticle"))
+
+            Button {
+                viewModel.selectRelativeArticle(offset: 1)
+            } label: {
+                Label(t("article.navigation.nextArticle"), systemImage: "chevron.down")
+            }
+            .disabled(!viewModel.hasNextArticle)
+            .help(t("article.navigation.nextArticle"))
+        }
+
         ToolbarItemGroup(placement: .primaryAction) {
             Picker("", selection: $viewMode) {
                 Label(t("article.content.renderContent"), systemImage: "doc.plaintext")

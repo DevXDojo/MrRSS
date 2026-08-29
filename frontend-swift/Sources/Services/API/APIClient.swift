@@ -121,6 +121,14 @@ protocol APIClient: AnyObject {
     func exportOPML() async throws -> Data
     func importOPML(data: Data, filename: String) async throws
     func openInBrowser(url: String) async throws -> String?
+
+    // Window and scripts
+    func fetchWindowState() async throws -> WindowState
+    func saveWindowState(_ state: WindowState) async throws
+    func fetchScripts() async throws -> ScriptList
+    func uploadCustomCSS(data: Data, filename: String) async throws
+    func deleteCustomCSS() async throws
+    func fetchCustomCSS() async throws -> String
 }
 
 /// Where an article can be sent from the reading view.

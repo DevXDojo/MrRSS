@@ -49,6 +49,10 @@ struct SettingsRootView: View {
                 SettingListView(pane: pane, viewModel: viewModel) {
                     AIProfilesView(viewModel: viewModel)
                 }
+            case .customization:
+                SettingListView(pane: pane, viewModel: viewModel) {
+                    CustomizationActionsView(viewModel: viewModel)
+                }
             default:
                 SettingListView(pane: pane, viewModel: viewModel) { EmptyView() }
             }
