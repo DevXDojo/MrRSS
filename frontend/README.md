@@ -7,7 +7,7 @@ This directory contains the native macOS SwiftUI client for MrRSS. It is the onl
 From the repository root:
 
 ```bash
-./frontend-swift/run.sh
+./frontend/run.sh
 ```
 
 The launcher builds and starts the Go server at `http://127.0.0.1:1234`, waits for the API to become available, and then starts the SwiftUI application. If a server is already listening on that address, the launcher reuses it.
@@ -29,30 +29,30 @@ go run . -host 127.0.0.1 -port 1234
 In another terminal, start the macOS frontend:
 
 ```bash
-swift run --package-path frontend-swift MrRSS
+swift run --package-path frontend MrRSS
 ```
 
 The backend address can be changed in MrRSS Settings. It can also be set before launch:
 
 ```bash
-MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend-swift MrRSS
+MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend MrRSS
 ```
 
 ## Build and test
 
 ```bash
-swift build --package-path frontend-swift
-swift test --package-path frontend-swift
+swift build --package-path frontend
+swift test --package-path frontend
 ```
 
 To create the universal `.app` bundle and DMG used by GitHub Releases:
 
 ```bash
-./frontend-swift/build-app.sh 1.3.28
+./frontend/build-app.sh 1.3.28
 ```
 
 The release application bundles both the SwiftUI client and the Go backend, so it launches without a separately installed server.
 
 The application provides native three-column navigation, feed subscription management, folders for grouping subscriptions, source refresh, article filtering, pagination, read/unread and favorite actions, translation, summaries, automation rules, complete backend settings management, configurable server connectivity, and restricted HTML rendering for untrusted feed content.
 
-Folders are the `category` recorded on each feed, so they are shared with the Vue frontend. A subscription moves into a folder by dragging its row onto the folder, and back out by dropping it on the Feeds heading. The row's context menu offers the same moves. The sidebar is an `NSOutlineView` rather than a SwiftUI `List`, so dragging behaves the way the system's own source lists do: a gap opens between the rows where the subscription would land, a folder lights up when the pointer rests on it, and a long list follows the pointer past its top and bottom edges. The resulting order is the `position` the server records, so it is shared with the Vue frontend. A folder that has been created but holds no feeds yet has nowhere to live on the server, so its name is remembered on the Mac until a feed moves into it.
+Folders are the `category` recorded on each feed, so they are stored on the server rather than on this Mac. A subscription moves into a folder by dragging its row onto the folder, and back out by dropping it on the Feeds heading. The row's context menu offers the same moves. The sidebar is an `NSOutlineView` rather than a SwiftUI `List`, so dragging behaves the way the system's own source lists do: a gap opens between the rows where the subscription would land, a folder lights up when the pointer rests on it, and a long list follows the pointer past its top and bottom edges. The resulting order is the `position` the server records, so it survives a reinstall and is seen by any other client reading the same backend. A folder that has been created but holds no feeds yet has nowhere to live on the server, so its name is remembered on the Mac until a feed moves into it.

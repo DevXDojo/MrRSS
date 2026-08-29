@@ -19,8 +19,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "internal/config/settings_schema.json"
-TABLES = ROOT / "frontend-swift/Sources/Localization/LocalizationTables.swift"
-OUTPUT = ROOT / "frontend-swift/Sources/Models/SettingsCatalog.generated.swift"
+TABLES = ROOT / "frontend/Sources/Localization/LocalizationTables.swift"
+OUTPUT = ROOT / "frontend/Sources/Models/SettingsCatalog.generated.swift"
 
 # Settings the interface never shows: window geometry, cached measurements and
 # values the application maintains for itself.

@@ -150,7 +150,7 @@ python3 tools/settings-swift/generate.py
 **Output:**
 
 ```plaintext
-wrote frontend-swift/Sources/Models/SettingsCatalog.generated.swift with 99 settings
+wrote frontend/Sources/Models/SettingsCatalog.generated.swift with 99 settings
 ```
 
 The catalogue carries the key, the pane, the control, the default and the
@@ -159,7 +159,7 @@ translation keys, so the settings window picks the new setting up on its own.
 ### Step 3: Add Translations (Recommended)
 
 The generator looks for wording in the client's catalogue,
-`frontend-swift/Sources/Localization/LocalizationTables.swift`, using the same
+`frontend/Sources/Localization/LocalizationTables.swift`, using the same
 keys the previous frontend used. Add the label and, optionally, a description:
 
 ```json
@@ -220,11 +220,11 @@ go build ./...
 go test ./internal/config/...
 
 # Client
-swift build --package-path frontend-swift
-swift test --package-path frontend-swift --filter SettingsCatalogTests
+swift build --package-path frontend
+swift test --package-path frontend --filter SettingsCatalogTests
 
 # Or run both and check the settings window
-./frontend-swift/run.sh
+./frontend/run.sh
 ```
 
 ---
@@ -280,7 +280,7 @@ go run tools/settings-generator/main.go
    - Added POST field: `AutoCollapseSidebar string \`json:"auto_collapse_sidebar"\``
    - Added save logic: `if req.AutoCollapseSidebar != "" { h.DB.SetSetting(...) }`
 
-4. **`frontend-swift/Sources/Models/SettingsCatalog.generated.swift`** (after
+4. **`frontend/Sources/Models/SettingsCatalog.generated.swift`** (after
    running the Swift generator)
    - Added a `SettingDefinition` with the key, pane, control and default
 
@@ -289,7 +289,7 @@ go run tools/settings-generator/main.go
 
 ### Step 3: Add Translations
 
-In `frontend-swift/Sources/Localization/LocalizationTables.swift`, add to the
+In `frontend/Sources/Localization/LocalizationTables.swift`, add to the
 English table:
 
 ```json
@@ -574,7 +574,7 @@ Examples:
 
 1. Make sure you ran both generators
 2. Check that `SettingsCatalog.generated.swift` contains the key
-3. Rebuild with `swift build --package-path frontend-swift`
+3. Rebuild with `swift build --package-path frontend`
 4. If the label reads as a raw key, add its wording to the translation catalogue
 
 #### Setting Not Appearing in UI

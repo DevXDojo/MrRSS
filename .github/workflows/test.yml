@@ -69,11 +69,11 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Run Swift tests
-        working-directory: ./frontend-swift
+        working-directory: ./frontend
         run: swift test
 
       - name: Build release executable
-        working-directory: ./frontend-swift
+        working-directory: ./frontend
         run: swift build -c release
 
   build-check:

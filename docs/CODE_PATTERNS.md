@@ -106,8 +106,8 @@ go build ./...
 go test ./internal/config
 
 # Client, after running python3 tools/settings-swift/generate.py
-swift build --package-path frontend-swift
-swift test --package-path frontend-swift --filter SettingsCatalogTests
+swift build --package-path frontend
+swift test --package-path frontend --filter SettingsCatalogTests
 ```
 
 ### Legacy Method (Deprecated)

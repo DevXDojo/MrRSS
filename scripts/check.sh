@@ -28,10 +28,10 @@ echo "✅ Go imports OK"
 
 # macOS client checks
 echo "🎨 Checking the macOS client..."
-swift build --package-path frontend-swift
+swift build --package-path frontend
 echo "✅ macOS client builds"
 
-swift test --package-path frontend-swift
+swift test --package-path frontend
 echo "✅ macOS client tests passed"
 
 # Build check

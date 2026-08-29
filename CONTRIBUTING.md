@@ -44,7 +44,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 2. Run in development mode:
 
    ```bash
-   ./frontend-swift/run.sh
+   ./frontend/run.sh
    ```
 
 3. Build for production:
@@ -127,9 +127,9 @@ struct FeedRow: View {
 ### File Organization
 
 - Backend: `internal/` for internal packages
-- Client: `frontend-swift/Sources/` — models, services, view models, views
+- Client: `frontend/Sources/` — models, services, view models, views
 - Backend tests: alongside the code they test
-- Client tests: `frontend-swift/Tests/`
+- Client tests: `frontend/Tests/`
 - Assets: `imgs/` for artwork, `build/` for the packaging icons
 
 ### Commit Messages

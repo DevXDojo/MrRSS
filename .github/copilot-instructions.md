@@ -122,8 +122,8 @@ extension AppViewModel {
 
 **Build Commands**:
 
-- Development: `./frontend-swift/run.sh`
-- Client only: `swift build --package-path frontend-swift`
+- Development: `./frontend/run.sh`
+- Client only: `swift build --package-path frontend`
 - Release bundle: `make build-app VERSION=1.3.28`
 
 **State Access**:

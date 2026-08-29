@@ -49,10 +49,6 @@ bin/
 build/skills/
 dist/
 
-# The Vue frontend does not exist on this branch. Leftover build output from an
-# earlier checkout is ignored so it cannot be committed back by accident.
-frontend/
-
 # database files
 *.db
 *.db-shm

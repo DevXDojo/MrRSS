@@ -144,13 +144,13 @@ handlers/
 
 ## Client Architecture
 
-The macOS client lives in `frontend-swift` and is a SwiftPM package with no
+The macOS client lives in `frontend` and is a SwiftPM package with no
 third-party dependencies.
 
 ### Organisation
 
 ```plaintext
-frontend-swift/Sources/
+frontend/Sources/
 ├── MrRSSApp.swift            # Scene, menu commands, settings window
 ├── Localization/
 │   ├── LocalizationTables.swift   # The catalogue ported from the previous frontend

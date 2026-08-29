@@ -3,7 +3,7 @@
         lint lint-client lint-backend format format-backend install-deps update-deps \
         check setup clean swagger swagger-validate static-check pre-commit release-check love
 
-SWIFT_PACKAGE := frontend-swift
+SWIFT_PACKAGE := frontend
 
 help: ## Show this help message
 	@echo "MrRSS Development Makefile (macOS client)"

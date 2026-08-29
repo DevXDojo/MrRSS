@@ -23,16 +23,16 @@ jobs:
         run: go test -timeout=5m ./internal/...
 
       - name: Run macOS client tests
-        working-directory: ./frontend-swift
+        working-directory: ./frontend
         run: swift test
 
       - name: Build the application bundle
         run: |
-          chmod +x frontend-swift/build-app.sh
-          frontend-swift/build-app.sh "pre-release-check"
+          chmod +x frontend/build-app.sh
+          frontend/build-app.sh "pre-release-check"
 
       - name: Verify bundle contents
         run: |
-          test -x frontend-swift/dist/MrRSS-SwiftUI.app/Contents/MacOS/MrRSS-SwiftUI
-          test -x frontend-swift/dist/MrRSS-SwiftUI.app/Contents/Resources/mrrss-server
-          test -f frontend-swift/dist/MrRSS-SwiftUI.app/Contents/Info.plist
+          test -x frontend/dist/MrRSS-SwiftUI.app/Contents/MacOS/MrRSS-SwiftUI
+          test -x frontend/dist/MrRSS-SwiftUI.app/Contents/Resources/mrrss-server
+          test -f frontend/dist/MrRSS-SwiftUI.app/Contents/Info.plist

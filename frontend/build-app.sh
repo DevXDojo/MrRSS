@@ -35,7 +35,21 @@ swift build \
     -c release \
     "${SWIFT_ARCH_ARGUMENTS[@]}" \
     --scratch-path "${SWIFT_BUILD_DIR}"
-cp "${SWIFT_BUILD_DIR}/apple/Products/Release/MrRSS" "${MACOS_DIR}/MrRSS-SwiftUI"
+
+# A build for several architectures lands under apple/Products/Release, while a
+# build for one lands under the triple. Ask for the path rather than assuming.
+SWIFT_BIN_DIR="$(swift build \
+    --show-bin-path \
+    -c release \
+    "${SWIFT_ARCH_ARGUMENTS[@]}" \
+    --scratch-path "${SWIFT_BUILD_DIR}")"
+
+if [[ ! -x "${SWIFT_BIN_DIR}/MrRSS" ]]; then
+    echo "The client executable was not found in ${SWIFT_BIN_DIR}." >&2
+    exit 1
+fi
+
+cp "${SWIFT_BIN_DIR}/MrRSS" "${MACOS_DIR}/MrRSS-SwiftUI"
 
 echo "Building the Go backend for ${MRRSS_ARCH_STRING}..."
 cd "${PROJECT_DIR}"

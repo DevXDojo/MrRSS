@@ -37,8 +37,8 @@ the workflow sets `CGO_ENABLED=1` there.
 ### The client alone
 
 ```bash
-swift build --package-path frontend-swift
-swift test --package-path frontend-swift
+swift build --package-path frontend
+swift test --package-path frontend
 ```
 
 ### The backend alone
@@ -58,18 +58,18 @@ make build-app VERSION=1.3.28     # signed .app bundle and universal DMG
 The packaging script builds a universal SwiftUI executable, builds the backend
 for `arm64` and `x86_64`, merges them, copies the icon and `Info.plist`, signs
 the bundle and produces
-`frontend-swift/dist/MrRSS-<version>-macos-swiftui-universal.dmg`.
+`frontend/dist/MrRSS-<version>-macos-swiftui-universal.dmg`.
 
 To build for one architecture while developing:
 
 ```bash
-MRRSS_BUILD_ARCHS=arm64 ./frontend-swift/build-app.sh dev
+MRRSS_BUILD_ARCHS=arm64 ./frontend/build-app.sh dev
 ```
 
 ## Running during development
 
 ```bash
-./frontend-swift/run.sh
+./frontend/run.sh
 ```
 
 The launcher builds the backend, starts it on `http://127.0.0.1:1234`, waits for
@@ -80,7 +80,7 @@ To run the halves separately:
 
 ```bash
 go run . -host 127.0.0.1 -port 1234
-MRRSS_API_BASE_URL=http://127.0.0.1:1234/api swift run --package-path frontend-swift MrRSS
+MRRSS_API_BASE_URL=http://127.0.0.1:1234/api swift run --package-path frontend MrRSS
 ```
 
 ## The server on other platforms

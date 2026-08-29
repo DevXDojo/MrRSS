@@ -9,7 +9,7 @@
 </p>
 
 > **This branch builds the macOS client.** The interface is a native SwiftUI
-> application in `frontend-swift`, and the Go backend runs as a plain HTTP API
+> application in `frontend`, and the Go backend runs as a plain HTTP API
 > server behind it. The Vue frontend and the Wails shell are not part of this
 > branch.
 
@@ -89,7 +89,7 @@ See [Build Requirements](docs/BUILD_REQUIREMENTS.md) for details.
 2. **Run the client**
 
    ```bash
-   ./frontend-swift/run.sh
+   ./frontend/run.sh
    ```
 
    The launcher builds the Go backend, starts it on `http://127.0.0.1:1234`,
@@ -100,13 +100,13 @@ See [Build Requirements](docs/BUILD_REQUIREMENTS.md) for details.
 
    ```bash
    go run . -host 127.0.0.1 -port 1234
-   swift run --package-path frontend-swift MrRSS
+   swift run --package-path frontend MrRSS
    ```
 
    The backend address can be changed in Settings, or before launch:
 
    ```bash
-   MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend-swift MrRSS
+   MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend MrRSS
    ```
 
 4. **Build the application bundle**
@@ -115,7 +115,7 @@ See [Build Requirements](docs/BUILD_REQUIREMENTS.md) for details.
    make build-app VERSION=1.3.28
    ```
 
-   This produces `frontend-swift/dist/MrRSS-SwiftUI.app` and a universal DMG
+   This produces `frontend/dist/MrRSS-SwiftUI.app` and a universal DMG
    beside it. The bundle carries the backend, so it launches without a
    separately installed server.
 
@@ -194,7 +194,7 @@ make dev
 make serve
 
 # Client only, against a running backend
-swift run --package-path frontend-swift MrRSS
+swift run --package-path frontend MrRSS
 ```
 
 ### Code Quality Tools

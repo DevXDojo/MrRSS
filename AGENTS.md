@@ -87,7 +87,7 @@ MrRSS/
 │   ├── translation/             # Multi-service translation
 │   ├── utils/                   # Platform utilities
 │   └── version/                 # Version constant
-├── frontend-swift/
+├── frontend/
 │   ├── Sources/
 │   │   ├── Models/              # Codable mirrors of the API payloads
 │   │   ├── Services/API/        # Transport plus one extension per domain
@@ -206,7 +206,7 @@ MrRSS/
 
 1. **Prerequisites**: Go 1.27+, macOS 14+, Xcode 15+
 2. **Setup**: `go mod download`
-3. **Development**: `./frontend-swift/run.sh` starts the backend and the client
+3. **Development**: `./frontend/run.sh` starts the backend and the client
 4. **Build**: `make build-app VERSION=1.3.28` produces the bundle and the DMG
 
 ### Development Tools
@@ -314,8 +314,8 @@ make clean       # Clean artifacts
 ### Client Tests
 
 ```bash
-swift test --package-path frontend-swift
-swift test --package-path frontend-swift --filter LocalizationTests
+swift test --package-path frontend
+swift test --package-path frontend --filter LocalizationTests
 ```
 
 Tests use `StubAPIClient`, which fails any call the test did not prepare, so an
@@ -375,7 +375,7 @@ Feed fetching uses sophisticated concurrency control:
 
 1. **Build Requirements**: Xcode 15+ for the Swift toolchain, Go 1.27+ for the backend
 2. **Slow type checking**: keep SwiftUI bodies small; a long expression can stall the build
-3. **Running the client**: `./frontend-swift/run.sh` starts the backend and the client together
+3. **Running the client**: `./frontend/run.sh` starts the backend and the client together
 4. **Database Migrations**: Handle schema changes carefully with proper versioning
 5. **Settings Not Working**: Ensure you ran the settings generator after editing the schema
 

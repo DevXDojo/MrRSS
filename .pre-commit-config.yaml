@@ -30,7 +30,7 @@ repos:
         pass_filenames: false
       - id: swift-build
         name: swift-build
-        entry: swift build --package-path frontend-swift
+        entry: swift build --package-path frontend
         language: system
-        files: ^frontend-swift/.*\.swift$
+        files: ^frontend/.*\.swift$
         pass_filenames: false

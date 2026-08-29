@@ -22,7 +22,7 @@ echo "🏷️  Checking version consistency..."
 GO_VERSION=$(grep "const Version" internal/version/version.go | sed 's/.*= "\([^"]*\)".*/\1/')
 echo "Backend version: $GO_VERSION"
 
-PLIST_VERSION=$(grep -A1 'CFBundleShortVersionString' frontend-swift/packaging/Info.plist | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+PLIST_VERSION=$(grep -A1 'CFBundleShortVersionString' frontend/packaging/Info.plist | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
 echo "Client bundle version placeholder: $PLIST_VERSION"
 
 if [ -z "$GO_VERSION" ]; then

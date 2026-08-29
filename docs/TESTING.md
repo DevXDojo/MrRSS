@@ -198,13 +198,13 @@ go test -v ./...
 
 ```bash
 # Run all tests
-swift test --package-path frontend-swift
+swift test --package-path frontend
 
 # Run with coverage
-swift test --package-path frontend-swift --enable-code-coverage
+swift test --package-path frontend --enable-code-coverage
 
 # Run one suite
-swift test --package-path frontend-swift --filter ArticleListStateTests
+swift test --package-path frontend --filter ArticleListStateTests
 ```
 
 ## Test Coverage

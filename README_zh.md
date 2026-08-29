@@ -8,7 +8,7 @@
    <a href="README.md">English</a> | <strong>简体中文</strong>
 </p>
 
-> **本分支构建 macOS 客户端。** 界面为 `frontend-swift` 中的原生 SwiftUI 应用，
+> **本分支构建 macOS 客户端。** 界面为 `frontend` 中的原生 SwiftUI 应用，
 > Go 后端作为纯 HTTP API 服务运行。本分支不包含 Vue 前端与 Wails 外壳。
 
 [![Version](https://img.shields.io/badge/version-1.3.28-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
@@ -87,7 +87,7 @@
 2. **运行客户端**
 
    ```bash
-   ./frontend-swift/run.sh
+   ./frontend/run.sh
    ```
 
    该脚本会构建 Go 后端，在 `http://127.0.0.1:1234` 启动并等待 API 就绪，
@@ -97,13 +97,13 @@
 
    ```bash
    go run . -host 127.0.0.1 -port 1234
-   swift run --package-path frontend-swift MrRSS
+   swift run --package-path frontend MrRSS
    ```
 
    后端地址可在设置中修改，也可在启动前指定：
 
    ```bash
-   MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend-swift MrRSS
+   MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend MrRSS
    ```
 
 4. **构建应用程序包**
@@ -112,7 +112,7 @@
    make build-app VERSION=1.3.28
    ```
 
-   构建结果为 `frontend-swift/dist/MrRSS-SwiftUI.app` 及同目录下的通用架构 DMG。
+   构建结果为 `frontend/dist/MrRSS-SwiftUI.app` 及同目录下的通用架构 DMG。
    该应用包内含后端程序，无需另行安装服务端即可启动。
 
 </div>
@@ -193,7 +193,7 @@ make dev
 make serve
 
 # 仅启动客户端，连接已运行的后端
-swift run --package-path frontend-swift MrRSS
+swift run --package-path frontend MrRSS
 ```
 
 ### 代码质量工具
