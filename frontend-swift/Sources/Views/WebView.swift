@@ -2,9 +2,61 @@ import AppKit
 import SwiftUI
 import WebKit
 
+/// What the reading pane is showing.
+enum WebViewSource: Equatable {
+    /// Article text the backend supplied, rendered into a styled document.
+    case html(String, baseURL: URL?)
+    /// The original page, loaded live.
+    case url(URL)
+}
+
+/// How the rendered document should be typeset, taken from the reading settings.
+struct WebViewTypography: Equatable {
+    var fontFamily = "system"
+    var fontSize = 16
+    var lineHeight = "1.6"
+    var customCSS = ""
+
+    static let `default` = WebViewTypography()
+
+    /// The CSS font stack for the chosen family.
+    var fontStack: String {
+        switch fontFamily {
+        case "system", "":
+            return "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", sans-serif"
+        case "serif":
+            return "\"New York\", Georgia, \"Times New Roman\", serif"
+        case "monospace":
+            return "\"SF Mono\", ui-monospace, Menlo, monospace"
+        default:
+            return "\"\(fontFamily)\", -apple-system, sans-serif"
+        }
+    }
+}
+
+extension WebViewSource {
+    var isLiveURL: Bool {
+        if case .url = self { return true }
+        return false
+    }
+}
+
 struct WebView: NSViewRepresentable {
-    let html: String
-    let baseURL: URL?
+    let source: WebViewSource
+    var typography: WebViewTypography = .default
+    /// Text to highlight, driven by the find bar.
+    var findQuery: String = ""
+
+    init(source: WebViewSource, typography: WebViewTypography = .default, findQuery: String = "") {
+        self.source = source
+        self.typography = typography
+        self.findQuery = findQuery
+    }
+
+    /// Convenience for the common case of rendering article text.
+    init(html: String, baseURL: URL?, typography: WebViewTypography = .default, findQuery: String = "") {
+        self.init(source: .html(html, baseURL: baseURL), typography: typography, findQuery: findQuery)
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -13,7 +65,9 @@ struct WebView: NSViewRepresentable {
     func makeNSView(context: Context) -> ClippedWebViewContainer {
         let configuration = WKWebViewConfiguration()
         let webpagePreferences = WKWebpagePreferences()
-        webpagePreferences.allowsContentJavaScript = false
+        // The original page needs its own scripts to render; article text the
+        // backend rendered does not, and is safer without them.
+        webpagePreferences.allowsContentJavaScript = source.isLiveURL
         configuration.defaultWebpagePreferences = webpagePreferences
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.websiteDataStore = .nonPersistent()
@@ -27,14 +81,26 @@ struct WebView: NSViewRepresentable {
 
     func updateNSView(_ container: ClippedWebViewContainer, context: Context) {
         let webView = container.webView
-        let document = HTMLDocument.build(from: html)
-        guard document != context.coordinator.loadedDocument || baseURL != context.coordinator.loadedBaseURL else {
-            return
+
+        switch source {
+        case .url(let url):
+            if context.coordinator.loadedBaseURL != url || !context.coordinator.loadedDocument.isEmpty {
+                context.coordinator.loadedDocument = ""
+                context.coordinator.loadedBaseURL = url
+                webView.load(URLRequest(url: url))
+            }
+        case .html(let html, let baseURL):
+            let document = HTMLDocument.build(from: html, typography: typography)
+            guard document != context.coordinator.loadedDocument
+                || baseURL != context.coordinator.loadedBaseURL else {
+                break
+            }
+            context.coordinator.loadedDocument = document
+            context.coordinator.loadedBaseURL = baseURL
+            webView.loadHTMLString(document, baseURL: baseURL)
         }
 
-        context.coordinator.loadedDocument = document
-        context.coordinator.loadedBaseURL = baseURL
-        webView.loadHTMLString(document, baseURL: baseURL)
+        context.coordinator.applyFind(findQuery, in: webView)
     }
 
     /// The container never reports a size of its own. Web content can be far
@@ -62,6 +128,19 @@ struct WebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         var loadedDocument = ""
         var loadedBaseURL: URL?
+        private var lastFindQuery = ""
+
+        /// Highlights the find bar's text. An empty query clears the highlight.
+        func applyFind(_ query: String, in webView: WKWebView) {
+            guard query != lastFindQuery else { return }
+            lastFindQuery = query
+            guard !query.isEmpty else { return }
+
+            let configuration = WKFindConfiguration()
+            configuration.caseSensitive = false
+            configuration.wraps = true
+            webView.find(query, configuration: configuration) { _ in }
+        }
 
         func webView(
             _ webView: WKWebView,
@@ -73,7 +152,15 @@ struct WebView: NSViewRepresentable {
                 return
             }
 
+            // A live page is browsed in place; a rendered document is not, so
+            // its links open in the reader's own browser instead.
+            let isLivePage = loadedDocument.isEmpty && loadedBaseURL != nil
+
             if navigationAction.navigationType == .linkActivated {
+                if isLivePage {
+                    decisionHandler(.allow)
+                    return
+                }
                 if ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
                     NSWorkspace.shared.open(url)
                 }
@@ -81,7 +168,7 @@ struct WebView: NSViewRepresentable {
                 return
             }
 
-            if url.scheme == "about" || navigationAction.targetFrame == nil {
+            if isLivePage || url.scheme == "about" || navigationAction.targetFrame == nil {
                 decisionHandler(.allow)
             } else if navigationAction.targetFrame?.isMainFrame == true,
                       url == loadedBaseURL {
@@ -132,7 +219,7 @@ final class ClippedWebViewContainer: NSView {
 }
 
 enum HTMLDocument {
-    static func build(from input: String) -> String {
+    static func build(from input: String, typography: WebViewTypography = .default) -> String {
         let sanitized = sanitize(input)
         return """
         <!doctype html>
@@ -151,7 +238,7 @@ enum HTMLDocument {
               padding: 30px 36px 80px;
               background: -apple-system-text-background;
               color: -apple-system-label;
-              font: 16px/1.72 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+              font: \(typography.fontSize)px/\(typography.lineHeight) \(typography.fontStack);
               overflow-wrap: anywhere;
               -webkit-font-smoothing: antialiased;
             }
@@ -187,6 +274,7 @@ enum HTMLDocument {
             th, td { padding: 8px 10px; border-bottom: 1px solid -apple-system-separator; text-align: left; }
             hr { border: 0; border-top: 1px solid -apple-system-separator; margin: 2em 0; }
             @media (max-width: 640px) { body { padding: 24px 22px 64px; } }
+            \(typography.customCSS)
           </style>
         </head>
         <body>\(sanitized)</body>

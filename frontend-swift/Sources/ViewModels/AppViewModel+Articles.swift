@@ -169,6 +169,21 @@ extension AppViewModel {
         }
     }
 
+    // MARK: - Article content
+
+    func reloadArticleContent(id: Int) async throws -> ArticleContent {
+        try await api.reloadArticleContent(id: id)
+    }
+
+    func fetchFullArticle(id: Int) async throws -> ArticleContent {
+        try await api.fetchFullArticle(id: id)
+    }
+
+    /// The images the backend can pull out of one article.
+    func articleImages(id: Int) async -> [String] {
+        ((try? await api.extractImages(id: id))?.images ?? []).filter { !$0.isEmpty }
+    }
+
     // MARK: - Loading side data
 
     func refreshCounts() async {
