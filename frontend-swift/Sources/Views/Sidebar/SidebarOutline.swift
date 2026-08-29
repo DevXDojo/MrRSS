@@ -11,6 +11,15 @@ struct SidebarActions {
     var moveFeed: (Feed, String?) -> Void
     var deleteFeed: (Feed) -> Void
     var placeFeed: (Int, String, Int) -> Void
+    var editFeed: (Feed) -> Void = { _ in }
+    var refreshFeed: (Feed) -> Void = { _ in }
+    var discoverFrom: (Feed) -> Void = { _ in }
+    var markFeedRead: (Feed) -> Void = { _ in }
+    var openFeedSite: (Feed) -> Void = { _ in }
+    var markFolderRead: (String) -> Void = { _ in }
+    var editSavedFilter: (SavedFilter) -> Void = { _ in }
+    var deleteSavedFilter: (SavedFilter) -> Void = { _ in }
+    var newSavedFilter: () -> Void = {}
 }
 
 /// The sidebar itself, as an outline view.
@@ -399,22 +408,58 @@ struct SidebarOutline: NSViewRepresentable {
             switch node?.kind {
             case .folder(let name):
                 [
-                    item(title: "Rename Folder…") { [weak self] in self?.actions.renameFolder(name) },
-                    item(title: "Delete Folder") { [weak self] in self?.actions.deleteFolder(name) }
+                    item(title: t("article.action.markAllAsReadFeed")) { [weak self] in
+                        self?.actions.markFolderRead(name)
+                    },
+                    .separator(),
+                    item(title: t("modal.feed.renameCategory")) { [weak self] in
+                        self?.actions.renameFolder(name)
+                    },
+                    item(title: t("common.delete")) { [weak self] in self?.actions.deleteFolder(name) }
                 ]
             case .feed(let feed):
                 [
-                    moveMenuItem(for: feed),
+                    item(title: t("article.action.markAllAsReadFeed")) { [weak self] in
+                        self?.actions.markFeedRead(feed)
+                    },
+                    item(title: t("article.action.refreshFeed")) { [weak self] in
+                        self?.actions.refreshFeed(feed)
+                    },
                     .separator(),
-                    item(title: "Delete Feed") { [weak self] in self?.actions.deleteFeed(feed) }
+                    item(title: t("modal.feed.editFeed")) { [weak self] in self?.actions.editFeed(feed) },
+                    moveMenuItem(for: feed),
+                    item(title: t("modal.feed.feedDiscovery")) { [weak self] in
+                        self?.actions.discoverFrom(feed)
+                    },
+                    item(title: t("common.action.openWebsite")) { [weak self] in
+                        self?.actions.openFeedSite(feed)
+                    },
+                    .separator(),
+                    item(title: t("common.action.unsubscribe")) { [weak self] in
+                        self?.actions.deleteFeed(feed)
+                    }
+                ]
+            case .savedFilter(let filter):
+                [
+                    item(title: t("sidebar.savedFilters.editFilter")) { [weak self] in
+                        self?.actions.editSavedFilter(filter)
+                    },
+                    item(title: t("common.delete")) { [weak self] in
+                        self?.actions.deleteSavedFilter(filter)
+                    }
                 ]
             default:
-                [item(title: "New Folder…") { [weak self] in self?.actions.newFolder() }]
+                [
+                    item(title: t("client.sidebar.newFolder")) { [weak self] in self?.actions.newFolder() },
+                    item(title: t("sidebar.savedFilters.saveFilter")) { [weak self] in
+                        self?.actions.newSavedFilter()
+                    }
+                ]
             }
         }
 
         private func moveMenuItem(for feed: Feed) -> NSMenuItem {
-            let parent = NSMenuItem(title: "Move to Folder", action: nil, keyEquivalent: "")
+            let parent = NSMenuItem(title: t("common.action.moveFeeds"), action: nil, keyEquivalent: "")
             let submenu = NSMenu()
 
             for folder in snapshot?.folders ?? [] {
@@ -426,11 +471,15 @@ struct SidebarOutline: NSViewRepresentable {
             if !(snapshot?.folders.isEmpty ?? true) {
                 submenu.addItem(.separator())
             }
-            submenu.addItem(item(title: "New Folder…") { [weak self] in self?.actions.newFolderHolding(feed) })
+            submenu.addItem(item(title: t("client.sidebar.newFolder")) { [weak self] in
+                self?.actions.newFolderHolding(feed)
+            })
 
             if !feed.category.isEmpty {
                 submenu.addItem(.separator())
-                submenu.addItem(item(title: "Remove from Folder") { [weak self] in self?.actions.moveFeed(feed, nil) })
+                submenu.addItem(item(title: t("sidebar.feedList.uncategorized")) { [weak self] in
+                    self?.actions.moveFeed(feed, nil)
+                })
             }
 
             parent.submenu = submenu

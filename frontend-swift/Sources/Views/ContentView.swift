@@ -24,7 +24,7 @@ struct ContentView: View {
         .onAppear(perform: installKeyMonitor)
         .onDisappear(perform: removeKeyMonitor)
         .sheet(isPresented: $viewModel.isPresentingAddFeed) {
-            AddFeedView(viewModel: viewModel)
+            FeedEditorView(mode: .add, viewModel: viewModel)
         }
         .alert(
             "MrRSS",

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -6,6 +7,10 @@ struct SidebarView: View {
     @State private var feedPendingDeletion: Feed?
     @State private var folderPendingDeletion: String?
     @State private var folderPrompt: FolderPrompt?
+    @State private var feedBeingEdited: Feed?
+    @State private var filterBeingEdited: SavedFilter?
+    @State private var isCreatingSavedFilter = false
+    @State private var discoverySource: Feed?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,41 +33,53 @@ struct SidebarView: View {
         .sheet(item: $folderPrompt) { prompt in
             FolderNameView(prompt: prompt, viewModel: viewModel)
         }
+        .sheet(item: $feedBeingEdited) { feed in
+            FeedEditorView(mode: .edit(feed), viewModel: viewModel)
+        }
+        .sheet(item: $filterBeingEdited) { filter in
+            SavedFilterEditorView(filter: filter, viewModel: viewModel)
+        }
+        .sheet(isPresented: $isCreatingSavedFilter) {
+            SavedFilterEditorView(filter: nil, viewModel: viewModel)
+        }
+        .sheet(item: $discoverySource) { feed in
+            DiscoveryView(feed: feed, viewModel: viewModel)
+        }
         .confirmationDialog(
-            "Delete \(feedPendingDeletion?.title ?? "this feed")?",
+            t("modal.feed.unsubscribeTitle"),
             isPresented: Binding(
                 get: { feedPendingDeletion != nil },
                 set: { if !$0 { feedPendingDeletion = nil } }
             )
         ) {
-            Button("Delete Feed", role: .destructive) {
+            Button(t("common.action.unsubscribe"), role: .destructive) {
                 guard let feed = feedPendingDeletion else { return }
                 feedPendingDeletion = nil
                 Task { await viewModel.deleteFeed(feed) }
             }
-            Button("Cancel", role: .cancel) {
+            Button(t("common.cancel"), role: .cancel) {
                 feedPendingDeletion = nil
             }
         } message: {
-            Text("The subscription and its stored articles will be removed.")
+            Text(t("modal.feed.unsubscribeMessage"))
         }
         .confirmationDialog(
-            "Delete the folder \(folderPendingDeletion ?? "")?",
+            t("client.folder.deleteTitle"),
             isPresented: Binding(
                 get: { folderPendingDeletion != nil },
                 set: { if !$0 { folderPendingDeletion = nil } }
             )
         ) {
-            Button("Delete Folder", role: .destructive) {
+            Button(t("common.delete"), role: .destructive) {
                 guard let folder = folderPendingDeletion else { return }
                 folderPendingDeletion = nil
                 Task { await viewModel.deleteFolder(folder) }
             }
-            Button("Cancel", role: .cancel) {
+            Button(t("common.cancel"), role: .cancel) {
                 folderPendingDeletion = nil
             }
         } message: {
-            Text("The feeds it holds stay subscribed and move back out of any folder.")
+            Text(t("client.folder.deleteMessage"))
         }
     }
 
@@ -78,8 +95,47 @@ struct SidebarView: View {
             deleteFeed: { feedPendingDeletion = $0 },
             placeFeed: { id, folder, index in
                 Task { await viewModel.placeFeed(id: id, inFolder: folder, at: index) }
-            }
+            },
+            editFeed: { feedBeingEdited = $0 },
+            refreshFeed: { feed in
+                Task { await viewModel.refreshFeed(feed) }
+            },
+            discoverFrom: { discoverySource = $0 },
+            markFeedRead: { feed in
+                Task { await viewModel.markAllRead(feedID: feed.id) }
+            },
+            openFeedSite: { feed in
+                guard let url = feed.siteURL else { return }
+                NSWorkspace.shared.open(url)
+            },
+            markFolderRead: { folder in
+                Task { await viewModel.markAllRead(category: folder) }
+            },
+            editSavedFilter: { filterBeingEdited = $0 },
+            deleteSavedFilter: { filter in
+                Task { await viewModel.deleteSavedFilter(filter) }
+            },
+            newSavedFilter: { isCreatingSavedFilter = true }
         )
+    }
+
+    private func importOPML() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.xml, .json]
+        panel.allowsOtherFileTypes = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = t("modal.opml.import")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await viewModel.importOPML(from: url) }
+    }
+
+    private func exportOPML() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "subscriptions.opml"
+        panel.allowedContentTypes = [.xml]
+        panel.prompt = t("modal.opml.export")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await viewModel.exportOPML(to: url) }
     }
 
     private var statusBar: some View {
@@ -105,22 +161,32 @@ struct SidebarView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             Menu {
-                Button("Add Feed…", systemImage: "plus") {
+                Button(t("sidebar.activity.addFeed"), systemImage: "plus") {
                     viewModel.isPresentingAddFeed = true
                 }
-                Button("New Folder…", systemImage: "folder.badge.plus") {
+                Button(t("client.sidebar.newFolder"), systemImage: "folder.badge.plus") {
                     folderPrompt = .create
                 }
+                Button(t("sidebar.savedFilters.saveFilter"), systemImage: "line.3.horizontal.decrease.circle") {
+                    isCreatingSavedFilter = true
+                }
+                Divider()
+                Button(t("modal.opml.import"), systemImage: "square.and.arrow.down") {
+                    importOPML()
+                }
+                Button(t("modal.opml.export"), systemImage: "square.and.arrow.up") {
+                    exportOPML()
+                }
             } label: {
-                Label("Add", systemImage: "plus")
+                Label(t("common.action.add"), systemImage: "plus")
             }
-            .help("Add a feed or a folder")
+            .help(t("sidebar.activity.addFeed"))
 
-            Button("Refresh feeds", systemImage: "arrow.clockwise") {
+            Button(t("article.action.refreshFeedsShortcut"), systemImage: "arrow.clockwise") {
                 viewModel.refreshFromSources()
             }
             .disabled(viewModel.isRefreshingSources)
-            .help("Refresh feeds and articles")
+            .help(t("article.action.refreshFeedsShortcut"))
         }
     }
 }
@@ -140,19 +206,19 @@ enum FolderPrompt: Identifiable {
 
     var title: String {
         switch self {
-        case .create, .createWithFeed: "New Folder"
-        case .rename: "Rename Folder"
+        case .create, .createWithFeed: t("client.folder.newTitle")
+        case .rename: t("client.folder.renameTitle")
         }
     }
 
     var message: String {
         switch self {
         case .create:
-            "Folders group your subscriptions in the sidebar."
+            t("client.folder.newMessage")
         case .createWithFeed(let feed):
-            "\(feed.title) will move into the new folder."
+            t("client.folder.moveMessage", ["name": feed.title])
         case .rename(let folder):
-            "Every feed in \(folder) moves to the new name."
+            t("client.folder.renameMessage", ["name": folder])
         }
     }
 
@@ -165,8 +231,8 @@ enum FolderPrompt: Identifiable {
 
     var confirmTitle: String {
         switch self {
-        case .create, .createWithFeed: "Create"
-        case .rename: "Rename"
+        case .create, .createWithFeed: t("client.folder.create")
+        case .rename: t("client.folder.rename")
         }
     }
 }

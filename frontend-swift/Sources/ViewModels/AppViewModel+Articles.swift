@@ -96,6 +96,24 @@ extension AppViewModel {
         }
     }
 
+    /// Marks everything in one feed or one folder as read.
+    func markAllRead(feedID: Int? = nil, category: String? = nil) async {
+        do {
+            try await api.markAllRead(feedID: feedID, category: category)
+            statusMessage = t("article.action.markedAllAsRead")
+            if let feedID {
+                for index in articles.indices where articles[index].feedID == feedID {
+                    articles[index].isRead = true
+                }
+            } else if category != nil {
+                reloadArticles()
+            }
+            await refreshCounts()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     /// Marks everything in the current activity as read.
     func markAllRead() async {
         let query = articleQuery

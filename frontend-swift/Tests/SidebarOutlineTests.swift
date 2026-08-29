@@ -196,7 +196,7 @@ final class SidebarOutlineTests: XCTestCase {
 
         let titles = coordinator.menuItems(for: nil).map(\.title)
 
-        XCTAssertEqual(titles, ["New Folder…"])
+        XCTAssertEqual(titles, ["New Folder", "Save Filter"])
     }
 
     func testAFolderOffersToRenameAndDeleteItself() throws {
@@ -205,8 +205,11 @@ final class SidebarOutlineTests: XCTestCase {
 
         let items = coordinator.menuItems(for: folder)
 
-        XCTAssertEqual(items.map(\.title), ["Rename Folder…", "Delete Folder"])
-        _ = items[1].target?.perform(items[1].action, with: items[1])
+        XCTAssertEqual(
+            items.map(\.title),
+            ["Mark All as Read", "", "Rename Category", "Delete"]
+        )
+        _ = items[3].target?.perform(items[3].action, with: items[3])
         XCTAssertEqual(deletedFolders, ["Tech"])
     }
 
@@ -216,9 +219,13 @@ final class SidebarOutlineTests: XCTestCase {
 
         let items = coordinator.menuItems(for: feed)
 
-        XCTAssertEqual(items.map(\.title), ["Move to Folder", "", "Delete Feed"])
-        XCTAssertEqual(items[0].submenu?.items.map(\.title), ["Tech", "", "New Folder…"])
-        _ = items[2].target?.perform(items[2].action, with: items[2])
+        XCTAssertEqual(items.map(\.title), [
+            "Mark All as Read", "Refresh Feed", "",
+            "Edit Feed", "Move Feeds", "Feed Discovery", "Open Website", "",
+            "Unsubscribe"
+        ])
+        XCTAssertEqual(items[4].submenu?.items.map(\.title), ["Tech", "", "New Folder"])
+        _ = items[8].target?.perform(items[8].action, with: items[8])
         XCTAssertEqual(deletedFeeds, [1])
     }
 
@@ -228,7 +235,7 @@ final class SidebarOutlineTests: XCTestCase {
 
         coordinator.menuNeedsUpdate(menu)
 
-        XCTAssertEqual(menu.items.map(\.title), ["New Folder…"])
+        XCTAssertEqual(menu.items.map(\.title), ["New Folder", "Save Filter"])
     }
 
     // MARK: - Helpers
