@@ -110,14 +110,14 @@ struct SidebarView: View {
             },
             discoverFrom: { discoverySource = $0 },
             markFeedRead: { feed in
-                Task { await viewModel.markAllRead(feedID: feed.id) }
+                Task { await viewModel.markRead(feedID: feed.id) }
             },
             openFeedSite: { feed in
                 guard let url = feed.siteURL else { return }
                 NSWorkspace.shared.open(url)
             },
             markFolderRead: { folder in
-                Task { await viewModel.markAllRead(category: folder) }
+                Task { await viewModel.markRead(category: folder) }
             },
             editSavedFilter: { filterBeingEdited = $0 },
             deleteSavedFilter: { filter in

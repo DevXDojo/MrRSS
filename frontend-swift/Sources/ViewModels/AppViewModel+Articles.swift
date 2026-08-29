@@ -97,7 +97,7 @@ extension AppViewModel {
     }
 
     /// Marks everything in one feed or one folder as read.
-    func markAllRead(feedID: Int? = nil, category: String? = nil) async {
+    func markRead(feedID: Int? = nil, category: String? = nil) async {
         do {
             try await api.markAllRead(feedID: feedID, category: category)
             statusMessage = t("article.action.markedAllAsRead")
@@ -181,8 +181,11 @@ extension AppViewModel {
         guard !article.url.isEmpty else { return }
         Task { [weak self] in
             guard let self else { return }
-            let target = (try? await api.openInBrowser(url: article.url)) ?? article.url
-            guard let url = URL(string: target ?? article.url) else { return }
+            // The backend answers with the address to open, and falls back to
+            // the article's own when it has nothing to add.
+            let redirect = try? await api.openInBrowser(url: article.url)
+            let target = redirect.flatMap { $0 } ?? article.url
+            guard let url = URL(string: target) else { return }
             NSWorkspace.shared.open(url)
         }
     }
