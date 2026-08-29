@@ -8,11 +8,14 @@
    <a href="README.md">English</a> | <strong>简体中文</strong>
 </p>
 
+> **本分支构建 macOS 客户端。** 界面为 `frontend-swift` 中的原生 SwiftUI 应用，
+> Go 后端作为纯 HTTP API 服务运行。本分支不包含 Vue 前端与 Wails 外壳。
+
 [![Version](https://img.shields.io/badge/version-1.3.28-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
-[![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
-[![Vue.js](https://img.shields.io/badge/Vue.js-3.5+-4FC08D?logo=vue.js)](https://vuejs.org/)
+[![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift)](https://swift.org/)
+[![macOS](https://img.shields.io/badge/macOS-14+-000000?logo=apple)](https://www.apple.com/macos/)
 
 ## ✨ 功能特性
 
@@ -66,24 +69,11 @@
 
 ##### 前置要求
 
-在开始之前，请确保已安装以下环境：
+- [Go](https://go.dev/) 1.27 或更高版本
+- macOS 14 或更高版本
+- Xcode 15 或更高版本（提供 Swift 工具链）
 
-- [Go](https://go.dev/) (1.27 或更高版本)
-- [Node.js](https://nodejs.org/) (20 LTS 或更高版本，带 npm)
-- [Wails v3](https://v3alpha.wails.io/getting-started/installation/) CLI
-
-**平台特定要求：**
-
-- **Linux**: GTK4、WebKitGTK 6.0、libsoup 3.0、GCC、pkg-config
-- **Windows**: MinGW-w64（用于 CGO 支持）、NSIS（用于安装包）
-- **macOS**: Xcode 命令行工具
-
-详细安装说明请参见[构建要求](docs/BUILD_REQUIREMENTS.md)
-
-```bash
-# Linux 快速设置（Ubuntu 24.04+）：
-sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-config
-```
+详细说明请参见[构建要求](docs/BUILD_REQUIREMENTS.md)。
 
 ##### 安装步骤
 
@@ -94,86 +84,70 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
    cd MrRSS
    ```
 
-2. **安装前端依赖**
+2. **运行客户端**
 
    ```bash
-   cd frontend
-   npm install
-   cd ..
+   ./frontend-swift/run.sh
    ```
 
-3. **安装 Wails v3 CLI**
+   该脚本会构建 Go 后端，在 `http://127.0.0.1:1234` 启动并等待 API 就绪，
+   随后启动客户端。若该地址已有服务在运行，则直接复用。
+
+3. **也可以分别运行两部分**
 
    ```bash
-   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+   go run . -host 127.0.0.1 -port 1234
+   swift run --package-path frontend-swift MrRSS
    ```
 
-4. **构建应用**
+   后端地址可在设置中修改，也可在启动前指定：
 
    ```bash
-   # 使用 Task（推荐）
-   task build
-
-   # 或使用 Makefile
-   make build
-
-   # 或直接使用 wails3
-   wails3 build
+   MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend-swift MrRSS
    ```
 
-   可执行文件将在 `build/bin` 目录下生成。
+4. **构建应用程序包**
 
-5. **运行应用**
+   ```bash
+   make build-app VERSION=1.3.28
+   ```
 
-   - Windows: `build/bin/MrRSS.exe`
-   - macOS: `build/bin/MrRSS.app`
-   - Linux: `build/bin/MrRSS`
+   构建结果为 `frontend-swift/dist/MrRSS-SwiftUI.app` 及同目录下的通用架构 DMG。
+   该应用包内含后端程序，无需另行安装服务端即可启动。
 
 </div>
 
 </details>
 
-### 原生 macOS 客户端
+### 服务器模式
 
 <details>
 
-<summary>展开 SwiftUI macOS 客户端说明</summary>
+<summary>点击展开服务器模式说明</summary>
 
 <div markdown="1">
 
-`frontend-swift` 目录包含面向 macOS 14 及以上版本的原生 SwiftUI 客户端。它调用与
-Wails 应用相同的 Go HTTP 接口，不改动 Vue 前端。
-
-在仓库根目录运行：
+Go 程序本身即为 HTTP API 服务。可单独部署以便在多台设备间共享同一份订阅数据，
+并在客户端设置中填写其地址：
 
 ```bash
-./frontend-swift/run.sh
+go build -o mrrss-server .
+./mrrss-server -host 0.0.0.0 -port 1234
 ```
 
-该脚本会编译 Go 服务端并在 `http://127.0.0.1:1234` 启动，等待接口就绪后再启动客户端。
-若该地址已有服务在运行，则直接复用。
-
-也可以分别启动前后端：
+也可使用 Docker 镜像：
 
 ```bash
-go run -tags server . -host 127.0.0.1 -port 1234
-swift run --package-path frontend-swift MrRSS
+docker build -f Dockerfile.server -t mrrss-server:latest .
+docker run -p 1234:1234 -v $PWD/data:/app/data mrrss-server:latest
 ```
 
-构建、测试，以及生成发布所用的通用 `.app` 与 DMG：
-
-```bash
-swift build --package-path frontend-swift
-swift test --package-path frontend-swift
-./frontend-swift/build-app.sh 1.2.3
-```
-
-打包会嵌入 `frontend/dist`，因此需要先在 `frontend` 目录执行 `npm ci && npm run build`。
-完整说明见 [frontend-swift/README.md](frontend-swift/README.md)。
+API 文档见 [docs/SERVER_MODE/swagger.json](docs/SERVER_MODE/swagger.json)。
 
 </div>
 
 </details>
+
 
 ### 数据存储
 
@@ -212,11 +186,14 @@ swift test --package-path frontend-swift
 启动带有热重载的应用：
 
 ```bash
-# 使用 Wails v3
-wails3 dev
+# 同时启动后端与客户端
+make dev
 
-# 或使用 Task
-task dev
+# 仅启动后端（开启调试日志）
+make serve
+
+# 仅启动客户端，连接已运行的后端
+swift run --package-path frontend-swift MrRSS
 ```
 
 ### 代码质量工具
@@ -269,7 +246,7 @@ make test
 docker run -p 1234:1234 mrrss-server:latest
 
 # 或从源码构建
-go build -tags server -o mrrss-server .
+go build -o mrrss-server .
 ./mrrss-server
 ```
 

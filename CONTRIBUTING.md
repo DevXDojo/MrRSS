@@ -30,39 +30,27 @@ This project and everyone participating in it is governed by our [Code of Conduc
 ### Prerequisites
 
 - Go 1.27 or higher
-- Node.js (LTS version)
-- Wails CLI: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`
-
-**Linux only:** Install system dependencies:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev gcc pkg-config
-
-# For older Ubuntu versions (before 24.04), use:
-# sudo apt-get install libgtk-3-dev libwebkit2gtk-4.0-dev gcc pkg-config
-```
+- macOS 14 or later
+- Xcode 15 or later, for the Swift toolchain
 
 ### Setup Steps
 
-1. Install frontend dependencies:
+1. Fetch the backend dependencies:
 
    ```bash
-   cd frontend
-   npm install
-   cd ..
+   go mod download
    ```
 
 2. Run in development mode:
 
    ```bash
-   wails3 dev
+   ./frontend-swift/run.sh
    ```
 
 3. Build for production:
 
    ```bash
-   wails3 build
+   make build-app VERSION=dev
    ```
 
 ## How to Contribute
@@ -110,35 +98,39 @@ func (f *Fetcher) FetchFeed(url string) (*Feed, error) {
 }
 ```
 
-### Vue.js Frontend
+### SwiftUI Client
 
-- Use Vue 3 Composition API
-- Follow [Vue.js Style Guide](https://vuejs.org/style-guide/)
-- Use TypeScript-style JSDoc comments for better IDE support
-- Keep components small and reusable
-- Use Tailwind CSS for styling
-- Ensure responsive design
+- Keep view bodies small; a long expression slows type checking badly
+- State the rest of the interface reacts to belongs on `AppViewModel`; state one
+  screen owns belongs in `@State`
+- Every interface string goes through `t("some.key")`, never a literal
+- Apply a change locally first and roll it back if the request fails
 
 Example:
 
-```javascript
-<script setup>
-import { ref, computed } from 'vue';
+```swift
+struct FeedRow: View {
+    let feed: Feed
+    @ObservedObject var viewModel: AppViewModel
 
-const props = defineProps({
-    feed: { type: Object, required: true }
-});
-
-const isExpanded = ref(false);
-</script>
+    var body: some View {
+        HStack {
+            Text(feed.title)
+            Spacer()
+            Text("\(viewModel.badgeCount(for: feed.id, activity: .unread))")
+                .foregroundStyle(.secondary)
+        }
+    }
+}
 ```
 
 ### File Organization
 
 - Backend: `internal/` for internal packages
-- Frontend: `frontend/src/components/` for Vue components
-- Tests: Co-locate tests with the code they test
-- Assets: `frontend/assets/` for images, icons, etc.
+- Client: `frontend-swift/Sources/` — models, services, view models, views
+- Backend tests: alongside the code they test
+- Client tests: `frontend-swift/Tests/`
+- Assets: `imgs/` for artwork, `build/` for the packaging icons
 
 ### Commit Messages
 

@@ -97,85 +97,83 @@ func TestValidateURL(t *testing.T) {
 }
 ```
 
-## Frontend Testing (Vitest)
+## Client Testing (XCTest)
 
-### Component Test Pattern
+### The stub client
 
-```javascript
-import { describe, it, expect, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
-import ArticleItem from './ArticleItem.vue';
+Tests drive the view model through `StubAPIClient`, which fails any call the
+test did not prepare. An unexpected request is therefore reported rather than
+quietly returning nothing.
 
-describe('ArticleItem', () => {
-  it('renders article title', () => {
-    const article = {
-      id: 1,
-      title: 'Test Article',
-      isRead: false
-    };
+```swift
+final class ListAPIClient: StubAPIClient {
+    var articles: [Article] = []
 
-    const wrapper = mount(ArticleItem, {
-      props: { article }
-    });
-
-    expect(wrapper.text()).toContain('Test Article');
-  });
-
-  it('emits mark-read event when clicked', async () => {
-    const article = {
-      id: 1,
-      title: 'Test Article',
-      isRead: false
-    };
-
-    const wrapper = mount(ArticleItem, {
-      props: { article }
-    });
-
-    await wrapper.trigger('click');
-
-    expect(wrapper.emitted('mark-read')).toBeTruthy();
-    expect(wrapper.emitted('mark-read')[0]).toEqual([article.id]);
-  });
-
-  it('shows unread indicator for unread articles', () => {
-    const article = {
-      id: 1,
-      title: 'Test',
-      isRead: false
-    };
-
-    const wrapper = mount(ArticleItem, {
-      props: { article }
-    });
-
-    expect(wrapper.find('.unread-indicator').exists()).toBe(true);
-  });
-});
+    override func fetchArticles(
+        feedID: Int?,
+        category: String?,
+        filter: String,
+        page: Int,
+        limit: Int
+    ) async throws -> [Article] { articles }
+}
 ```
 
-### Composable Testing
+### View model tests
 
-```javascript
-import { describe, it, expect } from 'vitest';
-import { useArticleDetail } from './useArticleDetail';
+```swift
+@MainActor
+final class ArticleListStateTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        // Titles are translated, so pin the language the assertions expect.
+        Localization.shared.setLanguage(.english)
+    }
 
-describe('useArticleDetail', () => {
-  it('loads article correctly', async () => {
-    const { article, loadArticle, isLoading } = useArticleDetail();
+    func testUnreadFirstKeepsUnreadAtTheTop() {
+        let viewModel = AppViewModel(api: ListAPIClient(), autoLoad: false)
+        viewModel.articles = [read, unread]
 
-    // Initially null
-    expect(article.value).toBeNull();
+        viewModel.sortOrder = .unreadFirst
 
-    // Load article
-    await loadArticle(123);
+        XCTAssertEqual(viewModel.displayedArticles.map(\.id), [unread.id, read.id])
+    }
+}
+```
 
-    // Check result
-    expect(isLoading.value).toBe(false);
-    expect(article.value).not.toBeNull();
-    expect(article.value.id).toBe(123);
-  });
-});
+### Waiting for asynchronous work
+
+A fixed sleep has to guess how long the work takes, and a guess that holds on a
+developer's machine fails on a loaded runner. Poll instead:
+
+```swift
+try await waitUntil("the multimedia listing to drop read items") {
+    viewModel.articles.map(\.id) == [2]
+}
+```
+
+### Request tests
+
+`MockURLProtocol` serves canned responses, so the API tests never touch the
+network and can assert on the request that was built:
+
+```swift
+respond("{}") { request, components, query in
+    XCTAssertEqual(components.path, "/api/articles/mark-all-read")
+    XCTAssertEqual(query["category"], "Tech")
+}
+
+try await service.markAllRead(feedID: nil, category: "Tech")
+```
+
+### Layout tests
+
+Views that have to lay out correctly are hosted in an `NSHostingView` and
+measured, rather than compared against a stored image:
+
+```swift
+let hosting = NSHostingView(rootView: FeedEditorView(mode: .add, viewModel: viewModel))
+hosting.frame = NSRect(x: 0, y: 0, width: 620, height: 640)
 ```
 
 ## Running Tests
@@ -196,22 +194,17 @@ go test -run TestDatabaseOperations ./internal/database
 go test -v ./...
 ```
 
-### Frontend Tests
+### Client Tests
 
 ```bash
-cd frontend
-
 # Run all tests
-npm test
+swift test --package-path frontend-swift
 
 # Run with coverage
-npm run test:coverage
+swift test --package-path frontend-swift --enable-code-coverage
 
-# Watch mode
-npm run test:watch
-
-# Run specific test file
-npm test ArticleItem.test.ts
+# Run one suite
+swift test --package-path frontend-swift --filter ArticleListStateTests
 ```
 
 ## Test Coverage
@@ -223,11 +216,12 @@ npm test ArticleItem.test.ts
 - Business logic: 80%+
 - Utility functions: 90%+
 
-### Frontend Coverage Goals
+### Client Coverage Goals
 
-- Components: 70%+
-- Composables: 80%+
-- Utilities: 90%+
+- Models and decoding: 90%+
+- API request building: 80%+
+- View model behaviour: 80%+
+- Views: layout and structure where it matters, not pixel comparisons
 
 ## Continue Reading
 
