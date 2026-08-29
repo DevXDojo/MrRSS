@@ -84,3 +84,69 @@ final class SettingsCatalogTests: XCTestCase {
         XCTAssertTrue(SettingsCatalog.search("").isEmpty)
     }
 }
+
+@MainActor
+final class SettingsPersistenceTests: XCTestCase {
+    private func makeViewModel() -> (AppViewModel, RecordingSettingsClient) {
+        let defaults = UserDefaults(suiteName: "SettingsPersistenceTests")!
+        defaults.removePersistentDomain(forName: "SettingsPersistenceTests")
+        let client = RecordingSettingsClient()
+        return (AppViewModel(api: client, autoLoad: false, defaults: defaults), client)
+    }
+
+    func testAChangeSavesItselfShortlyAfterwards() async throws {
+        let (viewModel, client) = makeViewModel()
+
+        viewModel.updateBoolSetting("hover_mark_as_read", value: true)
+
+        XCTAssertTrue(client.saved.isEmpty, "the save waits for the reader to stop changing things")
+        try await waitUntil("the settings to save themselves") { client.saved.count == 1 }
+        XCTAssertEqual(client.saved.last?["hover_mark_as_read"], "true")
+    }
+
+    func testRapidChangesSaveOnce() async throws {
+        let (viewModel, client) = makeViewModel()
+
+        viewModel.updateSetting("target_language", value: "zh")
+        viewModel.updateSetting("target_language", value: "ja")
+        viewModel.updateSetting("target_language", value: "fr")
+
+        try await waitUntil("the settings to save themselves") { !client.saved.isEmpty }
+        try? await Task.sleep(for: .milliseconds(700))
+
+        XCTAssertEqual(client.saved.count, 1, "only the settled value should be sent")
+        XCTAssertEqual(client.saved.last?["target_language"], "fr")
+    }
+
+    func testWritingTheSameValueSavesNothing() async throws {
+        let (viewModel, client) = makeViewModel()
+        viewModel.updateSetting("theme", value: "dark")
+        try await waitUntil("the first save") { client.saved.count == 1 }
+
+        viewModel.updateSetting("theme", value: "dark")
+        try? await Task.sleep(for: .milliseconds(700))
+
+        XCTAssertEqual(client.saved.count, 1)
+    }
+
+    func testTheLanguageAppliesAsSoonAsItIsSaved() async throws {
+        let (viewModel, _) = makeViewModel()
+        Localization.shared.setLanguage(.english)
+
+        viewModel.updateSetting("language", value: "zh-CN")
+
+        try await waitUntil("the language to follow the setting") {
+            Localization.shared.language == .chineseSimplified
+        }
+
+        Localization.shared.setLanguage(.english)
+    }
+}
+
+final class RecordingSettingsClient: StubAPIClient {
+    private(set) var saved: [[String: String]] = []
+
+    override func updateSettings(_ settings: [String: String]) async throws {
+        saved.append(settings)
+    }
+}

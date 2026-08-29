@@ -256,6 +256,7 @@ final class AppViewModel: ObservableObject {
     private var sourceRefreshTask: Task<Void, Never>?
     private var feedRequestID = UUID()
     private var articleTask: Task<Void, Never>?
+    private var settingsSaveTask: Task<Void, Never>?
     private var articleRequestID = UUID()
 
     init(
@@ -737,7 +738,9 @@ final class AppViewModel: ObservableObject {
     }
 
     func updateSetting(_ key: String, value: String) {
+        guard settings[key] != value else { return }
         settings[key] = value
+        scheduleSettingsSave()
     }
 
     func boolSetting(_ key: String, default defaultValue: Bool = false) -> Bool {
@@ -746,7 +749,18 @@ final class AppViewModel: ObservableObject {
     }
 
     func updateBoolSetting(_ key: String, value: Bool) {
-        settings[key] = value ? "true" : "false"
+        updateSetting(key, value: value ? "true" : "false")
+    }
+
+    /// Saves shortly after the last change, as the previous interface did, so a
+    /// reader does not have to remember to press anything.
+    private func scheduleSettingsSave() {
+        settingsSaveTask?.cancel()
+        settingsSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await self?.saveSettings()
+        }
     }
 
     @discardableResult
@@ -757,6 +771,9 @@ final class AppViewModel: ObservableObject {
             try await api.updateSettings(settings)
             statusMessage = t("client.settings.saved")
             decodeRules()
+            // The language and the theme change what is on screen, so apply them
+            // as soon as they are saved.
+            applyLanguageSetting()
             isSavingSettings = false
             return true
         } catch {

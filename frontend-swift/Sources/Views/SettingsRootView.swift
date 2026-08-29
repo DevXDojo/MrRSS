@@ -83,6 +83,8 @@ struct SettingsRootView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
+            // Changes save themselves shortly after the last edit; the button is
+            // here for anyone who would rather not wait.
             if viewModel.isSavingSettings {
                 ProgressView().controlSize(.small)
             }
