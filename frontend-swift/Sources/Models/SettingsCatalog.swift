@@ -5,6 +5,7 @@ import Foundation
 /// only a separate client needs.
 enum SettingsPane: String, CaseIterable, Identifiable {
     case connection
+    case feeds
     case general
     case reading
     case typography
@@ -24,6 +25,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .connection: t("client.settings.connection")
+        case .feeds: t("modal.feed.manageFeeds")
         case .general: t("setting.tab.general")
         case .reading: t("setting.tab.readingAndDisplay")
         case .typography: t("setting.tab.typography")
@@ -43,6 +45,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .connection: "server.rack"
+        case .feeds: "dot.radiowaves.left.and.right"
         case .general: "gearshape"
         case .reading: "text.book.closed"
         case .typography: "textformat"
@@ -63,7 +66,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     /// hand-built.
     var isSettingList: Bool {
         switch self {
-        case .connection, .rules, .statistics, .about: false
+        case .connection, .feeds, .rules, .statistics, .about: false
         default: true
         }
     }

@@ -31,6 +31,8 @@ struct SettingsRootView: View {
             switch pane {
             case .connection:
                 ServerSettingsView(viewModel: viewModel)
+            case .feeds:
+                FeedManagementView(viewModel: viewModel)
             case .rules:
                 RulesSettingsView(viewModel: viewModel)
             case .statistics:
