@@ -108,3 +108,68 @@ final class FeedDraftTests: XCTestCase {
         XCTAssertEqual(roundTripped.conditions.first?.value, "swift")
     }
 }
+
+final class ColorConversionTests: XCTestCase {
+    func testHexStringsAreParsedIntoColors() throws {
+        XCTAssertNotNil(Color(hex: "#3b82f6"))
+        XCTAssertNotNil(Color(hex: "3b82f6"), "the leading hash is optional")
+        XCTAssertNil(Color(hex: "#zzzzzz"))
+        XCTAssertNil(Color(hex: "#fff"), "only the six digit form is stored")
+        XCTAssertNil(Color(hex: ""))
+    }
+
+    func testAColorRoundTripsThroughItsHexForm() throws {
+        for hex in ["#3b82f6", "#ff0000", "#000000", "#ffffff"] {
+            let color = try XCTUnwrap(Color(hex: hex))
+            XCTAssertEqual(color.hexString, hex, "\(hex) should survive the round trip")
+        }
+    }
+}
+
+@MainActor
+final class BulkFeedSaveTests: XCTestCase {
+    func testSavingSeveralFeedsReloadsOnlyOnce() async throws {
+        let client = CountingFeedClient()
+        let defaults = UserDefaults(suiteName: "BulkFeedSaveTests")!
+        defaults.removePersistentDomain(forName: "BulkFeedSaveTests")
+        let viewModel = AppViewModel(api: client, autoLoad: false, defaults: defaults)
+
+        for index in 1...3 {
+            await viewModel.saveFeed(
+                FeedDraft(url: "https://example.com/\(index)"),
+                isEditing: false,
+                reloading: false
+            )
+        }
+
+        XCTAssertEqual(client.addedFeeds, 3)
+        XCTAssertEqual(client.feedListLoads, 0, "no reload should happen while saving")
+
+        await viewModel.reloadAfterFeedChange()
+
+        // The reload runs off the main task, so wait for it to land.
+        try await waitUntil("the single reload to run") { client.feedListLoads == 1 }
+    }
+}
+
+final class CountingFeedClient: StubAPIClient {
+    private(set) var addedFeeds = 0
+    private(set) var feedListLoads = 0
+
+    override func addFeed(_ draft: FeedDraft) async throws {
+        addedFeeds += 1
+    }
+
+    override func fetchFeeds() async throws -> [Feed] {
+        feedListLoads += 1
+        return []
+    }
+
+    override func fetchArticles(
+        feedID: Int?,
+        category: String?,
+        filter: String,
+        page: Int,
+        limit: Int
+    ) async throws -> [Article] { [] }
+}

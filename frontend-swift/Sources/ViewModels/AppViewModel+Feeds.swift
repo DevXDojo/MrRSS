@@ -2,8 +2,11 @@ import Foundation
 
 extension AppViewModel {
     /// Adds or updates a subscription and reloads what changed.
+    ///
+    /// Pass `reloading: false` when saving several feeds in a row, and reload
+    /// once afterwards, so a bulk subscription does not refetch per feed.
     @discardableResult
-    func saveFeed(_ draft: FeedDraft, isEditing: Bool) async -> Bool {
+    func saveFeed(_ draft: FeedDraft, isEditing: Bool, reloading: Bool = true) async -> Bool {
         do {
             if isEditing {
                 try await api.updateFeed(draft)
@@ -12,14 +15,21 @@ extension AppViewModel {
                 try await api.addFeed(draft)
                 statusMessage = t("modal.feed.feedAddedSuccess")
             }
-            refreshFeeds()
-            reloadArticles()
-            await loadTags()
+            if reloading {
+                await reloadAfterFeedChange()
+            }
             return true
         } catch {
             errorMessage = error.localizedDescription
             return false
         }
+    }
+
+    /// Reloads everything a change to the subscriptions affects.
+    func reloadAfterFeedChange() async {
+        refreshFeeds()
+        reloadArticles()
+        await loadTags()
     }
 
     func refreshFeed(_ feed: Feed) async {

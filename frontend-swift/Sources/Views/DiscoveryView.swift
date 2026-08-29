@@ -200,10 +200,13 @@ struct DiscoveryView: View {
         for blog in targets {
             var draft = FeedDraft(url: blog.rssFeed, title: blog.name)
             draft.category = feed?.category ?? ""
-            if await viewModel.saveFeed(draft, isEditing: false) {
+            // Reloading once at the end keeps a long list of subscriptions from
+            // refetching everything per feed.
+            if await viewModel.saveFeed(draft, isEditing: false, reloading: false) {
                 succeeded += 1
             }
         }
+        await viewModel.reloadAfterFeedChange()
 
         viewModel.statusMessage = succeeded == targets.count
             ? t("modal.feed.feedsSubscribedSuccess", ["count": succeeded])

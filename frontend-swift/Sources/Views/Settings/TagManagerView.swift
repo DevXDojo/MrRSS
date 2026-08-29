@@ -8,6 +8,13 @@ struct TagManagerView: View {
     @State private var newName = ""
     @State private var newColor = Color.accentColor
     @State private var tagPendingDeletion: Tag?
+    /// Names being typed, committed when the field is submitted or left, so a
+    /// rename is one request rather than one per keystroke.
+    @State private var draftNames: [Int: String] = [:]
+    /// Colours being chosen. The picker reports every shade the pointer passes
+    /// over, so the change is saved once the choice settles.
+    @State private var draftColors: [Int: Color] = [:]
+    @State private var colorSaveTasks: [Int: Task<Void, Never>] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -76,6 +83,8 @@ struct TagManagerView: View {
 
             TextField("", text: nameBinding(for: tag))
                 .textFieldStyle(.plain)
+                .onSubmit { commitName(for: tag) }
+                .onDisappear { commitName(for: tag) }
 
             Text(t("modal.tag.assignedFeeds", ["count": viewModel.feeds(taggedWith: tag.id).count]))
                 .font(.caption)
@@ -92,24 +101,46 @@ struct TagManagerView: View {
 
     private func nameBinding(for tag: Tag) -> Binding<String> {
         Binding(
-            get: { tag.name },
-            set: { newValue in
-                var updated = tag
-                updated.name = newValue
-                Task { await viewModel.updateTag(updated) }
-            }
+            get: { draftNames[tag.id] ?? tag.name },
+            set: { draftNames[tag.id] = $0 }
         )
+    }
+
+    /// Saves a renamed tag, if the name actually changed.
+    private func commitName(for tag: Tag) {
+        guard let name = draftNames[tag.id] else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        draftNames[tag.id] = nil
+        guard !trimmed.isEmpty, trimmed != tag.name else { return }
+
+        var updated = tag
+        updated.name = trimmed
+        Task { await viewModel.updateTag(updated) }
     }
 
     private func colorBinding(for tag: Tag) -> Binding<Color> {
         Binding(
-            get: { Color(hex: tag.color) ?? .accentColor },
+            get: { draftColors[tag.id] ?? Color(hex: tag.color) ?? .accentColor },
             set: { newValue in
-                var updated = tag
-                updated.color = newValue.hexString
-                Task { await viewModel.updateTag(updated) }
+                draftColors[tag.id] = newValue
+                scheduleColorSave(for: tag, color: newValue)
             }
         )
+    }
+
+    private func scheduleColorSave(for tag: Tag, color: Color) {
+        colorSaveTasks[tag.id]?.cancel()
+        colorSaveTasks[tag.id] = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+
+            let hex = color.hexString
+            guard hex != tag.color else { return }
+            var updated = tag
+            updated.color = hex
+            await viewModel.updateTag(updated)
+            draftColors[tag.id] = nil
+        }
     }
 
     private func create() async {
