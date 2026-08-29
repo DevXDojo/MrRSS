@@ -257,3 +257,48 @@ private extension URLRequest {
         return data
     }
 }
+
+/// The methods each endpoint expects. Sending the wrong one is rejected by the
+/// backend, and the failure is easy to miss in the interface.
+extension APIServiceCoverageTests {
+    func testExtractingImagesIsARead() async throws {
+        respond(#"{"images":["https://example.com/a.png"],"feed_url":"https://example.com"}"#) { request, components, query in
+            XCTAssertEqual(components.path, "/api/articles/extract-images")
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(query["id"], "8")
+        }
+
+        let images = try await service.extractImages(id: 8)
+
+        XCTAssertEqual(images.images, ["https://example.com/a.png"])
+    }
+
+    func testReloadingAndFetchingFullContentArePosts() async throws {
+        respond(#"{"content":"<p>Body</p>"}"#) { request, _, _ in
+            XCTAssertEqual(request.httpMethod, "POST")
+        }
+
+        _ = try await service.reloadArticleContent(id: 1)
+        _ = try await service.fetchFullArticle(id: 1)
+    }
+
+    func testReorderingSavedFiltersSendsTheWholeListInOrder() async throws {
+        var body: [[String: Any]] = []
+        respond("{}") { request, components, _ in
+            XCTAssertEqual(components.path, "/api/saved-filters/reorder")
+            XCTAssertEqual(request.httpMethod, "POST")
+            body = (try? JSONSerialization.jsonObject(with: request.bodyData ?? Data()))
+                as? [[String: Any]] ?? []
+        }
+
+        try await service.reorderSavedFilters([
+            SavedFilter(id: 3, name: "B", position: 5),
+            SavedFilter(id: 2, name: "A", position: 9)
+        ])
+
+        XCTAssertEqual(body.count, 2)
+        XCTAssertEqual(body.first?["id"] as? Int, 3)
+        XCTAssertEqual(body.first?["position"] as? Int, 0, "positions are renumbered from the order sent")
+        XCTAssertEqual(body.last?["position"] as? Int, 1)
+    }
+}

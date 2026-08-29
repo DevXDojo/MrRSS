@@ -106,7 +106,7 @@ class StubAPIClient: APIClient {
     }
     func updateSavedFilter(_ filter: SavedFilter) async throws { throw unimplemented() }
     func deleteSavedFilter(id: Int) async throws { throw unimplemented() }
-    func reorderSavedFilter(id: Int, newPosition: Int) async throws { throw unimplemented() }
+    func reorderSavedFilters(_ filters: [SavedFilter]) async throws { throw unimplemented() }
 
     // Rules
     func applyRule(_ rule: AutomationRule) async throws -> RuleApplicationResult { throw unimplemented() }

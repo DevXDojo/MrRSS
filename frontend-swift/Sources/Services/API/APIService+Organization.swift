@@ -70,8 +70,17 @@ extension APIService {
         )
     }
 
-    func reorderSavedFilter(id: Int, newPosition: Int) async throws {
-        try await post("saved-filters/reorder", jsonBody: ["id": id, "new_position": newPosition])
+    /// Sends the whole list in its new order, which is what the endpoint reads.
+    func reorderSavedFilters(_ filters: [SavedFilter]) async throws {
+        let ordered = filters.enumerated().map { index, filter in
+            SavedFilter(
+                id: filter.id,
+                name: filter.name,
+                conditions: filter.conditions,
+                position: index
+            )
+        }
+        try await sendJSONReturningData("saved-filters/reorder", body: ordered)
     }
 
     // MARK: - Rules

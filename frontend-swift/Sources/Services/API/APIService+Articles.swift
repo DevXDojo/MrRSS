@@ -143,8 +143,9 @@ extension APIService {
         )
     }
 
+    /// Unlike the other article actions, this one is a plain read.
     func extractImages(id: Int) async throws -> ArticleImages {
-        try await postDecoding(
+        try await get(
             "articles/extract-images",
             queryItems: [URLQueryItem(name: "id", value: String(id))]
         )

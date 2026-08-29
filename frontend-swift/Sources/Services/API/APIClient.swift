@@ -80,7 +80,7 @@ protocol APIClient: AnyObject {
     func createSavedFilter(name: String, conditions: [FilterCondition]) async throws -> SavedFilter
     func updateSavedFilter(_ filter: SavedFilter) async throws
     func deleteSavedFilter(id: Int) async throws
-    func reorderSavedFilter(id: Int, newPosition: Int) async throws
+    func reorderSavedFilters(_ filters: [SavedFilter]) async throws
 
     // Rules
     func applyRule(_ rule: AutomationRule) async throws -> RuleApplicationResult
