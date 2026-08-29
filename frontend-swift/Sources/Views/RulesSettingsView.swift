@@ -8,16 +8,16 @@ struct RulesSettingsView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Automation Rules")
+                    Text(t("modal.rule.rules"))
                         .font(.title2.weight(.semibold))
-                    Text("Match incoming or existing articles and apply actions automatically.")
+                    Text(t("modal.rule.rulesDesc"))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
                     editingRule = .empty()
                 } label: {
-                    Label("Add Rule", systemImage: "plus")
+                    Label(t("modal.rule.addRule"), systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -27,11 +27,11 @@ struct RulesSettingsView: View {
 
             if viewModel.rules.isEmpty {
                 ContentUnavailableView {
-                    Label("No Rules", systemImage: "bolt.badge.clock")
+                    Label(t("setting.rule.noRules"), systemImage: "bolt.badge.clock")
                 } description: {
-                    Text("Create a rule to favorite, hide, mark, or defer matching articles.")
+                    Text(t("setting.rule.noRulesHint"))
                 } actions: {
-                    Button("Create Rule") { editingRule = .empty() }
+                    Button(t("setting.rule.addRule")) { editingRule = .empty() }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -83,6 +83,11 @@ private struct RuleRow: View {
     let onApply: () -> Void
     let onDelete: () -> Void
 
+    /// How many conditions and actions the rule carries.
+    private var summary: String {
+        t("client.rule.summary", ["conditions": rule.conditions.count, "actions": rule.actions.count])
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Toggle("", isOn: Binding(get: { rule.enabled }, set: onToggle))
@@ -91,17 +96,17 @@ private struct RuleRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(rule.name)
                     .font(.headline)
-                Text("\(rule.conditions.count) conditions · \(rule.actions.count) actions")
+                Text(summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Button("Apply Now", action: onApply)
-            Button("Edit", action: onEdit)
+            Button(t("setting.rule.applyRuleNow"), action: onApply)
+            Button(t("modal.rule.editRule"), action: onEdit)
             Menu {
-                Button("Delete", role: .destructive, action: onDelete)
+                Button(t("common.delete"), role: .destructive, action: onDelete)
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -117,43 +122,47 @@ private struct RuleEditorView: View {
     @State var rule: AutomationRule
     let onSave: (AutomationRule) -> Void
 
-    private let fields = [
-        ("article_title", "Article title"),
-        ("feed_name", "Feed name"),
-        ("feed_category", "Feed category"),
-        ("feed_type", "Feed type"),
-        ("is_freshrss_feed", "FreshRSS feed"),
-        ("is_image_mode_feed", "Image-mode feed"),
-        ("published_after", "Published after"),
-        ("published_before", "Published before"),
-        ("is_read", "Read state"),
-        ("is_favorite", "Favorite state"),
-        ("is_hidden", "Hidden state"),
-        ("is_read_later", "Read-later state")
-    ]
+    private var fields: [(String, String)] {
+        [
+            ("article_title", t("common.form.title")),
+            ("feed_name", t("modal.filter.fromFeed")),
+            ("feed_category", t("sidebar.sort.byCategory")),
+            ("feed_type", t("modal.filter.feedType")),
+            ("is_freshrss_feed", t("modal.feed.typeFreshRSS")),
+            ("is_image_mode_feed", t("modal.filter.isImageModeFeed")),
+            ("published_after", t("modal.filter.publishedAfter")),
+            ("published_before", t("modal.filter.publishedBefore")),
+            ("is_read", t("modal.filter.readStatus")),
+            ("is_favorite", t("modal.filter.favoriteStatus")),
+            ("is_hidden", t("modal.filter.hiddenStatus")),
+            ("is_read_later", t("modal.filter.readLaterStatus"))
+        ]
+    }
 
-    private let actions = [
-        ("favorite", "Add favorite"),
-        ("unfavorite", "Remove favorite"),
-        ("hide", "Hide"),
-        ("unhide", "Unhide"),
-        ("mark_read", "Mark read"),
-        ("mark_unread", "Mark unread"),
-        ("read_later", "Add to read later"),
-        ("remove_read_later", "Remove from read later")
-    ]
+    private var actions: [(String, String)] {
+        [
+            ("favorite", t("setting.rule.actionFavorite")),
+            ("unfavorite", t("setting.rule.actionUnfavorite")),
+            ("hide", t("setting.rule.actionHide")),
+            ("unhide", t("setting.rule.actionUnhide")),
+            ("mark_read", t("setting.rule.actionMarkRead")),
+            ("mark_unread", t("setting.rule.actionMarkUnread")),
+            ("read_later", t("setting.rule.actionReadLater")),
+            ("remove_read_later", t("setting.rule.actionRemoveReadLater"))
+        ]
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Rule") {
-                    TextField("Name", text: $rule.name)
-                    Toggle("Enabled", isOn: $rule.enabled)
+                Section(t("modal.rule.name")) {
+                    TextField(t("modal.rule.name"), text: $rule.name, prompt: Text(t("modal.rule.namePlaceholder")))
+                    Toggle(t("client.rule.enabled"), isOn: $rule.enabled)
                 }
 
-                Section("Conditions") {
+                Section(t("modal.filter.filterConditions")) {
                     if rule.conditions.isEmpty {
-                        Text("No conditions means that every article matches.")
+                        Text(t("modal.filter.conditionAlways"))
                             .foregroundStyle(.secondary)
                     }
 
@@ -161,21 +170,21 @@ private struct RuleEditorView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 if condition.id != rule.conditions.first?.id {
-                                    Picker("Logic", selection: Binding(
+                                    Picker(t("modal.filter.and"), selection: Binding(
                                         get: { condition.logic ?? "and" },
                                         set: { condition.logic = $0 }
                                     )) {
-                                        Text("AND").tag("and")
-                                        Text("OR").tag("or")
+                                        Text(t("modal.filter.and")).tag("and")
+                                        Text(t("modal.filter.or")).tag("or")
                                     }
                                     .labelsHidden()
                                     .frame(width: 76)
                                 }
 
-                                Toggle("Not", isOn: $condition.negate)
+                                Toggle(t("modal.filter.not"), isOn: $condition.negate)
                                     .toggleStyle(.checkbox)
 
-                                Picker("Field", selection: $condition.field) {
+                                Picker(t("modal.filter.filterField"), selection: $condition.field) {
                                     ForEach(fields, id: \.0) { value, title in
                                         Text(title).tag(value)
                                     }
@@ -199,11 +208,11 @@ private struct RuleEditorView: View {
                         condition.logic = rule.conditions.isEmpty ? nil : "and"
                         rule.conditions.append(condition)
                     } label: {
-                        Label("Add Condition", systemImage: "plus")
+                        Label(t("modal.rule.addCondition"), systemImage: "plus")
                     }
                 }
 
-                Section("Actions") {
+                Section(t("modal.rule.actions")) {
                     ForEach(actions, id: \.0) { value, title in
                         Toggle(title, isOn: Binding(
                             get: { rule.actions.contains(value) },
@@ -219,13 +228,13 @@ private struct RuleEditorView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Edit Rule")
+            .navigationTitle(t("modal.rule.editRule"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(t("common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(t("common.action.save")) {
                         normalizeConditions()
                         onSave(rule)
                         dismiss()
@@ -242,10 +251,10 @@ private struct RuleEditorView: View {
         switch condition.wrappedValue.field {
         case "article_title":
             HStack {
-                Picker("Operator", selection: condition.operator) {
-                    Text("Contains").tag("contains")
-                    Text("Equals").tag("exact")
-                    Text("Regular expression").tag("regex")
+                Picker(t("modal.filter.filterOperator"), selection: condition.operator) {
+                    Text(t("modal.filter.contains")).tag("contains")
+                    Text(t("modal.filter.exactMatch")).tag("exact")
+                    Text(t("modal.filter.regex")).tag("regex")
                 }
                 .frame(width: 180)
                 TextField("Value", text: condition.value)
@@ -256,9 +265,9 @@ private struct RuleEditorView: View {
                 set: { condition.wrappedValue.values = splitValues($0) }
             ))
         case "is_freshrss_feed", "is_image_mode_feed", "is_read", "is_favorite", "is_hidden", "is_read_later":
-            Picker("Value", selection: condition.value) {
-                Text("Yes").tag("true")
-                Text("No").tag("false")
+            Picker(t("modal.filter.filterValue"), selection: condition.value) {
+                Text(t("common.action.yes")).tag("true")
+                Text(t("common.action.no")).tag("false")
             }
         default:
             TextField(condition.wrappedValue.field.hasPrefix("published_") ? "YYYY-MM-DD" : "Value", text: condition.value)

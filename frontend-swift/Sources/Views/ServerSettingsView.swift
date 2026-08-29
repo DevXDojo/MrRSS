@@ -6,11 +6,11 @@ struct ServerSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Backend server") {
-                TextField("API address", text: $viewModel.serverURLText)
+            Section(t("client.connection.backendServer")) {
+                TextField(t("client.connection.serverAddress"), text: $viewModel.serverURLText)
                     .textFieldStyle(.roundedBorder)
 
-                Text("The default server address is http://127.0.0.1:1234/api. You can also set MRRSS_API_BASE_URL before launching the app.")
+                Text(t("client.connection.serverAddressHelp"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -24,10 +24,10 @@ struct ServerSettingsView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 if didSave {
-                    Text("Saved")
+                    Text(t("client.connection.saved"))
                         .foregroundStyle(.secondary)
                 }
-                Button("Save and reconnect") {
+                Button(t("client.connection.saveAndReconnect")) {
                     didSave = viewModel.saveServerAddress()
                 }
                 .keyboardShortcut(.defaultAction)

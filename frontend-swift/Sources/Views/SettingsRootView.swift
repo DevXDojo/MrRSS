@@ -1,212 +1,184 @@
 import SwiftUI
 
+/// The settings window. Most panes are built from the schema the backend
+/// publishes, so a new setting appears here as soon as it is generated.
 struct SettingsRootView: View {
     @ObservedObject var viewModel: AppViewModel
-    @State private var selectedPane: SettingsPane? = .general
+    @State private var pane: SettingsPane = .connection
+    @State private var search = ""
 
     var body: some View {
         NavigationSplitView {
-            List(SettingsPane.allCases, selection: $selectedPane) { pane in
-                Label(pane.title, systemImage: pane.icon)
-                    .tag(pane)
+            List(SettingsPane.allCases, selection: $pane) { entry in
+                Label(entry.title, systemImage: entry.icon).tag(entry)
             }
-            .navigationTitle("Settings")
-            .navigationSplitViewColumnWidth(min: 165, ideal: 185, max: 220)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 250)
         } detail: {
-            detailView
-                .navigationTitle(selectedPane?.title ?? "Settings")
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            Task { await viewModel.saveSettings() }
-                        }
-                        .disabled(viewModel.isSavingSettings || selectedPane == .connection || selectedPane == .rules)
-                    }
+            detail
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .frame(minWidth: 820, minHeight: 560)
+        .searchable(text: $search, prompt: Text(t("client.settings.searchSettings")))
+        .toolbar { toolbarContent }
+        .task { await viewModel.loadSettings() }
+    }
+
+    @ViewBuilder
+    private var detail: some View {
+        if !search.trimmingCharacters(in: .whitespaces).isEmpty {
+            searchResults
+        } else {
+            switch pane {
+            case .connection:
+                ServerSettingsView(viewModel: viewModel)
+            case .rules:
+                RulesSettingsView(viewModel: viewModel)
+            case .statistics:
+                StatisticsView(viewModel: viewModel)
+            case .about:
+                AboutView(viewModel: viewModel)
+            case .storage:
+                SettingListView(pane: pane, viewModel: viewModel) {
+                    StorageActionsView(viewModel: viewModel)
                 }
-        }
-        .frame(minWidth: 760, idealWidth: 860, minHeight: 540, idealHeight: 620)
-        .task {
-            if viewModel.settings.isEmpty {
-                await viewModel.loadSettings()
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if let message = viewModel.statusMessage {
-                Text(message)
-                    .font(.callout)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 12)
-                    .task(id: message) {
-                        try? await Task.sleep(for: .seconds(3))
-                        viewModel.clearStatusMessage()
-                    }
+            case .integrations:
+                SettingListView(pane: pane, viewModel: viewModel) {
+                    IntegrationActionsView(viewModel: viewModel)
+                }
+            case .ai:
+                SettingListView(pane: pane, viewModel: viewModel) {
+                    AIProfilesView(viewModel: viewModel)
+                }
+            default:
+                SettingListView(pane: pane, viewModel: viewModel) { EmptyView() }
             }
         }
     }
 
-    @ViewBuilder
-    private var detailView: some View {
-        switch selectedPane ?? .general {
-        case .connection:
-            ServerSettingsView(viewModel: viewModel)
-        case .rules:
-            RulesSettingsView(viewModel: viewModel)
-        case .advanced:
-            AllSettingsView(viewModel: viewModel)
-        case let pane:
-            DynamicSettingsForm(viewModel: viewModel, definitions: SettingsCatalog.definitions(for: pane))
+    private var searchResults: some View {
+        let matches = SettingsCatalog.search(search)
+        return Group {
+            if matches.isEmpty {
+                ContentUnavailableView(
+                    t("client.settings.noResults"),
+                    systemImage: "magnifyingglass"
+                )
+            } else {
+                Form {
+                    ForEach(matches) { definition in
+                        SettingRow(definition: definition, viewModel: viewModel)
+                    }
+                }
+                .formStyle(.grouped)
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            if viewModel.isSavingSettings {
+                ProgressView().controlSize(.small)
+            }
+            Button(t("common.action.save")) {
+                Task { await viewModel.saveSettings() }
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(viewModel.isSavingSettings)
         }
     }
 }
 
-private struct DynamicSettingsForm: View {
+/// A pane built from the generated catalogue, with room for extra controls.
+struct SettingListView<Extra: View>: View {
+    let pane: SettingsPane
     @ObservedObject var viewModel: AppViewModel
-    let definitions: [SettingDefinition]
-
-    private var sections: [String] {
-        definitions.reduce(into: []) { result, definition in
-            if !result.contains(definition.section) { result.append(definition.section) }
-        }
-    }
+    @ViewBuilder let extra: () -> Extra
 
     var body: some View {
         Form {
-            ForEach(sections, id: \.self) { section in
-                Section(section) {
-                    ForEach(definitions.filter { $0.section == section }) { definition in
-                        settingControl(definition)
-                    }
-                }
+            ForEach(SettingsCatalog.definitions(for: pane)) { definition in
+                SettingRow(definition: definition, viewModel: viewModel)
             }
-
-            if definitions.contains(where: { $0.pane == .summaryAI }) {
-                Section("AI usage") {
-                    if let usage = viewModel.aiUsage {
-                        LabeledContent("Tokens", value: "\(usage.usage) / \(usage.limit)")
-                        ProgressView(value: Double(usage.usage), total: Double(max(usage.limit, 1)))
-                        Button("Reset usage counter") {
-                            Task { await viewModel.resetAIUsage() }
-                        }
-                    } else {
-                        Text("Usage information is unavailable.")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section("Generated content") {
-                    Button("Clear cached translations and summaries", role: .destructive) {
-                        Task { await viewModel.clearGeneratedContent() }
-                    }
-                }
-            }
+            extra()
         }
         .formStyle(.grouped)
-        .overlay {
-            if viewModel.isLoadingSettings {
-                ProgressView("Loading settings")
-            }
-        }
     }
+}
 
-    @ViewBuilder
-    private func settingControl(_ definition: SettingDefinition) -> some View {
+/// One setting, drawn according to the control the schema calls for.
+struct SettingRow: View {
+    let definition: SettingDefinition
+    @ObservedObject var viewModel: AppViewModel
+
+    var body: some View {
         switch definition.control {
         case .toggle:
-            Toggle(definition.title, isOn: boolBinding(definition.key))
+            row {
+                Toggle(definition.title, isOn: boolBinding)
+                    .toggleStyle(.switch)
+            }
         case .text:
-            LabeledContent(definition.title) {
-                TextField(definition.title, text: textBinding(definition.key))
-                    .multilineTextAlignment(.trailing)
-                    .frame(minWidth: 240)
-            }
-        case .secure:
-            LabeledContent(definition.title) {
-                SecureField(definition.title, text: textBinding(definition.key))
-                    .multilineTextAlignment(.trailing)
-                    .frame(minWidth: 240)
-            }
-        case .picker(let options):
-            Picker(definition.title, selection: textBinding(definition.key)) {
-                ForEach(options, id: \.0) { value, label in
-                    Text(label).tag(value)
+            row {
+                LabeledContent(definition.title) {
+                    TextField("", text: stringBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 320)
                 }
             }
-        }
-
-        if let detail = definition.detail {
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func textBinding(_ key: String) -> Binding<String> {
-        Binding(
-            get: { viewModel.setting(key) },
-            set: { viewModel.updateSetting(key, value: $0) }
-        )
-    }
-
-    private func boolBinding(_ key: String) -> Binding<Bool> {
-        Binding(
-            get: { viewModel.boolSetting(key) },
-            set: { viewModel.updateBoolSetting(key, value: $0) }
-        )
-    }
-}
-
-private struct AllSettingsView: View {
-    @ObservedObject var viewModel: AppViewModel
-    @State private var searchText = ""
-
-    private var keys: [String] {
-        viewModel.settings.keys
-            .filter { searchText.isEmpty || $0.localizedCaseInsensitiveContains(searchText) }
-            .sorted()
-    }
-
-    var body: some View {
-        Form {
-            Section {
-                Text("This pane exposes every backend setting, including internal state. Use the categorized panes for normal configuration.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        case .secret:
+            row {
+                LabeledContent(definition.title) {
+                    SecureField("", text: stringBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 320)
+                }
             }
-
-            Section("Backend settings") {
-                ForEach(keys, id: \.self) { key in
-                    if SettingsCatalog.boolKeys.contains(key) {
-                        Toggle(key, isOn: Binding(
-                            get: { viewModel.boolSetting(key) },
-                            set: { viewModel.updateBoolSetting(key, value: $0) }
-                        ))
-                    } else if SettingsCatalog.secureKeys.contains(key) {
-                        LabeledContent(key) {
-                            SecureField(key, text: valueBinding(key))
-                                .multilineTextAlignment(.trailing)
-                                .frame(minWidth: 300)
-                        }
-                    } else {
-                        LabeledContent(key) {
-                            TextField(key, text: valueBinding(key), axis: .vertical)
-                                .multilineTextAlignment(.trailing)
-                                .lineLimit(1...5)
-                                .frame(minWidth: 300)
-                        }
+        case .number:
+            row {
+                LabeledContent(definition.title) {
+                    TextField("", text: stringBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 110)
+                }
+            }
+        case .choice:
+            row {
+                Picker(definition.title, selection: stringBinding) {
+                    ForEach(definition.choices) { choice in
+                        Text(choice.title).tag(choice.value)
                     }
                 }
             }
         }
-        .formStyle(.grouped)
-        .searchable(text: $searchText, prompt: "Filter setting keys")
     }
 
-    private func valueBinding(_ key: String) -> Binding<String> {
+    @ViewBuilder
+    private func row<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            content()
+            if let detail = definition.detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var stringBinding: Binding<String> {
         Binding(
-            get: { viewModel.setting(key) },
-            set: { viewModel.updateSetting(key, value: $0) }
+            get: { viewModel.setting(definition.key, default: definition.defaultValue) },
+            set: { viewModel.updateSetting(definition.key, value: $0) }
+        )
+    }
+
+    private var boolBinding: Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.boolSetting(definition.key, default: definition.defaultValue == "true")
+            },
+            set: { viewModel.updateBoolSetting(definition.key, value: $0) }
         )
     }
 }

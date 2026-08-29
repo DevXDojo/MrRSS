@@ -18,17 +18,17 @@ struct FolderNameView: View {
             }
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("Name")
+                Text(t("client.folder.nameLabel"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                TextField("Name", text: $name, prompt: Text("Technology"))
+                TextField(t("client.folder.nameLabel"), text: $name, prompt: Text(t("client.folder.namePlaceholder")))
                     .textFieldStyle(.roundedBorder)
                     .labelsHidden()
             }
 
             HStack {
                 Spacer()
-                Button("Cancel", role: .cancel) {
+                Button(t("common.cancel"), role: .cancel) {
                     dismiss()
                 }
                 Button(prompt.confirmTitle) {
