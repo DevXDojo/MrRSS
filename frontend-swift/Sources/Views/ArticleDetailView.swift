@@ -149,7 +149,7 @@ struct ArticleDetailView: View {
                         .foregroundStyle(.tint)
                 }
 
-                Text(ArticleDateFormatter.fullString(from: article.publishedAt))
+                Text(ArticleDateFormatter.fullDescription(for: article.publishedAt))
                     .foregroundStyle(.secondary)
 
                 Spacer()

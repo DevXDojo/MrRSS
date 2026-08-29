@@ -1,0 +1,323 @@
+import Foundation
+
+/// A blog found by the discovery engine.
+struct DiscoveredBlog: Codable, Hashable, Identifiable {
+    let name: String
+    let homepage: String
+    let rssFeed: String
+    let iconURL: String?
+    let recentArticles: [DiscoveredArticle]
+
+    var id: String { rssFeed.isEmpty ? homepage : rssFeed }
+
+    enum CodingKeys: String, CodingKey {
+        case name, homepage
+        case rssFeed = "rss_feed"
+        case iconURL = "icon_url"
+        case recentArticles = "recent_articles"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        homepage = try container.decodeIfPresent(String.self, forKey: .homepage) ?? ""
+        rssFeed = try container.decodeIfPresent(String.self, forKey: .rssFeed) ?? ""
+        iconURL = try container.decodeIfPresent(String.self, forKey: .iconURL)?.nilIfBlank
+        recentArticles = try container.decodeIfPresent([DiscoveredArticle].self, forKey: .recentArticles) ?? []
+    }
+}
+
+struct DiscoveredArticle: Codable, Hashable, Identifiable {
+    let title: String
+    let date: String
+
+    var id: String { title + date }
+}
+
+/// How far a discovery run has progressed.
+struct DiscoveryProgress: Codable, Hashable {
+    var stage: String = ""
+    var message: String = ""
+    var detail: String = ""
+    var current: Int = 0
+    var total: Int = 0
+    var feedName: String = ""
+    var foundCount: Int = 0
+
+    enum CodingKeys: String, CodingKey {
+        case stage, message, detail, current, total
+        case feedName = "feed_name"
+        case foundCount = "found_count"
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        stage = try container.decodeIfPresent(String.self, forKey: .stage) ?? ""
+        message = try container.decodeIfPresent(String.self, forKey: .message) ?? ""
+        detail = try container.decodeIfPresent(String.self, forKey: .detail) ?? ""
+        current = try container.decodeIfPresent(Int.self, forKey: .current) ?? 0
+        total = try container.decodeIfPresent(Int.self, forKey: .total) ?? 0
+        feedName = try container.decodeIfPresent(String.self, forKey: .feedName) ?? ""
+        foundCount = try container.decodeIfPresent(Int.self, forKey: .foundCount) ?? 0
+    }
+
+    /// A fraction between 0 and 1, or nil when the total is unknown.
+    var fraction: Double? {
+        guard total > 0 else { return nil }
+        return min(1, Double(current) / Double(total))
+    }
+}
+
+/// The polled state of a discovery run.
+struct DiscoveryState: Codable, Hashable {
+    var isRunning: Bool = false
+    var isComplete: Bool = false
+    var progress = DiscoveryProgress()
+    var feeds: [DiscoveredBlog] = []
+    var error: String = ""
+
+    enum CodingKeys: String, CodingKey {
+        case progress, feeds, error
+        case isRunning = "is_running"
+        case isComplete = "is_complete"
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isRunning = try container.decodeIfPresent(Bool.self, forKey: .isRunning) ?? false
+        isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? false
+        progress = try container.decodeIfPresent(DiscoveryProgress.self, forKey: .progress) ?? DiscoveryProgress()
+        feeds = try container.decodeIfPresent([DiscoveredBlog].self, forKey: .feeds) ?? []
+        error = try container.decodeIfPresent(String.self, forKey: .error) ?? ""
+    }
+}
+
+/// Progress of a feed refresh run.
+struct RefreshProgress: Codable, Equatable {
+    let isRunning: Bool
+    var current: Int = 0
+    var total: Int = 0
+    var currentFeed: String = ""
+
+    enum CodingKeys: String, CodingKey {
+        case current, total
+        case isRunning = "is_running"
+        case currentFeed = "current_feed"
+    }
+
+    init(isRunning: Bool, current: Int = 0, total: Int = 0, currentFeed: String = "") {
+        self.isRunning = isRunning
+        self.current = current
+        self.total = total
+        self.currentFeed = currentFeed
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isRunning = try container.decodeIfPresent(Bool.self, forKey: .isRunning) ?? false
+        current = try container.decodeIfPresent(Int.self, forKey: .current) ?? 0
+        total = try container.decodeIfPresent(Int.self, forKey: .total) ?? 0
+        currentFeed = try container.decodeIfPresent(String.self, forKey: .currentFeed) ?? ""
+    }
+}
+
+/// The result of asking the backend whether a newer release exists.
+struct UpdateInfo: Codable, Equatable {
+    let currentVersion: String
+    let latestVersion: String
+    let hasUpdate: Bool
+    let platform: String
+    let arch: String
+    let isPortable: Bool
+    let downloadURL: String?
+    let assetName: String?
+    let assetSize: Int?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case platform, arch, error
+        case currentVersion = "current_version"
+        case latestVersion = "latest_version"
+        case hasUpdate = "has_update"
+        case isPortable = "is_portable"
+        case downloadURL = "download_url"
+        case assetName = "asset_name"
+        case assetSize = "asset_size"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        currentVersion = try container.decodeIfPresent(String.self, forKey: .currentVersion) ?? ""
+        latestVersion = try container.decodeIfPresent(String.self, forKey: .latestVersion) ?? ""
+        hasUpdate = try container.decodeIfPresent(Bool.self, forKey: .hasUpdate) ?? false
+        platform = try container.decodeIfPresent(String.self, forKey: .platform) ?? ""
+        arch = try container.decodeIfPresent(String.self, forKey: .arch) ?? ""
+        isPortable = try container.decodeIfPresent(Bool.self, forKey: .isPortable) ?? false
+        downloadURL = try container.decodeIfPresent(String.self, forKey: .downloadURL)?.nilIfBlank
+        assetName = try container.decodeIfPresent(String.self, forKey: .assetName)?.nilIfBlank
+        assetSize = try container.decodeIfPresent(Int.self, forKey: .assetSize)
+        error = try container.decodeIfPresent(String.self, forKey: .error)?.nilIfBlank
+    }
+}
+
+/// Reading statistics for one period.
+struct StatisticsSummary: Codable, Equatable {
+    let period: String
+    let startDate: String
+    let endDate: String
+    let totals: [String: Int]
+    let dailyData: [String: [String: Int]]
+    let canNavigate: Bool
+    let hasPrevious: Bool
+    let hasNext: Bool
+    let displayLabel: String
+
+    enum CodingKeys: String, CodingKey {
+        case period, totals
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case dailyData = "daily_data"
+        case canNavigate = "can_navigate"
+        case hasPrevious = "has_previous"
+        case hasNext = "has_next"
+        case displayLabel = "display_label"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        period = try container.decodeIfPresent(String.self, forKey: .period) ?? ""
+        startDate = try container.decodeIfPresent(String.self, forKey: .startDate) ?? ""
+        endDate = try container.decodeIfPresent(String.self, forKey: .endDate) ?? ""
+        totals = try container.decodeIfPresent([String: Int].self, forKey: .totals) ?? [:]
+        dailyData = try container.decodeIfPresent([String: [String: Int]].self, forKey: .dailyData) ?? [:]
+        canNavigate = try container.decodeIfPresent(Bool.self, forKey: .canNavigate) ?? false
+        hasPrevious = try container.decodeIfPresent(Bool.self, forKey: .hasPrevious) ?? false
+        hasNext = try container.decodeIfPresent(Bool.self, forKey: .hasNext) ?? false
+        displayLabel = try container.decodeIfPresent(String.self, forKey: .displayLabel) ?? ""
+    }
+}
+
+/// Size and item counts for the article content cache.
+struct ContentCacheInfo: Codable, Equatable {
+    let count: Int
+    let sizeBytes: Int
+
+    enum CodingKeys: String, CodingKey {
+        case count
+        case sizeBytes = "size_bytes"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
+        if let bytes = try container.decodeIfPresent(Int.self, forKey: .sizeBytes) {
+            sizeBytes = bytes
+        } else {
+            sizeBytes = 0
+        }
+    }
+}
+
+/// Size information for the media cache.
+struct MediaCacheInfo: Codable, Equatable {
+    let fileCount: Int
+    let totalSizeMB: Double
+
+    enum CodingKeys: String, CodingKey {
+        case fileCount = "file_count"
+        case totalSizeMB = "total_size_mb"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        fileCount = try container.decodeIfPresent(Int.self, forKey: .fileCount) ?? 0
+        totalSizeMB = try container.decodeIfPresent(Double.self, forKey: .totalSizeMB) ?? 0
+    }
+}
+
+/// The connection state reported by the FreshRSS integration.
+struct FreshRSSStatus: Codable, Equatable {
+    let enabled: Bool
+    let connected: Bool
+    let lastSync: String?
+    let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case enabled, connected, message
+        case lastSync = "last_sync"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        connected = try container.decodeIfPresent(Bool.self, forKey: .connected) ?? false
+        lastSync = try container.decodeIfPresent(String.self, forKey: .lastSync)?.nilIfBlank
+        message = try container.decodeIfPresent(String.self, forKey: .message)?.nilIfBlank
+    }
+}
+
+struct TitleTranslationResponse: Codable, Equatable {
+    let translatedTitle: String
+    let limitReached: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case translatedTitle = "translated_title"
+        case limitReached = "limit_reached"
+    }
+
+    init(translatedTitle: String, limitReached: Bool) {
+        self.translatedTitle = translatedTitle
+        self.limitReached = limitReached
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        translatedTitle = try container.decodeIfPresent(String.self, forKey: .translatedTitle) ?? ""
+        limitReached = try container.decodeIfPresent(Bool.self, forKey: .limitReached) ?? false
+    }
+}
+
+struct TextTranslationResponse: Codable, Equatable {
+    let translatedText: String
+    let html: String
+
+    enum CodingKeys: String, CodingKey {
+        case translatedText = "translated_text"
+        case html
+    }
+
+    init(translatedText: String, html: String) {
+        self.translatedText = translatedText
+        self.html = html
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        translatedText = try container.decodeIfPresent(String.self, forKey: .translatedText) ?? ""
+        html = try container.decodeIfPresent(String.self, forKey: .html) ?? ""
+    }
+}
+
+struct SummaryResult: Codable, Equatable {
+    let summary: String
+    let html: String?
+    let sentenceCount: Int?
+    let isTooShort: Bool
+    let limitReached: Bool?
+    let usedFallback: Bool?
+    let thinking: String?
+    let error: String?
+    let cached: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case summary, html, thinking, error, cached
+        case sentenceCount = "sentence_count"
+        case isTooShort = "is_too_short"
+        case limitReached = "limit_reached"
+        case usedFallback = "used_fallback"
+    }
+}

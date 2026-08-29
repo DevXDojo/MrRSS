@@ -33,7 +33,7 @@ struct ArticleRowView: View {
                         Text("·")
                     }
 
-                    Text(ArticleDateFormatter.relativeString(from: article.publishedAt))
+                    Text(ArticleDateFormatter.relativeDescription(for: article.publishedAt))
 
                     Spacer(minLength: 4)
 
@@ -75,29 +75,5 @@ struct ArticleRowView: View {
         Rectangle()
             .fill(.quaternary)
             .foregroundStyle(.secondary)
-    }
-}
-
-enum ArticleDateFormatter {
-    private static let fractionalFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let standardFormatter = ISO8601DateFormatter()
-
-    static func date(from string: String) -> Date? {
-        fractionalFormatter.date(from: string) ?? standardFormatter.date(from: string)
-    }
-
-    static func relativeString(from string: String) -> String {
-        guard let date = date(from: string) else { return string }
-        return date.formatted(.relative(presentation: .named))
-    }
-
-    static func fullString(from string: String) -> String {
-        guard let date = date(from: string) else { return string }
-        return date.formatted(date: .abbreviated, time: .shortened)
     }
 }
