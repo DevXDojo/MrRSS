@@ -23,12 +23,6 @@ for MRRSS_ARCH in "${MRRSS_ARCHES[@]}"; do
     SWIFT_ARCH_ARGUMENTS+=(--arch "${MRRSS_ARCH}")
 done
 
-if [[ ! -d "${PROJECT_DIR}/frontend/dist" ]]; then
-    echo "frontend/dist is required because the Go backend embeds those files." >&2
-    echo "Run npm ci and npm run build in frontend first." >&2
-    exit 1
-fi
-
 mkdir -p "${DIST_DIR}" "${SWIFT_BUILD_DIR}" "${BACKEND_BUILD_DIR}" "${CLANG_CACHE_DIR}"
 rm -rf "${APP_DIR}" "${DMG_PATH}"
 mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
@@ -54,7 +48,6 @@ for MRRSS_ARCH in "${MRRSS_ARCHES[@]}"; do
     fi
     MRRSS_BACKEND_PATH="${BACKEND_BUILD_DIR}/mrrss-server-${MRRSS_ARCH}"
     CGO_ENABLED=0 GOOS=darwin GOARCH="${MRRSS_GO_ARCH}" go build \
-        -tags server \
         -trimpath \
         -ldflags="-s -w" \
         -o "${MRRSS_BACKEND_PATH}" .

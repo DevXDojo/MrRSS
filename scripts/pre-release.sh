@@ -17,30 +17,16 @@ if [ -n "$(git status --porcelain go.mod go.sum)" ]; then
 fi
 echo "✅ Go modules clean"
 
-echo "📦 Checking frontend dependencies..."
-cd frontend
-npm audit --audit-level=moderate
-echo "✅ Frontend dependencies OK"
-
 # Check version consistency
 echo "🏷️  Checking version consistency..."
-VERSION=$(grep '"version"' package.json | sed 's/.*"version": "\([^"]*\)".*/\1/')
-echo "Frontend version: $VERSION"
-
-cd ..
 GO_VERSION=$(grep "const Version" internal/version/version.go | sed 's/.*= "\([^"]*\)".*/\1/')
 echo "Backend version: $GO_VERSION"
 
-if [ "$VERSION" != "$GO_VERSION" ]; then
-    echo "❌ Version mismatch! Frontend: $VERSION, Backend: $GO_VERSION"
-    exit 1
-fi
+PLIST_VERSION=$(grep -A1 'CFBundleShortVersionString' frontend-swift/packaging/Info.plist | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+echo "Client bundle version placeholder: $PLIST_VERSION"
 
-PACKAGE_VERSION=$(grep '"version"' frontend/package.json | sed 's/.*"version": "\([^"]*\)".*/\1/')
-echo "Wails version: $PACKAGE_VERSION"
-
-if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
-    echo "❌ Version mismatch! Frontend: $VERSION, Wails: $PACKAGE_VERSION"
+if [ -z "$GO_VERSION" ]; then
+    echo "❌ Could not read the backend version."
     exit 1
 fi
 

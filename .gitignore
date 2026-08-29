@@ -44,15 +44,10 @@ go.work.sum
 .idea/
 .vscode/
 
-# Wails
-build/bin/
-build/dmg/
-build/appimage/
+# Build output
+bin/
 build/skills/
-build/appimagetool-x86_64.AppImage
 dist/
-wailsjs/wailsjs/runtime/
-frontend/bindings/
 
 # database files
 *.db
@@ -60,17 +55,11 @@ frontend/bindings/
 *.db-wal
 data/
 
-# vue & vite
+# node (website only)
 node_modules/
-dist/
 package.json.md5
 *.syso
 unused-files.json
-
-# Cypress
-frontend/cypress/videos/
-frontend/cypress/screenshots/
-frontend/cypress/downloads/
 
 # log
 *.log

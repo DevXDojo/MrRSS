@@ -21,7 +21,7 @@ trap cleanup EXIT INT TERM
 if ! curl --silent --fail --max-time 1 "${SERVER_URL}" >/dev/null 2>&1; then
     mkdir -p "${BACKEND_DIR}"
     echo "Building the MrRSS backend..."
-    (cd "${PROJECT_DIR}" && go build -tags server -o "${BACKEND_BIN}" .)
+    (cd "${PROJECT_DIR}" && go build -o "${BACKEND_BIN}" .)
 
     echo "Starting the MrRSS backend on 127.0.0.1:1234..."
     "${BACKEND_BIN}" -host 127.0.0.1 -port 1234 &

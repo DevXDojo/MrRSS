@@ -1,6 +1,6 @@
 # MrRSS SwiftUI Frontend
 
-This directory contains the native macOS 14 SwiftUI frontend for MrRSS. It uses the existing Go HTTP API and does not modify the Vue/Wails frontend.
+This directory contains the native macOS SwiftUI client for MrRSS. It is the only frontend on this branch: it talks to the Go backend over the existing HTTP API.
 
 ## Run directly
 
@@ -16,15 +16,14 @@ Requirements:
 
 - macOS 14 or later
 - Xcode 15 or later
-- Go 1.24 or later
-- The existing `frontend/dist` directory, which is embedded by the server build
+- Go 1.27 or later
 
 ## Run components separately
 
 Start the backend from the repository root:
 
 ```bash
-go run -tags server . -host 127.0.0.1 -port 1234
+go run . -host 127.0.0.1 -port 1234
 ```
 
 In another terminal, start the macOS frontend:
@@ -49,14 +48,10 @@ swift test --package-path frontend-swift
 To create the universal `.app` bundle and DMG used by GitHub Releases:
 
 ```bash
-cd frontend
-npm ci
-npm run build
-cd ../frontend-swift
-./build-app.sh 1.2.3
+./frontend-swift/build-app.sh 1.3.28
 ```
 
-The release application contains both the SwiftUI frontend and reusable Go backend, so it can launch without a separately installed server.
+The release application bundles both the SwiftUI client and the Go backend, so it launches without a separately installed server.
 
 The application provides native three-column navigation, feed subscription management, folders for grouping subscriptions, source refresh, article filtering, pagination, read/unread and favorite actions, translation, summaries, automation rules, complete backend settings management, configurable server connectivity, and restricted HTML rendering for untrusted feed content.
 

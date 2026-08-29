@@ -1,5 +1,3 @@
-//go:build !server
-
 package custom_css
 
 import (
@@ -14,171 +12,23 @@ import (
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/utils/fileutil"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const customCSSFileName = "custom_article.css"
 
-// HandleUploadCSSDialog opens a file dialog to select CSS file for upload.
-// @Summary      Upload CSS dialog (desktop mode)
-// @Description  Open a file dialog to select a CSS file for upload (desktop mode only)
+// HandleUploadCSSDialog is not available in server mode - returns 501 Not Implemented
+// @Summary      Upload CSS dialog (not available)
+// @Description  File dialog not available in server mode. Use /api/custom-css/upload endpoint instead
 // @Tags         custom-css
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]string  "Upload success (status, message)"
-// @Success      501  {object}  map[string]string  "Not implemented in server mode"
-// @Failure      400  {object}  map[string]string  "Bad request"
-// @Failure      500  {object}  map[string]string  "Internal server error"
+// @Success      501  {object}  map[string]string  "Not implemented error"
 // @Router       /custom-css/dialog [post]
 func HandleUploadCSSDialog(h *core.Handler, w http.ResponseWriter, r *http.Request) {
-	if h.App == nil {
-		log.Printf("File dialog not available")
-		w.WriteHeader(http.StatusNotImplemented)
-		response.JSON(w, map[string]interface{}{
-			"error": "File dialog not available",
-		})
-		return
-	}
-
-	// Type assert to *application.App to access Dialog
-	app, ok := h.App.(*application.App)
-	if !ok {
-		log.Printf("File dialog not available: app is not *application.App type")
-		w.WriteHeader(http.StatusNotImplemented)
-		response.JSON(w, map[string]interface{}{
-			"error": "File dialog not available",
-		})
-		return
-	}
-
-	filePath, err := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
-		Title: "Select CSS File",
-		Filters: []application.FileFilter{
-			{
-				DisplayName: "CSS Files (*.css)",
-				Pattern:     "*.css",
-			},
-			{
-				DisplayName: "All Files (*)",
-				Pattern:     "*",
-			},
-		},
-		CanChooseFiles:       true,
-		AllowsOtherFileTypes: true,
-	}).PromptForSingleSelection()
-
-	// Treat empty filePath as user cancellation (no error should be shown)
-	if filePath == "" {
-		log.Printf("CSS upload dialog cancelled by user")
-		response.JSON(w, map[string]string{"status": "cancelled"})
-		return
-	}
-
-	// Only show error for actual failures, not cancellations
-	if err != nil {
-		log.Printf("Error opening file dialog: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		response.JSON(w, map[string]interface{}{
-			"error": "Failed to open file dialog",
-		})
-		return
-	}
-
-	// Read the selected file
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Printf("Error opening selected file: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		response.JSON(w, map[string]interface{}{
-			"error": "Failed to open selected file",
-		})
-		return
-	}
-	defer file.Close()
-
-	// Get file info for validation
-	fileInfo, err := file.Stat()
-	if err != nil {
-		log.Printf("Error getting file info: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		response.JSON(w, map[string]interface{}{
-			"error": "Failed to get file info",
-		})
-		return
-	}
-
-	// Validate file extension
-	ext := strings.ToLower(filepath.Ext(filePath))
-	if ext != ".css" {
-		w.WriteHeader(http.StatusBadRequest)
-		response.JSON(w, map[string]interface{}{
-			"error": "Only CSS files are allowed",
-		})
-		return
-	}
-
-	// Validate file size (max 1MB)
-	if fileInfo.Size() > 1<<20 {
-		w.WriteHeader(http.StatusBadRequest)
-		response.JSON(w, map[string]interface{}{
-			"error": "CSS file is too large (max 1MB)",
-		})
-		return
-	}
-
-	// Get data directory
-	dataDir, err := fileutil.GetDataDir()
-	if err != nil {
-		log.Printf("Error getting data directory: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		response.JSON(w, map[string]interface{}{
-			"error": "Failed to get data directory",
-		})
-		return
-	}
-
-	// Save CSS file
-	cssFilePath := filepath.Join(dataDir, customCSSFileName)
-	destFile, err := os.Create(cssFilePath)
-	if err != nil {
-		log.Printf("Error creating CSS file: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		response.JSON(w, map[string]interface{}{
-			"error": "Failed to save CSS file",
-		})
-		return
-	}
-	defer destFile.Close()
-
-	// Copy file content
-	written, err := io.Copy(destFile, file)
-	if err != nil {
-		log.Printf("Error writing CSS file: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		response.JSON(w, map[string]interface{}{
-			"error": "Failed to write CSS file",
-		})
-		return
-	}
-
-	log.Printf("CSS file uploaded via dialog: %s (%d bytes)", filePath, written)
-
-	// Update setting in database
-	if err := h.DB.SetSetting("custom_css_file", customCSSFileName); err != nil {
-		log.Printf("Error saving custom_css_file setting: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		response.JSON(w, map[string]interface{}{
-			"error": "Failed to update settings",
-		})
-		return
-	}
-
-	// Return success response
-	w.WriteHeader(http.StatusOK)
-	response.JSON(w, map[string]string{
-		"status":  "success",
-		"message": "CSS file uploaded successfully",
+	log.Printf("File dialog not available in server mode")
+	w.WriteHeader(http.StatusNotImplemented)
+	response.JSON(w, map[string]interface{}{
+		"error": "File dialog not available in server mode. Use /api/custom-css/upload endpoint with file upload instead.",
 	})
 }
 

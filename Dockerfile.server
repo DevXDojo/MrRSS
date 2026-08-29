@@ -4,8 +4,8 @@
 # Build stage
 FROM golang:1.27-alpine AS builder
 
-# Install git, Node.js, and build tools (needed for frontend build and CGO)
-RUN apk add --no-cache git nodejs npm gcc musl-dev pkgconfig
+# Install git and build tools (needed for CGO)
+RUN apk add --no-cache git gcc musl-dev pkgconfig
 
 # Set working directory
 WORKDIR /app
@@ -19,11 +19,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build frontend
-RUN cd frontend && npm install && npm run build
-
 # Build the server version
-RUN CGO_ENABLED=1 GOOS=linux go build -tags server -trimpath -buildvcs=false -ldflags="-w -s" -o mrrss-server ./main-core.go
+RUN CGO_ENABLED=1 GOOS=linux go build -trimpath -buildvcs=false -ldflags="-w -s" -o mrrss-server .
 
 # Runtime stage - minimal alpine image
 FROM alpine:latest

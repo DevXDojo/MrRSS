@@ -1,37 +1,48 @@
-//go:build !server
-
 package main
 
 import (
 	"context"
-	"embed"
+	"flag"
 	"fmt"
-	"io/fs"
+	"io"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
-	"runtime"
+	"os/signal"
 	"strconv"
-	"strings"
-	"sync/atomic"
+	"syscall"
 	"time"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"MrRSS/internal/ai"
 	"MrRSS/internal/database"
-	"MrRSS/internal/desktopapi"
 	"MrRSS/internal/feed"
 	handlers "MrRSS/internal/handlers/core"
-	"MrRSS/internal/monitor"
 	"MrRSS/internal/network"
 	"MrRSS/internal/routes"
 	"MrRSS/internal/translation"
 	"MrRSS/internal/utils/fileutil"
-	"MrRSS/internal/utils/httputil"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
+
+// @title           MrRSS API
+// @version         1.3.28
+// @description     MrRSS is a modern, cross-platform desktop RSS reader with auto-translation, smart feed discovery, and AI-powered summarization.
+
+// @contact.name   API Support
+// @contact.url    https://github.com/DevXDojojo/MrRSS
+// @contact.email  mail@ch3nyang.top
+
+// @license.name  GPL-3.0
+// @license.url   https://www.gnu.org/licenses/gpl-3.0.en.html
+
+// @host      localhost:1234
+// @BasePath  /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 var debugLogging = os.Getenv("MRRSS_DEBUG") != ""
 
@@ -41,65 +52,38 @@ func debugLog(format string, args ...interface{}) {
 	}
 }
 
-//go:embed frontend/dist
-var frontendFiles embed.FS
-
-// Platform-specific icon embedding
-// Windows and macOS both use PNG format for system tray
-// Windows .ico is only used for executable icon (via syso)
-//
-//go:embed build/windows/icon.png
-var appIconWindows []byte
-
-//go:embed build/appicon.png
-var appIconMacOS []byte
-
-// getAppIcon returns the appropriate icon for the current platform
-func getAppIcon() []byte {
-	if runtime.GOOS == "windows" {
-		return appIconWindows
-	}
-	return appIconMacOS
+// APIHandler serves the MrRSS HTTP API. The macOS client is a native SwiftUI
+// application, so no web frontend is bundled with this build.
+type APIHandler struct {
+	apiMux *http.ServeMux
 }
 
-type windowState struct {
-	width     int
-	height    int
-	x         int
-	y         int
-	valid     atomic.Bool
-	maximized atomic.Bool
-}
-
-type CombinedHandler struct {
-	apiMux     *http.ServeMux
-	fileServer http.Handler
-}
-
-func (h *CombinedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/api/") {
-		h.apiMux.ServeHTTP(w, r)
+func (h *APIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = io.WriteString(w, "MrRSS API server. See /api/ for endpoints.\n")
 		return
 	}
-	h.fileServer.ServeHTTP(w, r)
-}
-
-// APIMiddleware routes API requests to the API handler, and lets Wails handle the rest
-func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Let the /wails route be handled by Wails runtime
-			if strings.HasPrefix(r.URL.Path, "/wails") {
-				next.ServeHTTP(w, r)
-				return
-			}
-			// Handle API routes and serve static files
-			combinedHandler.ServeHTTP(w, r)
-		})
-	}
+	h.apiMux.ServeHTTP(w, r)
 }
 
 func main() {
+	// Parse flags
+	flag.BoolFunc("server", "Run in headless server mode", func(s string) error {
+		v, err := strconv.ParseBool(s)
+		if err != nil {
+			return err
+		}
+		fileutil.SetServerMode(v)
+		return nil
+	})
+	host := flag.String("host", "0.0.0.0", "Host to listen on in server mode")
+	port := flag.String("port", "1234", "Port to listen on in server mode")
+	flag.Parse()
+
+	// Force server mode for this build
+	fileutil.SetServerMode(true)
+
 	// Get proper paths for data files
 	logPath, err := fileutil.GetLogPath()
 	if err != nil {
@@ -107,19 +91,17 @@ func main() {
 		logPath = "debug.log"
 	}
 
-	// Clear previous log by opening in truncate mode
-	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	// In server mode, log to both stdout and file
+	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		log.Printf("Failed to open log file: %v", err)
-		// Fallback to stdout
-		f = nil
-	}
-	if f != nil {
-		defer f.Close()
-		log.SetOutput(f)
+		log.SetOutput(os.Stdout) // Fallback
+	} else {
+		// Note: we don't close f here as it needs to stay open for logging
+		// It will be closed by OS on process exit
+		log.SetOutput(io.MultiWriter(os.Stdout, f))
 	}
 
-	log.Println("Starting application...")
+	log.Println("Starting application in server mode...")
 
 	// Log portable mode status
 	if fileutil.IsPortableMode() {
@@ -162,465 +144,35 @@ func main() {
 	fetcher := feed.NewFetcher(db)
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
 
-	var quitRequested atomic.Bool
-	var lastWindowState windowState
-
 	// API Routes
 	log.Println("Setting up API routes...")
 	apiMux := http.NewServeMux()
 	routes.RegisterAPIRoutes(apiMux, h)
 
-	// Static Files
-	log.Println("Setting up static files...")
-	frontendFS, err := fs.Sub(frontendFiles, "frontend/dist")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Swagger Documentation - Serve swagger.json file
+	apiMux.HandleFunc("/docs/SERVER_MODE/swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "docs/SERVER_MODE/swagger.json")
+	})
 
-	fileServer := http.FileServer(http.FS(frontendFS))
+	apiMux.HandleFunc("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/docs/SERVER_MODE/swagger.json"),
+	))
 
-	combinedHandler := &CombinedHandler{
-		apiMux:     apiMux,
-		fileServer: fileServer,
-	}
+	combinedHandler := &APIHandler{apiMux: apiMux}
 
-	shouldCloseToTray := func() bool {
-		val, err := db.GetSetting("close_to_tray")
-		return err == nil && val == "true"
-	}
+	log.Printf("Starting in headless server mode on http://%s:%s", *host, *port)
 
 	// Start background scheduler
-	log.Println("Starting background scheduler...")
+	// Use a context that we can cancel on shutdown
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 
-	// Encryption key for single instance communication (IPC between app instances).
-	// This key is used to encrypt/decrypt messages between first and subsequent instances.
-	// Note: This is not for sensitive data encryption - it only carries launch arguments.
-	// The key is hardcoded per Wails v3 examples since the data exchanged is not sensitive
-	// (just signals to bring window to front).
-	var encryptionKey = [32]byte{
-		0x1e, 0x1f, 0x1c, 0x1d, 0x1a, 0x1b, 0x18, 0x19,
-		0x16, 0x17, 0x14, 0x15, 0x12, 0x13, 0x10, 0x11,
-		0x0e, 0x0f, 0x0c, 0x0d, 0x0a, 0x0b, 0x08, 0x09,
-		0x06, 0x07, 0x04, 0x05, 0x02, 0x03, 0x00, 0x01,
-	}
+	log.Println("Starting background scheduler...")
+	go h.StartBackgroundScheduler(bgCtx)
 
-	// Variable to store the main window reference
-	var mainWindow application.Window
-
-	log.Println("Starting Wails v3...")
-
-	// Create new Wails v3 application
-	app := application.New(application.Options{
-		Name:        "MrRSS",
-		Description: "A modern, privacy-focused RSS reader",
-		LogLevel:    slog.LevelError,
-		Assets: application.AssetOptions{
-			Handler:    combinedHandler,
-			Middleware: APIMiddleware(combinedHandler),
-		},
-		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: false,
-		},
-		SingleInstance: func() *application.SingleInstanceOptions {
-			// Disable single instance on Linux due to potential D-Bus issues
-			if runtime.GOOS == "linux" {
-				return nil
-			}
-			return &application.SingleInstanceOptions{
-				UniqueID:      "com.mrrss.app",
-				EncryptionKey: encryptionKey,
-				OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
-					log.Printf("Second instance detected, bringing window to front")
-					if mainWindow != nil {
-						// Restore window state if it was stored (minimized to tray)
-						if lastWindowState.valid.Load() {
-							width := lastWindowState.width
-							height := lastWindowState.height
-							x := lastWindowState.x
-							y := lastWindowState.y
-
-							// Ensure minimum window size
-							if width < 400 {
-								width = 1024
-							}
-							if height < 300 {
-								height = 768
-							}
-
-							// Ensure window is at least partially on screen
-							if x < -1000 || x > 3000 {
-								x = 100
-							}
-							if y < -1000 || y > 3000 {
-								y = 100
-							}
-
-							mainWindow.SetSize(width, height)
-							mainWindow.SetPosition(x, y)
-						}
-						// Show and unminimize the window
-						mainWindow.Show()
-						if lastWindowState.maximized.Load() {
-							mainWindow.Maximise()
-						} else {
-							mainWindow.Restore()
-						}
-					}
-				},
-			}
-		}(),
-	})
-
-	// Set app instance to handler for browser integration
-	h.SetApp(app)
-	log.Println("Browser integration enabled")
-
-	// Expose the API to local integrations such as the mrrss-assistant skill.
-	// The listener is loopback-only and deliberately does not serve frontend assets.
-	desktopAPIServer, apiErr := desktopapi.Start(
-		desktopapi.DefaultAddress,
-		routes.WrapWithMiddleware(apiMux, routes.DefaultConfig()),
-	)
-	if apiErr != nil {
-		log.Printf("Local desktop API unavailable: %v", apiErr)
-	} else {
-		log.Printf("Local desktop API listening on http://%s/api", desktopAPIServer.Address())
-		go func() {
-			if serveErr := <-desktopAPIServer.Errors(); serveErr != nil {
-				log.Printf("Local desktop API stopped unexpectedly: %v", serveErr)
-			}
-		}()
-	}
-
-	// Get window dimensions from stored state or defaults
-	windowWidth := 1024
-	windowHeight := 768
-	windowX := 0
-	windowY := 0
-	restoredFromDB := false
-	restoredMaximized := false
-
-	// Try to restore window state from database
-	if x, err := db.GetSetting("window_x"); err == nil && x != "" {
-		if y, err := db.GetSetting("window_y"); err == nil && y != "" {
-			if width, err := db.GetSetting("window_width"); err == nil && width != "" {
-				if height, err := db.GetSetting("window_height"); err == nil && height != "" {
-					// Parse values
-					var xInt, yInt, widthInt, heightInt int
-					if _, err := fmt.Sscanf(x, "%d", &xInt); err == nil {
-						if _, err := fmt.Sscanf(y, "%d", &yInt); err == nil {
-							if _, err := fmt.Sscanf(width, "%d", &widthInt); err == nil {
-								if _, err := fmt.Sscanf(height, "%d", &heightInt); err == nil {
-									// Validate values
-									if widthInt >= 400 && heightInt >= 300 && widthInt <= 4000 && heightInt <= 3000 {
-										if xInt > -1000 && xInt < 3000 && yInt > -1000 && yInt < 3000 {
-											windowWidth = widthInt
-											windowHeight = heightInt
-											windowX = xInt
-											windowY = yInt
-											restoredFromDB = true
-											// Store in memory for minimize-restore
-											lastWindowState.width = widthInt
-											lastWindowState.height = heightInt
-											lastWindowState.x = xInt
-											lastWindowState.y = yInt
-											lastWindowState.valid.Store(true)
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if maximized, err := db.GetSetting("window_maximized"); err == nil && maximized == "true" {
-		restoredMaximized = true
-		lastWindowState.maximized.Store(true)
-	}
-
-	// Determine background color based on theme setting
-	// Default to dark gray to prevent white flash on startup/close
-	// This matches the CSS dark mode background color (#1e1e1e = rgb(30, 30, 30))
-	backgroundColour := application.NewRGB(30, 30, 30)
-	if theme, err := db.GetSetting("theme"); err == nil {
-		if theme == "light" {
-			// Use white for light theme
-			backgroundColour = application.NewRGB(255, 255, 255)
-		}
-		// For "dark" or "auto", use dark background
-	}
-
-	// Create main window options
-	windowOptions := application.WebviewWindowOptions{
-		Name:             "MrRSS-main-window",
-		Title:            "MrRSS",
-		Width:            windowWidth,
-		Height:           windowHeight,
-		URL:              "/",
-		Mac:              application.MacWindow{},
-		Windows:          application.WindowsWindow{},
-		Linux:            application.LinuxWindow{},
-		BackgroundColour: backgroundColour,
-	}
-
-	// Set position if restored from DB
-	if restoredFromDB {
-		windowOptions.X = windowX
-		windowOptions.Y = windowY
-	}
-
-	// Create main window
-	mainWindow = app.Window.NewWithOptions(windowOptions)
-
-	if !restoredFromDB {
-		mainWindow.Center()
-	}
-	if restoredMaximized {
-		mainWindow.Maximise()
-	}
-
-	// Helper function to store window state
-	storeWindowState := func() {
-		if mainWindow == nil {
-			return
-		}
-
-		w, h := mainWindow.Size()
-		x, y := mainWindow.Position()
-		lastWindowState.maximized.Store(mainWindow.IsMaximised())
-
-		// Only store state if it's valid (reasonable size and position)
-		if w >= 400 && h >= 300 && w <= 4000 && h <= 3000 {
-			if x > -1000 && x < 3000 && y > -1000 && y < 3000 {
-				lastWindowState.width = w
-				lastWindowState.height = h
-				lastWindowState.x = x
-				lastWindowState.y = y
-				lastWindowState.valid.Store(true)
-			}
-		}
-	}
-
-	// Create system tray if close_to_tray is enabled
-	var systemTray *application.SystemTray
-
-	setupSystemTray := func() {
-		if systemTray != nil {
-			return // Already set up
-		}
-
-		systemTray = app.SystemTray.New()
-		systemTray.SetIcon(getAppIcon())
-
-		// Create tray menu
-		trayMenu := app.NewMenu()
-
-		// Get language for labels
-		lang := "en"
-		if l, err := db.GetSetting("language"); err == nil && l != "" {
-			lang = l
-		}
-
-		var showLabel, refreshLabel, quitLabel string
-		switch lang {
-		case "zh-CN", "zh", "zh-cn":
-			showLabel = "显示 MrRSS"
-			refreshLabel = "立即刷新"
-			quitLabel = "退出"
-		default:
-			showLabel = "Show MrRSS"
-			refreshLabel = "Refresh now"
-			quitLabel = "Quit"
-		}
-
-		trayMenu.Add(showLabel).OnClick(func(ctx *application.Context) {
-			if mainWindow != nil {
-				// Restore window state if it was stored
-				if lastWindowState.valid.Load() {
-					width := lastWindowState.width
-					height := lastWindowState.height
-					x := lastWindowState.x
-					y := lastWindowState.y
-
-					if width < 400 {
-						width = 1024
-					}
-					if height < 300 {
-						height = 768
-					}
-					if x < -1000 || x > 3000 {
-						x = 100
-					}
-					if y < -1000 || y > 3000 {
-						y = 100
-					}
-
-					mainWindow.SetSize(width, height)
-					mainWindow.SetPosition(x, y)
-				}
-				mainWindow.Show()
-				if lastWindowState.maximized.Load() {
-					mainWindow.Maximise()
-				} else {
-					mainWindow.Restore()
-				}
-			}
-		})
-
-		trayMenu.Add(refreshLabel).OnClick(func(ctx *application.Context) {
-			if h.Fetcher != nil {
-				go h.Fetcher.FetchAll(bgCtx)
-			}
-		})
-
-		trayMenu.AddSeparator()
-
-		trayMenu.Add(quitLabel).OnClick(func(ctx *application.Context) {
-			quitRequested.Store(true)
-			app.Quit()
-		})
-
-		systemTray.SetMenu(trayMenu)
-
-		// Handle clicks on tray icon to show window
-		systemTray.OnClick(func() {
-			if mainWindow != nil {
-				mainWindow.Show()
-				if lastWindowState.maximized.Load() {
-					mainWindow.Maximise()
-				} else {
-					mainWindow.Restore()
-				}
-			}
-		})
-	}
-
-	// Track last window close attempt to handle macOS fullscreen properly
-	var lastCloseAttempt atomic.Int64
-
-	// Register hook for window closing event
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		if quitRequested.Load() {
-			return // Allow close
-		}
-
-		if shouldCloseToTray() {
-			// On macOS, handle fullscreen exit gracefully
-			if runtime.GOOS == "darwin" {
-				now := time.Now().UnixMilli()
-				last := lastCloseAttempt.Load()
-
-				// If last close was within 500ms, user clicked close twice quickly
-				// This means fullscreen exit completed, proceed with hiding
-				if last > 0 && (now-last) < 500 {
-					lastCloseAttempt.Store(0) // Reset
-					storeWindowState()
-					setupSystemTray()
-					mainWindow.Hide()
-					e.Cancel()
-					return
-				}
-
-				// First close attempt - try to exit fullscreen
-				lastCloseAttempt.Store(now)
-				mainWindow.Restore()
-				// Cancel this close event
-				// If window was fullscreen, user needs to click close again
-				// If not fullscreen, Restore() does nothing and next close will proceed
-				e.Cancel()
-				return
-			}
-
-			// Non-macOS platforms: directly hide to tray
-			storeWindowState()
-			setupSystemTray()
-			mainWindow.Hide()
-			e.Cancel()
-		}
-	})
-
-	// Register move and resize handlers to save window state
-	mainWindow.RegisterHook(events.Common.WindowDidMove, func(e *application.WindowEvent) {
-		storeWindowState()
-	})
-
-	mainWindow.RegisterHook(events.Common.WindowDidResize, func(e *application.WindowEvent) {
-		storeWindowState()
-	})
-
-	mainWindow.RegisterHook(events.Common.WindowMaximise, func(e *application.WindowEvent) {
-		lastWindowState.maximized.Store(true)
-		if err := db.SetSetting("window_maximized", "true"); err != nil {
-			log.Printf("Failed to save maximized window state: %v", err)
-		}
-	})
-
-	mainWindow.RegisterHook(events.Common.WindowUnMaximise, func(e *application.WindowEvent) {
-		lastWindowState.maximized.Store(false)
-		if err := db.SetSetting("window_maximized", "false"); err != nil {
-			log.Printf("Failed to save unmaximized window state: %v", err)
-		}
-		storeWindowState()
-	})
-
-	// Setup tray on startup if close_to_tray is enabled
-	if shouldCloseToTray() {
-		setupSystemTray()
-	}
-
-	// On macOS, handle dock icon click to show the window
-	if runtime.GOOS == "darwin" {
-		app.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {
-			log.Println("Dock icon clicked, showing window")
-			if mainWindow != nil {
-				mainWindow.Show()
-				if lastWindowState.maximized.Load() {
-					mainWindow.Maximise()
-				} else {
-					mainWindow.Restore()
-				}
-			}
-		})
-	}
-
-	// Detect network speed on startup in background
+	// Start Network Speed Detection (optional but good to have)
 	go func() {
-		time.Sleep(2 * time.Second) // Small delay to allow app to start
 		log.Println("Detecting network speed...")
-
-		// Get proxy settings
-		proxyEnabled, _ := db.GetSetting("proxy_enabled")
-		proxyType, _ := db.GetSetting("proxy_type")
-		proxyHost, _ := db.GetSetting("proxy_host")
-		proxyPort, _ := db.GetSetting("proxy_port")
-		proxyUsername, _ := db.GetSetting("proxy_username")
-		proxyPassword, _ := db.GetSetting("proxy_password")
-
-		// Create HTTP client with proxy if enabled
-		var httpClient *http.Client
-		if proxyEnabled == "true" {
-			proxyURL := httputil.BuildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword)
-			if proxyURL != "" {
-				client, err := httputil.CreateHTTPClient(proxyURL, 10*time.Second)
-				if err != nil {
-					log.Printf("Failed to create HTTP client with proxy: %v", err)
-					// Fall back to default client
-					httpClient = &http.Client{Timeout: 10 * time.Second}
-				} else {
-					httpClient = client
-				}
-			} else {
-				httpClient = &http.Client{Timeout: 10 * time.Second}
-			}
-		} else {
-			httpClient = &http.Client{Timeout: 10 * time.Second}
-		}
-
-		detector := network.NewDetector(httpClient)
+		detector := network.NewDetector(&http.Client{Timeout: 10 * time.Second})
 		detectCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
@@ -628,68 +180,43 @@ func main() {
 		if result.DetectionSuccess {
 			db.SetSetting("network_speed", string(result.SpeedLevel))
 			db.SetSetting("network_bandwidth_mbps", fmt.Sprintf("%.2f", result.BandwidthMbps))
-			db.SetSetting("network_latency_ms", strconv.FormatInt(result.LatencyMs, 10))
-			db.SetSetting("max_concurrent_refreshes", strconv.Itoa(result.MaxConcurrency))
-			db.SetSetting("last_network_test", result.DetectionTime.Format(time.RFC3339))
-			log.Printf("Network detection complete: %s (max concurrency: %d)", result.SpeedLevel, result.MaxConcurrency)
-		} else {
-			log.Printf("Network detection failed: %s", result.ErrorMessage)
+			log.Printf("Network detection complete: %s", result.SpeedLevel)
 		}
 	}()
 
-	// Start background scheduler after a delay to allow UI to show first
-	go func() {
-		time.Sleep(5 * time.Second)
-		log.Println("Starting background scheduler...")
-		h.StartBackgroundScheduler(bgCtx)
-	}()
-
-	// Report app startup to analytics (non-blocking)
-	go func() {
-		time.Sleep(2 * time.Second) // Small delay to ensure app starts smoothly
-		monitorClient := monitor.NewMonitorClient("https://cf-monitor-api.ch3nyang.workers.dev", "mrrss")
-		_ = monitorClient.ReportAppStart(context.Background())
-	}()
-
-	log.Println("Window initialized, running app...")
-
-	// Run the application
-	err = app.Run()
-
-	// Cleanup when app exits
-	log.Println("Shutting down...")
-	if desktopAPIServer != nil {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		if shutdownErr := desktopAPIServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			log.Printf("Local desktop API shutdown failed: %v", shutdownErr)
-		}
-		shutdownCancel()
+	// Start HTTP Server
+	srv := &http.Server{
+		Addr:    *host + ":" + *port,
+		Handler: combinedHandler,
 	}
 
-	// Stop background tasks first
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server failed: %v", err)
+		}
+	}()
+
+	// Wait for interrupt
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
 	bgCancel()
-	// Give some time for tasks to finish
-	time.Sleep(500 * time.Millisecond)
 
-	// Close DB with timeout
-	done := make(chan struct{})
-	go func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Error closing database: %v", err)
-		}
-		close(done)
-	}()
+	// Shutdown HTTP server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+	}
 
-	select {
-	case <-done:
+	// Close Database
+	if err := db.Close(); err != nil {
+		log.Printf("Error closing database: %v", err)
+	} else {
 		log.Println("Database closed")
-	case <-time.After(2 * time.Second):
-		log.Println("Database close timed out")
 	}
 
-	if err != nil {
-		log.Printf("Error running Wails: %v", err)
-		log.Fatal(err)
-	}
-	log.Println("Application finished")
+	log.Println("Server exited")
 }

@@ -28,9 +28,9 @@ repos:
         language: system
         files: go\.mod$
         pass_filenames: false
-      - id: eslint
-        name: eslint
-        entry: powershell.exe -Command "cd frontend; npm run lint"
+      - id: swift-build
+        name: swift-build
+        entry: swift build --package-path frontend-swift
         language: system
-        files: \.(js|ts|vue)$
+        files: ^frontend-swift/.*\.swift$
         pass_filenames: false
