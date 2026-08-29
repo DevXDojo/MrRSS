@@ -133,6 +133,51 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
 
 </details>
 
+### Native macOS Client
+
+<details>
+
+<summary>Click to expand the SwiftUI macOS client guide</summary>
+
+<div markdown="1">
+
+`frontend-swift` holds a native SwiftUI client for macOS 14 or later. It talks
+to the same Go HTTP API as the Wails application and leaves the Vue frontend
+untouched.
+
+Run it from the repository root:
+
+```bash
+./frontend-swift/run.sh
+```
+
+The launcher builds the Go server, starts it on `http://127.0.0.1:1234`, waits
+for the API to answer, and then starts the client. An existing server on that
+address is reused.
+
+To run the two halves separately:
+
+```bash
+go run -tags server . -host 127.0.0.1 -port 1234
+swift run --package-path frontend-swift MrRSS
+```
+
+Build and test it, or produce the universal `.app` and DMG used by releases:
+
+```bash
+swift build --package-path frontend-swift
+swift test --package-path frontend-swift
+./frontend-swift/build-app.sh 1.2.3
+```
+
+Packaging embeds `frontend/dist`, so run `npm ci && npm run build` in
+`frontend` first. See [frontend-swift/README.md](frontend-swift/README.md) for
+the full guide.
+
+</div>
+
+</details>
+
 ### Data Storage
 
 <details>

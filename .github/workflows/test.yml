@@ -114,6 +114,22 @@ jobs:
           python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
           git diff --exit-code skills/mrrss-assistant/references/api.md
 
+  test-swiftui-macos:
+    name: Test SwiftUI macOS Client
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run Swift tests
+        working-directory: ./frontend-swift
+        run: swift test
+
+      - name: Build release executable
+        working-directory: ./frontend-swift
+        run: swift build -c release
+
   build-check:
     name: Build Check
     runs-on: ubuntu-latest

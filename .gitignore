@@ -88,3 +88,14 @@ tmpclaude-*-cwd
 i18n_usage_report.md
 __pycache__/
 .VSCodeCounter
+
+# Swift frontend
+.swiftpm
+.build
+DerivedData/
+Checkouts/
+*.xcodeproj
+*.xcworkspace
+
+# macOS
+.DS_Store
