@@ -3,7 +3,6 @@ import UniformTypeIdentifiers
 
 struct SidebarView: View {
     @ObservedObject var viewModel: AppViewModel
-    @State private var isShowingAddFeed = false
     @State private var feedPendingDeletion: Feed?
     @State private var folderPendingDeletion: String?
     @State private var folderPrompt: FolderPrompt?
@@ -26,9 +25,6 @@ struct SidebarView: View {
         }
         .navigationTitle("MrRSS")
         .toolbar { toolbarContent }
-        .sheet(isPresented: $isShowingAddFeed) {
-            AddFeedView(viewModel: viewModel)
-        }
         .sheet(item: $folderPrompt) { prompt in
             FolderNameView(prompt: prompt, viewModel: viewModel)
         }
@@ -110,7 +106,7 @@ struct SidebarView: View {
         ToolbarItemGroup(placement: .primaryAction) {
             Menu {
                 Button("Add Feed…", systemImage: "plus") {
-                    isShowingAddFeed = true
+                    viewModel.isPresentingAddFeed = true
                 }
                 Button("New Folder…", systemImage: "folder.badge.plus") {
                     folderPrompt = .create

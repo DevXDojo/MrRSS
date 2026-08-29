@@ -43,6 +43,9 @@ struct ArticleDetailView: View {
         .background(Color(nsColor: .textBackgroundColor))
         .toolbar { toolbarContent }
         .task(id: article.id) { await prepare() }
+        .onChange(of: viewModel.requestedViewModeToggle) { _, _ in
+            viewMode = viewMode == .rendered ? .webpage : .rendered
+        }
         .sheet(isPresented: $isShowingGallery) {
             ImageGalleryView(images: galleryImages, title: article.title)
         }

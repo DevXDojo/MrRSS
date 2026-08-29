@@ -1,7 +1,9 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var viewModel: AppViewModel
+    @State private var keyMonitor: Any?
 
     var body: some View {
         NavigationSplitView {
@@ -19,6 +21,11 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 620)
+        .onAppear(perform: installKeyMonitor)
+        .onDisappear(perform: removeKeyMonitor)
+        .sheet(isPresented: $viewModel.isPresentingAddFeed) {
+            AddFeedView(viewModel: viewModel)
+        }
         .alert(
             "MrRSS",
             isPresented: Binding(
@@ -26,10 +33,10 @@ struct ContentView: View {
                 set: { if !$0 { viewModel.clearError() } }
             )
         ) {
-            Button("Dismiss", role: .cancel) {
+            Button(t("client.action.dismiss"), role: .cancel) {
                 viewModel.clearError()
             }
-            Button("Retry") {
+            Button(t("client.action.retry")) {
                 viewModel.clearError()
                 viewModel.refreshAll()
             }
@@ -37,14 +44,37 @@ struct ContentView: View {
             Text(viewModel.errorMessage ?? "")
         }
     }
+
+    /// Single-key shortcuts cannot be menu commands, so key presses are watched
+    /// here and ignored while the reader is typing into a field.
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if isEditingText { return event }
+            return viewModel.handleKeyPress(event) ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+        }
+        keyMonitor = nil
+    }
+
+    private var isEditingText: Bool {
+        guard let responder = NSApp.keyWindow?.firstResponder else { return false }
+        if responder is NSTextView { return true }
+        return responder is NSTextField
+    }
 }
 
 private struct EmptyArticleView: View {
     var body: some View {
         ContentUnavailableView {
-            Label("Choose an article", systemImage: "newspaper")
+            Label(t("client.article.chooseArticle"), systemImage: "newspaper")
         } description: {
-            Text("Select an article from the list to read it here.")
+            Text(t("client.article.chooseArticleDetail"))
         }
     }
 }

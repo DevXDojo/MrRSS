@@ -212,6 +212,12 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    /// Raised when a shortcut asks the reading pane to switch between the
+    /// rendered article and the original page.
+    @Published var requestedViewModeToggle = 0
+    /// Drives the add-subscription sheet, which a shortcut can also open.
+    @Published var isPresentingAddFeed = false
+
     /// How much of each article the list shows.
     @Published var listLayout: ArticleListLayout = .comfortable {
         didSet {
