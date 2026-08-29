@@ -356,11 +356,13 @@ final class AppViewModel: ObservableObject {
                 for _ in 0..<180 {
                     try Task.checkCancellation()
                     let progress = try await api.fetchRefreshProgress()
+                    refreshProgress = progress
                     if !progress.isRunning { break }
                     try await Task.sleep(for: .seconds(1))
                 }
 
                 try Task.checkCancellation()
+                refreshProgress = RefreshProgress(isRunning: false)
                 isRefreshingSources = false
                 refreshAll()
             } catch is CancellationError {

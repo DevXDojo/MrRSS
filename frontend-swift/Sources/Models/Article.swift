@@ -153,18 +153,25 @@ enum ArticleDateFormatter {
             return t("common.time.daysAgo", ["count": Int(interval / 86_400)])
         }
 
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter.string(from: date)
+        return formatter(dateStyle: .medium, timeStyle: .none).string(from: date)
     }
 
     static func fullDescription(for string: String) -> String {
         guard let date = date(from: string) else { return string }
+        return formatter(dateStyle: .long, timeStyle: .short).string(from: date)
+    }
+
+    /// Dates follow the language chosen in settings rather than the system
+    /// locale, so the whole interface reads in one language.
+    private static func formatter(
+        dateStyle: DateFormatter.Style,
+        timeStyle: DateFormatter.Style
+    ) -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        formatter.dateStyle = dateStyle
+        formatter.timeStyle = timeStyle
+        formatter.locale = Locale(identifier: Localization.shared.language.rawValue)
+        return formatter
     }
 }
 

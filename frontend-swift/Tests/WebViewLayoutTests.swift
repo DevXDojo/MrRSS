@@ -148,3 +148,44 @@ final class WebViewLayoutTests: XCTestCase {
         return nil
     }
 }
+
+final class WebViewSourceTests: XCTestCase {
+    func testTypographyFollowsTheReadingSettings() {
+        let typography = WebViewTypography(
+            fontFamily: "serif",
+            fontSize: 19,
+            lineHeight: "1.8"
+        )
+
+        let document = HTMLDocument.build(from: "<p>Body</p>", typography: typography)
+
+        XCTAssertTrue(document.contains("19px/1.8"), "the size and leading should reach the document")
+        XCTAssertTrue(document.contains("New York"), "the serif stack should be used")
+    }
+
+    func testTheDefaultTypographyKeepsTheSystemStack() {
+        let document = HTMLDocument.build(from: "<p>Body</p>")
+
+        XCTAssertTrue(document.contains("16px/1.6"))
+        XCTAssertTrue(document.contains("-apple-system"))
+    }
+
+    func testALiveSourceIsDistinguishedFromRenderedText() {
+        let live = WebViewSource.url(URL(string: "https://example.com")!)
+        let rendered = WebViewSource.html("<p>Body</p>", baseURL: nil)
+
+        XCTAssertTrue(live.isLiveURL)
+        XCTAssertFalse(rendered.isLiveURL)
+    }
+
+    func testScriptsAndFramesAreStrippedFromRenderedText() {
+        let document = HTMLDocument.build(
+            from: "<p>Safe</p><script>alert(1)</script><iframe src=\"x\"></iframe><a href=\"javascript:evil()\">x</a>"
+        )
+
+        XCTAssertTrue(document.contains("Safe"))
+        XCTAssertFalse(document.contains("alert(1)"))
+        XCTAssertFalse(document.contains("<iframe"))
+        XCTAssertFalse(document.contains("javascript:evil"))
+    }
+}

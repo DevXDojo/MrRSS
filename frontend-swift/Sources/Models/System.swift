@@ -96,32 +96,52 @@ struct DiscoveryState: Codable, Hashable {
     }
 }
 
-/// Progress of a feed refresh run.
+/// Progress of a feed refresh run, as `/api/progress` reports it.
 struct RefreshProgress: Codable, Equatable {
     let isRunning: Bool
-    var current: Int = 0
-    var total: Int = 0
-    var currentFeed: String = ""
+    /// Refreshes currently being worked on.
+    var poolTaskCount: Int = 0
+    /// Refreshes waiting for a slot.
+    var queueTaskCount: Int = 0
+    /// Content fetches triggered by opening an article.
+    var articleClickCount: Int = 0
+    /// Feeds that failed, keyed by identifier.
+    var errors: [String: String] = [:]
 
     enum CodingKeys: String, CodingKey {
-        case current, total
+        case errors
         case isRunning = "is_running"
-        case currentFeed = "current_feed"
+        case poolTaskCount = "pool_task_count"
+        case queueTaskCount = "queue_task_count"
+        case articleClickCount = "article_click_count"
     }
 
-    init(isRunning: Bool, current: Int = 0, total: Int = 0, currentFeed: String = "") {
+    init(
+        isRunning: Bool,
+        poolTaskCount: Int = 0,
+        queueTaskCount: Int = 0,
+        articleClickCount: Int = 0,
+        errors: [String: String] = [:]
+    ) {
         self.isRunning = isRunning
-        self.current = current
-        self.total = total
-        self.currentFeed = currentFeed
+        self.poolTaskCount = poolTaskCount
+        self.queueTaskCount = queueTaskCount
+        self.articleClickCount = articleClickCount
+        self.errors = errors
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         isRunning = try container.decodeIfPresent(Bool.self, forKey: .isRunning) ?? false
-        current = try container.decodeIfPresent(Int.self, forKey: .current) ?? 0
-        total = try container.decodeIfPresent(Int.self, forKey: .total) ?? 0
-        currentFeed = try container.decodeIfPresent(String.self, forKey: .currentFeed) ?? ""
+        poolTaskCount = try container.decodeIfPresent(Int.self, forKey: .poolTaskCount) ?? 0
+        queueTaskCount = try container.decodeIfPresent(Int.self, forKey: .queueTaskCount) ?? 0
+        articleClickCount = try container.decodeIfPresent(Int.self, forKey: .articleClickCount) ?? 0
+        errors = try container.decodeIfPresent([String: String].self, forKey: .errors) ?? [:]
+    }
+
+    /// How much work is outstanding altogether.
+    var outstandingCount: Int {
+        poolTaskCount + queueTaskCount + articleClickCount
     }
 }
 

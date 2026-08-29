@@ -155,6 +155,16 @@ struct SidebarView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
+            if viewModel.isRefreshingSources, viewModel.refreshProgress.outstandingCount > 0 {
+                Text(
+                    t(
+                        "client.refresh.outstanding",
+                        ["count": viewModel.refreshProgress.outstandingCount]
+                    )
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
             if viewModel.isLoadingFeeds || viewModel.isRefreshingSources {
                 ProgressView()
                     .controlSize(.mini)
