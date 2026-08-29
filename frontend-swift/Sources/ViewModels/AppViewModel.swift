@@ -887,18 +887,22 @@ final class AppViewModel: ObservableObject {
         articleTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let loadedArticles = try await load(query: query, page: targetPage)
+                let loaded = try await load(query: query, page: targetPage)
                 try Task.checkCancellation()
                 guard requestID == articleRequestID else { return }
 
                 if replacing {
-                    articles = loadedArticles
+                    articles = loaded.articles
                 } else {
                     let existingIDs = Set(articles.map(\.id))
-                    articles.append(contentsOf: loadedArticles.filter { !existingIDs.contains($0.id) })
+                    articles.append(contentsOf: loaded.articles.filter { !existingIDs.contains($0.id) })
                 }
                 page = targetPage
-                hasMore = loadedArticles.count == limit
+                // Whether another page exists follows what the server returned,
+                // not what survived the unread restriction: a full page of read
+                // articles filters down to nothing and would otherwise look
+                // like the end of the list.
+                hasMore = loaded.receivedCount == limit
                 connectionState = .connected
                 isLoadingArticles = false
             } catch is CancellationError {
@@ -913,19 +917,25 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    /// One page of results, together with how many the server actually sent.
+    private struct LoadedPage {
+        let articles: [Article]
+        let receivedCount: Int
+    }
+
     /// Runs one page of whichever request the current selection needs.
-    private func load(query: ArticleQuery, page: Int) async throws -> [Article] {
+    private func load(query: ArticleQuery, page: Int) async throws -> LoadedPage {
         if query.usesConditions {
             let response = try await api.filterArticles(
                 conditions: query.conditions,
                 page: page,
                 limit: limit
             )
-            return applyUnreadRestriction(response.articles)
+            return restrictingUnread(response.articles)
         }
 
         if query.usesImageGallery {
-            return applyUnreadRestriction(try await api.fetchImageArticles(page: page, limit: limit))
+            return restrictingUnread(try await api.fetchImageArticles(page: page, limit: limit))
         }
 
         let filterValue = query.filter?.queryValue ?? (showOnlyUnread ? "unread" : "")
@@ -936,15 +946,20 @@ final class AppViewModel: ObservableObject {
             page: page,
             limit: limit
         )
-        return applyUnreadRestriction(articles)
+        return restrictingUnread(articles)
     }
 
     /// The plain listing understands "unread only" through its filter, but the
     /// multimedia and saved-filter endpoints do not, so the restriction is
     /// applied here for those.
-    private func applyUnreadRestriction(_ articles: [Article]) -> [Article] {
-        guard showOnlyUnread else { return articles }
-        return articles.filter { !$0.isRead }
+    private func restrictingUnread(_ articles: [Article]) -> LoadedPage {
+        guard showOnlyUnread else {
+            return LoadedPage(articles: articles, receivedCount: articles.count)
+        }
+        return LoadedPage(
+            articles: articles.filter { !$0.isRead },
+            receivedCount: articles.count
+        )
     }
 
     /// The request the current sidebar selection maps to.

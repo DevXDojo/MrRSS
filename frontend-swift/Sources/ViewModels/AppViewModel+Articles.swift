@@ -143,10 +143,17 @@ extension AppViewModel {
         }
     }
 
-    /// Marks everything above or below one article as read.
+    /// Marks everything published before or after one article as read, scoped to
+    /// the feed or folder currently being read.
     func markRelative(to article: Article, direction: MarkDirection) async {
+        let query = articleQuery
         do {
-            let count = try await api.markRelative(id: article.id, direction: direction.rawValue)
+            let count = try await api.markRelative(
+                id: article.id,
+                direction: direction.rawValue,
+                feedID: query.feedID,
+                category: query.category
+            )
             statusMessage = t("article.action.markedNArticlesAsRead", ["count": count])
             applyRelativeReadState(from: article, direction: direction)
             await refreshCounts()
@@ -297,13 +304,17 @@ extension AppViewModel {
         }
     }
 
+    /// Mirrors what the server just did. It works on publication time rather
+    /// than on the order the list happens to be in, so the two agree however
+    /// the reader has sorted the list.
     private func applyRelativeReadState(from article: Article, direction: MarkDirection) {
-        let ordered = displayedArticles
-        guard let pivot = ordered.firstIndex(where: { $0.id == article.id }) else { return }
-        let affected = direction == .above ? ordered.prefix(pivot) : ordered.suffix(from: pivot + 1)
-        let affectedIDs = Set(affected.map(\.id))
-        for index in articles.indices where affectedIDs.contains(articles[index].id) {
-            articles[index].isRead = true
+        guard let pivot = article.publishedDate else { return }
+        for index in articles.indices {
+            guard let published = articles[index].publishedDate else { continue }
+            let isAffected = direction == .above ? published > pivot : published < pivot
+            if isAffected {
+                articles[index].isRead = true
+            }
         }
     }
 }

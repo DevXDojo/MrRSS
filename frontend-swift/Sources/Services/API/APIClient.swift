@@ -49,7 +49,7 @@ protocol APIClient: AnyObject {
     func toggleFavorite(id: Int) async throws
     func toggleReadLater(id: Int) async throws
     func toggleHidden(id: Int) async throws
-    func markRelative(id: Int, direction: String) async throws -> Int
+    func markRelative(id: Int, direction: String, feedID: Int?, category: String?) async throws -> Int
     func markAllRead(feedID: Int?, category: String?) async throws
     func clearReadLater() async throws
     func fetchArticleContent(id: Int) async throws -> ArticleContent

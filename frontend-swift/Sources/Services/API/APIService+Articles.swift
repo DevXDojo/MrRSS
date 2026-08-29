@@ -76,20 +76,34 @@ extension APIService {
         try await post("articles/toggle-hide", queryItems: [URLQueryItem(name: "id", value: String(id))])
     }
 
-    /// Marks every article above or below the given one as read and returns how
-    /// many were changed.
-    func markRelative(id: Int, direction: String) async throws -> Int {
+    /// Marks every article published before or after the given one as read, and
+    /// returns how many were changed. The feed or category scopes the change to
+    /// what the reader is currently looking at.
+    func markRelative(
+        id: Int,
+        direction: String,
+        feedID: Int?,
+        category: String?
+    ) async throws -> Int {
         struct Response: Decodable {
             let count: Int?
             let marked: Int?
             let affected: Int?
         }
+
+        var queryItems = [
+            URLQueryItem(name: "id", value: String(id)),
+            URLQueryItem(name: "direction", value: direction)
+        ]
+        if let feedID {
+            queryItems.append(URLQueryItem(name: "feed_id", value: String(feedID)))
+        } else if let category, !category.isEmpty {
+            queryItems.append(URLQueryItem(name: "category", value: category))
+        }
+
         let response: Response = try await postDecoding(
             "articles/mark-relative",
-            queryItems: [
-                URLQueryItem(name: "id", value: String(id)),
-                URLQueryItem(name: "direction", value: direction)
-            ]
+            queryItems: queryItems
         )
         return response.count ?? response.marked ?? response.affected ?? 0
     }

@@ -58,7 +58,12 @@ class StubAPIClient: APIClient {
     func toggleFavorite(id: Int) async throws { throw unimplemented() }
     func toggleReadLater(id: Int) async throws { throw unimplemented() }
     func toggleHidden(id: Int) async throws { throw unimplemented() }
-    func markRelative(id: Int, direction: String) async throws -> Int { throw unimplemented() }
+    func markRelative(
+        id: Int,
+        direction: String,
+        feedID: Int?,
+        category: String?
+    ) async throws -> Int { throw unimplemented() }
     func markAllRead(feedID: Int?, category: String?) async throws { throw unimplemented() }
     func clearReadLater() async throws { throw unimplemented() }
     func fetchArticleContent(id: Int) async throws -> ArticleContent { throw unimplemented() }

@@ -82,11 +82,31 @@ final class APIServiceCoverageTests: XCTestCase {
             XCTAssertEqual(components.path, "/api/articles/mark-relative")
             XCTAssertEqual(query["direction"], "above")
             XCTAssertEqual(query["id"], "42")
+            XCTAssertEqual(query["feed_id"], "3")
         }
 
-        let count = try await service.markRelative(id: 42, direction: "above")
+        let count = try await service.markRelative(
+            id: 42,
+            direction: "above",
+            feedID: 3,
+            category: nil
+        )
 
         XCTAssertEqual(count, 7)
+    }
+
+    func testMarkRelativeFallsBackToTheCategoryScope() async throws {
+        respond(#"{"count": 2}"#) { _, _, query in
+            XCTAssertEqual(query["category"], "Tech")
+            XCTAssertNil(query["feed_id"])
+        }
+
+        _ = try await service.markRelative(
+            id: 42,
+            direction: "below",
+            feedID: nil,
+            category: "Tech"
+        )
     }
 
     func testFilterArticlesDecodesAPage() async throws {

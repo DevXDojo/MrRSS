@@ -247,7 +247,7 @@ final class ArticleListStateTests: XCTestCase {
         XCTAssertTrue(viewModel.articles.isEmpty)
     }
 
-    func testMarkAboveMarksOnlyTheEarlierRows() async {
+    func testMarkAboveMarksEverythingPublishedLater() async {
         let (viewModel, client) = makeViewModel(articles: [
             .stub(id: 1, published: "2026-08-18T08:00:00Z"),
             .stub(id: 2, published: "2026-08-17T08:00:00Z"),
@@ -258,6 +258,49 @@ final class ArticleListStateTests: XCTestCase {
         await viewModel.markRelative(to: viewModel.articles[1], direction: .above)
 
         XCTAssertEqual(viewModel.articles.filter(\.isRead).map(\.id), [1])
+    }
+
+    func testMarkBelowMarksEverythingPublishedEarlier() async {
+        let (viewModel, client) = makeViewModel(articles: [
+            .stub(id: 1, published: "2026-08-18T08:00:00Z"),
+            .stub(id: 2, published: "2026-08-17T08:00:00Z"),
+            .stub(id: 3, published: "2026-08-16T08:00:00Z")
+        ])
+        client.relativeCount = 1
+
+        await viewModel.markRelative(to: viewModel.articles[1], direction: .below)
+
+        XCTAssertEqual(viewModel.articles.filter(\.isRead).map(\.id), [3])
+    }
+
+    func testTheOrderTheListIsSortedInDoesNotChangeWhatIsMarked() async {
+        let (viewModel, client) = makeViewModel(articles: [
+            .stub(id: 1, published: "2026-08-18T08:00:00Z"),
+            .stub(id: 2, published: "2026-08-17T08:00:00Z"),
+            .stub(id: 3, published: "2026-08-16T08:00:00Z")
+        ])
+        client.relativeCount = 1
+        // The server works on publication time, so sorting by title must not
+        // change which articles the client marks.
+        viewModel.sortOrder = .byTitle
+
+        await viewModel.markRelative(to: viewModel.articles[1], direction: .above)
+
+        XCTAssertEqual(viewModel.articles.filter(\.isRead).map(\.id), [1])
+    }
+
+    func testMarkRelativeIsScopedToTheFeedBeingRead() async {
+        let (viewModel, client) = makeViewModel(articles: [
+            .stub(id: 1, published: "2026-08-18T08:00:00Z"),
+            .stub(id: 2, published: "2026-08-17T08:00:00Z")
+        ])
+        viewModel.feeds = [Feed(id: 9, url: "https://example.com/feed", title: "Feed", category: "")]
+        viewModel.selection = .feed(9)
+
+        await viewModel.markRelative(to: viewModel.articles[1], direction: .above)
+
+        XCTAssertEqual(client.lastScope?.feedID, 9)
+        XCTAssertNil(client.lastScope?.category)
     }
 
     func testUnreadOnlyRestrictsTheMultimediaListing() async throws {
@@ -292,6 +335,7 @@ final class ListAPIClient: StubAPIClient {
     var imageArticles: [Article] = []
     var relativeCount = 0
     private(set) var markedRelative: [(id: Int, direction: String)] = []
+    private(set) var lastScope: (feedID: Int?, category: String?)?
 
     override func fetchFeeds() async throws -> [Feed] { [] }
     override func fetchArticles(
@@ -304,8 +348,14 @@ final class ListAPIClient: StubAPIClient {
     override func fetchImageArticles(page: Int, limit: Int) async throws -> [Article] { imageArticles }
     override func toggleHidden(id: Int) async throws {}
     override func setArticleRead(id: Int, read: Bool) async throws {}
-    override func markRelative(id: Int, direction: String) async throws -> Int {
+    override func markRelative(
+        id: Int,
+        direction: String,
+        feedID: Int?,
+        category: String?
+    ) async throws -> Int {
         markedRelative.append((id, direction))
+        lastScope = (feedID, category)
         return relativeCount
     }
 }
