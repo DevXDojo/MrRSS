@@ -283,13 +283,15 @@ struct ArticleListView: View {
                 .help(t("aiSearch.buttonTitle"))
             }
 
+            // Reloads the list being read. Fetching from the sources themselves
+            // is the sidebar's button, so the two are not the same action.
             Button {
-                viewModel.refreshFromSources()
+                viewModel.reloadArticles()
             } label: {
                 Label(t("article.action.refresh"), systemImage: "arrow.clockwise")
             }
-            .disabled(viewModel.isRefreshingSources)
-            .help(t("article.action.refreshFeed"))
+            .disabled(viewModel.isLoadingArticles)
+            .help(t("article.action.refresh"))
         }
     }
 
