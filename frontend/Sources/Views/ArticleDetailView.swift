@@ -207,6 +207,14 @@ struct ArticleDetailView: View {
         }
     }
 
+    /// Drives the reading-mode switch.
+    private var webpageModeBinding: Binding<Bool> {
+        Binding(
+            get: { viewMode == .webpage },
+            set: { viewMode = $0 ? .webpage : .rendered }
+        )
+    }
+
     private var webSource: WebViewSource {
         if viewMode == .webpage, let url = URL(string: article.url) {
             return .url(url)
@@ -274,14 +282,18 @@ struct ArticleDetailView: View {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
-            Picker("", selection: $viewMode) {
-                Label(t("article.content.renderContent"), systemImage: "doc.plaintext")
-                    .tag(ArticleViewMode.rendered)
-                Label(t("setting.reading.viewAsWebpage"), systemImage: "globe")
-                    .tag(ArticleViewMode.webpage)
+            // A segmented control carries no text that reaches the toolbar, so
+            // the reading mode is a switch instead: it names the mode it would
+            // move to, which is also what the hover description then says.
+            Toggle(isOn: webpageModeBinding) {
+                Label(
+                    viewMode == .webpage
+                        ? t("setting.reading.viewAsRendered")
+                        : t("setting.reading.viewAsWebpage"),
+                    systemImage: viewMode == .webpage ? "doc.plaintext" : "globe"
+                )
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            .toggleStyle(.button)
             .help(t("client.help.viewMode"))
 
             Button {
