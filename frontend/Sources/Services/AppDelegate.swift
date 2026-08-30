@@ -5,9 +5,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var process: Process?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDelegate.shortenToolTipDelay()
         presentAsForegroundApplication()
         startBundledBackendIfNeeded()
     }
+
+    /// The system waits a long time before showing a tooltip, which is a poor
+    /// fit for a toolbar of icons where the tooltip is how a button explains
+    /// itself. Registered as a default rather than set outright, so anyone who
+    /// has chosen their own delay keeps it.
+    static func shortenToolTipDelay(in defaults: UserDefaults = .standard) {
+        defaults.register(defaults: [toolTipDelayKey: toolTipDelayMilliseconds])
+    }
+
+    /// Long enough not to flicker while the pointer crosses the toolbar, short
+    /// enough to answer a deliberate hover.
+    static let toolTipDelayMilliseconds = 300
+
+    /// AppKit reads the delay, in milliseconds, from this default.
+    static let toolTipDelayKey = "NSInitialToolTipDelay"
 
     func applicationWillTerminate(_ notification: Notification) {
         stopBundledBackend()

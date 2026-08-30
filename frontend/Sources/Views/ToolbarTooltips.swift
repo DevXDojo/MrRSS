@@ -8,31 +8,17 @@ import SwiftUI
 /// label SwiftUI already puts on each item is the text that belongs there, so it
 /// is copied across.
 ///
-/// SwiftUI replaces a toolbar item whenever the control it stands for changes —
-/// becoming disabled while a refresh runs, for instance — and the replacement
-/// arrives with no tooltip again. The window reports each of its update passes,
-/// so that is what the copy is driven by.
+/// The copy follows the label through key-value observation rather than being
+/// repeated on a schedule. SwiftUI reuses toolbar items as the interface
+/// changes, and an item can hold a neighbour's label for an instant while it is
+/// being rearranged; watching the label means the tooltip is corrected the
+/// moment the label settles, instead of keeping whatever was read in passing.
 struct ToolbarTooltips: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         ToolbarTooltipView()
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
-
-    /// Copies each item's label into its tooltip.
-    ///
-    /// The tooltip is rewritten rather than only filled in, because a control
-    /// that describes its own state relabels itself as that state changes: the
-    /// read button reads "Mark as Read" until the article is read, and "Mark as
-    /// Unread" afterwards.
-    static func apply(in window: NSWindow?) {
-        guard let toolbar = window?.toolbar else { return }
-
-        for item in toolbar.items {
-            guard let tooltip = tooltip(for: item), item.toolTip != tooltip else { continue }
-            item.toolTip = tooltip
-        }
-    }
 
     /// The text to show for one item, or nil for spacers and separators.
     static func tooltip(for item: NSToolbarItem) -> String? {
@@ -54,8 +40,46 @@ struct ToolbarTooltips: NSViewRepresentable {
     ]
 }
 
-/// Watches its window and refreshes the toolbar tooltips as the window updates.
+/// Keeps every toolbar item's tooltip in step with its label.
+@MainActor
+final class ToolbarTooltipBinder {
+    private var observations: [ObjectIdentifier: NSKeyValueObservation] = [:]
+
+    /// Describes the items the toolbar holds now, and forgets the ones it no
+    /// longer does.
+    func bind(_ window: NSWindow?) {
+        guard let toolbar = window?.toolbar else {
+            observations.removeAll()
+            return
+        }
+
+        var present: Set<ObjectIdentifier> = []
+
+        for item in toolbar.items {
+            let key = ObjectIdentifier(item)
+            present.insert(key)
+            ToolbarTooltipBinder.describe(item)
+
+            guard observations[key] == nil else { continue }
+            observations[key] = item.observe(\.label, options: [.new]) { item, _ in
+                MainActor.assumeIsolated { ToolbarTooltipBinder.describe(item) }
+            }
+        }
+
+        observations = observations.filter { present.contains($0.key) }
+    }
+
+    /// Writes one item's description, leaving it alone when nothing applies.
+    static func describe(_ item: NSToolbarItem) {
+        guard let tooltip = ToolbarTooltips.tooltip(for: item) else { return }
+        guard item.toolTip != tooltip else { return }
+        item.toolTip = tooltip
+    }
+}
+
+/// Watches its window and keeps the toolbar descriptions bound.
 private final class ToolbarTooltipView: NSView {
+    private let binder = ToolbarTooltipBinder()
     private var observer: NSObjectProtocol?
 
     override func viewDidMoveToWindow() {
@@ -66,15 +90,21 @@ private final class ToolbarTooltipView: NSView {
             self.observer = nil
         }
 
-        guard let window else { return }
+        guard let window else {
+            binder.bind(nil)
+            return
+        }
 
-        ToolbarTooltips.apply(in: window)
+        binder.bind(window)
+        // Items are added and removed as the interface changes, most visibly
+        // when an article is opened, so the set is re-examined as the window
+        // updates. Their wording is then kept current by the observations.
         observer = NotificationCenter.default.addObserver(
             forName: NSWindow.didUpdateNotification,
             object: window,
             queue: .main
-        ) { [weak window] _ in
-            MainActor.assumeIsolated { ToolbarTooltips.apply(in: window) }
+        ) { [weak self, weak window] _ in
+            MainActor.assumeIsolated { self?.binder.bind(window) }
         }
     }
 
