@@ -41,21 +41,17 @@ Download the latest installer for your platform from the [Releases](https://gith
 
 <div markdown="1">
 
-**Standard Installation:**
+**macOS client:**
 
-- **Windows:** `MrRSS-{version}-windows-amd64-installer.exe` / `MrRSS-{version}-windows-arm64-installer.exe`
-- **macOS:** `MrRSS-{version}-darwin-universal.dmg`
-- **Linux:** `MrRSS-{version}-linux-amd64.AppImage` / `MrRSS-{version}-linux-arm64.AppImage`
-
-**Portable Version** (no installation required, all data in one folder):
-
-- **Windows:** `MrRSS-{version}-windows-{arch}-portable.zip`
-- **Linux:** `MrRSS-{version}-linux-{arch}-portable.tar.gz`
-- **macOS:** `MrRSS-{version}-darwin-{arch}-portable.zip`
+- `MrRSS-{version}-macos.dmg` — universal, and carries the backend, so nothing
+  else needs installing
 
 **AI Agent Skills:**
 
 - **Codex:** `MrRSS-{version}-skills.zip` ([usage guide](docs/SKILLS.md))
+
+Releases of this branch carry the macOS client alone. Builds for Windows and
+Linux come from the project's main branch.
 
 </div>
 
@@ -115,8 +111,8 @@ See [Build Requirements](docs/BUILD_REQUIREMENTS.md) for details.
    make build-app VERSION=1.3.28
    ```
 
-   This produces `frontend/dist/MrRSS-SwiftUI.app` and a universal DMG
-   beside it. The bundle carries the backend, so it launches without a
+   This produces `frontend/dist/MrRSS-SwiftUI.app` and
+   `frontend/dist/MrRSS-<version>-macos.dmg` beside it. The bundle carries the backend, so it launches without a
    separately installed server.
 
 </div>

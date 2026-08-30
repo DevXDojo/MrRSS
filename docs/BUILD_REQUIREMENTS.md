@@ -58,7 +58,7 @@ make build-app VERSION=1.3.28     # signed .app bundle and universal DMG
 The packaging script builds a universal SwiftUI executable, builds the backend
 for `arm64` and `x86_64`, merges them, copies the icon and `Info.plist`, signs
 the bundle and produces
-`frontend/dist/MrRSS-<version>-macos-swiftui-universal.dmg`.
+`frontend/dist/MrRSS-<version>-macos.dmg`.
 
 To build for one architecture while developing:
 

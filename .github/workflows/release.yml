@@ -171,5 +171,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
-          files: frontend/dist/MrRSS-${{ needs.create-release.outputs.version }}-macos-swiftui-universal.dmg
+          files: frontend/dist/MrRSS-${{ needs.create-release.outputs.version }}-macos.dmg
           token: ${{ secrets.GITHUB_TOKEN }}

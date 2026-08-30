@@ -39,21 +39,15 @@
 
 <div markdown="1">
 
-**标准安装版：**
+**macOS 客户端：**
 
-- **Windows:** `MrRSS-{version}-windows-amd64-installer.exe` / `MrRSS-{version}-windows-arm64-installer.exe`
-- **macOS:** `MrRSS-{version}-darwin-universal.dmg`
-- **Linux:** `MrRSS-{version}-linux-amd64.AppImage` / `MrRSS-{version}-linux-arm64.AppImage`
-
-**便携版**（无需安装，所有数据在一个文件夹内）：
-
-- **Windows:** `MrRSS-{version}-windows-{arch}-portable.zip`
-- **Linux:** `MrRSS-{version}-linux-{arch}-portable.tar.gz`
-- **macOS:** `MrRSS-{version}-darwin-{arch}-portable.zip`
+- `MrRSS-{version}-macos.dmg` — 通用架构，内含后端程序，无需另行安装服务端
 
 **AI Agent Skills：**
 
 - **Codex:** `MrRSS-{version}-skills.zip`（[使用说明](docs/SKILLS.zh.md)）
+
+本分支的发布仅包含 macOS 客户端。Windows 与 Linux 版本由项目主干分支构建。
 
 </div>
 
@@ -112,7 +106,8 @@
    make build-app VERSION=1.3.28
    ```
 
-   构建结果为 `frontend/dist/MrRSS-SwiftUI.app` 及同目录下的通用架构 DMG。
+   构建结果为 `frontend/dist/MrRSS-SwiftUI.app` 与同目录下的
+   `frontend/dist/MrRSS-<版本>-macos.dmg`。
    该应用包内含后端程序，无需另行安装服务端即可启动。
 
 </div>
