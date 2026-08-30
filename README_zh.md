@@ -157,17 +157,21 @@ API 文档见 [docs/SERVER_MODE/swagger.json](docs/SERVER_MODE/swagger.json)。
 
 <div markdown="1">
 
-**正常模式**（默认）：
+后端将数据库、日志与脚本存放在名为 `data` 的目录中。具体使用哪一个取决于启动方式，
+**各方式之间的数据相互独立**：
 
-- **Windows:** `%APPDATA%\MrRSS\` (例如 `C:\Users\YourName\AppData\Roaming\MrRSS\`)
-- **macOS:** `~/Library/Application Support/MrRSS/`
-- **Linux:** `~/.local/share/MrRSS/`
+| 启动方式 | 数据目录 |
+| --- | --- |
+| `./frontend/run.sh` | 仓库根目录下的 `data/` |
+| 打包后的 `.app` | `~/Library/Application Support/MrRSS-SwiftUI/data/` |
+| `go run .` 或已编译的二进制 | 启动时所在目录下的 `data/` |
+| Docker 镜像 | 容器内的 `/app/data` |
 
-**便携模式**（当 `portable.txt` 文件存在时）：
+因此，从源码运行时积累的订阅数据，并不是已安装应用所读取的那一份。如需迁移，
+请先退出双方，再复制 `data/rss.db`（若存在 `rss.db-shm` 与 `rss.db-wal` 也一并复制）。
 
-- 所有数据存储在 `data/` 文件夹中
-
-这确保了您的数据在应用更新和重新安装时得以保留。
+由于应用数据存放在程序包之外，删除应用不会删除数据；如需一并清除，请手动删除上表中
+对应的目录。
 
 </div>
 

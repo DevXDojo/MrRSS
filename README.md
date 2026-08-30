@@ -160,17 +160,24 @@ The API is documented in [docs/SERVER_MODE/swagger.json](docs/SERVER_MODE/swagge
 
 <div markdown="1">
 
-**Normal Mode** (default):
+The backend keeps its database, logs and scripts in a `data` directory. Which
+one it uses depends on how it was started, and **the copies are independent of
+each other**:
 
-- **Windows:** `%APPDATA%\MrRSS\` (e.g., `C:\Users\YourName\AppData\Roaming\MrRSS\`)
-- **macOS:** `~/Library/Application Support/MrRSS/`
-- **Linux:** `~/.local/share/MrRSS/`
+| How it was started | Data directory |
+| --- | --- |
+| `./frontend/run.sh` | `data/` in the repository |
+| The packaged `.app` | `~/Library/Application Support/MrRSS-SwiftUI/data/` |
+| `go run .` or the built binary | `data/` beside the directory it was started from |
+| The Docker image | `/app/data` in the container |
 
-**Portable Mode** (when `portable.txt` exists):
+So the library you build up while running from source is not the one the
+installed application reads. To carry one across, quit both and copy
+`data/rss.db` (along with `rss.db-shm` and `rss.db-wal` if they are present).
 
-- All data stored in `data/` folder
-
-This ensures your data persists across application updates and reinstalls.
+Because the application's data lives outside the bundle, removing the
+application leaves the library in place; delete the directory above to remove it
+as well.
 
 </div>
 
