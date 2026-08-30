@@ -163,7 +163,7 @@ each other**:
 | How it was started | Data directory |
 | --- | --- |
 | `./frontend/run.sh` | `data/` in the repository |
-| The packaged `.app` | `~/Library/Application Support/MrRSS-SwiftUI/data/` |
+| The packaged `.app` | `~/Library/Application Support/MrRSS/data/` |
 | `go run .` or the built binary | `data/` beside the directory it was started from |
 | The Docker image | `/app/data` in the container |
 

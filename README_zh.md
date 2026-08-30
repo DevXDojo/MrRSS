@@ -158,7 +158,7 @@ API 文档见 [docs/SERVER_MODE/swagger.json](docs/SERVER_MODE/swagger.json)。
 | 启动方式 | 数据目录 |
 | --- | --- |
 | `./frontend/run.sh` | 仓库根目录下的 `data/` |
-| 打包后的 `.app` | `~/Library/Application Support/MrRSS-SwiftUI/data/` |
+| 打包后的 `.app` | `~/Library/Application Support/MrRSS/data/` |
 | `go run .` 或已编译的二进制 | 启动时所在目录下的 `data/` |
 | Docker 镜像 | 容器内的 `/app/data` |
 

@@ -44,3 +44,17 @@ final class ToolTipDelayTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 }
+
+final class SupportDirectoryTests: XCTestCase {
+    func testTheBundledBackendIsStartedInTheApplicationSupportDirectory() throws {
+        let directory = AppDelegate.supportDirectory
+
+        XCTAssertEqual(directory.lastPathComponent, AppDelegate.supportDirectoryName)
+        XCTAssertEqual(AppDelegate.supportDirectoryName, "MrRSS")
+
+        let expected = try XCTUnwrap(
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        )
+        XCTAssertEqual(directory.deletingLastPathComponent().path, expected.path)
+    }
+}

@@ -63,6 +63,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
     }
 
+    /// Where the bundled backend keeps its database, logs and scripts.
+    ///
+    /// The backend resolves `data` against its working directory, so the
+    /// directory below is what it is started in.
+    static var supportDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(supportDirectoryName, isDirectory: true)
+    }
+
+    static let supportDirectoryName = "MrRSS"
+
     private func startBundledBackendIfNeeded() {
         let baseURL = ServerConfiguration.savedBaseURL
         guard ["127.0.0.1", "localhost"].contains(baseURL.host?.lowercased() ?? ""),
@@ -71,10 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        let supportDirectory = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        )[0].appendingPathComponent("MrRSS-SwiftUI", isDirectory: true)
+        let supportDirectory = AppDelegate.supportDirectory
 
         do {
             try FileManager.default.createDirectory(
