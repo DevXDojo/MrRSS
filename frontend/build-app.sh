@@ -6,7 +6,7 @@ SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="${SCRIPT_DIR:h}"
 VERSION="${1:-dev}"
 DIST_DIR="${SCRIPT_DIR}/dist"
-APP_DIR="${DIST_DIR}/MrRSS-SwiftUI.app"
+APP_DIR="${DIST_DIR}/MrRSS.app"
 CONTENTS_DIR="${APP_DIR}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
@@ -49,7 +49,7 @@ if [[ ! -x "${SWIFT_BIN_DIR}/MrRSS" ]]; then
     exit 1
 fi
 
-cp "${SWIFT_BIN_DIR}/MrRSS" "${MACOS_DIR}/MrRSS-SwiftUI"
+cp "${SWIFT_BIN_DIR}/MrRSS" "${MACOS_DIR}/MrRSS"
 
 echo "Building the Go backend for ${MRRSS_ARCH_STRING}..."
 cd "${PROJECT_DIR}"
@@ -73,7 +73,7 @@ if (( ${#MRRSS_BACKEND_BINARIES[@]} == 1 )); then
 else
     lipo -create "${MRRSS_BACKEND_BINARIES[@]}" -output "${RESOURCES_DIR}/mrrss-server"
 fi
-chmod +x "${MACOS_DIR}/MrRSS-SwiftUI" "${RESOURCES_DIR}/mrrss-server"
+chmod +x "${MACOS_DIR}/MrRSS" "${RESOURCES_DIR}/mrrss-server"
 
 cp "${PROJECT_DIR}/build/darwin/icons.icns" "${RESOURCES_DIR}/AppIcon.icns"
 

@@ -33,6 +33,6 @@ jobs:
 
       - name: Verify bundle contents
         run: |
-          test -x frontend/dist/MrRSS-SwiftUI.app/Contents/MacOS/MrRSS-SwiftUI
-          test -x frontend/dist/MrRSS-SwiftUI.app/Contents/Resources/mrrss-server
-          test -f frontend/dist/MrRSS-SwiftUI.app/Contents/Info.plist
+          test -x frontend/dist/MrRSS.app/Contents/MacOS/MrRSS
+          test -x frontend/dist/MrRSS.app/Contents/Resources/mrrss-server
+          test -f frontend/dist/MrRSS.app/Contents/Info.plist

@@ -106,7 +106,7 @@
    make build-app VERSION=1.3.28
    ```
 
-   构建结果为 `frontend/dist/MrRSS-SwiftUI.app` 与同目录下的
+   构建结果为 `frontend/dist/MrRSS.app` 与同目录下的
    `frontend/dist/MrRSS-<版本>-macos.dmg`。
    该应用包内含后端程序，无需另行安装服务端即可启动。
 

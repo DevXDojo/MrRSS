@@ -5,7 +5,7 @@ This directory holds the icon assets used when packaging the macOS client.
 | File | Purpose |
 | --- | --- |
 | `appicon.png` | Source icon artwork |
-| `darwin/icons.icns` | Icon bundled into `MrRSS-SwiftUI.app` |
+| `darwin/icons.icns` | Icon bundled into `MrRSS.app` |
 
 ## Building the application
 

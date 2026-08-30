@@ -111,7 +111,7 @@ See [Build Requirements](docs/BUILD_REQUIREMENTS.md) for details.
    make build-app VERSION=1.3.28
    ```
 
-   This produces `frontend/dist/MrRSS-SwiftUI.app` and
+   This produces `frontend/dist/MrRSS.app` and
    `frontend/dist/MrRSS-<version>-macos.dmg` beside it. The bundle carries the backend, so it launches without a
    separately installed server.
 
