@@ -21,9 +21,10 @@ type TestCustomTranslationRequest struct {
 
 // TestCustomTranslationResponse represents the response from a custom translation test
 type TestCustomTranslationResponse struct {
-	Success bool   `json:"success"`
-	Result  string `json:"result,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Success   bool   `json:"success"`
+	Result    string `json:"result,omitempty"`
+	Error     string `json:"error,omitempty"`
+	ErrorCode string `json:"error_code,omitempty"`
 }
 
 // HandleTranslateArticle translates an article's title.
@@ -270,7 +271,8 @@ func HandleTranslateText(h *core.Handler, w http.ResponseWriter, r *http.Request
 
 			// If AI fails, fallback to Google Translate
 			if err != nil {
-				log.Printf("AI translation failed, falling back to Google Translate: %v", err)
+				publicErr := ai.ClassifyUserFacingError(err)
+				log.Printf("AI translation failed code=%s status=%d; using Google Translate fallback", publicErr.Code, publicErr.HTTPStatus)
 				googleTranslator := translation.NewGoogleFreeTranslatorWithDB(h.DB)
 				translatedText, err = translation.TranslateMarkdownPreservingStructure(req.Text, googleTranslator, req.TargetLang)
 			}
@@ -412,7 +414,9 @@ func HandleTestCustomTranslation(h *core.Handler, w http.ResponseWriter, r *http
 	}
 
 	if err != nil {
-		resp["error"] = err.Error()
+		publicErr := ai.ClassifyUserFacingError(err)
+		resp["error"] = publicErr.Message
+		resp["error_code"] = publicErr.Code
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
 		resp["translation"] = result

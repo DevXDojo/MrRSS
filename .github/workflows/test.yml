@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/macos-client ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, feature/macos-client ]
   workflow_dispatch:
 
 jobs:
@@ -16,33 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Linux dependencies (Wails v3)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-4-dev \
-            libwebkitgtk-6.0-dev \
-            libsoup-3.0-dev \
-            gcc \
-            pkg-config
-
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: '1.27'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Build frontend (required for embed)
-        working-directory: ./frontend
-        run: |
-          npm ci
-          npm run build
 
       - name: Download dependencies
         run: go mod download
@@ -61,37 +38,6 @@ jobs:
         with:
           files: ./coverage.out
           flags: backend
-
-  test-frontend:
-    name: Test Frontend
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Run linter
-        working-directory: ./frontend
-        run: npm run lint
-
-      - name: Run unit tests
-        working-directory: ./frontend
-        run: npm test
-
-      - name: Build frontend
-        working-directory: ./frontend
-        run: npm run build
 
   validate-skills:
     name: Validate Skills
@@ -114,6 +60,22 @@ jobs:
           python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
           git diff --exit-code skills/mrrss-assistant/references/api.md
 
+  test-macos-client:
+    name: Test macOS Client
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run Swift tests
+        working-directory: ./frontend
+        run: swift test
+
+      - name: Build release executable
+        working-directory: ./frontend
+        run: swift build -c release
+
   build-check:
     name: Build Check
     runs-on: ubuntu-latest
@@ -122,35 +84,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Linux dependencies (Wails v3)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-4-dev \
-            libwebkitgtk-6.0-dev \
-            libsoup-3.0-dev \
-            gcc \
-            pkg-config
-
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: '1.27'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Build frontend (required for embed)
-        working-directory: ./frontend
-        run: npm run build
 
       - name: Verify Go code compiles
         env:

@@ -7,7 +7,7 @@ This document provides common coding patterns and best practices for the MrRSS p
 - [Code Organization Guidelines](#code-organization-guidelines)
 - [Settings Management](#settings-management)
 - [Backend Patterns (Go)](#backend-patterns-go)
-- [Frontend Patterns (Vue)](#frontend-patterns-vue)
+- [Client Patterns (SwiftUI)](#client-patterns-swiftui)
 - [Styling Patterns](#styling-patterns)
 - [API Communication](#api-communication)
 
@@ -18,7 +18,7 @@ This document provides common coding patterns and best practices for the MrRSS p
 When a file becomes too long (typically over 300-400 lines), consider refactoring:
 
 - **Go**: Extract related functions into separate files within the same package
-- **Vue**: Split into smaller components or extract logic into composables
+- **SwiftUI**: Split the body into computed properties, or move behaviour onto the view model
 - **TypeScript**: Extract utilities into separate modules
 
 ### Folder Organization
@@ -31,13 +31,13 @@ When a folder contains too many files (typically over 10-15 files), create subfo
 
 ### Build Verification
 
-Before completing any significant change, verify the build:
+Before completing any significant change, verify both halves build and their
+tests pass:
 
 ```bash
-wails3 build
+make build
+make test
 ```
-
-This ensures the application can be properly packaged and distributed.
 
 ## Settings Management
 
@@ -101,14 +101,13 @@ See **[docs/SETTINGS.md](SETTINGS.md)** for:
 After running the generator, verify:
 
 ```bash
-# Build backend
-go build
-
-# Build frontend
-cd frontend && npm run build
-
-# Run tests
+# Backend
+go build ./...
 go test ./internal/config
+
+# Client, after running python3 tools/settings-swift/generate.py
+swift build --package-path frontend
+swift test --package-path frontend --filter SettingsCatalogTests
 ```
 
 ### Legacy Method (Deprecated)
@@ -488,593 +487,150 @@ func (h *Handler) HandleGetArticles(w http.ResponseWriter, r *http.Request) {
 - Log errors (don't expose to client)
 - Use `http.Error` for error responses
 
-## Frontend Patterns (Vue)
+## Client Patterns (SwiftUI)
 
-### Vue Component Structure
+### View structure
 
-#### Basic Component Pattern
+Keep bodies small. SwiftUI type-checks a body as one expression, and a long one
+can stall the build for minutes. Split it into computed properties named after
+what they show.
 
-```vue
-<script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useAppStore } from '@/stores/app';
-import { useI18n } from 'vue-i18n';
+```swift
+struct ArticleListView: View {
+    @ObservedObject var viewModel: AppViewModel
+    @State private var isConfirmingMarkAllRead = false
 
-// Props with TypeScript
-interface Props {
-  article: Article;
-  isActive?: boolean;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  isActive: false
-});
-
-// Emits declaration
-const emit = defineEmits<{
-  update: [article: Article];
-  delete: [id: number];
-}>();
-
-// Store and i18n
-const store = useAppStore();
-const { t } = useI18n();
-
-// Reactive state
-const isLoading = ref(false);
-const items = ref<Article[]>([]);
-
-// Computed properties
-const filteredItems = computed(() =>
-  items.value.filter(item => !item.isRead)
-);
-
-// Methods
-async function loadData() {
-  isLoading.value = true;
-  try {
-    const response = await fetch('/api/articles');
-    items.value = await response.json();
-  } catch (error) {
-    console.error('Failed to load:', error);
-    window.showToast(t('errorLoading'), 'error');
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-// Lifecycle
-onMounted(() => {
-  loadData();
-});
-
-onUnmounted(() => {
-  // Cleanup timers, listeners, etc.
-});
-</script>
-
-<template>
-  <div class="component-container">
-    <!-- Loading state -->
-    <div v-if="isLoading" class="loading">
-      {{ t('loading') }}
-    </div>
-
-    <!-- Empty state -->
-    <div v-else-if="items.length === 0" class="empty">
-      {{ t('noItems') }}
-    </div>
-
-    <!-- Content -->
-    <div v-else class="items-list">
-      <div
-        v-for="item in filteredItems"
-        :key="item.id"
-        class="item"
-        :class="{ 'active': item.id === props.article?.id }"
-        @click="emit('update', item)"
-      >
-        {{ item.title }}
-      </div>
-    </div>
-  </div>
-</template>
-
-<style scoped>
-.component-container {
-  @apply p-4 bg-bg-primary rounded-lg;
-}
-
-.item {
-  @apply p-3 border border-border rounded cursor-pointer transition-colors;
-}
-
-.item:hover {
-  @apply bg-bg-secondary;
-}
-
-.item.active {
-  @apply bg-accent text-white;
-}
-</style>
-```
-
-**Key Points**:
-
-- Use `<script setup>` for cleaner syntax
-- Proper TypeScript typing for props and emits
-- Separate concerns (state, computed, methods, lifecycle)
-- Always use i18n for text (`t()` function)
-- Handle loading and empty states
-
-### Composables Pattern
-
-#### Creating a Composable
-
-```typescript
-// composables/article/useArticleDetail.ts
-import { ref, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
-import type { Article } from '@/types/models';
-
-export function useArticleDetail() {
-  const { t } = useI18n();
-
-  // State
-  const article = ref<Article | null>(null);
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
-
-  // Methods
-  async function loadArticle(id: number) {
-    isLoading.value = true;
-    error.value = null;
-
-    try {
-      const response = await fetch(`/api/articles/${id}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      article.value = await response.json();
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Unknown error';
-      window.showToast(t('errorLoadingArticle'), 'error');
-    } finally {
-      isLoading.value = false;
+    var body: some View {
+        VStack(spacing: 0) {
+            if isShowingSearch {
+                searchBar
+                Divider()
+            }
+            list
+        }
+        .navigationTitle(viewModel.articleListTitle)
+        .toolbar { toolbarContent }
     }
-  }
 
-  async function markAsRead(id: number) {
-    try {
-      await fetch(`/api/articles/${id}/read`, { method: 'POST' });
-      if (article.value?.id === id) {
-        article.value.isRead = true;
-      }
-    } catch (e) {
-      console.error('Failed to mark as read:', e);
+    private var searchBar: some View { /* ... */ }
+    private var list: some View { /* ... */ }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent { /* ... */ }
+}
+```
+
+### Where state lives
+
+`AppViewModel` is the one observable object. State the rest of the interface
+reacts to belongs there; state a single screen owns belongs in `@State`.
+
+```swift
+// On the view model: the list and the reading pane both read this
+@Published var selectedArticleID: Int?
+
+// In the view: only this sheet cares
+@State private var isConfirmingClearReadLater = false
+```
+
+The view model is split by feature across files:
+
+- `AppViewModel.swift` — connection, feeds, folders, selection, settings
+- `AppViewModel+Articles.swift` — list state, article actions, AI search
+- `AppViewModel+Feeds.swift` — feed, tag, saved-filter and OPML actions
+- `AppViewModel+Shortcuts.swift` — what each key press does
+
+Properties an extension writes to are declared without `private(set)`, because
+Swift scopes that to the file.
+
+### Optimistic updates
+
+Apply the change locally, then roll it back if the request fails:
+
+```swift
+private func mutateArticle(
+    _ id: Int,
+    apply change: (inout Article) -> Void,
+    request: @escaping () async throws -> Void
+) {
+    guard let index = articles.firstIndex(where: { $0.id == id }) else { return }
+    let previous = articles[index]
+    change(&articles[index])
+
+    Task { [weak self] in
+        guard let self else { return }
+        do {
+            try await request()
+        } catch {
+            if let currentIndex = articles.firstIndex(where: { $0.id == id }) {
+                articles[currentIndex] = previous
+            }
+            errorMessage = error.localizedDescription
+        }
     }
-  }
-
-  // Return public API
-  return {
-    // State
-    article,
-    isLoading,
-    error,
-
-    // Methods
-    loadArticle,
-    markAsRead,
-
-    // Translation
-    t,
-  };
 }
 ```
 
-**Key Points**:
+### Cancelling superseded work
 
-- Export a function that returns reactive state and methods
-- Include error handling
-- Return only what's needed publicly
-- Use proper TypeScript types
+A request whose result is no longer wanted must not overwrite newer state. Each
+load carries an identifier that is checked before anything is assigned:
 
-### Auto-Save Pattern
+```swift
+articleTask?.cancel()
+articleRequestID = UUID()
+let requestID = articleRequestID
 
-Debounced auto-save for settings (500ms delay):
-
-```vue
-<script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';
-
-const settings = ref({
-  theme: 'light',
-  language: 'en',
-  autoRefresh: true
-});
-
-let saveTimeout: NodeJS.Timeout | null = null;
-
-async function autoSave() {
-  try {
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings.value)
-    });
-    // Apply immediately for better UX
-    store.applySettings(settings.value);
-  } catch (error) {
-    console.error('Auto-save failed:', error);
-  }
-}
-
-function debouncedAutoSave() {
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(autoSave, 500);
-}
-
-// Watch entire settings object deeply
-watch(settings, debouncedAutoSave, { deep: true });
-
-// Cleanup
-onUnmounted(() => {
-  if (saveTimeout) clearTimeout(saveTimeout);
-});
-</script>
-```
-
-**Key Points**:
-
-- 500ms debounce delay
-- Deep watch for nested objects
-- Clear timeout on unmount to prevent memory leaks
-- Apply settings immediately for better UX
-
-### Settings Component Pattern
-
-**⚠️ CRITICAL PATTERN**: When creating settings components that receive props and emit updates, follow this pattern to avoid reactivity issues.
-
-#### ❌ **WRONG Pattern** (DO NOT USE)
-
-```vue
-<script setup lang="ts">
-import { ref, watch } from 'vue';
-
-const props = defineProps<{ settings: SettingsData }>();
-const emit = defineEmits<{ 'update:settings': [settings: SettingsData] }>();
-
-// ❌ BAD: Creating a local copy that won't sync with prop changes
-const localSettings = ref({ ...props.settings });
-
-// ❌ BAD: Watching local copy and emitting
-watch(localSettings, (newSettings) => {
-  emit('update:settings', { ...newSettings });
-}, { deep: true });
-</script>
-
-<template>
-  <!-- ❌ BAD: v-model bound to localSettings -->
-  <input v-model="localSettings.some_field" />
-
-  <!-- ❌ BAD: v-if checking props.settings while v-model uses localSettings -->
-  <div v-if="settings.some_enabled">
-    <input v-model="localSettings.some_value" />
-  </div>
-</template>
-```
-
-**Problems with this approach**:
-
-1. `localSettings` is a shallow copy that doesn't sync when `props.settings` changes
-2. User modifies localSettings → emits to parent → parent updates → **but localSettings doesn't update**
-3. v-if conditions checking different data source than v-model causes UI inconsistencies
-4. Closing and reopening settings shows stale values
-
-#### ✅ **CORRECT Pattern** (USE THIS)
-
-```vue
-<script setup lang="ts">
-const props = defineProps<{ settings: SettingsData }>();
-const emit = defineEmits<{ 'update:settings': [settings: SettingsData] }>();
-</script>
-
-<template>
-  <!-- ✅ GOOD: Direct binding with event handlers -->
-
-  <!-- Checkbox/Toggle -->
-  <input
-    :checked="props.settings.some_enabled"
-    type="checkbox"
-    class="toggle"
-    @change="
-      (e) =>
-        emit('update:settings', {
-          ...props.settings,
-          some_enabled: (e.target as HTMLInputElement).checked,
-        })
-    "
-  />
-
-  <!-- Text Input -->
-  <input
-    :value="props.settings.some_field"
-    type="text"
-    @input="
-      (e) =>
-        emit('update:settings', {
-          ...props.settings,
-          some_field: (e.target as HTMLInputElement).value,
-        })
-    "
-  />
-
-  <!-- Number Input -->
-  <input
-    :value="props.settings.some_number"
-    type="number"
-    @input="
-      (e) =>
-        emit('update:settings', {
-          ...props.settings,
-          some_number: parseInt((e.target as HTMLInputElement).value) || 0,
-        })
-    "
-  />
-
-  <!-- Select/Dropdown -->
-  <select
-    :value="props.settings.some_option"
-    @change="
-      (e) =>
-        emit('update:settings', {
-          ...props.settings,
-          some_option: (e.target as HTMLSelectElement).value,
-        })
-    "
-  >
-    <option value="option1">Option 1</option>
-    <option value="option2">Option 2</option>
-  </select>
-
-  <!-- Textarea -->
-  <textarea
-    :value="props.settings.some_text"
-    @input="
-      (e) =>
-        emit('update:settings', {
-          ...props.settings,
-          some_text: (e.target as HTMLTextAreaElement).value,
-        })
-    "
-  />
-
-  <!-- Conditional rendering uses same data source -->
-  <div v-if="props.settings.some_enabled">
-    <input
-      :value="props.settings.some_value"
-      type="text"
-      @input="
-        (e) =>
-          emit('update:settings', {
-            ...props.settings,
-            some_value: (e.target as HTMLInputElement).value,
-          })
-      "
-    />
-  </div>
-</template>
-```
-
-**Benefits of this approach**:
-
-1. ✅ Single source of truth (`props.settings`)
-2. ✅ Real-time reactivity - changes immediately reflected
-3. ✅ v-if conditions and bindings use same data source
-4. ✅ No synchronization issues
-5. ✅ Settings persist correctly when closing and reopening
-
-**Reference Components**:
-
-- ✅ `DatabaseSettings.vue` - Correct pattern
-- ✅ `AppearanceSettings.vue` - Correct pattern
-- ✅ `TranslationSettings.vue` - Fixed (was broken)
-- ✅ `UpdateSettings.vue` - Fixed (was broken)
-- ✅ `SummarySettings.vue` - Fixed (was broken)
-- ✅ `ProxySettings.vue` - Fixed (was broken)
-
-**Common Mistakes to Avoid**:
-
-- ❌ Don't create `localSettings` ref as a copy of props
-- ❌ Don't use `v-model` on props-based data (use `:value` + `@input`)
-- ❌ Don't mix `v-if="props.settings.x"` with `v-model="localSettings.x"`
-- ❌ Don't forget to spread `...props.settings` when emitting updates
-- ❌ Don't use `watch()` to sync localSettings with props (just don't use localSettings at all)
-
-## Styling Patterns
-
-### Semantic Color Classes
-
-Use these semantic class combinations for consistent theming:
-
-#### Buttons
-
-```html
-<!-- Primary button -->
-<button class="btn-primary">{{ t('save') }}</button>
-
-<!-- Secondary button -->
-<button class="btn-secondary">{{ t('cancel') }}</button>
-
-<!-- Danger button -->
-<button class="btn-danger">{{ t('delete') }}</button>
-```
-
-#### Form Elements
-
-```html
-<!-- Text input -->
-<input
-  class="input-field"
-  type="text"
-  :placeholder="t('enterText')"
-/>
-
-<!-- Textarea -->
-<textarea class="input-field" rows="4"></textarea>
-
-<!-- Select dropdown -->
-<select class="input-field">
-  <option value="">{{ t('selectOption') }}</option>
-</select>
-```
-
-#### Cards and Containers
-
-```html
-<div class="bg-bg-primary border border-border rounded-lg p-4">
-  <h3 class="text-text-primary font-semibold">{{ t('title') }}</h3>
-  <p class="text-text-secondary text-sm">{{ t('description') }}</p>
-</div>
-```
-
-### CSS Variables
-
-Theme-aware colors using CSS variables:
-
-```css
-:root {
-  --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f8fafc;
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #64748b;
-  --color-border: #e2e8f0;
-  --color-accent: #3b82f6;
-}
-
-.dark-mode {
-  --color-bg-primary: #0f172a;
-  --color-bg-secondary: #1e293b;
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-border: #334155;
-  --color-accent: #60a5fa;
+articleTask = Task { [weak self] in
+    let loaded = try await load(query: query, page: page)
+    try Task.checkCancellation()
+    guard requestID == self?.articleRequestID else { return }
+    self?.articles = loaded
 }
 ```
 
-### Component Styles
+### Interface strings
 
-#### Button Styles
+Every string goes through `t(_:)`, never a literal:
 
-```css
-.btn-primary {
-  @apply px-4 py-2 bg-accent text-white rounded-lg font-medium transition-colors;
-}
+```swift
+Label(t("article.action.markAllRead"), systemImage: "checkmark.circle")
+Text(t("article.action.markedNArticlesAsRead", ["count": affected]))
+```
 
-.btn-primary:hover {
-  @apply brightness-110;
-}
+Keys ported from the previous frontend live in `LocalizationTables.swift`;
+wording only this client needs lives in `ClientStrings.swift` under a `client.`
+prefix. The language follows the `language` setting the backend stores.
 
-.btn-primary:disabled {
-  @apply opacity-50 cursor-not-allowed;
+### Decoding
+
+Every model decodes leniently, because an older backend omits fields a newer one
+sends:
+
+```swift
+init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(Int.self, forKey: .id)
+    title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+    isRead = try container.decodeIfPresent(Bool.self, forKey: .isRead) ?? false
 }
 ```
 
-#### Input Styles
+Several endpoints answer `null` instead of `[]`, which `APIService.decode`
+turns into an empty collection.
 
-```css
-.input-field {
-  @apply w-full px-3 py-2 border border-border rounded-lg bg-bg-primary text-text-primary;
-}
+### When AppKit is the right answer
 
-.input-field:focus {
-  @apply outline-none ring-2 ring-accent;
-}
-```
+Reach for AppKit where SwiftUI cannot reproduce platform behaviour:
 
-### Multimedia Styling
+- **The sidebar** is an `NSOutlineView`, because `List` cannot show the gap that
+  opens between rows during a drag, the edge scrolling, or the folder lighting
+  up underneath.
+- **Article content** is a `WKWebView`, so the original markup renders.
+- **File import and export** use `NSOpenPanel` and `NSSavePanel`.
+- **Links** open through `NSWorkspace`.
 
-#### Images
-
-```css
-.prose :deep(img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.5rem;
-  margin: 1.5em 0;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.prose :deep(img:hover) {
-  opacity: 0.9;
-}
-```
-
-#### Audio Players
-
-```css
-.prose :deep(audio) {
-  width: 100%;
-  margin: 1.5em 0;
-  border-radius: 0.75rem;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-}
-```
-
-#### Video Players
-
-```css
-.prose :deep(video) {
-  width: 100%;
-  height: auto;
-  margin: 1.5em 0;
-  border-radius: 0.75rem;
-  background-color: #000;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-```
-
-#### Embedded Content (iframes)
-
-```css
-.prose :deep(iframe) {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  margin: 1.5em 0;
-  border-radius: 0.75rem;
-  border: none;
-}
-```
-
-### Dark Mode Support
-
-Use `:global(.dark-mode)` for dark mode styles:
-
-```vue
-<style scoped>
-.button {
-  background-color: rgba(255, 255, 255, 0.9);
-  color: #212529;
-}
-
-:global(.dark-mode) .button {
-  background-color: rgba(45, 45, 45, 0.9);
-  color: #e0e0e0;
-}
-</style>
-```
-
-### Responsive Design
-
-Use Tailwind responsive prefixes:
-
-```html
-<div class="p-2 sm:p-4 md:p-6">
-  <h1 class="text-lg sm:text-xl md:text-2xl">{{ t('title') }}</h1>
-</div>
-```
+Wrap these in `NSViewRepresentable` and keep the SwiftUI surface small.
 
 ## API Communication
 
@@ -1082,82 +638,71 @@ Use Tailwind responsive prefixes:
 
 MrRSS uses direct HTTP fetch (not Wails bindings) for better control.
 
-#### GET Request
+#### GET request
 
-```javascript
-// Simple GET
-const response = await fetch('/api/articles');
-const articles = await response.json();
+```swift
+// Simple
+let feeds: [Feed] = try await get("feeds")
 
-// GET with query parameters
-const params = new URLSearchParams({
-  feed_id: '123',
-  is_read: 'false',
-  limit: '50'
-});
-const response = await fetch(`/api/articles?${params}`);
-const articles = await response.json();
+// With query parameters
+let articles: [Article] = try await get("articles", queryItems: [
+    URLQueryItem(name: "feed_id", value: "123"),
+    URLQueryItem(name: "filter", value: "unread"),
+    URLQueryItem(name: "limit", value: "50")
+])
 ```
 
-#### POST Request
+#### POST request
 
-```javascript
-// POST with JSON body
-await fetch('/api/settings', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(settingsObject)
-});
+```swift
+// With a JSON body built from a dictionary
+try await post("feeds/add", jsonBody: draft.jsonBody)
 
-// POST without body
-await fetch(`/api/articles/${id}/read`, {
-  method: 'POST'
-});
+// With an Encodable body and a decoded response
+let result: SummaryResult = try await postJSON(
+    "articles/summarize",
+    body: Request(articleID: id, length: "medium", content: nil)
+)
+
+// With query parameters only
+try await post("articles/favorite", queryItems: [
+    URLQueryItem(name: "id", value: String(id))
+])
 ```
 
-#### Error Handling
+#### Error handling
 
-```javascript
-try {
-  const response = await fetch('/api/feeds');
+`APIService.data(for:)` turns a non-2xx response into `APIError.server`,
+preferring the `error` field of a JSON body over its raw text. Callers surface
+the message and, where the change was optimistic, roll it back:
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  const feeds = await response.json();
-  // Process feeds...
-
-} catch (error) {
-  console.error('API call failed:', error);
-  window.showToast(t('apiError'), 'error');
+```swift
+do {
+    try await api.refreshFeed(id: feed.id)
+    statusMessage = t("modal.feed.feedRefreshStarted")
+} catch {
+    errorMessage = error.localizedDescription
 }
 ```
 
 ### Progress Tracking
 
-For long-running operations (e.g., feed refresh):
+Long-running operations report progress by polling, so a run started elsewhere
+is still followed:
 
-```javascript
-// Start operation
-await fetch('/api/refresh', { method: 'POST' });
+```swift
+try await api.refreshAllFeeds()
 
-// Poll for progress
-const pollInterval = setInterval(async () => {
-  const response = await fetch('/api/progress');
-  const data = await response.json();
-
-  // Update progress
-  progress.value = Math.round((data.current / data.total) * 100);
-
-  // Check if complete
-  if (!data.is_running) {
-    clearInterval(pollInterval);
-    // Refresh UI data
-    await loadArticles();
-  }
-}, 500); // Poll every 500ms
+for _ in 0..<180 {
+    try Task.checkCancellation()
+    let progress = try await api.fetchRefreshProgress()
+    refreshProgress = progress
+    if !progress.isRunning { break }
+    try await Task.sleep(for: .seconds(1))
+}
 ```
+
+Discovery works the same way, through `fetchDiscoveryProgress()`.
 
 ### Backend HTTP Handlers
 

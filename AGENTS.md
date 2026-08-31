@@ -10,16 +10,20 @@
 
 - **Privacy-First**: No external analytics, all data stored locally
 - **Cross-Platform**: Native desktop experience on Windows, macOS, and Linux
-- **Modern Tech Stack**: Go 1.27+ + Wails v3 + Vue 3.5+ with TypeScript
+- **Modern Tech Stack**: Go 1.27+ backend with a native SwiftUI client for macOS
 - **AI-Enhanced**: Local algorithms (TF-IDF + TextRank) and cloud AI integration
 - **Performance-Optimized**: Concurrent processing, intelligent caching, WAL mode SQLite
 
 ### Tech Stack
 
-- **Backend**: Go 1.27+ with Wails v3 (beta) framework, SQLite with `modernc.org/sqlite`
-- **Frontend**: Vue 3.5+ Composition API, Pinia, Tailwind CSS 3.3+, Vite 5+, TypeScript
-- **Communication**: HTTP REST API (not Wails bindings) for data operations
-- **Icons**: Phosphor Icons | **I18n**: vue-i18n (English/Chinese)
+- **Backend**: Go 1.27+, SQLite with `modernc.org/sqlite`, serving only `/api`
+- **Client**: SwiftUI for macOS 14+, a SwiftPM package with no third-party dependencies
+- **Communication**: the HTTP REST API alone; there are no native bindings
+- **Translations**: a catalogue ported from the previous frontend (English/Chinese)
+
+> **This branch builds the macOS client.** The Vue frontend and the Wails shell
+> were removed, so the Go binary has no embedded web assets.
+
 
 ### Key Features
 
@@ -59,8 +63,7 @@
 
 ```plaintext
 MrRSS/
-├── main.go                      # Desktop application entry point
-├── main-core.go                 # Headless server entry point
+├── main.go                      # API server entry point
 ├── internal/                    # Backend Go code
 │   ├── ai/                      # AI configuration and utilities
 │   ├── aiusage/                 # AI usage tracking and limits
@@ -83,20 +86,23 @@ MrRSS/
 │   ├── summary/                 # TF-IDF + TextRank + AI summarization
 │   ├── translation/             # Multi-service translation
 │   ├── utils/                   # Platform utilities
-│   ├── version/                 # Version constant
-│   └── webview/                 # Webview utilities
-├── frontend/src/
-│   ├── components/              # Vue components (article/, sidebar/, modals/, common/)
-│   ├── composables/             # Reusable logic (article/, feed/, discovery/, rules/, ui/)
-│   ├── stores/                  # Pinia state management
-│   ├── types/                   # TypeScript definitions
-│   ├── i18n/                    # Translations (en, zh)
-│   └── utils/                   # Frontend utilities
-├── docs/                        # Comprehensive documentation
-├── build/                       # Platform-specific build configurations
-├── tools/                       # Development tools (settings generator)
+│   └── version/                 # Version constant
+├── frontend/
+│   ├── Sources/
+│   │   ├── Models/              # Codable mirrors of the API payloads
+│   │   ├── Services/API/        # Transport plus one extension per domain
+│   │   ├── Localization/        # Translation catalogue and client-only wording
+│   │   ├── ViewModels/          # AppViewModel and its feature extensions
+│   │   └── Views/               # SwiftUI views, including the sidebar outline
+│   ├── Tests/                   # XCTest suite
+│   ├── build-app.sh             # Bundle and DMG packaging
+│   └── run.sh                   # Backend plus client launcher
+├── docs/                        # Documentation
+├── build/                       # Icon assets used when packaging
+├── tools/                       # Settings generators (Go and Swift)
 └── scripts/                     # Automation scripts (check, pre-release)
 ```
+
 
 📚 **Detailed Structure**: See [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
@@ -105,8 +111,7 @@ MrRSS/
 ### Backend Architecture (Go 1.27+)
 
 #### Framework & Communication
-- **Wails v3**: Desktop application framework with HTTP API
-- **HTTP REST API**: Primary communication (not Wails bindings)
+- **HTTP REST API**: the only channel between the client and the backend
 - **SQLite**: Pure Go implementation (`modernc.org/sqlite`) with WAL mode
 
 #### Core Packages
@@ -172,80 +177,46 @@ MrRSS/
 - **Safe File Operations**: No shell command concatenation
 - **Script Sandboxing**: Restricted execution context
 
-### Frontend Architecture (Vue 3.5+)
+### Client Architecture (SwiftUI)
 
-#### Core Technologies
-- **Vue 3.5+**: Composition API with `<script setup>`
-- **TypeScript**: Full type safety
-- **Pinia**: State management
-- **Tailwind CSS 3.3+**: Utility-first styling
-- **Vite 5+**: Fast build tooling
-- **vue-i18n**: Internationalization (en/zh)
-- **Phosphor Icons**: Iconography
+**Layering**
 
-#### Component Organization
-- **`components/article/`**: Article display and rendering
-  - `ArticleList.vue` - Virtual scrolling list
-  - `ArticleDetail.vue` - Article reader
-  - `ArticleContent.vue` - Content rendering with multimedia support
-  - `parts/` - Reusable content components
+- `Models/` mirror the API payloads. Every decoder is written by hand and
+  tolerates missing fields, because older backends omit some of them.
+- `Services/API/` holds the transport in `APIService.swift` and one extension
+  per domain. `APIClient` is the full protocol, so the compiler catches a call
+  the service forgot to implement.
+- `ViewModels/AppViewModel.swift` owns the state; the feature extensions beside
+  it own the behaviour. Views stay thin.
+- `Views/` are SwiftUI, except the sidebar, which is an `NSOutlineView` so that
+  dragging behaves the way source lists do on macOS.
 
-- **`components/sidebar/`**: Navigation sidebar
-- **`components/modals/`**: Modal dialogs
-  - `settings/` - Settings tabs (general, feeds, rules, shortcuts, about)
-  - `feed/` - Add/Edit feed
-  - `filter/` - Article filters
-  - `rules/` - Rules editor
-  - `discovery/` - Feed discovery
+**Conventions**
 
-- **`components/common/`**: Reusable components
-  - `Toast.vue` - Notifications
-  - `ContextMenu.vue` - Right-click menus
-  - `ImageViewer.vue` - Image gallery
-
-#### Composables Architecture
-- **`composables/article/`**: Article operations
-- **`composables/feed/`**: Feed management
-- **`composables/discovery/`**: Feed discovery
-- **`composables/filter/`**: Article filtering
-- **`composables/rules/`**: Filtering rules
-- **`composables/ui/`**: UI utilities (context menu, keyboard shortcuts, toast)
-
-#### State Management (Pinia)
-The main store (`stores/app.ts`) manages:
-- Articles and feeds state
-- Filter states (all, unread, favorites, imageGallery)
-- Theme management (light/dark/auto)
-- Refresh progress tracking
-- Unread counts
-- Search functionality
-
-#### Multimedia Support
-- **Images**: Clickable viewer, context menu, download support
-- **Audio**: Full-width player with podcast styling
-- **Video**: Responsive player with aspect ratio
-- **Iframes**: 16:9 aspect ratio for embeds (YouTube/Vimeo)
-- **Rich Text**: Tables, blockquotes, code blocks, math (KaTeX)
-
-📚 **Detailed Patterns**: See [CODE_PATTERNS.md](docs/CODE_PATTERNS.md)
+- Interface strings come from the catalogue: `t("some.key")`, never a literal.
+- The language follows the `language` setting the backend stores, and dates are
+  formatted with the matching locale.
+- Changes are applied locally first and rolled back if the request fails.
+- Reading preferences a feed overrides (view mode, auto-expand) win over the
+  global setting, as they did before.
 
 ## Development Workflow
 
 ### Getting Started
 
-1. **Prerequisites**: Go 1.27+, Node.js 18+, Wails CLI v3
-2. **Setup**: `go mod download && cd frontend && npm install`
-3. **Development**: `wails3 dev` (hot reload enabled)
-4. **Build**: Use `task build` or `wails3 build`
+1. **Prerequisites**: Go 1.27+, macOS 14+, Xcode 15+
+2. **Setup**: `go mod download`
+3. **Development**: `./frontend/run.sh` starts the backend and the client
+4. **Build**: `make build-app VERSION=1.3.28` produces the bundle and the DMG
 
 ### Development Tools
 
-#### Task Runner (Recommended)
+#### Make
 ```bash
-task --list      # Show all tasks
-task dev         # Development mode
-task build       # Build for current platform
-task package     # Package with installer
+make help        # Show all targets
+make dev         # Backend and client together
+make build       # Build both halves
+make build-app   # Package the .app and the DMG
 ```
 
 #### Make (Alternative)
@@ -274,7 +245,7 @@ make clean       # Clean artifacts
 - **Folder Organization**: Create subfolders when folders have 10-15+ files
 - **Backend**: Extract related functions into separate files within the same package
 - **Frontend**: Split large components or extract logic into composables
-- **Build Verification**: Always run `wails3 build` before completing changes
+- **Build Verification**: run `make build` and both test suites before completing changes
 
 ### Settings Management (OPTIMIZED)
 
@@ -312,16 +283,12 @@ make clean       # Clean artifacts
 6. **No Shell Commands**: Never use shell command concatenation (security risk)
 7. **Concurrency**: Use goroutines with proper synchronization (WaitGroup, Mutex, semaphores)
 
-### Vue/TypeScript Standards
+### Swift Standards
 
-1. **Composition API**: Use `<script setup>` syntax
-2. **Type Safety**: Proper TypeScript typing for all props and data
-3. **Internationalization**: Always use `t()` for user-facing strings
-4. **State Management**: Access store via `useAppStore()`
-5. **Error Handling**: Show toast notifications with `window.showToast()`
-6. **Styling**: Use Tailwind semantic classes (no inline styles)
-7. **Performance**: Debounce frequent operations (search, auto-save)
-8. **Lifecycle**: Proper cleanup on component unmount (timers, listeners)
+- SwiftUI with `@MainActor` view models; async work through structured concurrency
+- Named types over tuples once a value carries more than two fields
+- No force unwrapping outside tests
+- Comments explain why, not what; the surrounding code sets the density
 
 ### Security Practices
 
@@ -344,14 +311,15 @@ make clean       # Clean artifacts
 - **Single test**: `go test -v ./internal/database -run TestSpecificFunction`
 - **Coverage goals**: Database 80%+, Handlers 70%+, Business Logic 80%+, Utilities 90%+
 
-### Frontend Tests
+### Client Tests
 
-- **Unit tests**: `npm test` (uses Vitest)
-- **E2E tests**: `npm run test:e2e` (uses Cypress)
-- **Test UI**: `npm run test:ui`
-- **Coverage goals**: Components 70%+, Composables 80%+, Utilities 90%+
+```bash
+swift test --package-path frontend
+swift test --package-path frontend --filter LocalizationTests
+```
 
-📚 **Testing Guide**: See [TESTING.md](docs/TESTING.md)
+Tests use `StubAPIClient`, which fails any call the test did not prepare, so an
+unexpected request is reported rather than quietly returning nothing.
 
 ## Architecture Highlights
 
@@ -368,15 +336,12 @@ The settings system uses a JSON schema to automatically generate:
 - Guaranteed consistency between frontend and backend
 - Automatic type safety
 
-### Hybrid Communication Pattern
+### One Communication Channel
 
-MrRSS uses a **hybrid approach**:
-
-1. **HTTP API** (`/api/*`) - Primary communication for data operations
-2. **Wails Bindings** - System integration (browser, window management)
-3. **Static Files** - Frontend assets served from embedded `frontend/dist`
-
-This provides better control and flexibility compared to pure Wails bindings.
+The client speaks to the backend only over `/api/*`. System integration that a
+desktop shell used to provide is handled natively instead: links open through
+`NSWorkspace`, file import and export use `NSOpenPanel` and `NSSavePanel`, and
+window geometry is saved through `/api/window/save`.
 
 ### Intelligent Caching System
 
@@ -396,20 +361,21 @@ Feed fetching uses sophisticated concurrency control:
 
 ## Important Notes
 
-1. **No Wails Bindings for Data**: The application primarily uses HTTP API, not Wails bindings for data operations
+1. **No web assets**: the Go binary serves only `/api`; nothing is embedded
 2. **Privacy-First**: No external analytics, all data stored locally
-3. **Cross-Platform**: Build for Windows, macOS, and Linux
+3. **macOS client**: the interface targets macOS 14+; the backend stays portable
 4. **Portable Mode**: Supports portable deployment with `portable.txt`
-5. **Single Instance**: Enforced on Windows/macOS, disabled on Linux due to D-Bus issues
-6. **Concurrent Processing**: Feed fetching uses goroutines with configurable limits
-7. **Frontend snake_case**: All frontend settings use snake_case (not camelCase)
-8. **Settings Generation**: Always use the schema-driven generator for new settings
+5. **Concurrent Processing**: Feed fetching uses goroutines with configurable limits
+6. **snake_case settings**: the client reads and writes settings by their schema keys
+7. **Settings Generation**: run both generators after changing the schema
+8. **Upstream merges**: `frontend/` is deleted here, so upstream changes to it
+   report "deleted by us"; keep them deleted
 
 ## Common Issues
 
-1. **Linux D-Bus Issues**: Single instance mode disabled on Linux
-2. **Build Requirements**: Ensure platform-specific dependencies are installed
-3. **Frontend Hot Reload**: Use `wails3 dev` for development with hot reload
+1. **Build Requirements**: Xcode 15+ for the Swift toolchain, Go 1.27+ for the backend
+2. **Slow type checking**: keep SwiftUI bodies small; a long expression can stall the build
+3. **Running the client**: `./frontend/run.sh` starts the backend and the client together
 4. **Database Migrations**: Handle schema changes carefully with proper versioning
 5. **Settings Not Working**: Ensure you ran the settings generator after editing the schema
 

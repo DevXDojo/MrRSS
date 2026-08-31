@@ -26,18 +26,16 @@ if [ "$(goimports -d . | wc -l)" -gt 0 ]; then
 fi
 echo "✅ Go imports OK"
 
-# Frontend checks
-echo "🎨 Checking frontend code..."
-cd frontend
-npm run lint
-echo "✅ Frontend linting passed"
+# macOS client checks
+echo "🎨 Checking the macOS client..."
+swift build --package-path frontend
+echo "✅ macOS client builds"
 
-npm test -- --run --reporter=verbose
-echo "✅ Frontend tests passed"
+swift test --package-path frontend
+echo "✅ macOS client tests passed"
 
 # Build check
 echo "🔨 Checking build..."
-cd ..
 go build -v ./...
 echo "✅ Build successful"
 

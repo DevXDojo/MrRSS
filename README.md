@@ -8,11 +8,16 @@
    <strong>English</strong> | <a href="README_zh.md">简体中文</a>
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.3.27-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
+> **This branch builds the macOS client.** The interface is a native SwiftUI
+> application in `frontend`, and the Go backend runs as a plain HTTP API
+> server behind it. The Vue frontend and the Wails shell are not part of this
+> branch.
+
+[![Version](https://img.shields.io/badge/version-1.3.28-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
-[![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
-[![Vue.js](https://img.shields.io/badge/Vue.js-3.5+-4FC08D?logo=vue.js)](https://vuejs.org/)
+[![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift)](https://swift.org/)
+[![macOS](https://img.shields.io/badge/macOS-14+-000000?logo=apple)](https://www.apple.com/macos/)
 
 ## ✨ Features
 
@@ -36,21 +41,17 @@ Download the latest installer for your platform from the [Releases](https://gith
 
 <div markdown="1">
 
-**Standard Installation:**
+**macOS client:**
 
-- **Windows:** `MrRSS-{version}-windows-amd64-installer.exe` / `MrRSS-{version}-windows-arm64-installer.exe`
-- **macOS:** `MrRSS-{version}-darwin-universal.dmg`
-- **Linux:** `MrRSS-{version}-linux-amd64.AppImage` / `MrRSS-{version}-linux-arm64.AppImage`
-
-**Portable Version** (no installation required, all data in one folder):
-
-- **Windows:** `MrRSS-{version}-windows-{arch}-portable.zip`
-- **Linux:** `MrRSS-{version}-linux-{arch}-portable.tar.gz`
-- **macOS:** `MrRSS-{version}-darwin-{arch}-portable.zip`
+- `MrRSS-{version}-macos.dmg` — universal, and carries the backend, so nothing
+  else needs installing
 
 **AI Agent Skills:**
 
 - **Codex:** `MrRSS-{version}-skills.zip` ([usage guide](docs/SKILLS.md))
+
+Releases of this branch carry the macOS client alone. Builds for Windows and
+Linux come from the project's main branch.
 
 </div>
 
@@ -66,24 +67,11 @@ Download the latest installer for your platform from the [Releases](https://gith
 
 ### Prerequisites
 
-Before you begin, ensure you have the following installed:
+- [Go](https://go.dev/) 1.27 or higher
+- macOS 14 or later
+- Xcode 15 or later (for the Swift toolchain)
 
-- [Go](https://go.dev/) (1.27 or higher)
-- [Node.js](https://nodejs.org/) (20 LTS or higher with npm)
-- [Wails v3](https://v3alpha.wails.io/getting-started/installation/) CLI
-
-**Platform-specific requirements:**
-
-- **Linux**: GTK4, WebKitGTK 6.0, libsoup 3.0, GCC, pkg-config
-- **Windows**: MinGW-w64 (for CGO support), NSIS (for installers)
-- **macOS**: Xcode Command Line Tools
-
-For detailed installation instructions, see [Build Requirements](docs/BUILD_REQUIREMENTS.md)
-
-```bash
-# Quick setup for Linux (Ubuntu 24.04+):
-sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-config
-```
+See [Build Requirements](docs/BUILD_REQUIREMENTS.md) for details.
 
 ### Installation
 
@@ -94,40 +82,67 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
    cd MrRSS
    ```
 
-2. **Install frontend dependencies**
+2. **Run the client**
 
    ```bash
-   cd frontend
-   npm install
-   cd ..
+   ./frontend/run.sh
    ```
 
-3. **Install Wails v3 CLI**
+   The launcher builds the Go backend, starts it on `http://127.0.0.1:1234`,
+   waits for the API to answer, and then starts the client. An existing server
+   on that address is reused.
+
+3. **Or run the two halves separately**
 
    ```bash
-   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+   go run . -host 127.0.0.1 -port 1234
+   swift run --package-path frontend MrRSS
    ```
 
-4. **Build the application**
+   The backend address can be changed in Settings, or before launch:
 
    ```bash
-   # Using Task (recommended)
-   task build
-
-   # Or using Makefile
-   make build
-
-   # Or directly with wails3
-   wails3 build
+   MRRSS_API_BASE_URL=http://127.0.0.1:8080/api swift run --package-path frontend MrRSS
    ```
 
-   The executable will be created in the `build/bin` directory.
+4. **Build the application bundle**
 
-5. **Run the application**
+   ```bash
+   make build-app VERSION=1.3.28
+   ```
 
-   - Windows: `build/bin/MrRSS.exe`
-   - macOS: `build/bin/MrRSS.app`
-   - Linux: `build/bin/MrRSS`
+   This produces `frontend/dist/MrRSS.app` and
+   `frontend/dist/MrRSS-<version>-macos.dmg` beside it. The bundle carries the backend, so it launches without a
+   separately installed server.
+
+</div>
+
+</details>
+
+### Server Mode
+
+<details>
+
+<summary>Click to expand the server guide</summary>
+
+<div markdown="1">
+
+The Go binary is an HTTP API server. Run it on its own to share one library
+between machines, and point the client at it in Settings:
+
+```bash
+go build -o mrrss-server .
+./mrrss-server -host 0.0.0.0 -port 1234
+```
+
+A Docker image is available too:
+
+```bash
+docker build -f Dockerfile.server -t mrrss-server:latest .
+docker run -p 1234:1234 -v $PWD/data:/app/data mrrss-server:latest
+```
+
+The API is documented in [docs/SERVER_MODE/swagger.json](docs/SERVER_MODE/swagger.json).
 
 </div>
 
@@ -141,17 +156,24 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
 
 <div markdown="1">
 
-**Normal Mode** (default):
+The backend keeps its database, logs and scripts in a `data` directory. Which
+one it uses depends on how it was started, and **the copies are independent of
+each other**:
 
-- **Windows:** `%APPDATA%\MrRSS\` (e.g., `C:\Users\YourName\AppData\Roaming\MrRSS\`)
-- **macOS:** `~/Library/Application Support/MrRSS/`
-- **Linux:** `~/.local/share/MrRSS/`
+| How it was started | Data directory |
+| --- | --- |
+| `./frontend/run.sh` | `data/` in the repository |
+| The packaged `.app` | `~/Library/Application Support/MrRSS/data/` |
+| `go run .` or the built binary | `data/` beside the directory it was started from |
+| The Docker image | `/app/data` in the container |
 
-**Portable Mode** (when `portable.txt` exists):
+So the library you build up while running from source is not the one the
+installed application reads. To carry one across, quit both and copy
+`data/rss.db` (along with `rss.db-shm` and `rss.db-wal` if they are present).
 
-- All data stored in `data/` folder
-
-This ensures your data persists across application updates and reinstalls.
+Because the application's data lives outside the bundle, removing the
+application leaves the library in place; delete the directory above to remove it
+as well.
 
 </div>
 
@@ -167,21 +189,22 @@ This ensures your data persists across application updates and reinstalls.
 
 ### Running in Development Mode
 
-Start the application with hot reloading:
-
 ```bash
-# Using Wails v3
-wails3 dev
+# Backend and client together
+make dev
 
-# Or using Task
-task dev
+# Backend only, with debug logging
+make serve
+
+# Client only, against a running backend
+swift run --package-path frontend MrRSS
 ```
 
 ### Code Quality Tools
 
 #### Using Make
 
-We provide a `Makefile` for handling common development tasks (available on Linux/macOS/Windows):
+A `Makefile` covers the common development tasks:
 
 ```bash
 # Show all available commands
@@ -215,19 +238,18 @@ pre-commit run --all-files
 make test
 ```
 
-### Local API and Server Mode
+### Local API
 
-The desktop app exposes its REST API at `http://localhost:1234/api` while it is
-running. The listener is restricted to the local computer.
-
-For server deployments and API integration, use the headless server version:
+The bundled backend serves its REST API at `http://localhost:1234/api`, and the
+listener is restricted to the local computer. Point the client at another
+address in Settings to read a shared library.
 
 ```bash
-# Using Docker (recommended)
+# Using Docker
 docker run -p 1234:1234 mrrss-server:latest
 
 # Or build from source
-go build -tags server -o mrrss-server .
+go build -o mrrss-server .
 ./mrrss-server
 ```
 

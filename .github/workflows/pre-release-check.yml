@@ -5,40 +5,10 @@ on:
 
 jobs:
   build-check:
-    name: Build Check ${{ matrix.platform }}-${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    name: Build macOS Client Bundle
+    runs-on: macos-latest
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Linux AMD64 build
-          - os: ubuntu-24.04
-            platform: linux
-            arch: amd64
-            ext: ''
-          # Linux ARM64 build - using native ARM64 runner
-          - os: ubuntu-24.04-arm
-            platform: linux
-            arch: arm64
-            ext: ''
-          # Windows AMD64 build
-          - os: windows-latest
-            platform: windows
-            arch: amd64
-            ext: '.exe'
-          # Windows ARM64 build - using native ARM64 runner
-          - os: windows-11-arm
-            platform: windows
-            arch: arm64
-            ext: '.exe'
-          # macOS Universal build (includes both Intel and Apple Silicon)
-          - os: macos-latest
-            platform: darwin
-            arch: universal
-            ext: '.app'
-
     steps:
       - uses: actions/checkout@v7
 
@@ -47,222 +17,22 @@ jobs:
         with:
           go-version: '1.27'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
+      - name: Run backend tests
+        env:
+          CGO_ENABLED: 1
+        run: go test -timeout=5m ./internal/...
 
-      - name: Install Task (task runner)
-        uses: arduino/setup-task@v3
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Linux dependencies (AMD64)
-        if: matrix.platform == 'linux' && matrix.arch == 'amd64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-4-dev \
-            libwebkitgtk-6.0-dev \
-            libsoup-3.0-dev \
-            gcc \
-            pkg-config \
-            wget \
-            file
-
-          # Verify GTK4/WebKitGTK 6.0 are available for current Wails v3
-          pkg-config --modversion gtk4 || exit 1
-          pkg-config --modversion webkitgtk-6.0 || exit 1
-          echo "GTK4 and WebKitGTK 6.0 installed successfully for Wails v3"
-
-      - name: Install Linux dependencies (ARM64)
-        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-4-dev \
-            libwebkitgtk-6.0-dev \
-            libsoup-3.0-dev \
-            gcc \
-            pkg-config \
-            wget \
-            file
-
-          # Verify GTK4/WebKitGTK 6.0 are available for current Wails v3
-          pkg-config --modversion gtk4 || exit 1
-          pkg-config --modversion webkitgtk-6.0 || exit 1
-          echo "GTK4 and WebKitGTK 6.0 installed successfully for Wails v3 ARM64"
-
-      - name: Install Windows dependencies (AMD64)
-        if: matrix.platform == 'windows' && matrix.arch == 'amd64'
-        run: |
-          choco install mingw nsis -y
-        shell: pwsh
-
-      - name: Install Windows dependencies (ARM64)
-        if: matrix.platform == 'windows' && matrix.arch == 'arm64'
-        run: |
-          choco install mingw nsis -y
-          # MinGW is required for CGO
-        shell: pwsh
-
-      - name: Install Wails CLI
-        shell: bash
-        run: |
-          WAILS_VERSION=$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)
-          echo "Installing Wails CLI ${WAILS_VERSION}"
-          go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
-
-      - name: Install frontend dependencies
+      - name: Run macOS client tests
         working-directory: ./frontend
-        run: npm ci
+        run: swift test
 
-      - name: Build application (Linux)
-        if: matrix.platform == 'linux'
-        env:
-          CGO_ENABLED: 1
+      - name: Build the application bundle
         run: |
-          # wails3 build automatically handles frontend build via Taskfile
-          wails3 build
+          chmod +x frontend/build-app.sh
+          frontend/build-app.sh "pre-release-check"
 
-          # Verify the build
-          if [ ! -f "build/bin/MrRSS" ]; then
-            echo "Error: Binary not found"
-            exit 1
-          fi
-
-          # Check architecture
-          file build/bin/MrRSS
-          echo "Binary built successfully for ${{ matrix.arch }}"
-
-      - name: Build application (Windows)
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        env:
-          CGO_ENABLED: 1
+      - name: Verify bundle contents
         run: |
-          # wails3 build automatically handles frontend build via Taskfile
-          wails3 build
-
-          # Verify the build
-          if (-not (Test-Path "build/bin/MrRSS.exe")) {
-            Write-Error "Binary not created"
-            exit 1
-          }
-
-          Write-Host "Binary built successfully for ${{ matrix.arch }}"
-
-
-
-      - name: Build application (macOS)
-        if: matrix.platform == 'darwin'
-        run: |
-          # macOS runners can build universal binaries natively
-          # wails3 build automatically handles frontend build via Taskfile
-          wails3 build
-
-      - name: Create installer (Windows)
-        if: matrix.platform == 'windows'
-        run: |
-          # Find NSIS installation
-          $nsisPath = Get-Command makensis -ErrorAction SilentlyContinue
-          if (-not $nsisPath) {
-            # Try common installation paths
-            $possiblePaths = @(
-              "C:\Program Files (x86)\NSIS\makensis.exe",
-              "C:\Program Files\NSIS\makensis.exe"
-            )
-            foreach ($path in $possiblePaths) {
-              if (Test-Path $path) {
-                $nsisPath = $path
-                break
-              }
-            }
-          } else {
-            $nsisPath = $nsisPath.Source
-          }
-
-          if (-not $nsisPath) {
-            Write-Error "NSIS not found"
-            exit 1
-          }
-
-          Write-Host "Using NSIS at: $nsisPath"
-
-          # Get version from package.json
-          $packageJson = Get-Content "frontend/package.json" -Raw | ConvertFrom-Json
-          $version = $packageJson.version
-          $arch = "${{ matrix.arch }}"
-          $installerPath = "build/windows/installer.nsi"
-
-          if (Test-Path $installerPath) {
-            $content = Get-Content $installerPath -Raw
-            $content = $content -replace '!define APP_VERSION ".*"', "!define APP_VERSION `"$version`""
-            $content = $content -replace 'OutFile ".*"', "OutFile `"..\bin\MrRSS-$version-windows-$arch-installer.exe`""
-            Set-Content $installerPath $content
-
-            # Build NSIS installer
-            & $nsisPath $installerPath
-
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "NSIS build failed with exit code $LASTEXITCODE"
-              exit 1
-            }
-          } else {
-            Write-Warning "Installer script not found at $installerPath"
-            exit 1
-          }
-        shell: pwsh
-        continue-on-error: true
-
-      - name: Create installer (Linux)
-        if: matrix.platform == 'linux'
-        run: |
-          # Clean up any cached appimagetool to ensure correct architecture is downloaded
-          rm -f build/appimagetool-*.AppImage
-
-          # Debug: Show system architecture info
-          echo "System architecture: $(uname -m)"
-          echo "Target architecture: ${{ matrix.arch }}"
-
-          # Debug: Verify binary architecture
-          echo "Binary architecture check:"
-          file build/bin/MrRSS || true
-
-          chmod +x build/linux/create-appimage.sh
-          ARCH=${{ matrix.arch }} ./build/linux/create-appimage.sh || echo "AppImage creation failed, will use tar.gz"
-        continue-on-error: true
-
-      - name: Create installer (macOS)
-        if: matrix.platform == 'darwin'
-        run: |
-          codesign --deep --force --verify --verbose \
-            --sign - \
-            --entitlements build/darwin/entitlements.plist \
-            build/bin/MrRSS.app
-          codesign --verify --deep --strict --verbose=2 build/bin/MrRSS.app
-          chmod +x build/darwin/create-dmg.sh
-          ./build/darwin/create-dmg.sh
-
-      - name: Package application (Linux - tar.gz fallback)
-        if: matrix.platform == 'linux'
-        run: |
-          cd build/bin
-          if [ -f "MrRSS" ]; then
-            # Get version from package.json
-            VERSION=$(jq -r '.version' ../../frontend/package.json)
-            tar -czf MrRSS-${VERSION}-linux-${{ matrix.arch }}.tar.gz MrRSS
-            echo "Created tar.gz package"
-          else
-            echo "Error: MrRSS binary not found"
-            exit 1
-          fi
-
-      - name: Verify build artifacts
-        shell: bash
-        run: |
-          echo "Build verification for ${{ matrix.platform }}-${{ matrix.arch }}"
-          echo "Checking build/bin directory..."
-          ls -lh build/bin/ || echo "No artifacts found"
-          echo "Build check completed successfully"
+          test -x frontend/dist/MrRSS.app/Contents/MacOS/MrRSS
+          test -x frontend/dist/MrRSS.app/Contents/Resources/mrrss-server
+          test -f frontend/dist/MrRSS.app/Contents/Info.plist

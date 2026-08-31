@@ -15,10 +15,10 @@
 
 MrRSS is built with a modern, modular architecture using:
 
-- **Backend**: Go 1.27+ with Wails v3 (beta) framework
-- **Frontend**: Vue 3.5+ Composition API with TypeScript
+- **Backend**: Go 1.27+ serving an HTTP API
+- **Client**: SwiftUI for macOS 14+, a SwiftPM package
 - **Database**: SQLite with pure Go implementation (`modernc.org/sqlite`)
-- **Communication**: HTTP REST API (not Wails bindings)
+- **Communication**: the HTTP REST API alone
 
 ### Key Design Principles
 
@@ -26,7 +26,7 @@ MrRSS is built with a modern, modular architecture using:
 2. **Performance-Optimized**: Concurrent processing, intelligent caching, WAL mode SQLite
 3. **Modular Architecture**: Feature-based organization, clear separation of concerns
 4. **Schema-Driven Configuration**: JSON schema-driven settings system with code generation
-5. **Hybrid Communication**: HTTP API for data, Wails bindings for system integration
+5. **One Channel**: everything goes over the HTTP API; system integration is native
 
 ## Backend Architecture
 
@@ -142,122 +142,84 @@ handlers/
 - `ai.go` - AI-based translation integration
 - `dynamic.go` - Dynamic translation service selection
 
-## Frontend Architecture
+## Client Architecture
 
-### Component Organization
+The macOS client lives in `frontend` and is a SwiftPM package with no
+third-party dependencies.
 
-Components are organized by feature in `frontend/src/components/`:
-
-```plaintext
-components/
-├── article/       # Article display and rendering
-│   ├── ArticleList.vue
-│   ├── ArticleItem.vue
-│   ├── ArticleDetail.vue
-│   ├── ArticleContent.vue
-│   ├── ArticleDetailToolbar.vue
-│   ├── ArticleToolbar.vue
-│   └── parts/     # Content rendering parts
-│       ├── ArticleTitle.vue
-│       ├── ArticleSummary.vue
-│       ├── ArticleBody.vue
-│       ├── ArticleLoading.vue
-│       ├── AudioPlayer.vue
-│       └── VideoPlayer.vue
-├── sidebar/       # Feed list sidebar
-│   ├── Sidebar.vue
-│   ├── SidebarFeed.vue
-│   ├── SidebarCategory.vue
-│   └── SidebarNavItem.vue
-├── common/        # Reusable components
-│   ├── Toast.vue
-│   ├── ContextMenu.vue
-│   └── ImageViewer.vue
-└── modals/        # Modal dialogs
-    ├── SettingsModal.vue
-    ├── settings/  # Settings tabs
-    ├── feed/      # Feed modals
-    ├── filter/    # Filter modals
-    ├── rules/     # Rules editor
-    ├── discovery/ # Discovery modal
-    └── common/    # Common modals
-```
-
-### Composables Organization
-
-Composables provide reusable logic in `frontend/src/composables/`:
+### Organisation
 
 ```plaintext
-composables/
-├── article/       # Article-related logic
-│   ├── useArticleDetail.ts
-│   ├── useArticleList.ts
-│   ├── useArticleContent.ts
-│   └── useArticleSummary.ts
-├── feed/          # Feed management
-│   ├── useFeedManagement.ts
-│   └── useFeedRefresh.ts
-├── discovery/     # Feed discovery
-│   └── useFeedDiscovery.ts
-├── filter/        # Article filtering
-│   └── useArticleFilter.ts
-├── rules/         # Filtering rules
-│   └── useRules.ts
-├── ui/            # UI utilities
-│   ├── useContextMenu.ts
-│   ├── useKeyboardShortcuts.ts
-│   └── useToast.ts
-└── core/          # Core utilities
-    └── useSettings.ts
+frontend/Sources/
+├── MrRSSApp.swift            # Scene, menu commands, settings window
+├── Localization/
+│   ├── LocalizationTables.swift   # The catalogue ported from the previous frontend
+│   ├── ClientStrings.swift        # Wording only this client needs
+│   └── Localization.swift         # Lookup, fallback, placeholder substitution
+├── Models/                   # Codable mirrors of the API payloads
+│   ├── Feed.swift, Article.swift, Organization.swift, AI.swift, System.swift
+│   ├── FilterFields.swift    # The fields and operators saved filters can use
+│   └── SettingsCatalog*.swift     # Generated from the backend schema
+├── Services/
+│   ├── API/                  # Transport plus one extension per domain
+│   ├── KeyboardShortcuts.swift    # Bindings, read from the stored settings
+│   └── AppDelegate.swift     # Starts the bundled backend when one is packaged
+├── ViewModels/
+│   ├── AppViewModel.swift    # Connection, feeds, folders, selection, settings
+│   ├── AppViewModel+Articles.swift    # List state, article actions, AI search
+│   ├── AppViewModel+Feeds.swift       # Feed, tag, saved-filter and OPML actions
+│   └── AppViewModel+Shortcuts.swift   # What each key press does
+└── Views/
+    ├── Sidebar/              # An NSOutlineView, so dragging behaves natively
+    ├── ArticleListView.swift, ArticleRowView.swift
+    ├── ArticleDetailView.swift, WebView.swift, ImageGalleryView.swift
+    ├── FeedEditorView.swift, SavedFilterEditorView.swift, DiscoveryView.swift
+    ├── ArticleChatView.swift
+    └── Settings/             # The panes that need more than a generated list
 ```
 
-### State Management
+### The sidebar is an outline view
 
-Pinia store (`frontend/src/stores/app.ts`) manages global state:
+`List` cannot reproduce what source lists do while something is dragged over
+them: the gap that opens between rows, the way a long list follows the pointer
+past its edges, and the folder that lights up underneath. `SidebarOutline`
+wraps `NSOutlineView` so all of that comes for free.
 
-- Articles list and selection
-- Feeds and categories
-- Filter states
-- Theme and locale
-- Refresh progress
-- Unread counts
+### Reading
 
-### Multimedia Support
+`WebView` renders either the article text the backend supplied or the original
+page, loaded live. Rendered text is stripped of scripts, frames and inline
+handlers, and is typeset from the reading settings; a live page keeps its own
+scripts because it needs them to display.
 
-Enhanced content rendering (`ArticleContent.vue` + `ArticleContent.css`):
+### Settings
 
-- **Images**: Clickable for viewer, right-click context menu, download support
-- **Audio**: Full-width player with podcast container styling (`AudioPlayer.vue`)
-- **Video**: Responsive player with proper aspect ratio (`VideoPlayer.vue`)
-- **Iframes**: 16:9 aspect ratio for YouTube/Vimeo embeds
-- **Rich Text**: Tables, blockquotes, code blocks, definition lists
+`SettingsCatalog.generated.swift` is produced from
+`internal/config/settings_schema.json` by `tools/settings-swift/generate.py`,
+and paired with the wording the previous frontend used. Panes that need more
+than a list of controls add their own section.
 
-### Translation Integration
+### Translations
 
-Auto-translation features:
-
-- Title translation (on-demand)
-- Content paragraph translation (inline display)
-- Summary translation
-- Supports Google Translate, DeepL, Baidu Translation, and AI-based translation
+Every interface string is looked up by key through `t(_:)`. The language
+follows the `language` setting the backend stores, so a reader who switches it
+on one machine sees the same language on another. Dates are formatted with the
+matching locale.
 
 ## Communication Flow
 
 ### HTTP API Pattern
 
-Frontend uses direct HTTP fetch (not Wails bindings):
+The client talks to the backend through `APIService`:
 
-```javascript
+```swift
 // GET request
-const response = await fetch('/api/articles');
-const articles = await response.json();
+let articles: [Article] = try await get("articles", queryItems: [
+    URLQueryItem(name: "filter", value: "unread")
+])
 
 // POST request
-await fetch('/api/settings', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(data)
-});
+try await sendJSONReturningData("settings", body: settings)
 ```
 
 ### Backend Handler Pattern
@@ -350,12 +312,12 @@ func (h *Handler) GetArticles(w http.ResponseWriter, r *http.Request) {
 - Prepared statement caching
 - Periodic VACUUM for space reclamation
 
-### Frontend
+### Client
 
-- Virtual scrolling for large article lists
-- Debounced operations (search, auto-save)
-- Lazy loading of article content
-- Efficient state updates with Pinia
+- `LazyVStack` and list reuse for long article lists
+- Paged loading, with the next page requested as the last row appears
+- Thumbnails decoded at the size they are drawn and cached in memory
+- Ordering applied on this Mac, so switching it does not refetch
 
 ### Concurrency
 
@@ -544,59 +506,30 @@ CREATE INDEX idx_articles_hidden ON articles(is_hidden);
 - **Age-Based Cleanup**: Remove articles older than X days
 - **Automatic VACUUM**: Reclaim disk space
 
-## Frontend Architecture Details
+## Client Details
 
-### Component Communication Patterns
+### How state reaches the views
 
-#### Props vs Events
+`AppViewModel` is the single observable object. Views bind to it directly, and
+the feature extensions beside it hold the behaviour, so no view owns state that
+another view needs.
 
-**Best Practice**: Use props for data down, events for actions up
-
-```vue
-<!-- Parent -->
-<ChildComponent
-  :data="parentData"
-  @update="handleUpdate"
-/>
-
-<!-- Child -->
-<script setup>
-defineProps<{ data: Type }>()
-const emit = defineEmits<{ update: [value: Type] }>()
-</script>
-```
-
-#### Store Communication
-
-**For Cross-Component State**: Use Pinia store
-
-```typescript
-// Access store
-const store = useAppStore()
-
-// Read state
-const articles = computed(() => store.articles)
-
-// Update state
-store.loadArticles()
-```
+For state that belongs to one screen — a sheet's draft, a search field, an
+expanded disclosure — use `@State` in that view. Anything the rest of the
+interface reacts to belongs on the view model.
 
 ### Multimedia Support
 
 #### Image Handling
 
-- **Lazy Loading**: Images load as needed
-- **Click to View**: Opens in image viewer
-- **Context Menu**: Right-click for options
-- **Download Support**: Save images locally
-- **Proxy Caching**: Cached media proxy
+Images in rendered articles are drawn by the web view, which keeps the original
+layout. Every image the backend can extract is also available in a gallery
+sheet, with a larger preview and links to open or copy the original.
 
-#### Audio/Video Support
+#### Audio and Video
 
-- **HTML5 Players**: Native browser support
-- **Responsive Sizing**: Adapts to content
-- **Custom Styling**: Branded player appearance
-- **Keyboard Controls**: Space to play/pause
+An article carrying audio or video shows a row above the body offering it in the
+system player, so playback uses the machine's own controls and output device.
 
 #### Math Rendering
 

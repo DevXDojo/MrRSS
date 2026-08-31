@@ -24,6 +24,8 @@ type ChatMessage struct {
 // ChatRequest represents the incoming chat request
 type ChatRequest struct {
 	Messages       []ChatMessage `json:"messages"`
+	SessionID      int64         `json:"session_id,omitempty"`
+	ArticleID      int64         `json:"article_id,omitempty"`
 	ArticleTitle   string        `json:"article_title,omitempty"`
 	ArticleURL     string        `json:"article_url,omitempty"`
 	ArticleContent string        `json:"article_content,omitempty"`
@@ -32,8 +34,16 @@ type ChatRequest struct {
 
 // ChatResponse represents the response from the AI chat
 type ChatResponse struct {
-	Response string `json:"response"`
-	HTML     string `json:"html,omitempty"` // Rendered HTML version of markdown response
+	Response     string `json:"response"`
+	HTML         string `json:"html,omitempty"` // Rendered HTML version of markdown response
+	Thinking     string `json:"thinking,omitempty"`
+	SessionID    int64  `json:"session_id,omitempty"`
+	HistorySaved bool   `json:"history_saved"`
+}
+
+type chatErrorResponse struct {
+	Error     string `json:"error"`
+	SessionID int64  `json:"session_id,omitempty"`
 }
 
 // HandleAIChat handles chat requests for article discussions
@@ -72,13 +82,17 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sessionID, historyEnabled, err := persistUserChatMessage(h, &req)
+	if err != nil {
+		log.Printf("AI chat history preparation failed session=%d", req.SessionID)
+		writeChatError(w, "Failed to save chat history", http.StatusInternalServerError, sessionID)
+		return
+	}
+
 	// Check if AI usage limit is reached
 	if h.AITracker.IsLimitReached() {
 		log.Printf("AI usage limit reached for chat")
-		w.WriteHeader(http.StatusTooManyRequests)
-		response.JSON(w, map[string]string{
-			"error": "AI usage limit reached",
-		})
+		writeChatError(w, "AI usage limit reached", http.StatusTooManyRequests, sessionID)
 		return
 	}
 
@@ -93,7 +107,7 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			apiKey = cfg.APIKey
 			endpoint = cfg.Endpoint
 			model = cfg.Model
-			log.Printf("Using AI profile for chat (endpoint: %s, model: %s)", endpoint, model)
+			log.Printf("Using AI profile for chat (model: %s)", model)
 		}
 	}
 
@@ -110,7 +124,7 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		if model == "" {
 			model = "gpt-4o-mini"
 		}
-		log.Printf("Using global AI settings for chat (endpoint: %s, model: %s)", endpoint, model)
+		log.Printf("Using global AI settings for chat (model: %s)", model)
 	}
 
 	// Optimize context to reduce token usage
@@ -128,7 +142,7 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	// Create HTTP client with proxy support if configured
 	httpClient, err := createHTTPClientWithProxy(h)
 	if err != nil {
-		log.Printf("Failed to create HTTP client with proxy: %v", err)
+		log.Printf("Failed to create HTTP client with proxy")
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	} else {
 		httpClient.Timeout = 60 * time.Second
@@ -146,8 +160,8 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	// Send chat request using universal client
 	result, err := client.RequestWithMessages(messagesMap)
 	if err != nil {
-		log.Printf("AI chat request failed: %v", err)
-		response.Error(w, err, http.StatusInternalServerError)
+		log.Printf("AI chat request failed")
+		writeChatError(w, "Failed to get response from AI. Please try again.", http.StatusInternalServerError, sessionID)
 		return
 	}
 
@@ -159,11 +173,6 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	// Convert markdown response to HTML
 	htmlResponse := textutil.ConvertMarkdownToHTML(respContent)
 
-	// Log thinking if present (for debugging)
-	if thinking != "" {
-		log.Printf("AI chat thinking: %s", thinking)
-	}
-
 	// Track AI usage (estimate tokens from input and output)
 	estimatedTokens := estimateChatTokens(optimizedMessages, respContent)
 	if err := h.AITracker.AddUsage(int64(estimatedTokens)); err != nil {
@@ -173,7 +182,68 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	// Track statistics
 	_ = h.DB.IncrementStat("ai_chat")
 
-	response.JSON(w, ChatResponse{Response: respContent, HTML: htmlResponse})
+	historySaved := historyEnabled
+	if historyEnabled {
+		if _, saveErr := h.DB.CreateChatMessage(sessionID, "assistant", respContent, thinking); saveErr != nil {
+			log.Printf("AI chat assistant history save failed session=%d", sessionID)
+			historySaved = false
+		}
+	}
+
+	response.JSON(w, ChatResponse{
+		Response: respContent, HTML: htmlResponse, Thinking: thinking,
+		SessionID: sessionID, HistorySaved: historySaved,
+	})
+}
+
+func persistUserChatMessage(h *core.Handler, req *ChatRequest) (int64, bool, error) {
+	if req.ArticleID <= 0 {
+		// Backward compatibility for callers that do not send article_id.
+		return req.SessionID, false, nil
+	}
+
+	lastUserMessage := ""
+	for index := len(req.Messages) - 1; index >= 0; index-- {
+		if req.Messages[index].Role == "user" {
+			lastUserMessage = strings.TrimSpace(req.Messages[index].Content)
+			break
+		}
+	}
+	if lastUserMessage == "" {
+		return req.SessionID, false, fmt.Errorf("latest user message is missing")
+	}
+
+	sessionID := req.SessionID
+	if sessionID > 0 {
+		session, err := h.DB.GetChatSession(sessionID)
+		if err != nil {
+			return sessionID, false, err
+		}
+		if session == nil || session.ArticleID != req.ArticleID {
+			return sessionID, false, fmt.Errorf("chat session does not belong to the article")
+		}
+	} else {
+		title := []rune(lastUserMessage)
+		if len(title) > 60 {
+			title = title[:60]
+		}
+		var err error
+		sessionID, err = h.DB.CreateChatSession(req.ArticleID, string(title))
+		if err != nil {
+			return 0, false, err
+		}
+	}
+
+	if _, err := h.DB.CreateChatMessage(sessionID, "user", lastUserMessage, ""); err != nil {
+		return sessionID, false, err
+	}
+	return sessionID, true, nil
+}
+
+func writeChatError(w http.ResponseWriter, message string, status int, sessionID int64) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(chatErrorResponse{Error: message, SessionID: sessionID})
 }
 
 // optimizeChatContext reduces the chat context to save tokens while preserving important information

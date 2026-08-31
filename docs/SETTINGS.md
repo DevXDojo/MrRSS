@@ -34,18 +34,15 @@ Edit `internal/config/settings_schema.json`:
 go run tools/settings-generator/main.go
 ```
 
-### 3. Add UI (Optional)
+### 3. Generate the client catalogue
 
-Add to your settings component:
-
-```vue
-<SettingItem :title="t('yourSettingKey')">
-  <Toggle
-    :model-value="settings.your_setting_key"
-    @update:model-value="updateSetting('your_setting_key', $event)"
-  />
-</SettingItem>
+```bash
+python3 tools/settings-swift/generate.py
 ```
+
+The settings window builds itself from the catalogue, so the new setting appears
+without any view being edited. Add its wording to the translation catalogue so
+it reads properly.
 
 That's it! See [Complete Example](#complete-example) for a detailed walkthrough.
 
@@ -80,26 +77,19 @@ After running the generator, these files are **automatically created/updated**:
 - ✅ `internal/config/config.go` - Go struct and `GetString()` function
 - ✅ `internal/config/settings_keys.go` - Settings keys array for DB init
 - ✅ `internal/handlers/settings/settings_handlers.go` - GET/POST API handlers
-- ✅ `frontend/src/types/settings.generated.ts` - TypeScript interface (snake_case)
-- ✅ `frontend/src/composables/core/useSettings.generated.ts` - Helper functions
-- ✅ `config/defaults.json` - Frontend defaults (snake_case)
+- ✅ `config/defaults.json` - Shipped defaults (snake_case)
 - ✅ `internal/config/defaults.json` - Backend defaults (snake_case)
 
 **Important:** All generated files are sorted alphabetically to minimize diff changes when adding new settings.
 
 ### Naming Convention
 
-**Frontend uses snake_case everywhere** (NOT camelCase):
+**Settings are addressed by their snake_case schema key everywhere**:
 
-- ✅ `settings.ai_api_key` (correct)
-- ❌ `settings.aiAPIKey` (incorrect)
+- ✅ `viewModel.setting("ai_api_key")` (correct)
+- ❌ `viewModel.setting("aiAPIKey")` (incorrect)
 
-This convention is used consistently across:
-
-- TypeScript interfaces (`SettingsData`)
-- Vue components
-- API communication
-- Event names
+This holds across the Go configuration, the API payloads and the macOS client.
 
 ---
 
@@ -147,138 +137,94 @@ go run tools/settings-generator/main.go
 ✓ Generated internal/config/config.go
 ✓ Generated internal/config/settings_keys.go
 ✓ Generated internal/handlers/settings/settings_handlers.go
-✓ Generated frontend/src/types/settings.generated.ts
-✓ Generated frontend/src/composables/core/useSettings.generated.ts
 
 ✨ All files generated successfully!
 ```
 
-This automatically generates all the boilerplate code for both backend and frontend.
+Then generate the client's settings catalogue:
+
+```bash
+python3 tools/settings-swift/generate.py
+```
+
+**Output:**
+
+```plaintext
+wrote frontend/Sources/Models/SettingsCatalog.generated.swift with 99 settings
+```
+
+The catalogue carries the key, the pane, the control, the default and the
+translation keys, so the settings window picks the new setting up on its own.
 
 ### Step 3: Add Translations (Recommended)
 
-#### English (`frontend/src/i18n/locales/en.ts`)
+The generator looks for wording in the client's catalogue,
+`frontend/Sources/Localization/LocalizationTables.swift`, using the same
+keys the previous frontend used. Add the label and, optionally, a description:
 
-Find the appropriate section and add:
-
-```typescript
-yourNewSetting: 'Your New Setting',
-yourNewSettingDesc: 'Description of what this setting does',
+```json
+"setting.general.yourNewSetting": "Your New Setting",
+"setting.general.yourNewSettingDesc": "What this setting does"
 ```
 
-#### Chinese (`frontend/src/i18n/locales/zh.ts`)
+Add the Chinese wording to the `chineseSimplified` table in the same file. If no
+match is found the generator falls back to a readable form of the key, which is
+visible but not translated, so it is worth adding.
 
-```typescript
-yourNewSetting: '您的新设置',
-yourNewSettingDesc: '此设置功能的描述',
-```
+For wording only the client needs, use `ClientStrings.swift` and a `client.`
+prefix instead.
 
-### Step 4: Add UI (Optional)
+### Step 4: Adjust the Generator (Only If Needed)
 
-Add the setting UI to the appropriate settings component.
+Most settings need nothing further. Reach for
+`tools/settings-swift/generate.py` when:
 
-**Example** - `frontend/src/components/modals/settings/general/GeneralSettings.vue`:
+- **The translation key cannot be derived from the name**: add it to
+  `LABEL_OVERRIDES`
+- **The setting belongs on a different pane than its schema category**: add it
+  to `PANE_OVERRIDES`
+- **The value comes from a fixed list**: add the options to `CHOICES`, each with
+  the stored value and its translation key
+- **The setting is internal**: add it to `HIDDEN` so it stays out of the window
 
-```vue
-<SettingItem
-  :title="t('yourNewSetting')"
-  :description="t('yourNewSettingDesc')"
->
-  <Toggle
-    :model-value="settings.your_new_setting"
-    @update:model-value="updateSetting('your_new_setting', $event)"
-  />
-</SettingItem>
-```
-
-**UI Component Examples:**
-
-```vue
-<!-- Boolean/Toggle -->
-<Toggle
-  :model-value="settings.your_setting"
-  @update:model-value="updateSetting('your_setting', $event)"
-/>
-
-<!-- String/Input -->
-<Input
-  v-model="settings.your_setting"
-  @change="updateSetting('your_setting', $event)"
-/>
-
-<!-- Integer/Number -->
-<Input
-  v-model.number="settings.your_setting"
-  type="number"
-  @change="updateSetting('your_setting', $event)"
-/>
-
-<!-- Select/Enum -->
-<Select
-  v-model="settings.your_setting"
-  :options="[{value: 'option1', label: 'Option 1'}, ...]"
-  @change="updateSetting('your_setting', $event)"
-/>
-```
+Then regenerate.
 
 ### Step 5: Implement Feature Logic (Optional)
 
-If the setting affects app behavior, implement the logic.
+If the setting changes how the client behaves, read it where the behaviour
+lives. Settings are strings on the wire, so use the typed accessors:
 
-#### Option A: Listen to Settings Event
-
-```vue
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useSettings } from '@/composables/core/useSettings'
-
-const { settings } = useSettings()
-const featureEnabled = ref(false)
-
-onMounted(() => {
-  // Apply the setting
-  featureEnabled.value = settings.value.your_new_setting
-})
-
-// Listen for changes
-window.addEventListener('your-new-setting-changed', (event: any) => {
-  featureEnabled.value = event.detail.value
-})
-</script>
-```
-
-#### Option B: Use Composable
-
-Create `frontend/src/composables/core/useYourFeature.ts`:
-
-```typescript
-import { computed } from 'vue'
-import { useSettings } from './useSettings'
-
-export function useYourFeature() {
-  const { settings } = useSettings()
-
-  const featureEnabled = computed(() => settings.value.your_new_setting)
-
-  return {
-    featureEnabled
-  }
+```swift
+// Boolean
+if viewModel.boolSetting("your_new_setting", default: true) {
+    // ...
 }
+
+// String, with the schema default as the fallback
+let mode = viewModel.setting("default_view_mode", default: "rendered")
+
+// Number
+let size = Int(viewModel.setting("content_font_size", default: "16")) ?? 16
 ```
+
+Nothing needs to listen for a change: `AppViewModel.settings` is published, so a
+view reading it redraws when the value is saved. A setting that changes
+something outside SwiftUI — the language, for instance — is applied in
+`loadSettings()`.
 
 ### Step 6: Test
 
 ```bash
 # Backend
-go build
+go build ./...
+go test ./internal/config/...
 
-# Frontend
-cd frontend
-npm run build
+# Client
+swift build --package-path frontend
+swift test --package-path frontend --filter SettingsCatalogTests
 
-# Or run full dev mode
-cd ..
-wails3 dev
+# Or run both and check the settings window
+./frontend/run.sh
 ```
 
 ---
@@ -334,86 +280,47 @@ go run tools/settings-generator/main.go
    - Added POST field: `AutoCollapseSidebar string \`json:"auto_collapse_sidebar"\``
    - Added save logic: `if req.AutoCollapseSidebar != "" { h.DB.SetSetting(...) }`
 
-4. **`frontend/src/types/settings.generated.ts`**
-   - Added: `auto_collapse_sidebar: boolean;`
-
-5. **`frontend/src/composables/core/useSettings.generated.ts`**
-   - Added: `auto_collapse_sidebar: false,` to defaults
-   - Added fetch: `auto_collapse_sidebar: data.auto_collapse_sidebar === 'true',`
-   - Added save: `auto_collapse_sidebar: (settingsRef.value.auto_collapse_sidebar ?? settingsDefaults.auto_collapse_sidebar).toString(),`
-   - Added event: `window.dispatchEvent(new CustomEvent('auto-collapse-sidebar-changed', ...))`
+4. **`frontend/Sources/Models/SettingsCatalog.generated.swift`** (after
+   running the Swift generator)
+   - Added a `SettingDefinition` with the key, pane, control and default
 
 6. **`config/defaults.json` & `internal/config/defaults.json`**
    - Added: `"auto_collapse_sidebar": false`
 
 ### Step 3: Add Translations
 
-**English** (`frontend/src/i18n/locales/en.ts`):
+In `frontend/Sources/Localization/LocalizationTables.swift`, add to the
+English table:
 
-```typescript
-autoCollapseSidebar: 'Auto Collapse Sidebar',
-autoCollapseSidebarDesc: 'Automatically collapse the sidebar when the app starts',
+```json
+"setting.general.autoCollapseSidebar": "Auto Collapse Sidebar",
+"setting.general.autoCollapseSidebarDesc": "Automatically collapse the sidebar when the app starts"
 ```
 
-**Chinese** (`frontend/src/i18n/locales/zh.ts`):
+And to the Chinese table:
 
-```typescript
-autoCollapseSidebar: '自动折叠侧边栏',
-autoCollapseSidebarDesc: '应用启动时自动折叠侧边栏',
+```json
+"setting.general.autoCollapseSidebar": "自动折叠侧边栏",
+"setting.general.autoCollapseSidebarDesc": "应用启动时自动折叠侧边栏"
 ```
 
-### Step 4: Add UI
+### Step 4: Regenerate the Catalogue
 
-Add to `frontend/src/components/modals/settings/general/GeneralSettings.vue`:
-
-```vue
-<SettingItem
-  :title="t('autoCollapseSidebar')"
-  :description="t('autoCollapseSidebarDesc')"
->
-  <Toggle
-    :model-value="settings.auto_collapse_sidebar"
-    @update:model-value="updateSetting('auto_collapse_sidebar', $event)"
-  />
-</SettingItem>
+```bash
+python3 tools/settings-swift/generate.py
 ```
 
-Place it near related settings (like theme, startup on boot).
+The setting now appears on the General pane as a switch, with its description
+underneath. Nothing else needs editing.
 
 ### Step 5: Implement Feature Logic
 
-In your sidebar component:
+Where the sidebar is built:
 
-```vue
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useSettings } from '@/composables/core/useSettings'
-
-const { settings } = useSettings()
-const isCollapsed = ref(false)
-
-onMounted(() => {
-  // Apply the setting
-  isCollapsed.value = settings.value.auto_collapse_sidebar
-})
-
-// Listen for changes
-window.addEventListener('auto-collapse-sidebar-changed', (event: any) => {
-  isCollapsed.value = event.detail.value
-})
-</script>
-
-<template>
-  <aside :class="{ collapsed: isCollapsed }">
-    <!-- Sidebar content -->
-  </aside>
-</template>
-
-<style scoped>
-aside.collapsed {
-  width: 60px;
+```swift
+if viewModel.boolSetting("auto_collapse_sidebar") {
+    columnVisibility = .detailOnly
 }
-</style>
 ```
 
 ### Step 6: Test
@@ -491,11 +398,15 @@ Should return `200 OK`.
 
 ### Type Mapping
 
-| Schema Type | Go Type | TypeScript Type | Example |
-| ----------- | ------- | --------------- | ------- |
-| `"bool"` | `bool` | `boolean` | `true`, `false` |
-| `"int"` | `int` | `number` | `30`, `500` |
-| `"string"` | `string` | `string` | `"en"`, `"openai"` |
+| Schema Type | Go Type | Client Control | Example |
+| ----------- | ------- | -------------- | ------- |
+| `"bool"` | `bool` | Switch | `true`, `false` |
+| `"int"` | `int` | Number field | `30`, `500` |
+| `"string"` | `string` | Text field, secure field, or picker | `"en"`, `"openai"` |
+
+A string setting becomes a picker when the generator's `CHOICES` table lists its
+options, and a secure field when the schema marks it encrypted or the key ends
+in `_key`, `_password` or `_secret`.
 
 ### Categories
 
@@ -533,19 +444,19 @@ Encrypted settings are automatically:
 - Fetched using `GetEncryptedSetting()` instead of `GetSetting()`
 - Saved using `SetEncryptedSetting()` instead of `SetSetting()`
 
-### Frontend Key Convention
+### Key Convention
 
-**Important:** Frontend uses **snake_case** everywhere (not camelCase).
+**Important:** settings are addressed by their snake_case schema key everywhere.
 
-| Backend Key (JSON) | Frontend Property (TypeScript) |
-| ------------------ | ------------------------------ |
-| `update_interval` | `settings.update_interval` ✅ |
-| `startup_on_boot` | `settings.startup_on_boot` ✅ |
-| `deepl_api_key` | `settings.deepl_api_key` ✅ |
-| `ai_endpoint` | `settings.ai_endpoint` ✅ |
-| `ai_chat_enabled` | `settings.ai_chat_enabled` ✅ |
+| Schema Key | Read in the client as |
+| ---------- | --------------------- |
+| `update_interval` | `viewModel.setting("update_interval")` |
+| `startup_on_boot` | `viewModel.boolSetting("startup_on_boot")` |
+| `deepl_api_key` | `viewModel.setting("deepl_api_key")` |
+| `ai_chat_enabled` | `viewModel.boolSetting("ai_chat_enabled")` |
 
-The `frontend_key` in the schema is for reference and should match the key in snake_case.
+The `frontend_key` in the schema is a hint for the generators when the
+translation key cannot be derived from the setting name.
 
 ### Quick Examples
 
@@ -561,13 +472,12 @@ The `frontend_key` in the schema is for reference and should match the key in sn
 }
 ```
 
-Usage in Vue:
+Read in the client:
 
-```vue
-<Toggle
-  :model-value="settings.enable_feature"
-  @update:model-value="updateSetting('enable_feature', $event)"
-/>
+```swift
+if viewModel.boolSetting("enable_feature", default: true) {
+    // ...
+}
 ```
 
 **Integer Setting:**
@@ -658,14 +568,14 @@ Examples:
 
 #### Frontend Errors
 
-**Problem:** `Property 'my_setting' does not exist`
+**Problem:** the setting is missing from the client
 
 **Solution:**
 
-1. Make sure you ran the generator
-2. Check `frontend/src/types/settings.generated.ts` exists and has your setting
-3. Try `npm run build` in frontend directory
-4. Restart TypeScript server in VSCode
+1. Make sure you ran both generators
+2. Check that `SettingsCatalog.generated.swift` contains the key
+3. Rebuild with `swift build --package-path frontend`
+4. If the label reads as a raw key, add its wording to the translation catalogue
 
 #### Setting Not Appearing in UI
 
