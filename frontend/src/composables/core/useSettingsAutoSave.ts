@@ -3,7 +3,7 @@
  */
 import { ref, watch, onMounted, onUnmounted, type Ref, computed, isRef } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAppStore } from '@/stores/app';
+import { getAutoRefreshInterval, useAppStore } from '@/stores/app';
 import type { SettingsData } from '@/types/settings';
 import { settingsDefaults } from '@/config/defaults';
 import { buildAutoSavePayload } from './useSettings.generated';
@@ -97,7 +97,9 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       // even if validation fails - these don't require API keys
       locale.value = settingsRef.value.language;
       store.setTheme(settingsRef.value.theme as 'light' | 'dark' | 'auto');
-      store.startAutoRefresh(settingsRef.value.update_interval);
+      store.startAutoRefresh(
+        getAutoRefreshInterval(settingsRef.value.refresh_mode, settingsRef.value.update_interval)
+      );
 
       // Notify components about default view mode change
       window.dispatchEvent(

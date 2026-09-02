@@ -8,6 +8,93 @@ export type Filter = 'all' | 'unread' | 'favorites' | 'readLater' | 'imageGaller
 export type ThemePreference = 'light' | 'dark' | 'auto';
 export type Theme = 'light' | 'dark';
 
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const MINUTE_MS = 60_000;
+
+interface AutoRefreshScheduler {
+  start: (minutes: number) => void;
+  stop: () => void;
+}
+
+export function getAutoRefreshInterval(refreshMode: string, minutes: number): number {
+  return refreshMode === 'fixed' ? minutes : 0;
+}
+
+export function createAutoRefreshScheduler(
+  onRefresh: () => void | Promise<void>,
+  canRefresh: () => boolean = () => true,
+  now: () => number = Date.now
+): AutoRefreshScheduler {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let intervalMs = 0;
+  let nextRefreshAt = 0;
+  let generation = 0;
+
+  const clearTimer = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  const schedule = (currentGeneration: number) => {
+    if (currentGeneration !== generation || intervalMs <= 0) {
+      return;
+    }
+
+    const remaining = Math.max(0, nextRefreshAt - now());
+    timer = setTimeout(
+      () => {
+        timer = null;
+        if (currentGeneration !== generation || intervalMs <= 0) {
+          return;
+        }
+
+        const currentTime = now();
+        if (currentTime < nextRefreshAt) {
+          schedule(currentGeneration);
+          return;
+        }
+
+        // Advance directly to the next future deadline. If the computer slept
+        // across several intervals, this triggers one catch-up refresh instead
+        // of replaying every missed interval.
+        const missedIntervals = Math.floor((currentTime - nextRefreshAt) / intervalMs);
+        nextRefreshAt += (missedIntervals + 1) * intervalMs;
+        schedule(currentGeneration);
+
+        if (canRefresh()) {
+          void onRefresh();
+        }
+      },
+      Math.min(remaining, MAX_TIMER_DELAY_MS)
+    );
+  };
+
+  const stop = () => {
+    generation += 1;
+    intervalMs = 0;
+    nextRefreshAt = 0;
+    clearTimer();
+  };
+
+  return {
+    start(minutes: number) {
+      stop();
+
+      const requestedInterval = minutes * MINUTE_MS;
+      if (!Number.isFinite(requestedInterval) || requestedInterval <= 0) {
+        return;
+      }
+
+      intervalMs = requestedInterval;
+      nextRefreshAt = now() + intervalMs;
+      schedule(generation);
+    },
+    stop,
+  };
+}
+
 // Temporary selection state for feed drawer selections
 export interface TempSelection {
   feedId: number | null;
@@ -119,7 +206,6 @@ export const useAppStore = defineStore('app', () => {
 
   // Refresh progress
   const refreshProgress = ref<RefreshProgress>({ isRunning: false });
-  let refreshInterval: ReturnType<typeof setInterval> | null = null;
   let latestFeedsRequestId = 0;
   let activeFeedsRequests = 0;
 
@@ -792,16 +878,13 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  const autoRefreshScheduler = createAutoRefreshScheduler(
+    refreshFeeds,
+    () => !refreshProgress.value.isRunning
+  );
+
   function startAutoRefresh(minutes: number): void {
-    if (refreshInterval) clearInterval(refreshInterval);
-    if (minutes > 0) {
-      refreshInterval = setInterval(
-        () => {
-          refreshFeeds();
-        },
-        minutes * 60 * 1000
-      );
-    }
+    autoRefreshScheduler.start(minutes);
   }
 
   function toggleShowOnlyUnread(): void {
