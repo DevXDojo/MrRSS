@@ -2,7 +2,9 @@ package httputil
 
 import (
 	"crypto/tls"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -42,4 +44,48 @@ func TestCreateHTTPClientKeepsTLSVerificationByDefault(t *testing.T) {
 	if transport.TLSClientConfig.InsecureSkipVerify {
 		t.Fatalf("expected InsecureSkipVerify to be false by default")
 	}
+}
+
+func TestCreateHTTPClientNegotiatesHTTP2(t *testing.T) {
+	t.Setenv(InsecureSkipTLSVerifyEnv, "true")
+
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor != 2 {
+			t.Errorf("expected HTTP/2 request, got %s", r.Proto)
+		}
+		_, _ = io.WriteString(w, "ok")
+	}))
+	server.EnableHTTP2 = true
+	server.StartTLS()
+	defer server.Close()
+
+	client, err := CreateHTTPClient("", 5*time.Second)
+	if err != nil {
+		t.Fatalf("CreateHTTPClient returned error: %v", err)
+	}
+	response, err := client.Get(server.URL)
+	if err != nil {
+		t.Fatalf("HTTP/2 request failed: %v", err)
+	}
+	defer response.Body.Close()
+}
+
+func TestCreateHTTPClientFallsBackToHTTP1(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor != 1 {
+			t.Errorf("expected HTTP/1.1 request, got %s", r.Proto)
+		}
+		_, _ = io.WriteString(w, "ok")
+	}))
+	defer server.Close()
+
+	client, err := CreateHTTPClient("", 5*time.Second)
+	if err != nil {
+		t.Fatalf("CreateHTTPClient returned error: %v", err)
+	}
+	response, err := client.Get(server.URL)
+	if err != nil {
+		t.Fatalf("HTTP/1.1 request failed: %v", err)
+	}
+	defer response.Body.Close()
 }
