@@ -13,6 +13,50 @@ export function useAppUpdates() {
   const downloadingUpdate = ref(false);
   const installingUpdate = ref(false);
   const downloadProgress = ref(0);
+  const downloadProgressKnown = ref(false);
+  const downloadBytesWritten = ref(0);
+  const downloadTotalBytes = ref(0);
+  const downloadErrorCode = ref('');
+
+  function createDownloadRequestId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `update-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  async function fetchDownloadProgress(requestId: string): Promise<void> {
+    try {
+      const res = await fetch(
+        `/api/download-update/progress?request_id=${encodeURIComponent(requestId)}`
+      );
+      if (!res.ok) return;
+      const progress = await res.json();
+      downloadBytesWritten.value = Number(progress.bytes_written) || 0;
+      downloadTotalBytes.value = Number(progress.total_bytes) || 0;
+      downloadProgressKnown.value = !progress.indeterminate && downloadTotalBytes.value > 0;
+      if (downloadProgressKnown.value) {
+        downloadProgress.value = Math.min(100, Math.max(0, Number(progress.percentage) || 0));
+      }
+    } catch (error) {
+      console.debug('Unable to poll update download progress:', error);
+    }
+  }
+
+  function downloadErrorMessage(errorCode: string): string {
+    switch (errorCode) {
+      case 'download_proxy_error':
+        return t('setting.update.downloadProxyError');
+      case 'download_timeout':
+        return t('setting.update.downloadTimeout');
+      case 'download_network_error':
+        return t('setting.update.downloadNetworkError');
+      case 'download_server_error':
+        return t('setting.update.downloadServerError');
+      default:
+        return t('common.toast.downloadFailed');
+    }
+  }
 
   /**
    * Check for available updates
@@ -21,6 +65,7 @@ export function useAppUpdates() {
   async function checkForUpdates(silent = false) {
     checkingUpdates.value = true;
     updateInfo.value = null;
+    downloadErrorCode.value = '';
 
     try {
       const res = await fetch('/api/check-updates');
@@ -63,13 +108,14 @@ export function useAppUpdates() {
 
     downloadingUpdate.value = true;
     downloadProgress.value = 0;
-
-    // Simulate progress while downloading
-    const progressInterval = setInterval(() => {
-      if (downloadProgress.value < 90) {
-        downloadProgress.value += 10;
-      }
-    }, 500);
+    downloadProgressKnown.value = false;
+    downloadBytesWritten.value = 0;
+    downloadTotalBytes.value = 0;
+    downloadErrorCode.value = '';
+    const requestId = createDownloadRequestId();
+    const progressInterval = window.setInterval(() => {
+      void fetchDownloadProgress(requestId);
+    }, 300);
 
     try {
       // Download the update
@@ -79,15 +125,19 @@ export function useAppUpdates() {
         body: JSON.stringify({
           download_url: updateInfo.value.download_url,
           asset_name: updateInfo.value.asset_name,
+          request_id: requestId,
         }),
       });
 
-      clearInterval(progressInterval);
+      window.clearInterval(progressInterval);
+      await fetchDownloadProgress(requestId);
 
       if (!downloadRes.ok) {
-        const errorText = await downloadRes.text();
-        console.error('Download error:', errorText);
-        throw new Error('DOWNLOAD_ERROR: ' + errorText);
+        const errorData = await downloadRes.json().catch(() => ({}));
+        const errorCode = errorData.error_code || 'download_failed';
+        downloadErrorCode.value = errorCode;
+        console.error('Update download failed:', errorCode);
+        throw new Error(`DOWNLOAD_ERROR:${errorCode}`);
       }
 
       const downloadData = (await downloadRes.json()) as DownloadResponse;
@@ -97,6 +147,9 @@ export function useAppUpdates() {
 
       downloadingUpdate.value = false;
       downloadProgress.value = 100;
+      downloadProgressKnown.value = true;
+      downloadBytesWritten.value = Number(downloadData.bytes_written) || downloadBytesWritten.value;
+      downloadTotalBytes.value = Number(downloadData.total_bytes) || downloadTotalBytes.value;
 
       // Show notification
       window.showToast(t('common.toast.downloadComplete'), 'success');
@@ -131,14 +184,16 @@ export function useAppUpdates() {
       window.showToast(t('setting.update.updateWillRestart'), 'info');
     } catch (e) {
       console.error('Update error:', e);
-      clearInterval(progressInterval);
+      window.clearInterval(progressInterval);
       downloadingUpdate.value = false;
       installingUpdate.value = false;
 
       // Use error codes for more reliable error classification
       const errorMessage = (e as Error).message || '';
       if (errorMessage.includes('DOWNLOAD_ERROR')) {
-        window.showToast(t('common.toast.downloadFailed'), 'error');
+        const errorCode = errorMessage.split(':')[1] || 'download_failed';
+        downloadErrorCode.value = errorCode;
+        window.showToast(downloadErrorMessage(errorCode), 'error');
       } else if (errorMessage.includes('INSTALL_ERROR')) {
         window.showToast(t('setting.update.installFailed'), 'error');
       } else {
@@ -153,6 +208,10 @@ export function useAppUpdates() {
     downloadingUpdate,
     installingUpdate,
     downloadProgress,
+    downloadProgressKnown,
+    downloadBytesWritten,
+    downloadTotalBytes,
+    downloadErrorCode,
     checkForUpdates,
     downloadAndInstallUpdate,
   };

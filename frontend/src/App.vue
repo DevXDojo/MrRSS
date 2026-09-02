@@ -91,6 +91,10 @@ const {
   downloadingUpdate,
   installingUpdate,
   downloadProgress,
+  downloadProgressKnown,
+  downloadBytesWritten,
+  downloadTotalBytes,
+  downloadErrorCode,
 } = useAppUpdates();
 
 // Update dialog state
@@ -365,6 +369,10 @@ function onFeedUpdated(): void {
       :downloading-update="downloadingUpdate"
       :installing-update="installingUpdate"
       :download-progress="downloadProgress"
+      :download-progress-known="downloadProgressKnown"
+      :download-bytes-written="downloadBytesWritten"
+      :download-total-bytes="downloadTotalBytes"
+      :download-error-code="downloadErrorCode"
       @close="showUpdateDialog = false"
       @update="downloadAndInstallUpdate"
     />

@@ -1150,6 +1150,15 @@ const en: TranslationMessages = {
       autoUpdateIntervalDesc: 'Interval for automatic update checks',
       checkForUpdates: 'Check for Updates',
       currentVersion: 'Current version',
+      downloadFailedHelp:
+        'The automatic download did not finish. Check your network or proxy and retry, or download the update manually.',
+      downloadManually: 'Open the release page',
+      downloadNetworkError:
+        'Could not connect to GitHub. Check your network or proxy settings and try again.',
+      downloadProxyError: 'The proxy settings are invalid. Check Network settings and try again.',
+      downloadServerError:
+        'The GitHub download service is temporarily unavailable. Try again later.',
+      downloadTimeout: 'The update download timed out. Check your network or proxy and try again.',
       installFailed: 'Installation failed',
       installingUpdate: 'Installing update...',
       latestVersion: 'Latest version',
