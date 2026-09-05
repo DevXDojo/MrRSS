@@ -330,9 +330,11 @@ func (db *DB) CleanupBySize() (int64, error) {
 		result, err := db.Exec(`
 			DELETE FROM article_contents
 			WHERE article_id IN (
-				SELECT article_id FROM article_contents
-				ORDER BY fetched_at ASC
-				LIMIT 100
+				SELECT c.article_id FROM article_contents c JOIN articles a ON a.id = c.article_id
+                WHERE a.is_favorite = 0 AND a.is_read_later = 0
+                AND c.fetched_at < datetime('now', '-1 day')
+                ORDER BY c.fetched_at ASC, c.article_id ASC
+                LIMIT 10
 			)
 		`)
 		if err != nil {
@@ -349,18 +351,6 @@ func (db *DB) CleanupBySize() (int64, error) {
 		log.Printf("Deleted %d cached article contents, current size: %.2f MB", count, currentSizeMB)
 	}
 
-	// Step 2: If still over limit, delete oldest read article metadata as a last resort.
-	if currentSizeMB > targetSizeMB {
-		count, err := db.CleanupReadArticlesOverPerFeedLimit(defaultMaxArticlesPerFeed)
-		if err != nil {
-			log.Printf("Per-feed article retention cleanup failed: %v", err)
-		} else if count > 0 {
-			totalDeleted += count
-			currentSizeMB, _ = db.GetDatabaseSizeMB()
-			log.Printf("Deleted %d read article metadata rows over per-feed limit, current size: %.2f MB", count, currentSizeMB)
-		}
-	}
-
 	// Step 3: If per-feed retention is not enough, delete oldest read article metadata.
 	for currentSizeMB > targetSizeMB {
 		result, err := db.Exec(`
@@ -370,7 +360,8 @@ func (db *DB) CleanupBySize() (int64, error) {
 				WHERE is_read = 1
 				AND is_favorite = 0
 				AND is_read_later = 0
-				ORDER BY published_at ASC
+                AND NOT EXISTS (SELECT 1 FROM article_contents c WHERE c.article_id = articles.id AND c.fetched_at >= datetime('now', '-1 day'))
+                ORDER BY published_at ASC
 				LIMIT 100
 			)
 		`)

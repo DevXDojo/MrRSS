@@ -34,26 +34,9 @@ func (db *DB) SaveArticle(article *models.Article) error {
 }
 
 // SaveArticles saves multiple articles in a transaction.
-// Includes progressive cleanup check to prevent database from exceeding size limit during refresh.
+// Cleanup is scheduled by the fetcher after refresh tasks, never by individual saves.
 func (db *DB) SaveArticles(ctx context.Context, articles []*models.Article) error {
 	db.WaitForReady()
-
-	// Progressive cleanup: check if we need to clean up before saving
-	if len(articles) > 10 {
-		// Only check for larger batches to avoid overhead
-		shouldCleanup, _ := db.ShouldCleanupBeforeSave()
-		if shouldCleanup {
-			log.Printf("Database approaching size limit, running progressive cleanup...")
-			go func() {
-				deleted, err := db.CleanupBySize()
-				if err != nil {
-					log.Printf("Progressive cleanup error: %v", err)
-				} else if deleted > 0 {
-					log.Printf("Progressive cleanup removed %d articles", deleted)
-				}
-			}()
-		}
-	}
 
 	for attempt := 1; attempt <= saveArticlesMaxAttempts; attempt++ {
 		err := db.saveArticlesOnce(ctx, articles)
