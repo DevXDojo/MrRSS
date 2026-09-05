@@ -39,13 +39,15 @@ export function useFullArticle(options: Options) {
     const current = () => requestId === generation && options.article()?.id === article.id;
     try {
       const response = await fetch(`/api/articles/fetch-full?id=${article.id}`, {
-        method: 'POST', signal: controller.signal,
+        method: 'POST',
+        signal: controller.signal,
       });
       if (!response.ok) throw new Error(`Full article: ${response.status}`);
       const data = await response.json();
       const cacheEnabled = await isMediaCacheEnabled();
       if (!current()) return;
-      if (typeof data.content !== 'string' || !data.content.trim()) throw new Error('Empty article');
+      if (typeof data.content !== 'string' || !data.content.trim())
+        throw new Error('Empty article');
       content.value = cacheEnabled
         ? proxyImagesInHtml(data.content, data.feed_url || article.url)
         : data.content;
@@ -59,10 +61,27 @@ export function useFullArticle(options: Options) {
   }
 
   watch(() => options.article()?.id, reset, { flush: 'sync' });
-  watch(() => [options.article()?.id, options.enabled(), options.automatic(), options.loading()], () => {
-    if (options.enabled() && options.automatic() && !options.loading() &&
-        attempted !== options.article()?.id && !content.value) void fetchFullArticle(false);
-  }, { immediate: true, flush: 'post' });
-  onBeforeUnmount(reset);
+  watch(
+    () => [options.article()?.id, options.enabled(), options.automatic(), options.loading()],
+    () => {
+      if (
+        options.enabled() &&
+        options.automatic() &&
+        !options.loading() &&
+        attempted !== options.article()?.id &&
+        !content.value
+      )
+        void fetchFullArticle(false);
+    },
+    { immediate: true, flush: 'post' }
+  );
+  function onReload(event: Event) {
+    if ((event as CustomEvent<number>).detail === options.article()?.id) reset();
+  }
+  window.addEventListener('article-content-reloaded', onReload);
+  onBeforeUnmount(() => {
+    reset();
+    window.removeEventListener('article-content-reloaded', onReload);
+  });
   return { fullArticleContent: content, isFetchingFullArticle: loading, fetchFullArticle };
 }

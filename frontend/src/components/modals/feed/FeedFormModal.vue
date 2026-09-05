@@ -586,7 +586,10 @@ const submitButtonText = computed(() => {
       </div>
 
       <!-- Advanced Settings Section (Collapsible) -->
-      <FeedContentOptions v-if="showAdvancedSettings && mode === 'edit' && feed" :feed-id="feed.id" />
+      <FeedContentOptions
+        v-if="showAdvancedSettings && mode === 'edit' && feed"
+        :feed-id="feed.id"
+      />
       <AdvancedSettings
         v-if="showAdvancedSettings"
         :image-gallery-enabled="imageGalleryEnabled"

@@ -10,6 +10,7 @@ import (
 )
 
 var markdownBlock = regexp.MustCompile("(?m)^ {0,3}(#{1,6} |```|~~~|[-*+] |[0-9]+\\. |>|\\|.*\\|)")
+var rasterDataImage = regexp.MustCompile(`(?i)^data:image/(png|gif|jpeg|webp|avif);base64,[a-z0-9+/=\r\n]+$`)
 var htmlElement = regexp.MustCompile(`(?i)<[a-z][a-z0-9]*(?:\s|/?>)`)
 
 // PrepareArticleContent renders Markdown sources and normalizes safe reader HTML.
@@ -22,7 +23,16 @@ func PrepareArticleContent(content, baseURL string) string {
 	if err != nil {
 		return ""
 	}
-	doc.Find("script,style,link,meta,base,object,embed,form,input,button,textarea,select,svg,math,template").Remove()
+	doc.Find("script,style,link,meta,base,object,embed,form,input,button,textarea,select,svg,template").Remove()
+	// Promote lazy image URLs in RSS HTML too, before removing source attributes.
+	doc.Find("img").Each(func(_ int, image *goquery.Selection) {
+		for _, key := range []string{"data-src", "data-original", "data-lazy-src", "data-actualsrc"} {
+			if value := strings.TrimSpace(image.AttrOr(key, "")); value != "" {
+				image.SetAttr("src", value)
+				break
+			}
+		}
+	})
 	base, _ := url.Parse(baseURL)
 	doc.Find("*").Each(func(_ int, sel *goquery.Selection) {
 		node := sel.Get(0)
@@ -37,6 +47,10 @@ func PrepareArticleContent(content, baseURL string) string {
 			key := strings.ToLower(attr.Key)
 			switch key {
 			case "href", "src", "poster":
+				if node.Data == "img" && key == "src" && rasterDataImage.MatchString(attr.Val) {
+					attrs = append(attrs, attr)
+					continue
+				}
 				value, err := url.Parse(strings.TrimSpace(attr.Val))
 				if err != nil {
 					continue

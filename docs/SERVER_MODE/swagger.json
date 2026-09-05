@@ -5493,6 +5493,114 @@
                     }
                 }
             }
+        },
+        "/feeds/content-options": {
+            "get": {
+                "description": "Read or save per-feed content/removal CSS selectors and an encrypted, exact-origin Cookie. Cookie is write-only: responses return has_cookie; omit cookie to retain it or send an empty string to remove it. Available for local and FreshRSS feeds.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Feed content extraction settings",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Feed ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.FeedContentOptions"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Read or save per-feed content/removal CSS selectors and an encrypted, exact-origin Cookie. Cookie is write-only: responses return has_cookie; omit cookie to retain it or send an empty string to remove it. Available for local and FreshRSS feeds.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Feed content extraction settings",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Feed ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "name": "options",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/database.FeedContentOptions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.FeedContentOptions"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -6512,6 +6620,26 @@
                 },
                 "y": {
                     "type": "integer"
+                }
+            }
+        },
+        "database.FeedContentOptions": {
+            "type": "object",
+            "properties": {
+                "content_selector": {
+                    "type": "string"
+                },
+                "cookie": {
+                    "type": "string"
+                },
+                "cookie_origin": {
+                    "type": "string"
+                },
+                "has_cookie": {
+                    "type": "boolean"
+                },
+                "remove_selector": {
+                    "type": "string"
                 }
             }
         }

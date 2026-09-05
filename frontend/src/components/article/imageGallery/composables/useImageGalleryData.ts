@@ -13,7 +13,10 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
   const isLoading = ref(false);
   let generation = 0;
   let controller: AbortController | null = null;
-  onBeforeUnmount(() => { generation++; controller?.abort(); });
+  onBeforeUnmount(() => {
+    generation++;
+    controller?.abort();
+  });
   const page = ref(1);
   const hasMore = ref(true);
   const imageCountCache = ref<Map<number, number>>(new Map());
@@ -74,7 +77,11 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
         const newArticles = data;
 
         if (loadMore) {
-          articles.value = [...new Map([...articles.value, ...newArticles].map((article) => [article.id, article])).values()];
+          articles.value = [
+            ...new Map(
+              [...articles.value, ...newArticles].map((article) => [article.id, article])
+            ).values(),
+          ];
         } else {
           articles.value = newArticles;
         }

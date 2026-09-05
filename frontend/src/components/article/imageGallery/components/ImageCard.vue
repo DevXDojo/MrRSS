@@ -135,9 +135,14 @@ function formatDate(dateString: string): string {
         :alt="article.title"
         :width="imageSize?.width || 4"
         :height="imageSize?.height || 3"
-        @load="(event) => { const image = event.target as HTMLImageElement; emit('imageSize', image.naturalWidth, image.naturalHeight); }"
         class="w-full h-auto block relative z-0"
         loading="lazy"
+        @load="
+          (event) => {
+            const image = event.target as HTMLImageElement;
+            emit('imageSize', image.naturalWidth, image.naturalHeight);
+          }
+        "
       />
 
       <!-- Platform badge (top-left) -->

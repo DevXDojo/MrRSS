@@ -401,6 +401,23 @@ Parameters:
 
 Request body: see the Swagger schema for full field details.
 
+### `GET /feeds/content-options`
+
+Feed content extraction settings
+
+Parameters:
+  - `id` (query, required): Feed ID
+
+### `POST /feeds/content-options`
+
+Feed content extraction settings
+
+Parameters:
+  - `id` (query, required): Feed ID
+  - `options` (body, required):
+
+Request body: see the Swagger schema for full field details.
+
 ### `POST /feeds/delete`
 
 Delete a feed

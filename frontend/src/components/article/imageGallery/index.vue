@@ -509,10 +509,10 @@ onUnmounted(() => {
     <ImageGalleryGrid
       :columns="masonryLayout.columns.value"
       :image-dimensions="masonryLayout.imageDimensions.value"
-      @image-size="masonryLayout.setImageSize"
       :is-loading="galleryData.isLoading.value"
       :show-text-overlay="showTextOverlay"
       :image-count-cache="galleryData.imageCountCache.value"
+      @image-size="masonryLayout.setImageSize"
       @open-image="openImage"
       @context-menu="handleContextMenu"
       @toggle-favorite="imageActions.toggleFavorite"

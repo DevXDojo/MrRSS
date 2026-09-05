@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BaseModal from '@/components/common/BaseModal.vue';
+import FeedContentOptions from '@/components/modals/feed/parts/FeedContentOptions.vue';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
@@ -181,6 +183,7 @@ function toggleEditMode() {
 }
 
 const {
+  contentOptionsFeed,
   tree,
   categoryUnreadCounts,
   feedUnreadCounts,
@@ -854,6 +857,14 @@ function handleFilterDragEnd() {
       @save="handleEditFilter"
     />
   </Teleport>
+  <BaseModal
+    v-if="contentOptionsFeed"
+    :title="t('modal.feed.contentOptions') + ' · ' + contentOptionsFeed.title"
+    size="lg"
+    @close="contentOptionsFeed = null"
+  >
+    <FeedContentOptions :feed-id="contentOptionsFeed.id" />
+  </BaseModal>
 </template>
 
 <style scoped>

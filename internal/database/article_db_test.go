@@ -56,6 +56,10 @@ func TestCleanupBySizePreservesUnreadMetadataAndDeletesContentFirst(t *testing.T
 		t.Fatalf("SetArticleContent error: %v", err)
 	}
 
+	if _, err := db.Exec("UPDATE article_contents SET fetched_at = datetime('now','-10 days') WHERE article_id = ?", articleID); err != nil {
+		t.Fatal(err)
+	}
+
 	deleted, err := db.CleanupBySize()
 	if err != nil {
 		t.Fatalf("CleanupBySize error: %v", err)

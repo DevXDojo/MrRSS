@@ -135,7 +135,11 @@ export function useArticleDetail() {
     async (newId, oldId) => {
       contentRequestId += 1;
       contentController?.abort();
-      if (!newId) { articleContent.value = ''; currentArticleId.value = null; isLoadingContent.value = false; }
+      if (!newId) {
+        articleContent.value = '';
+        currentArticleId.value = null;
+        isLoadingContent.value = false;
+      }
       if (newId && newId !== oldId) {
         // Close image viewer when switching articles
         imageViewerSrc.value = null;
@@ -284,12 +288,15 @@ export function useArticleDetail() {
     const requestId = ++contentRequestId;
     contentController?.abort();
     contentController = new AbortController();
-    const isCurrent = () => requestId === contentRequestId && store.currentArticleId === loadingArticleId;
+    const isCurrent = () =>
+      requestId === contentRequestId && store.currentArticleId === loadingArticleId;
     currentArticleId.value = loadingArticleId; // Track which article we're loading
     isLoadingContent.value = true;
 
     try {
-      const res = await fetch(`/api/articles/content?id=${loadingArticleId}`, { signal: contentController.signal });
+      const res = await fetch(`/api/articles/content?id=${loadingArticleId}`, {
+        signal: contentController.signal,
+      });
       if (!isCurrent()) return;
 
       if (res.ok) {
@@ -355,6 +362,9 @@ export function useArticleDetail() {
         throw new Error(`Reload content failed: ${res.status}`);
       }
       if (store.currentArticleId === reloadingArticleId) {
+        window.dispatchEvent(
+          new CustomEvent('article-content-reloaded', { detail: reloadingArticleId })
+        );
         await fetchArticleContent();
       }
     } catch (e) {

@@ -19,6 +19,7 @@ interface TreeData {
 
 export function useSidebar() {
   const store = useAppStore();
+  const contentOptionsFeed = ref<Feed | null>(null);
   const { compareFeeds, isPinned, togglePin } = useSidebarSort();
   const { t } = useI18n();
 
@@ -219,6 +220,10 @@ export function useSidebar() {
 
   // Feed actions
   async function handleFeedAction(action: string, feed: Feed): Promise<void> {
+    if (action === 'contentOptions') {
+      contentOptionsFeed.value = feed;
+      return;
+    }
     if (action === 'pin') {
       await togglePin(`feed:${feed.id}`);
       return;
@@ -361,6 +366,12 @@ export function useSidebar() {
         icon: 'PhBinoculars',
       });
     }
+
+    items.push({
+      label: t('modal.feed.contentOptions'),
+      action: 'contentOptions',
+      icon: 'PhArticle',
+    });
 
     // Only add edit and delete options for non-FreshRSS feeds
     if (!feed.is_freshrss_source) {
@@ -589,6 +600,7 @@ export function useSidebar() {
   }
 
   return {
+    contentOptionsFeed,
     tree,
     categoryUnreadCounts,
     feedUnreadCounts,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 // Test that FetchAll respects concurrency limits
 func TestFetchAll_RespectsConcurrency(t *testing.T) {
-	db, err := database.NewDB(":memory:")
+	db, err := database.NewDB(filepath.Join(t.TempDir(), "feeds.db"))
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
 	}
@@ -60,6 +61,7 @@ func TestFetchAll_RespectsConcurrency(t *testing.T) {
 	}
 
 	f := ff.NewFetcher(db)
+	t.Cleanup(func() { f.GetTaskManager().Stop(); f.GetCleanupManager().Stop(); db.Close() })
 
 	// Run FetchAll with context
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -85,7 +87,7 @@ func TestFetchAll_RespectsConcurrency(t *testing.T) {
 
 // Test that FetchAll cancels promptly when context is cancelled
 func TestFetchAll_RespectsCancellation(t *testing.T) {
-	db, err := database.NewDB(":memory:")
+	db, err := database.NewDB(filepath.Join(t.TempDir(), "feeds.db"))
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
 	}
@@ -107,6 +109,7 @@ func TestFetchAll_RespectsCancellation(t *testing.T) {
 	}
 
 	f := ff.NewFetcher(db)
+	t.Cleanup(func() { f.GetTaskManager().Stop(); f.GetCleanupManager().Stop(); db.Close() })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -129,7 +132,7 @@ func TestFetchAll_RespectsCancellation(t *testing.T) {
 
 // Test that FetchAll skips feeds with custom refresh intervals
 func TestFetchAll_SkipsCustomIntervalFeeds(t *testing.T) {
-	db, err := database.NewDB(":memory:")
+	db, err := database.NewDB(filepath.Join(t.TempDir(), "feeds.db"))
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
 	}
@@ -179,12 +182,16 @@ func TestFetchAll_SkipsCustomIntervalFeeds(t *testing.T) {
 	}
 
 	f := ff.NewFetcher(db)
+	t.Cleanup(func() { f.GetTaskManager().Stop(); f.GetCleanupManager().Stop(); db.Close() })
 
 	ctx := context.Background()
 	f.FetchAll(ctx)
 
-	// Wait for tasks to complete
-	time.Sleep(500 * time.Millisecond)
+	// Wait for the actual requests: a fixed sleep is unreliable under parallel builds.
+	deadline := time.Now().Add(5 * time.Second)
+	for atomic.LoadInt32(&globalRefreshCount) < 2 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
 
 	// Verify that only global feeds were refreshed
 	globalCount := atomic.LoadInt32(&globalRefreshCount)

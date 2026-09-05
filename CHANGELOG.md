@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Configure per-subscription full-text CSS selection and removal, including local extraction settings for FreshRSS feeds. (#908)
+- Save and replace encrypted Cookies scoped to an exact website origin for feed and article requests. (#828)
+- Render Markdown feed bodies, tables and code fences while preserving language and math markers. (#799)
 - Pin categories and subscriptions within their level, and sort the sidebar by name, count, latest article or saved custom order. (#548)
 - Export versioned JSON automation-rule backups and import validated rules without replacing existing rules or immediately applying them to old articles. (#455)
 - Add confirmed category dissolution and bulk unsubscribe actions, with atomic updates and protection for FreshRSS-managed subscriptions. (#508)
@@ -18,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Recover empty or expired article caches, invalidate both cache layers on reload, and preserve saved reading content during automatic age cleanup. (#795)
+- Schedule size cleanup after refresh tasks; remove eligible content oldest-first while retaining fresh, favorite and read-later content. (#805)
+- Recover older articles that have left the RSS window and discard stale reader requests, retaining saved descriptions when the source is unavailable. (#948)
+- Automatically fetch full text once per selected article, including empty RSS entries, with manual retry and isolation from late responses. (#982)
+- Decode article page encodings, resolve images against redirect destinations, retain common lazy images, and support semantic-container extraction fallback. (#601)
+- Balance gallery columns using decoded image dimensions, reserve lazy-image space, preserve visible scroll anchors, and deduplicate paginated entries. (#605)
 - Stabilize feed drag indicators over icons, row gaps and empty categories, and keep drag auto-scrolling tied to the pointer. (#501)
 - Show favorite counts for subscriptions and nested categories, and keep read favorites visible regardless of the unread-only preference. (#653)
 - Image gallery articles now honor per-feed and global external-browser preferences, including video feeds (#779).

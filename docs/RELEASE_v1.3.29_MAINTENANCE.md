@@ -4,7 +4,7 @@
 
 执行约定：每个功能或修复单独提交；整组完成后统一验证；每完成一组完全停止，收到用户继续指令后才处理下一组。分组是候选队列，不承诺一次解决所有条目。遇到需要大改或缺少复现资料的条目记录原因并暂缓，不扩大本轮范围。不自动发布版本、不合并 main、不自动关闭缺乏验证证据的 issue。
 
-当前轮次：第一、二、三组已完成，本轮结束后停止。已审查并整合 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
+当前轮次：第一、二、三、四组已完成，本轮结束后停止。已审查并整合 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
 
 排序原则：先处理有明确复现和现成修复的高影响故障，再处理局部交互、管理功能及正文问题；平台依赖和缺资料问题先确认复现。组内大致按影响与实现成本排序。云同步、移动端及跨模块大改暂缓。
 
@@ -36,17 +36,17 @@
 - [x] [#508](https://github.com/DevXDojo/MrRSS/issues/508) [FEATURE] 侧边栏分类功能增强
 - [x] [#548](https://github.com/DevXDojo/MrRSS/issues/548) [FEATURE] 建议增加置顶和多种配排序方式
 
-## 第四组：正文、抓取与渲染（先复现再实现，待继续）
+## 第四组：正文、抓取与渲染（已完成）
 
-- [ ] [#795](https://github.com/DevXDojo/MrRSS/issues/795) [BUG] 有时rss订阅只剩标题了
-- [ ] [#805](https://github.com/DevXDojo/MrRSS/issues/805) [BUG] 自建FOLO服务器订阅连接的订阅内容自动消失
-- [ ] [#948](https://github.com/DevXDojo/MrRSS/issues/948) 部分文章无法正常渲染
-- [ ] [#799](https://github.com/DevXDojo/MrRSS/issues/799) [FEATURE] 文中内容涉及markdown内容的渲染问题
-- [ ] [#605](https://github.com/DevXDojo/MrRSS/issues/605) [BUG] 图片模式，图片太多页面下滑，布局会崩掉
-- [ ] [#982](https://github.com/DevXDojo/MrRSS/issues/982) [FEATURE] papr有一个自动正文的功能很方便看文，能不能加入类似的功能
-- [ ] [#601](https://github.com/DevXDojo/MrRSS/issues/601) [FEATURE] 获取全文能力有待提高
-- [ ] [#908](https://github.com/DevXDojo/MrRSS/issues/908) [FEATURE] 希望考虑添加freshrss类似的全文css选择器
-- [ ] [#828](https://github.com/DevXDojo/MrRSS/issues/828) [FEATURE] 希望增加一个cookies选项，来替换失效的cookies
+- [x] [#795](https://github.com/DevXDojo/MrRSS/issues/795) [BUG] 有时rss订阅只剩标题了
+- [x] [#805](https://github.com/DevXDojo/MrRSS/issues/805) [BUG] 自建FOLO服务器订阅连接的订阅内容自动消失
+- [x] [#948](https://github.com/DevXDojo/MrRSS/issues/948) 部分文章无法正常渲染
+- [x] [#799](https://github.com/DevXDojo/MrRSS/issues/799) [FEATURE] 文中内容涉及markdown内容的渲染问题
+- [x] [#605](https://github.com/DevXDojo/MrRSS/issues/605) [BUG] 图片模式，图片太多页面下滑，布局会崩掉
+- [x] [#982](https://github.com/DevXDojo/MrRSS/issues/982) [FEATURE] papr有一个自动正文的功能很方便看文，能不能加入类似的功能
+- [x] [#601](https://github.com/DevXDojo/MrRSS/issues/601) [FEATURE] 获取全文能力有待提高
+- [x] [#908](https://github.com/DevXDojo/MrRSS/issues/908) [FEATURE] 希望考虑添加freshrss类似的全文css选择器
+- [x] [#828](https://github.com/DevXDojo/MrRSS/issues/828) [FEATURE] 希望增加一个cookies选项，来替换失效的cookies
 
 ## 第五组：平台与安装故障（需要对应环境，待继续）
 
@@ -204,3 +204,35 @@
 PR #1054 已补齐三组共 19 条逐行 `Fixed #编号`，GitHub 的 closingIssuesReferences 已识别全部 19 个 issue；目标为默认分支 main、状态 OPEN / draft。待该发布 PR 正式合并时自动关闭关联 issue，本轮不合并它。
 
 停点：第三组已完成，第四组“正文、抓取与渲染”尚未开始。总体维护目标仍有后续分组，需用户明确继续。
+
+## 第四组审查与验证记录
+
+用户已明确继续第四组，并允许对不便复现的外部站点问题依据代码修复。组内九个条目分别提交；统一在组末验证，完成本组后完全停止，第五组不自动启动。
+
+| Issue | 功能提交 | 实现范围 |
+| --- | --- | --- |
+| #795 | `e05f1833` | 重载时清理数据库和内存两层缓存；空缓存不阻止重试；自动按年龄清理保留收藏和稍后读正文。 |
+| #805 | `815af13d` | 移除每批保存时启动的清理任务；整轮刷新完成后单个清理任务按最旧内容小批处理；保留一天内新缓存和收藏、稍后读内容，允许保护内容暂时超过容量目标。 |
+| #948 | `9ecdc4ab` | RSS 窗口之外的旧文章可从原网页恢复；失败时回退数据库保存的源摘要；单篇查询补齐 original_summary；阅读请求使用代次与取消控制。 |
+| #982 | `f28c8902` | 自动全文对空正文同样生效；每次选择只自动请求一次，手动可重试；文章切换、重载和卸载时清理请求状态。 |
+| #799 | `a8fa0a3b` | 识别纯 Markdown 订阅正文并渲染标题、表格、围栏代码；保留语言标记、数学内容与内嵌栅格图片，统一整理正文 HTML。 |
+| #601 | `28cc46c7` | 处理页面字符编码、重定向后的相对地址与常见延迟图片；自动提取失败时尝试语义正文容器；全文响应与文章绑定，避免过期结果覆盖。 |
+| #908 | `4ce69751` | 独立保存每个订阅源的正文和移除 CSS 选择器；多处匹配按顺序组合且嵌套去重；无匹配明确失败；FreshRSS 订阅也能通过右键配置本机提取规则。 |
+| #828 | `e81dc7fd` | 每订阅源可替换或删除 Cookie；加密存储、界面只显示保存状态；按明确的网站 origin 限定发送，重定向到其他站点不携带凭据。 |
+| #605 | `4def619e` | 使用已解码图片比例平衡瀑布流，延迟图片预留空间，批量更新布局并保留可见卡片位置；处理窄列、重复页、过期请求和监听器清理。 |
+
+验证使用本机隔离数据库、HTTP 测试站点和浏览器拦截样例，没有修改用户订阅或真实网站 Cookie。原 issue 未提供可重现链接的场景，依据代码缺陷与可控回归样例验证；不宣称已实测所有报告中的私人 RSSHub/FOLO 服务、微信文章或微博视频。Cookie 只影响 MrRSS 发出的订阅/文章请求，不修改远端 RSSHub 或 FreshRSS 服务的认证配置。
+
+组末检查：
+
+- 后端全量测试：`go test -timeout=5m ./...`。新增缓存重载/恢复、保留策略、选择器提取、延迟图片、响应失败与取消、Cookie 加密/更新/删除/重定向隔离及接口验证。刷新集成测试改用临时文件数据库并释放资源，避免多连接 `:memory:` 的独立数据库误报。
+- 前端单元测试：115/115；覆盖自动全文、失败重试、A→B→A 过期结果隔离、卸载取消、实际图片比例布局、窄容器与观察器初始化。
+- 浏览器回归：33/33（本组 5、阅读 6、分类管理 6、正文翻译 1、更新 15）；包含 60 张延迟图片翻页、缩放和布局检查。
+- 改动的 src 文件 ESLint `--max-warnings 0`；前端生产构建和 Windows `wails3 build`。
+- 更新 CHANGELOG、Swagger 及生成的 API 参考；新增 `/api/feeds/content-options`。全局设置 schema 没有新增项，提取规则保存在以 feed_id 关联的独立订阅配置表中。
+
+PR #1054 已包含前四组共 28 条逐行 `Fixed #编号`；GitHub closingIssuesReferences 已识别全部 28 个 issue。发布草稿继续保持 OPEN / draft；本组不合并 main，不发布版本。隔离测试服务在回归结束后关闭。
+
+停点：第四组已完成，第五组“平台与安装故障”尚未开始。总体维护目标仍有后续分组，等待用户明确继续。
+
+最终核对：后端全量测试、115 项前端单元测试、33 项浏览器回归、改动 src 文件的 ESLint 和 Windows `wails3 build` 全部通过；工作区排除构建产生的锁文件平台元数据改动。隔离测试服务已停止；main 仍为 `92c39341`。

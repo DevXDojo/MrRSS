@@ -995,7 +995,6 @@ watch(
       await reattachContentInteractions();
       await restorePendingArticleScrollPosition();
 
-
       // Generate summary if needed
       // But wait for full content if both conditions are met:
       // 1. Summary uses AI auto trigger OR local algorithm
@@ -1057,7 +1056,6 @@ onMounted(async () => {
       // Re-attach image and link event listeners after rendering
       await reattachContentInteractions();
       await restorePendingArticleScrollPosition();
-
     }
   }
 });
