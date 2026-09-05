@@ -4,6 +4,7 @@ const zh: TranslationMessages = {
   article: {
     action: {
       goToFeed: '返回所属订阅源',
+      searchWith: '使用 {engine} 搜索',
       addToFavorite: '添加到收藏',
       addToReadLater: '添加到稍后阅读',
       backToUrl: '返回 URL',

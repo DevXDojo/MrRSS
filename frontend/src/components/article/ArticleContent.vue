@@ -23,6 +23,7 @@ import { useSettings } from '@/composables/core/useSettings';
 import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
 import { wrapOrphanedTextNodes } from '@/utils/translationParagraphs';
+import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import './ArticleContent.css';
 
@@ -75,6 +76,7 @@ const { settings: appSettings, fetchSettings } = useSettings();
 const store = useAppStore();
 const isChatPanelOpen = ref(false);
 const articleScrollContainer = ref<HTMLElement | null>(null);
+const { onContextMenu: onTextContextMenu } = useArticleSelectionMenu(articleScrollContainer);
 const ARTICLE_SCROLL_POSITIONS_KEY = 'mrrssArticleScrollPositions';
 let scrollSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingScrollRestoreArticleId: number | null = null;
@@ -1140,6 +1142,7 @@ onBeforeUnmount(() => {
       ref="articleScrollContainer"
       class="h-full overflow-y-scroll p-3 sm:p-6 scroll-smooth"
       @click="handleContainerClick"
+      @contextmenu="onTextContextMenu"
       @scroll="scheduleSaveArticleScrollPosition"
     >
       <div

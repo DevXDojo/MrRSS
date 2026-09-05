@@ -4,6 +4,7 @@ const en: TranslationMessages = {
   article: {
     action: {
       goToFeed: 'Go to Feed',
+      searchWith: 'Search with {engine}',
       addToFavorite: 'Add to Favorites',
       addToReadLater: 'Add to Read Later',
       backToUrl: 'Back to URL',
