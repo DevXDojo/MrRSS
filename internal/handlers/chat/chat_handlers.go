@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"MrRSS/internal/ai"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/utils/httputil"
 	"MrRSS/internal/utils/textutil"
 )
 
@@ -285,65 +285,7 @@ func estimateChatTokens(messages []ChatMessage, response string) int {
 	return totalChars / 4
 }
 
-// createHTTPClientWithProxy creates an HTTP client with global proxy settings if enabled
+// createHTTPClientWithProxy creates the canonical HTTP client with global proxy settings.
 func createHTTPClientWithProxy(h *core.Handler) (*http.Client, error) {
-	// Check if global proxy is enabled
-	proxyEnabled, _ := h.DB.GetSetting("proxy_enabled")
-	if proxyEnabled != "true" {
-		return &http.Client{Timeout: 60 * time.Second}, nil
-	}
-
-	// Build proxy URL from global settings
-	proxyType, _ := h.DB.GetSetting("proxy_type")
-	proxyHost, _ := h.DB.GetSetting("proxy_host")
-	proxyPort, _ := h.DB.GetSetting("proxy_port")
-	proxyUsername, _ := h.DB.GetEncryptedSetting("proxy_username")
-	proxyPassword, _ := h.DB.GetEncryptedSetting("proxy_password")
-
-	// Build proxy URL
-	proxyURL := buildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword)
-
-	// Create HTTP client with proxy
-	return createHTTPClient(proxyURL, 60*time.Second)
-}
-
-// buildProxyURL builds a proxy URL from components
-func buildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword string) string {
-	if proxyHost == "" || proxyPort == "" {
-		return ""
-	}
-
-	var urlBuilder strings.Builder
-	urlBuilder.WriteString(strings.ToLower(proxyType))
-	urlBuilder.WriteString("://")
-
-	if proxyUsername != "" && proxyPassword != "" {
-		urlBuilder.WriteString(url.QueryEscape(proxyUsername))
-		urlBuilder.WriteString(":")
-		urlBuilder.WriteString(url.QueryEscape(proxyPassword))
-		urlBuilder.WriteString("@")
-	}
-
-	urlBuilder.WriteString(proxyHost)
-	urlBuilder.WriteString(":")
-	urlBuilder.WriteString(proxyPort)
-
-	return urlBuilder.String()
-}
-
-// createHTTPClient creates an HTTP client with optional proxy
-func createHTTPClient(proxyURL string, timeout time.Duration) (*http.Client, error) {
-	client := &http.Client{Timeout: timeout}
-
-	if proxyURL != "" {
-		u, err := url.Parse(proxyURL)
-		if err != nil {
-			return nil, fmt.Errorf("invalid proxy URL: %w", err)
-		}
-		client.Transport = &http.Transport{
-			Proxy: http.ProxyURL(u),
-		}
-	}
-
-	return client, nil
+	return httputil.CreateHTTPClientWithProxySettings(h.DB, 60*time.Second)
 }

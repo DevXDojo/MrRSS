@@ -20,6 +20,7 @@ type AISummarizer struct {
 	CustomHeaders string
 	Language      string // User's language setting (e.g., "en", "zh")
 	client        *ai.Client
+	httpClient    *http.Client
 }
 
 // DBInterface defines the minimal database interface needed for proxy settings
@@ -30,22 +31,7 @@ type DBInterface interface {
 
 // CreateHTTPClientWithProxy creates an HTTP client with global proxy settings if enabled
 func CreateHTTPClientWithProxy(db DBInterface, timeout time.Duration) (*http.Client, error) {
-	var proxyURL string
-
-	// Check if global proxy is enabled
-	proxyEnabled, _ := db.GetSetting("proxy_enabled")
-	if proxyEnabled == "true" {
-		// Build proxy URL from global settings
-		proxyType, _ := db.GetSetting("proxy_type")
-		proxyHost, _ := db.GetSetting("proxy_host")
-		proxyPort, _ := db.GetSetting("proxy_port")
-		proxyUsername, _ := db.GetEncryptedSetting("proxy_username")
-		proxyPassword, _ := db.GetEncryptedSetting("proxy_password")
-		proxyURL = httputil.BuildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword)
-	}
-
-	// Create HTTP client with or without proxy
-	return httputil.CreateHTTPClient(proxyURL, timeout)
+	return httputil.CreateHTTPClientWithProxySettings(db, timeout)
 }
 
 // NewAISummarizer creates a new AI summarizer with the given credentials.
@@ -62,22 +48,22 @@ func NewAISummarizer(apiKey, endpoint, model string) *AISummarizer {
 		model = defaults.AIModel
 	}
 
-	clientConfig := ai.ClientConfig{
-		APIKey:   apiKey,
-		Endpoint: strings.TrimSuffix(endpoint, "/"),
-		Model:    model,
-		Timeout:  30 * time.Second,
+	httpClient, err := CreateHTTPClientWithProxy(nil, 30*time.Second)
+	if err != nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	return &AISummarizer{
+	summarizer := &AISummarizer{
 		APIKey:        apiKey,
 		Endpoint:      strings.TrimSuffix(endpoint, "/"),
 		Model:         model,
 		SystemPrompt:  "",   // Will be set from settings when used
 		CustomHeaders: "",   // Will be set from settings when used
 		Language:      "en", // Default to English
-		client:        ai.NewClient(clientConfig),
+		httpClient:    httpClient,
 	}
+	summarizer.recreateClient()
+	return summarizer
 }
 
 // NewAISummarizerWithDB creates a new AI summarizer with database for proxy support
@@ -96,22 +82,17 @@ func NewAISummarizerWithDB(apiKey, endpoint, model string, db DBInterface) *AISu
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	clientConfig := ai.ClientConfig{
-		APIKey:   apiKey,
-		Endpoint: strings.TrimSuffix(endpoint, "/"),
-		Model:    model,
-		Timeout:  30 * time.Second,
-	}
-
-	return &AISummarizer{
+	summarizer := &AISummarizer{
 		APIKey:        apiKey,
 		Endpoint:      strings.TrimSuffix(endpoint, "/"),
 		Model:         model,
 		SystemPrompt:  "",
 		CustomHeaders: "",   // Will be set from settings when used
 		Language:      "en", // Default to English
-		client:        ai.NewClientWithHTTPClient(clientConfig, httpClient),
+		httpClient:    httpClient,
 	}
+	summarizer.recreateClient()
+	return summarizer
 }
 
 // SetSystemPrompt sets a custom system prompt for the summarizer.
@@ -146,7 +127,7 @@ func (s *AISummarizer) recreateClient() {
 		CustomHeaders: s.CustomHeaders,
 		Timeout:       30 * time.Second,
 	}
-	s.client = ai.NewClient(clientConfig)
+	s.client = ai.NewClientWithHTTPClient(clientConfig, s.httpClient)
 }
 
 // getDefaultSystemPrompt returns the default system prompt based on the configured language.

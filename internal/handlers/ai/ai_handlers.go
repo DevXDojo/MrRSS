@@ -1,16 +1,15 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"MrRSS/internal/ai"
 	"MrRSS/internal/config"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/utils/httputil"
 )
 
 // TestResult represents the result of AI configuration test
@@ -171,59 +170,5 @@ func HandleGetAITestInfo(h *core.Handler, w http.ResponseWriter, r *http.Request
 
 // createHTTPClientWithProxy creates an HTTP client with global proxy settings if enabled
 func createHTTPClientWithProxy(h *core.Handler) (*http.Client, error) {
-	// Check if global proxy is enabled
-	proxyEnabled, _ := h.DB.GetSetting("proxy_enabled")
-	if proxyEnabled != "true" {
-		return &http.Client{}, nil
-	}
-
-	// Build proxy URL from global settings
-	proxyType, _ := h.DB.GetSetting("proxy_type")
-	proxyHost, _ := h.DB.GetSetting("proxy_host")
-	proxyPort, _ := h.DB.GetSetting("proxy_port")
-	proxyUsername, _ := h.DB.GetEncryptedSetting("proxy_username")
-	proxyPassword, _ := h.DB.GetEncryptedSetting("proxy_password")
-
-	// Build proxy URL
-	proxyURL := buildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword)
-
-	if proxyURL == "" {
-		return &http.Client{}, nil
-	}
-
-	// Parse proxy URL
-	u, err := url.Parse(proxyURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid proxy URL: %w", err)
-	}
-
-	return &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyURL(u),
-		},
-	}, nil
-}
-
-// buildProxyURL builds a proxy URL from components
-func buildProxyURL(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword string) string {
-	if proxyHost == "" || proxyPort == "" {
-		return ""
-	}
-
-	var urlBuilder strings.Builder
-	urlBuilder.WriteString(strings.ToLower(proxyType))
-	urlBuilder.WriteString("://")
-
-	if proxyUsername != "" && proxyPassword != "" {
-		urlBuilder.WriteString(url.QueryEscape(proxyUsername))
-		urlBuilder.WriteString(":")
-		urlBuilder.WriteString(url.QueryEscape(proxyPassword))
-		urlBuilder.WriteString("@")
-	}
-
-	urlBuilder.WriteString(proxyHost)
-	urlBuilder.WriteString(":")
-	urlBuilder.WriteString(proxyPort)
-
-	return urlBuilder.String()
+	return httputil.CreateHTTPClientWithProxySettings(h.DB, 30*time.Second)
 }

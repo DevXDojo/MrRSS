@@ -15,6 +15,7 @@ import (
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/models"
+	"MrRSS/internal/utils/httputil"
 )
 
 // ProfileRequest represents the request body for creating/updating an AI profile
@@ -546,50 +547,5 @@ func testAIProfileConnection(h *core.Handler, profile *models.AIProfile) Profile
 
 // createHTTPClientWithProxyForProfile creates an HTTP client with global proxy settings
 func createHTTPClientWithProxyForProfile(h *core.Handler) (*http.Client, error) {
-	proxyEnabled, _ := h.DB.GetSetting("proxy_enabled")
-	if proxyEnabled != "true" {
-		return &http.Client{}, nil
-	}
-
-	proxyType, _ := h.DB.GetSetting("proxy_type")
-	proxyHost, _ := h.DB.GetSetting("proxy_host")
-	proxyPort, _ := h.DB.GetSetting("proxy_port")
-	proxyUsername, _ := h.DB.GetEncryptedSetting("proxy_username")
-	proxyPassword, _ := h.DB.GetEncryptedSetting("proxy_password")
-
-	proxyURL := buildProxyURLForProfile(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword)
-	if proxyURL == "" {
-		return &http.Client{}, nil
-	}
-
-	u, err := url.Parse(proxyURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid proxy URL: %w", err)
-	}
-
-	return &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyURL(u),
-		},
-	}, nil
-}
-
-// buildProxyURLForProfile builds a proxy URL from components
-func buildProxyURLForProfile(proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword string) string {
-	if proxyHost == "" || proxyPort == "" {
-		return ""
-	}
-
-	scheme := "http"
-	switch proxyType {
-	case "socks5":
-		scheme = "socks5"
-	case "https":
-		scheme = "http" // HTTPS proxies use HTTP CONNECT
-	}
-
-	if proxyUsername != "" && proxyPassword != "" {
-		return fmt.Sprintf("%s://%s:%s@%s:%s", scheme, proxyUsername, proxyPassword, proxyHost, proxyPort)
-	}
-	return fmt.Sprintf("%s://%s:%s", scheme, proxyHost, proxyPort)
+	return httputil.CreateHTTPClientWithProxySettings(h.DB, 30*time.Second)
 }
