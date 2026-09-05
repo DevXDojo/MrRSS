@@ -61,6 +61,8 @@ async function copyLink(article: Article) {
   const success = await copyArticleLink(article.url);
   if (success) {
     window.showToast(t('common.toast.copiedToClipboard'), 'success');
+  } else {
+    window.showToast(t('common.errors.failedToCopy'), 'error');
   }
 }
 </script>
@@ -162,6 +164,8 @@ async function copyLink(article: Article) {
       <button
         class="action-btn"
         :title="t('common.contextMenu.copyLink')"
+        :disabled="!article.url"
+        :aria-label="t('common.contextMenu.copyLink')"
         @click="copyLink(article)"
       >
         <PhLinkSimple :size="18" class="sm:w-5 sm:h-5" />

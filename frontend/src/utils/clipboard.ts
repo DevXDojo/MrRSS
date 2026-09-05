@@ -17,6 +17,15 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 
   try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // WebView clipboard permission may be unavailable; try the native API.
+  }
+
+  try {
     await Clipboard.SetText(text);
     return true;
   } catch (error) {
