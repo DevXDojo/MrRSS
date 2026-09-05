@@ -1,4 +1,10 @@
 @import 'tailwindcss';
+
+/* Decorative icons must not replace the button as the native tooltip target. */
+button[title] > svg,
+button[title] > img {
+  pointer-events: none;
+}
 @config "../tailwind.config.js";
 
 @layer base {
