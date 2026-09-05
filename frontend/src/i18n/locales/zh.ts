@@ -3,6 +3,7 @@ import type { TranslationMessages } from '../types';
 const zh: TranslationMessages = {
   article: {
     action: {
+      goToFeed: '返回所属订阅源',
       addToFavorite: '添加到收藏',
       addToReadLater: '添加到稍后阅读',
       backToUrl: '返回 URL',

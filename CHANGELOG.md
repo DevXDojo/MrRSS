@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Return from favorites, read later, or search to an article's feed without stale filters or losing articles outside the first page; add a feed navigation context-menu action. (#561)
+
 - Keep button hover hints consistent when the pointer is over a decorative icon. (#696)
 
 - Prevent automatic refresh loops when the configured interval exceeds the browser timer limit. (#1046, #1051)

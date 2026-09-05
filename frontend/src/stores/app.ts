@@ -143,7 +143,7 @@ export interface AppActions {
   setFeed: (feedId: number) => void;
   selectFeedInArticleList: (feedId: number, articleId?: number) => void;
   setCategory: (category: string) => void;
-  fetchArticles: (append?: boolean, preserveExisting?: boolean) => Promise<void>;
+  fetchArticles: (append?: boolean, preserveExisting?: boolean | 'navigation') => Promise<void>;
   loadMore: () => Promise<void>;
   fetchFeeds: () => Promise<void>;
   fetchUnreadCounts: () => Promise<void>;
@@ -251,14 +251,27 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function selectFeedInArticleList(feedId: number, articleId?: number): void {
+    const selected = navigableArticles.value.find((article) => article.id === articleId);
     currentFilter.value = 'all';
     currentFeedId.value = feedId;
     currentCategory.value = null;
     tempSelection.value = { feedId, category: null };
+    activeFilters.value = [];
+    filteredArticlesFromServer.value = [];
+    articleNavigationContext.value = null;
+    searchQuery.value = '';
+    showOnlyUnread.value = false;
+    localStorage.setItem('showOnlyUnread', 'false');
+    articles.value = articles.value.filter((article) => article.feed_id === feedId);
+    if (selected && !articles.value.some((article) => article.id === selected.id)) {
+      articles.value.push(selected);
+    }
     if (articleId !== undefined) {
       currentArticleId.value = articleId;
     }
-    fetchArticles();
+    window.dispatchEvent(new CustomEvent('article-feed-selected'));
+    void fetchFilterCounts();
+    void fetchArticles(false, 'navigation');
   }
 
   function setCategory(category: string): void {
@@ -293,9 +306,9 @@ export const useAppStore = defineStore('app', () => {
 
   async function fetchArticles(
     append: boolean = false,
-    preserveExisting: boolean = false
+    preserveExisting: boolean | 'navigation' = false
   ): Promise<void> {
-    if (isLoading.value && (append || preserveExisting)) return;
+    if (isLoading.value && (append || preserveExisting === true)) return;
 
     const requestId = ++latestArticlesRequestId;
     const previousArticles = articles.value;

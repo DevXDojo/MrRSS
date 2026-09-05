@@ -83,7 +83,7 @@ function selectArticleFeed() {
       <button
         type="button"
         class="font-medium text-text-primary hover:text-accent transition-colors cursor-pointer"
-        :title="article.feed_title"
+        :title="t('article.action.goToFeed')"
         @click="selectArticleFeed"
       >
         {{ article.feed_title }}

@@ -3,6 +3,7 @@ import type { TranslationMessages } from '../types';
 const en: TranslationMessages = {
   article: {
     action: {
+      goToFeed: 'Go to Feed',
       addToFavorite: 'Add to Favorites',
       addToReadLater: 'Add to Read Later',
       backToUrl: 'Back to URL',
