@@ -841,7 +841,7 @@ const en: TranslationMessages = {
       cssApplied: 'Custom CSS is active',
       cssDeleteFailed: 'Failed to delete CSS file',
       cssDeleted: 'CSS file deleted successfully',
-      cssDesc: 'Upload a custom CSS file to style article content in rendered view',
+      cssDesc: 'Upload a custom CSS file to style the application and article content',
       cssGuide: 'View Custom CSS Guide',
       cssUpload: 'Upload CSS',
       cssUploadFailed: 'Failed to upload CSS file',

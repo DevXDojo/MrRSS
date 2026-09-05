@@ -798,7 +798,7 @@ const zh: TranslationMessages = {
       cssApplied: '自定义 CSS 已启用',
       cssDeleteFailed: '删除 CSS 文件失败',
       cssDeleted: 'CSS 文件删除成功',
-      cssDesc: '上传自定义 CSS 文件来美化文章内容的渲染视图',
+      cssDesc: '上传自定义 CSS 文件，自定义整个界面和文章正文的外观',
       cssGuide: '查看自定义 CSS 指南',
       cssUpload: '上传 CSS',
       cssUploadFailed: '上传 CSS 文件失败',

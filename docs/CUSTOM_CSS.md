@@ -1,8 +1,22 @@
 # Custom CSS Guide
 
+
+## Application themes
+
+Custom CSS loads once at application startup, also when no article is open, and remains active when switching feeds or closing the reader. Uploading a replacement or deleting it takes effect immediately. No external theme service is required.
+
+Use the application color variables for both light and dark themes; keep article-only rules under `.prose-content`. Existing article styles remain compatible.
+
+```css
+:root { --accent-color: #7c3aed; --accent-hover: #6d28d9; }
+.dark-mode { --bg-primary: #202028; --bg-secondary: #282832; }
+.prose-content h2 { color: var(--accent-color); }
+```
+
+
 ## Overview
 
-MrRSS allows you to customize the appearance of article content by uploading your own CSS file. This feature enables you to:
+MrRSS allows you to customize the appearance of the application and article content by uploading your own CSS file. This feature enables you to:
 
 - Adjust typography (fonts, sizes, line heights)
 - Change colors and spacing
@@ -16,7 +30,7 @@ MrRSS allows you to customize the appearance of article content by uploading you
 2. Go to **Settings** → **General** → **Reading & Display**
 3. Click **Upload CSS** button
 4. Select your CSS file
-5. Open any article to see your custom styles applied
+5. Your custom styles apply immediately across the application
 
 To remove custom CSS, click **Delete CSS** button in the same settings section.
 

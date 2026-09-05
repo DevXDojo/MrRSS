@@ -23,12 +23,14 @@ import { useResizablePanels } from './composables/ui/useResizablePanels';
 import { useWindowState } from './composables/core/useWindowState';
 import { useAppUpdates } from './composables/core/useAppUpdates';
 import { useSettings } from './composables/core/useSettings';
+import { useCustomCSS } from './composables/ui/useCustomCSS';
 import { resolveFontFamily } from './utils/fontDetector';
 import type { Feed } from './types/models';
 
 const store = useAppStore();
 const { t } = useI18n();
 const { settings } = useSettings();
+useCustomCSS(() => settings.value.custom_css_file);
 
 const uiFontSize = computed(() => {
   const value = Number(settings.value.ui_font_size);
