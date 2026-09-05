@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Remove blocking external font and icon requests during startup; the interface can render on restricted or offline networks (#626).
+
 ### Added
 
 - Configure per-subscription full-text CSS selection and removal, including local extraction settings for FreshRSS feeds. (#908)
