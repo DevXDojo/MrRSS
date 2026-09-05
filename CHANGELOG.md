@@ -5,7 +5,7 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.29] - 2026-09-05
 
 ### Added
 
@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).
 - Add selected-text search with Google, Bing, Baidu, and DuckDuckGo in the article reader, preserving native menus outside plain text selections. (#358)
 
+### Changed
+
+- Document the existing browser reader, frontend/server build sequence, local URL, and server data directory in English and Chinese (#421).
+- Keep custom CSS active across the whole application, including startup and views without an open article; support replacement and deletion without stale requests restoring old styles (#672).
+- Show current, customizable keyboard shortcuts in navigation, article, search, and toolbar hints; hide shortcut hints when shortcuts are disabled. (#567)
+- Update website dependencies, goquery, and Wails to beta.15 with a matching frontend runtime. (#1047, #1048)
+
 ### Fixed
 
 - Distinguish native Gemini from its compatible Chat Completions API, use the selected model in native URLs, preserve system instructions and multipart answers, and document provider setup in both languages (#542).
@@ -26,7 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Close macOS windows to the tray on the first click; fullscreen windows hide after the native exit event, and reopening cancels a pending hide and focuses the reader (#796).
 - Preserve maximized windows when restoring from the tray, tray menu, or a second instance; avoid replaying window bounds and accidentally unmaximizing via Restore (#320).
 - Remove blocking external font and icon requests during startup; the interface can render on restricted or offline networks (#626).
-
 - Recover empty or expired article caches, invalidate both cache layers on reload, and preserve saved reading content during automatic age cleanup. (#795)
 - Schedule size cleanup after refresh tasks; remove eligible content oldest-first while retaining fresh, favorite and read-later content. (#805)
 - Recover older articles that have left the RSS window and discard stale reader requests, retaining saved descriptions when the source is unavailable. (#948)
@@ -44,14 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use consistent proxy-aware HTTP transport for AI profile tests, translation, summaries, and chat, preserving custom configuration and escaped proxy credentials. (#1044, #1050)
 - Translate mixed text and media article content while retaining inline links and emphasis, supporting retries, and ignoring stale translation results. (#909, #1053)
 - Report real update download progress, retry interrupted transfers, isolate concurrent downloads, reject invalid partial responses, and provide a manual download fallback. (#1043, #1049)
-
-### Changed
-
-- Document the existing browser reader, frontend/server build sequence, local URL, and server data directory in English and Chinese (#421).
-- Keep custom CSS active across the whole application, including startup and views without an open article; support replacement and deletion without stale requests restoring old styles (#672).
-
-- Show current, customizable keyboard shortcuts in navigation, article, search, and toolbar hints; hide shortcut hints when shortcuts are disabled. (#567)
-- Update website dependencies, goquery, and Wails to beta.15 with a matching frontend runtime. (#1047, #1048)
 
 ## [1.3.28] - 2026-08-29
 
