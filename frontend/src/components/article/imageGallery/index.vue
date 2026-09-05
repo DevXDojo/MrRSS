@@ -3,6 +3,8 @@ import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import type { Article } from '@/types/models';
+import { useSettings } from '@/composables/core/useSettings';
+import { openInBrowser } from '@/utils/browser';
 
 // Import composables
 import { useImageGalleryData } from './composables/useImageGalleryData';
@@ -16,6 +18,7 @@ import ImageGalleryGrid from './components/ImageGalleryGrid.vue';
 import ImageViewerModal from './components/ImageViewerModal.vue';
 
 const store = useAppStore();
+const { settings } = useSettings();
 const { t } = useI18n();
 
 interface Props {
@@ -151,6 +154,15 @@ async function ensureFill(): Promise<void> {
  * Open image viewer
  */
 async function openImage(article: Article): Promise<void> {
+  const feed = store.feeds.find((feed) => feed.id === article.feed_id);
+  const feedMode = feed?.article_view_mode;
+  const viewMode = feedMode && feedMode !== 'global' ? feedMode : settings.value.default_view_mode;
+  if (viewMode === 'external') {
+    await openInBrowser(article.url);
+    if (!article.is_read) await imageActions.markAsRead(article);
+    return;
+  }
+
   selectedArticle.value = article;
   showImageViewer.value = true;
   currentImageIndex.value = 0;

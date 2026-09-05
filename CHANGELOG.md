@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Image gallery articles now honor per-feed and global external-browser preferences, including video feeds (#779).
+
 - Verify the existing article-toolbar copy-link action, support browser clipboard access with native fallback, and report copy failures. (#427)
 
 - Return from favorites, read later, or search to an article's feed without stale filters or losing articles outside the first page; add a feed navigation context-menu action. (#561)
