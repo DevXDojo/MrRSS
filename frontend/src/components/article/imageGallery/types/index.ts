@@ -85,6 +85,8 @@ export interface ImageGalleryDataReturn {
  * Masonry layout return type from useMasonryLayout composable
  */
 export interface MasonryLayoutReturn {
+  imageDimensions: import('vue').Ref<Map<number, { width: number; height: number }>>;
+  setImageSize: (id: number, width: number, height: number) => void;
   columns: import('vue').Ref<Article[][]>;
   columnCount: import('vue').Ref<number>;
   containerRef: import('vue').Ref<HTMLElement | null>;

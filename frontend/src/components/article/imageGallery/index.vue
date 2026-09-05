@@ -508,6 +508,8 @@ onUnmounted(() => {
     <!-- Grid View -->
     <ImageGalleryGrid
       :columns="masonryLayout.columns.value"
+      :image-dimensions="masonryLayout.imageDimensions.value"
+      @image-size="masonryLayout.setImageSize"
       :is-loading="galleryData.isLoading.value"
       :show-text-overlay="showTextOverlay"
       :image-count-cache="galleryData.imageCountCache.value"

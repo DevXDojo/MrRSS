@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue';
+import { ref, watch, onBeforeUnmount } from 'vue';
 import type { Article } from '@/types/models';
 import type { ImageGalleryDataReturn } from '../types';
 
@@ -11,6 +11,9 @@ const ITEMS_PER_PAGE = 30;
 export function useImageGalleryData(): ImageGalleryDataReturn {
   const articles = ref<Article[]>([]);
   const isLoading = ref(false);
+  let generation = 0;
+  let controller: AbortController | null = null;
+  onBeforeUnmount(() => { generation++; controller?.abort(); });
   const page = ref(1);
   const hasMore = ref(true);
   const imageCountCache = ref<Map<number, number>>(new Map());
@@ -30,7 +33,10 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
    * @param loadMore - Whether to append to existing articles or replace them
    */
   async function fetchImages(loadMore = false): Promise<void> {
-    if (isLoading.value) return;
+    if (isLoading.value && loadMore) return;
+    const requestId = ++generation;
+    controller?.abort();
+    controller = new AbortController();
 
     isLoading.value = true;
     try {
@@ -54,9 +60,10 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
         }
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: controller.signal });
       if (res.ok) {
         const data = await res.json();
+        if (requestId !== generation) return;
 
         // Validate that data is an array
         if (!Array.isArray(data)) {
@@ -67,7 +74,7 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
         const newArticles = data;
 
         if (loadMore) {
-          articles.value = [...articles.value, ...newArticles];
+          articles.value = [...new Map([...articles.value, ...newArticles].map((article) => [article.id, article])).values()];
         } else {
           articles.value = newArticles;
         }
@@ -84,7 +91,7 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
     } catch (e) {
       console.error('Failed to load images:', e);
     } finally {
-      isLoading.value = false;
+      if (requestId === generation) isLoading.value = false;
     }
   }
 

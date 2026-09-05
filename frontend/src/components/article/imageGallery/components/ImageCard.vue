@@ -9,6 +9,7 @@ import { isBilibiliArticle } from '@/utils/bilibili';
 
 interface Props {
   article: Article;
+  imageSize?: { width: number; height: number };
   imageCount: number;
   showTextOverlay: boolean;
 }
@@ -16,6 +17,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
+  imageSize: [width: number, height: number];
   click: [];
   favorite: [event: Event];
   contextMenu: [event: MouseEvent];
@@ -114,7 +116,8 @@ function formatDate(dateString: string): string {
 
 <template>
   <div
-    class="cursor-pointer group"
+    class="cursor-pointer group min-w-0"
+    :data-gallery-article="article.id"
     @click="emit('click')"
     @contextmenu="emit('contextMenu', $event)"
   >
@@ -130,6 +133,9 @@ function formatDate(dateString: string): string {
       <img
         :src="displayUrl"
         :alt="article.title"
+        :width="imageSize?.width || 4"
+        :height="imageSize?.height || 3"
+        @load="(event) => { const image = event.target as HTMLImageElement; emit('imageSize', image.naturalWidth, image.naturalHeight); }"
         class="w-full h-auto block relative z-0"
         loading="lazy"
       />
