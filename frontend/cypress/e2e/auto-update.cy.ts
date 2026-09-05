@@ -46,7 +46,7 @@ describe('Auto Update Feature', () => {
 
       // Open settings modal
       cy.get('button')
-        .filter('[title="Settings"], [title="设置"]')
+        .filter('[title^="Settings"], [title="设置"]')
         .should('exist')
         .click({ force: true });
 
@@ -68,7 +68,7 @@ describe('Auto Update Feature', () => {
 
       // Open settings modal
       cy.get('button')
-        .filter('[title="Settings"], [title="设置"]')
+        .filter('[title^="Settings"], [title="设置"]')
         .should('exist')
         .click({ force: true });
 
@@ -100,7 +100,7 @@ describe('Auto Update Feature', () => {
 
       // Open settings and enable auto update
       cy.get('button')
-        .filter('[title="Settings"], [title="设置"]')
+        .filter('[title^="Settings"], [title="设置"]')
         .should('exist')
         .click({ force: true });
 
@@ -121,7 +121,7 @@ describe('Auto Update Feature', () => {
 
       // Reopen settings
       cy.get('button')
-        .filter('[title="Settings"], [title="设置"]')
+        .filter('[title^="Settings"], [title="设置"]')
         .should('exist')
         .click({ force: true });
       cy.wait('@getSettings');
@@ -314,7 +314,7 @@ describe('Auto Update Feature', () => {
 
       // Open settings modal
       cy.get('button')
-        .filter('[title="Settings"], [title="设置"]')
+        .filter('[title^="Settings"], [title="设置"]')
         .should('exist')
         .click({ force: true });
 
@@ -343,7 +343,7 @@ describe('Auto Update Feature', () => {
 
       // Open settings modal
       cy.get('button')
-        .filter('[title="Settings"], [title="设置"]')
+        .filter('[title^="Settings"], [title="设置"]')
         .should('exist')
         .click({ force: true });
 
@@ -537,7 +537,7 @@ describe('Auto Update Feature', () => {
 
       // Open settings modal
       cy.get('button')
-        .filter('[title="Settings"], [title="设置"]')
+        .filter('[title^="Settings"], [title="设置"]')
         .should('exist')
         .click({ force: true });
 

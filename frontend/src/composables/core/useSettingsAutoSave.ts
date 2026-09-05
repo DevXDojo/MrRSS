@@ -62,7 +62,7 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       prevTranslationSettings.value = {
         enabled: settingsRef.value.translation_enabled,
         targetLang: settingsRef.value.target_language,
-          triggerMode: settingsRef.value.translation_trigger_mode,
+        triggerMode: settingsRef.value.translation_trigger_mode,
         provider: settingsRef.value.translation_provider,
       };
       prevArticleDisplaySettings.value = {
@@ -128,7 +128,8 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       });
 
       // Clear and re-translate if translation settings changed
-      const triggerModeChanged = prevTranslationSettings.value.triggerMode !== settingsRef.value.translation_trigger_mode;
+      const triggerModeChanged =
+        prevTranslationSettings.value.triggerMode !== settingsRef.value.translation_trigger_mode;
       if (translationChanged || triggerModeChanged) {
         if (translationChanged) await fetch('/api/articles/clear-translations', { method: 'POST' });
         // Update tracking
@@ -144,7 +145,7 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
             detail: {
               enabled: settingsRef.value.translation_enabled,
               targetLang: settingsRef.value.target_language,
-          triggerMode: settingsRef.value.translation_trigger_mode,
+              triggerMode: settingsRef.value.translation_trigger_mode,
             },
           })
         );

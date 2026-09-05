@@ -7,16 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).
+- Add selected-text search with Google, Bing, Baidu, and DuckDuckGo in the article reader, preserving native menus outside plain text selections. (#358)
+
 ### Fixed
 
 - Image gallery articles now honor per-feed and global external-browser preferences, including video feeds (#779).
-
-- Verify the existing article-toolbar copy-link action, support browser clipboard access with native fallback, and report copy failures. (#427)
-
+- Support browser clipboard access with native fallback and report failures from the article toolbar copy-link action. (#427)
 - Return from favorites, read later, or search to an article's feed without stale filters or losing articles outside the first page; add a feed navigation context-menu action. (#561)
-
 - Keep button hover hints consistent when the pointer is over a decorative icon. (#696)
-
 - Prevent automatic refresh loops when the configured interval exceeds the browser timer limit. (#1046, #1051)
 - Keep the selected article visible during background refreshes, discard stale navigation responses, and avoid duplicate articles when paging. (#874, #1052)
 - Use consistent proxy-aware HTTP transport for AI profile tests, translation, summaries, and chat, preserving custom configuration and escaped proxy credentials. (#1044, #1050)
@@ -25,17 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Add selected-text search with Google, Bing, Baidu, and DuckDuckGo in the article reader, preserving native menus outside plain text selections. (#358)
-
 - Show current, customizable keyboard shortcuts in navigation, article, search, and toolbar hints; hide shortcut hints when shortcuts are disabled. (#567)
-
 - Update website dependencies, goquery, and Wails to beta.15 with a matching frontend runtime. (#1047, #1048)
 
 ## [1.3.28] - 2026-08-29
 
 ### Added
-
-- Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).
 
 - Persist article AI chat exchanges in the existing chat session tables so conversations remain accessible after creating a new conversation, switching sessions, or restarting the app. (#1038) (@marcomarcogd)
 

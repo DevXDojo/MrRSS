@@ -216,6 +216,8 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
 
 <template>
   <div
+    role="dialog"
+    aria-modal="true"
     class="fixed inset-0 z-50 bg-black/90 flex flex-col p-4"
     data-image-viewer="true"
     @click="emit('close')"

@@ -55,9 +55,17 @@ export const shortcuts = ref<KeyboardShortcuts>({
   goToReadLater: '4',
 });
 
-export function withShortcut(label: string, actions: keyof KeyboardShortcuts | (keyof KeyboardShortcuts)[]): string {
+export function withShortcut(
+  label: string,
+  actions: keyof KeyboardShortcuts | (keyof KeyboardShortcuts)[]
+): string {
   if (!shortcutsEnabled.value) return label;
-  const keys = [...new Set((Array.isArray(actions) ? actions : [actions])
-    .map((action) => shortcuts.value[action]).filter(Boolean))];
+  const keys = [
+    ...new Set(
+      (Array.isArray(actions) ? actions : [actions])
+        .map((action) => shortcuts.value[action])
+        .filter(Boolean)
+    ),
+  ];
   return keys.length ? `${label} (${keys.join(' / ')})` : label;
 }

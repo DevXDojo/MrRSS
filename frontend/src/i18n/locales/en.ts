@@ -125,7 +125,8 @@ const en: TranslationMessages = {
     translation: {
       translateTitle: 'Translate title',
       manualMode: 'Translate on demand',
-      manualHint: 'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
+      manualHint:
+        'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
       translatingTitle: 'Translating title...',
       aiLimitReached: 'AI usage limit reached. Using free alternatives.',
     },
@@ -757,7 +758,8 @@ const en: TranslationMessages = {
       translation: 'Translation',
       translationCredentialsRequired: 'Translation service requires API key or credentials',
       translationTriggerMode: 'Translation mode',
-      translationTriggerModeDesc: 'Translate automatically, or only when you request a title or paragraph.',
+      translationTriggerModeDesc:
+        'Translate automatically, or only when you request a title or paragraph.',
       translationAutomatic: 'Automatic',
       translationManual: 'On demand',
       translationOnlyMode: 'Translation Only Mode',

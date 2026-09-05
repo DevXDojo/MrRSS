@@ -4,11 +4,11 @@
 
 执行约定：每个功能或修复单独提交；整组完成后统一验证；每完成一组完全停止，收到用户继续指令后才处理下一组。分组是候选队列，不承诺一次解决所有条目。遇到需要大改或缺少复现资料的条目记录原因并暂缓，不扩大本轮范围。不自动发布版本、不合并 main、不自动关闭缺乏验证证据的 issue。
 
-当前轮次：第一组已完成，本轮结束后停止。已审查并整合 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
+当前轮次：第一、二组已完成，本轮结束后停止。已审查并整合 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
 
 排序原则：先处理有明确复现和现成修复的高影响故障，再处理局部交互、管理功能及正文问题；平台依赖和缺资料问题先确认复现。组内大致按影响与实现成本排序。云同步、移动端及跨模块大改暂缓。
 
-## 第一组：现有 PR 与高影响故障（本轮）
+## 第一组：现有 PR 与高影响故障（已完成）
 
 - [x] [#1046](https://github.com/DevXDojo/MrRSS/issues/1046) [BUG] Auto-refresh runs in an endless loop (thousands of times/second) when update interval is set to a large value (e.g. 46080 minutes)
 - [x] [#1044](https://github.com/DevXDojo/MrRSS/issues/1044) [BUG] AI translation gets 502 from OpenAI-compatible gateway while profile test passes
@@ -16,15 +16,15 @@
 - [x] [#874](https://github.com/DevXDojo/MrRSS/issues/874) [BUG] 刷新信息列表的时候，页面会闪，用户体验不好，另外右边的正文页内容会变空白
 - [x] [#909](https://github.com/DevXDojo/MrRSS/issues/909) [BUG] 我仍然不能全文翻译
 
-## 第二组：小范围阅读交互（待继续）
+## 第二组：小范围阅读交互（已完成）
 
-- [ ] [#696](https://github.com/DevXDojo/MrRSS/issues/696) [STYLE] 按钮悬停提示时有时无
-- [ ] [#567](https://github.com/DevXDojo/MrRSS/issues/567) [FEATURE] 悬浮提示中显示快捷键
-- [ ] [#561](https://github.com/DevXDojo/MrRSS/issues/561) [FEATURE] 支持快速返回原订阅源
-- [ ] [#427](https://github.com/DevXDojo/MrRSS/issues/427) [FEATURE] 右上角工具栏添加复制链接按钮
-- [ ] [#358](https://github.com/DevXDojo/MrRSS/issues/358) [FEATURE] 支持右键搜索选中文本
-- [ ] [#736](https://github.com/DevXDojo/MrRSS/issues/736) [FEATURE] 关于翻译功能的建议
-- [ ] [#779](https://github.com/DevXDojo/MrRSS/issues/779) [FEATURE] B站视频查看模式
+- [x] [#696](https://github.com/DevXDojo/MrRSS/issues/696) [STYLE] 按钮悬停提示时有时无
+- [x] [#567](https://github.com/DevXDojo/MrRSS/issues/567) [FEATURE] 悬浮提示中显示快捷键
+- [x] [#561](https://github.com/DevXDojo/MrRSS/issues/561) [FEATURE] 支持快速返回原订阅源
+- [x] [#427](https://github.com/DevXDojo/MrRSS/issues/427) [FEATURE] 右上角工具栏添加复制链接按钮
+- [x] [#358](https://github.com/DevXDojo/MrRSS/issues/358) [FEATURE] 支持右键搜索选中文本
+- [x] [#736](https://github.com/DevXDojo/MrRSS/issues/736) [FEATURE] 关于翻译功能的建议
+- [x] [#779](https://github.com/DevXDojo/MrRSS/issues/779) [FEATURE] B站视频查看模式
 
 ## 第三组：分类与订阅管理（待继续）
 
@@ -114,7 +114,7 @@
 
 ## 第一组审查与验证记录
 
-第一组完成后完全停止。第二组及以后尚未实施，需用户明确继续；上述勾选表示发布分支已有修复，不表示已发布或已关闭 GitHub issue。
+第一组完成后已停止，后续继续指令启动第二组。上述勾选表示发布分支已有修复，不表示已发布或已关闭 GitHub issue。
 
 | PR / issue | 发布分支整合提交 | 审查结论与补强 |
 | --- | --- | --- |
@@ -139,6 +139,38 @@
 
 验证边界：本机为 Windows，未进行 macOS/Linux 原生桌面运行验证；Vite 仍提示既有大体积打包产物。旧版本机 Swagger 工具的依赖扫描无法解析 Go 1.27 标准库语法，本组使用内部类型扫描取得更新接口 schema，仅同步涉及下载的端点，避免混入既有文档漂移。
 
-下一组建议从 #696、#567、#561 等局部交互开始；本轮不自动继续，也不合并发布草稿 #1054。
+第一组后的下一组为 #696、#567、#561 等局部交互；详见后续第二组记录。发布草稿 #1054 保持不合并。
 
 远端核对：2026-09-05，GitHub 已确认 #1047–#1053 全部为 MERGED，目标均为 `release/v1.3.29`。#1054 保持 OPEN / draft；main 仍为 `92c39341`。隔离浏览器回归使用的临时服务已停止。
+
+
+## 第二组审查与验证记录
+
+本组完成后完全停止，第三组及以后待用户明确继续。每项功能独立提交，统一在组末验证。
+
+| Issue | 功能提交 | 实现范围 |
+| --- | --- | --- |
+| #696 | `ea276cf1` | 装饰图标不再抢占按钮悬停命中区域。 |
+| #567 | `40e20eee` | 导航、文章、搜索和工具栏提示显示当前快捷键；自定义或禁用后同步更新。 |
+| #561 | `203334ac` | 点击来源或右键返回订阅源；清除筛选和搜索并保留较早文章，关闭阅读弹窗，淘汰旧筛选结果。 |
+| #427 | `56b9b219` | 工具栏已有复制入口；补充浏览器剪贴板、原生回退及失败提示。 |
+| #358 | `b049dcf9` | 正文选中文字后可右键选择 Google、Bing、百度或 DuckDuckGo；选择搜索引擎后才传出文本。 |
+| #736 | `162e95e4` | 新增按需翻译设置；标题按钮及 Ctrl/Command 点击单段；保留默认自动翻译，支持失败重试。 |
+| #779 | `aca6ae85` | 图片/视频瀑布流遵循订阅级及全局外部浏览器偏好，显式正文模式可覆盖全局偏好。 |
+
+本组同时补充剪贴板回退、跨筛选返回来源和旧请求隔离的单元测试，以及阅读交互浏览器回归。按需翻译不自动提交全文；原生输入框、链接及媒体右键菜单保留。云同步、移动端及其他大改未纳入本组。
+
+组末统一验证结果：
+
+- `go test -timeout=5m ./...`：通过。
+- Vitest：95/95 通过，包括剪贴板回退、返回订阅源保留选中及旧筛选响应隔离。
+- Cypress：22/22 通过（阅读交互 6、正文自动翻译 1、更新流程 15）；搜索与外部打开均截获请求，未实际向搜索服务传送文本。
+- 本组改动 src 文件 ESLint：`--max-warnings 0` 通过。
+- 前端生产构建和 `wails3 build`：通过，Windows 产物 `build/bin/MrRSS.exe`。使用与项目一致的 Wails beta.15 工具。
+- `git diff --check`：通过。生成的设置文件经统一格式化后仅保留新设置的必要差异。
+- 已将本组全部功能记录到 `CHANGELOG.md` 的 Unreleased；没有修改历史版本的功能记录。
+- 额外导航补强提交 `b5b8c5e5`，统一验证与格式整理另行提交。构建产生的锁文件平台元数据变化已排除。
+
+验证边界：本机验证 Windows；未运行 macOS/Linux 原生桌面测试。Vite 仍有既有的大包体提示。初次 Go 检查与前端打包发生嵌入资源替换竞争，打包完成后重跑已通过；浏览器回归初次出现的选择器误报已修正并完整重跑通过。
+
+停点：第二组完成，隔离测试服务已停止。下一组为“分类与订阅管理”；本轮不启动第三组，不合并发布草稿 #1054，不发布版本。

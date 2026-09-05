@@ -142,7 +142,12 @@ onBeforeUnmount(() => {
       >
         <button
           v-if="hasPreviousArticle"
-          :title="withShortcut(t('article.navigation.previousArticle') || 'Previous article', ['previousArticle', 'previousArticleArrow'])"
+          :title="
+            withShortcut(t('article.navigation.previousArticle') || 'Previous article', [
+              'previousArticle',
+              'previousArticleArrow',
+            ])
+          "
           class="flex items-center gap-1.5 px-2 py-1 rounded text-text-secondary/70 hover:text-text-primary hover:bg-bg-secondary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           @click="goToPreviousArticle"
         >
@@ -154,7 +159,12 @@ onBeforeUnmount(() => {
 
         <button
           v-if="hasNextArticle"
-          :title="withShortcut(t('article.navigation.nextArticle') || 'Next article', ['nextArticle', 'nextArticleArrow'])"
+          :title="
+            withShortcut(t('article.navigation.nextArticle') || 'Next article', [
+              'nextArticle',
+              'nextArticleArrow',
+            ])
+          "
           class="flex items-center gap-1.5 px-2 py-1 rounded text-text-secondary/70 hover:text-text-primary hover:bg-bg-secondary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           @click="goToNextArticle"
         >

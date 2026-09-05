@@ -506,8 +506,10 @@ async function translateTitle(article: Article, force = false) {
   const requestId = ++titleTranslationRequestId;
   isTranslatingTitle.value = false;
   if (!translationEnabled.value || !article?.title || (manualTranslation.value && !force)) return;
-  const requestIsCurrent = () => requestId === titleTranslationRequestId &&
-    props.article?.id === article.id && translationEnabled.value;
+  const requestIsCurrent = () =>
+    requestId === titleTranslationRequestId &&
+    props.article?.id === article.id &&
+    translationEnabled.value;
   isTranslatingTitle.value = true;
   const translation = await translateText(article.title, force, false, requestIsCurrent);
   if (!requestIsCurrent()) return;
@@ -549,7 +551,8 @@ async function translateContentParagraphs(
   // Prevent duplicate translations for the same content
   // Check both article ID and content hash to handle RSS content vs full content
   if (
-    !force && !paragraph &&
+    !force &&
+    !paragraph &&
     lastTranslatedArticleId.value === props.article?.id &&
     lastTranslatedContentHash.value === contentHash
   ) {
@@ -585,7 +588,8 @@ async function translateContentParagraphs(
     return false;
   }
   const existingTranslations = (paragraph || proseContainer).querySelectorAll('.translation-text');
-  if (paragraph?.nextElementSibling?.classList.contains('translation-text')) paragraph.nextElementSibling.remove();
+  if (paragraph?.nextElementSibling?.classList.contains('translation-text'))
+    paragraph.nextElementSibling.remove();
   existingTranslations.forEach((el) => el.remove());
 
   wrapOrphanedTextNodes(proseContainer);
@@ -616,7 +620,9 @@ async function translateContentParagraphs(
 
   // Process elements level by level to handle nested structures correctly
   // First, get all elements and sort them by depth (shallowest first)
-  const allElements = paragraph ? [paragraph] : Array.from(proseContainer.querySelectorAll(textTags.join(',')));
+  const allElements = paragraph
+    ? [paragraph]
+    : Array.from(proseContainer.querySelectorAll(textTags.join(',')));
 
   // Sort by depth (number of ancestors) to process outermost elements first
   allElements.sort((a, b) => {
@@ -826,14 +832,21 @@ function attachExternalLinkHandlers() {
 // Clear text selection when clicking outside the selected content
 function handleContainerClick(event: MouseEvent) {
   const clicked = event.target;
-  if (translationEnabled.value && (event.ctrlKey || event.metaKey) && clicked instanceof Element &&
-      !clicked.closest('a,button,input,textarea,select,code,pre,kbd,.katex,.translation-text,[contenteditable]')) {
+  if (
+    translationEnabled.value &&
+    (event.ctrlKey || event.metaKey) &&
+    clicked instanceof Element &&
+    !clicked.closest(
+      'a,button,input,textarea,select,code,pre,kbd,.katex,.translation-text,[contenteditable]'
+    )
+  ) {
     const paragraph = clicked.closest<HTMLElement>('p,li,h1,h2,h3,h4,h5,h6,td,th,figcaption,dt,dd');
     const prose = articleScrollContainer.value?.querySelector('.prose-content');
     if (paragraph && prose?.contains(paragraph)) {
       event.preventDefault();
       event.stopPropagation();
-      if (!isTranslatingContent.value) void translateContentParagraphs(displayContent.value, true, paragraph);
+      if (!isTranslatingContent.value)
+        void translateContentParagraphs(displayContent.value, true, paragraph);
       return;
     }
   }
@@ -954,8 +967,8 @@ watch(
       clearTranslatedSummary();
       translatedTitle.value = '';
       titleTranslationRequestId += 1;
-  isTranslatingTitle.value = false;
-  contentTranslationRequestId += 1;
+      isTranslatingTitle.value = false;
+      contentTranslationRequestId += 1;
       isTranslatingContent.value = false;
       lastTranslatedArticleId.value = null; // Reset translation tracking
       lastTranslatedContentHash.value = '';
@@ -1197,9 +1210,9 @@ onBeforeUnmount(() => {
           :is-translating-title="isTranslatingTitle"
           :translation-enabled="translationEnabled"
           :manual-translation="manualTranslation"
-          @translate-title="translateTitle(article, true)"
           :translation-skipped="translationSkipped"
           :is-translating-content="isTranslatingContent"
+          @translate-title="translateTitle(article, true)"
           @force-translate="forceTranslateContent"
         />
 

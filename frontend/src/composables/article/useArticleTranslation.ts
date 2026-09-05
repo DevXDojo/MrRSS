@@ -45,7 +45,10 @@ export function useArticleTranslation() {
     observer = new IntersectionObserver(
       (entries) => {
         // Check if translation is still enabled before processing
-        if (!translationSettings.value.enabled || translationSettings.value.triggerMode === 'manual') {
+        if (
+          !translationSettings.value.enabled ||
+          translationSettings.value.triggerMode === 'manual'
+        ) {
           return;
         }
 
@@ -134,7 +137,11 @@ export function useArticleTranslation() {
   }
 
   // Update translation settings from event
-  function handleTranslationSettingsChange(enabled: boolean, targetLang: string, triggerMode?: string): void {
+  function handleTranslationSettingsChange(
+    enabled: boolean,
+    targetLang: string,
+    triggerMode?: string
+  ): void {
     translationSettings.value = {
       enabled,
       targetLang,
