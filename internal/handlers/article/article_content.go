@@ -8,6 +8,7 @@ import (
 	"MrRSS/internal/feed"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/utils/textutil"
 )
 
 // HandleGetArticleContent fetches the article content from RSS feed dynamically.
@@ -61,7 +62,7 @@ func HandleGetArticleContent(h *core.Handler, w http.ResponseWriter, r *http.Req
 	}
 
 	response.JSON(w, map[string]interface{}{
-		"content":  content,
+		"content":  textutil.PrepareArticleContent(content, article.URL),
 		"feed_url": feedURL,
 		"cached":   wasCached,
 	})

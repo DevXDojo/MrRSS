@@ -62,9 +62,7 @@ func CleanHTML(htmlContent string) string {
 	htmlContent = styleAttrRegex.ReplaceAllString(htmlContent, "")
 	htmlContent = styleAttrSingleQuoteRegex.ReplaceAllString(htmlContent, "")
 
-	// Remove class attributes
-	htmlContent = classAttrRegex.ReplaceAllString(htmlContent, "")
-	htmlContent = classAttrSingleQuoteRegex.ReplaceAllString(htmlContent, "")
+	// Keep semantic classes for code languages and math until reader sanitization.
 
 	// Remove <style> tags and their content
 	htmlContent = styleTagRegex.ReplaceAllString(htmlContent, "")
