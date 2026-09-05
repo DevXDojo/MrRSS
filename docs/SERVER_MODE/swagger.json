@@ -3125,6 +3125,107 @@
                 }
             }
         },
+        "/download-update": {
+            "post": {
+                "description": "Download the update file from GitHub releases to the temp directory",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "update"
+                ],
+                "summary": "Download update",
+                "parameters": [
+                    {
+                        "description": "Download request (download_url, asset_name, optional request_id)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Download success (success, request_id, file_path, total_bytes, bytes_written)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (invalid URL, asset name, or request ID)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Download failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/download-update/progress": {
+            "get": {
+                "description": "Get real-time progress for an update download request",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "update"
+                ],
+                "summary": "Get update download progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Download request ID",
+                        "name": "request_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Download progress",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Download request not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/email/imap/test": {
             "post": {
                 "description": "Test IMAP server connection with provided credentials",
@@ -5112,59 +5213,6 @@
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/update/download": {
-            "post": {
-                "description": "Download the update file from GitHub releases to the temp directory",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "update"
-                ],
-                "summary": "Download update",
-                "parameters": [
-                    {
-                        "description": "Download request (download_url, asset_name)",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Download success (success, file_path, total_bytes, bytes_written)",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request (invalid URL or asset name)",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
                         }
                     }
                 }

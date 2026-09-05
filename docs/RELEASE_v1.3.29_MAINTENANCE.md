@@ -4,17 +4,17 @@
 
 执行约定：每个功能或修复单独提交；整组完成后统一验证；每完成一组完全停止，收到用户继续指令后才处理下一组。分组是候选队列，不承诺一次解决所有条目。遇到需要大改或缺少复现资料的条目记录原因并暂缓，不扩大本轮范围。不自动发布版本、不合并 main、不自动关闭缺乏验证证据的 issue。
 
-当前轮次：第一组。审查 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
+当前轮次：第一组已完成，本轮结束后停止。已审查并整合 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
 
 排序原则：先处理有明确复现和现成修复的高影响故障，再处理局部交互、管理功能及正文问题；平台依赖和缺资料问题先确认复现。组内大致按影响与实现成本排序。云同步、移动端及跨模块大改暂缓。
 
 ## 第一组：现有 PR 与高影响故障（本轮）
 
-- [ ] [#1046](https://github.com/DevXDojo/MrRSS/issues/1046) [BUG] Auto-refresh runs in an endless loop (thousands of times/second) when update interval is set to a large value (e.g. 46080 minutes)
-- [ ] [#1044](https://github.com/DevXDojo/MrRSS/issues/1044) [BUG] AI translation gets 502 from OpenAI-compatible gateway while profile test passes
-- [ ] [#1043](https://github.com/DevXDojo/MrRSS/issues/1043) [BUG] 通过软件更新失败
-- [ ] [#874](https://github.com/DevXDojo/MrRSS/issues/874) [BUG] 刷新信息列表的时候，页面会闪，用户体验不好，另外右边的正文页内容会变空白
-- [ ] [#909](https://github.com/DevXDojo/MrRSS/issues/909) [BUG] 我仍然不能全文翻译
+- [x] [#1046](https://github.com/DevXDojo/MrRSS/issues/1046) [BUG] Auto-refresh runs in an endless loop (thousands of times/second) when update interval is set to a large value (e.g. 46080 minutes)
+- [x] [#1044](https://github.com/DevXDojo/MrRSS/issues/1044) [BUG] AI translation gets 502 from OpenAI-compatible gateway while profile test passes
+- [x] [#1043](https://github.com/DevXDojo/MrRSS/issues/1043) [BUG] 通过软件更新失败
+- [x] [#874](https://github.com/DevXDojo/MrRSS/issues/874) [BUG] 刷新信息列表的时候，页面会闪，用户体验不好，另外右边的正文页内容会变空白
+- [x] [#909](https://github.com/DevXDojo/MrRSS/issues/909) [BUG] 我仍然不能全文翻译
 
 ## 第二组：小范围阅读交互（待继续）
 
@@ -80,6 +80,8 @@
 - [ ] [#546](https://github.com/DevXDojo/MrRSS/issues/546) [FEATURE] 希望可以分类排序、红书的视频封面预览、视频类
 - [ ] [#435](https://github.com/DevXDojo/MrRSS/issues/435) [BUG] 快速点击订阅源时的视觉闪烁
 
+- [ ] [#656](https://github.com/DevXDojo/MrRSS/issues/656) [FEATURE] AI api增加claude支持（已有 Anthropic 协议实现，后续核对界面及端到端行为。）
+
 ## 暂缓：大改、长期项目或发布策略
 
 - [ ] [#91](https://github.com/DevXDojo/MrRSS/issues/91) Support cloud syncing / 支持云同步
@@ -94,7 +96,6 @@
 - [ ] [#673](https://github.com/DevXDojo/MrRSS/issues/673) [FEATURE] 希望增加自定义缓存路径
 - [ ] [#660](https://github.com/DevXDojo/MrRSS/issues/660) [FEATURE] 突出显示功能，高亮条目或文本
 - [ ] [#658](https://github.com/DevXDojo/MrRSS/issues/658) [FEATURE] 日报/汇报/时间线功能
-- [ ] [#656](https://github.com/DevXDojo/MrRSS/issues/656) [FEATURE] AI api增加claude支持
 - [ ] [#630](https://github.com/DevXDojo/MrRSS/issues/630) [FEATURE] 建议收费
 - [ ] [#603](https://github.com/DevXDojo/MrRSS/issues/603) [BUG] xml文本内容太多读取失败
 - [ ] [#580](https://github.com/DevXDojo/MrRSS/issues/580) [FEATURE] 稍后阅读的优化与体验改进
@@ -113,4 +114,30 @@
 
 ## 第一组审查与验证记录
 
-进行中。最终提交、修正点和验证结果将在本轮结束前补齐。
+第一组完成后完全停止。第二组及以后尚未实施，需用户明确继续；上述勾选表示发布分支已有修复，不表示已发布或已关闭 GitHub issue。
+
+| PR / issue | 发布分支整合提交 | 审查结论与补强 |
+| --- | --- | --- |
+| #1051 / #1046 | `d501b791` | 超长定时器分段等待；保留 fixed 模式限制；卸载时取消自动刷新。 |
+| #1052 / #874 | `5b1eab9b` | 刷新保留所选文章；补充翻页去重、旧请求淘汰、失败时保留正文。 |
+| #1050 / #1044 | `b50c16a2` | AI 测试及实际请求统一网络配置；补充代理凭据转义和 IPv6 地址处理。 |
+| #1053 / #909 | `f9ac1178` | 图文混排正文翻译；补充行内链接/强调保留、代码/公式保护及旧翻译状态隔离。 |
+| #1049 / #1043 | `7b0fb71f` | 实际字节进度、有限重试和续传；补充独立临时目录、严格范围响应检查、网络错误手动回退。 |
+| #1047 | `7c3c6ac9` | 官网 Vue、ESLint、typescript-eslint 依赖更新。 |
+| #1048 | `913dffdd` | goquery 与 Wails 更新；同步 `@wailsio/runtime` 到 beta.15。 |
+
+组末统一验证：
+
+- `go test -timeout=5m ./...`：通过。
+- 前端 Vitest：91/91 通过，涵盖超长刷新、保留选中、翻页去重、导航竞态、图文段落处理。
+- Cypress：更新流程 15/15、正文翻译 1/1，通过。使用临时目录内的隔离服务，不使用用户订阅数据库；没有执行真实安装。
+- 前端 ESLint：0 errors；本轮改动的 src 文件以 `--max-warnings 0` 通过。全库仍有既有 CRLF/格式警告，不在此组扩大清理范围。
+- 前端锁文件 `npm ci --dry-run --ignore-scripts`：通过；官网 `npm ci` 和生产构建：通过。
+- `wails3 build`：通过，产物 `build/bin/MrRSS.exe`；另已通过隔离测试服务的 server 构建。本轮使用临时目录中的 Wails beta.15 工具，不替换系统原有 CLI。
+- `git diff --check`：通过。更新接口文档及生成的技能 API 参考已同步，下载进度路由按实际 `/api/download-update/progress` 记录。
+- `CHANGELOG.md`：已在 Unreleased 中逐项记录本组修复和依赖更新；最终发布时间确定前不虚构发布日期。
+
+验证边界：本机为 Windows，未进行 macOS/Linux 原生桌面运行验证；Vite 仍提示既有大体积打包产物。旧版本机 Swagger 工具的依赖扫描无法解析 Go 1.27 标准库语法，本组使用内部类型扫描取得更新接口 schema，仅同步涉及下载的端点，避免混入既有文档漂移。
+
+下一组建议从 #696、#567、#561 等局部交互开始；本轮不自动继续，也不合并发布草稿 #1054。
+

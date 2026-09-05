@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Prevent automatic refresh loops when the configured interval exceeds the browser timer limit. (#1046, #1051)
+- Keep the selected article visible during background refreshes, discard stale navigation responses, and avoid duplicate articles when paging. (#874, #1052)
+- Use consistent proxy-aware HTTP transport for AI profile tests, translation, summaries, and chat, preserving custom configuration and escaped proxy credentials. (#1044, #1050)
+- Translate mixed text and media article content while retaining inline links and emphasis, supporting retries, and ignoring stale translation results. (#909, #1053)
+- Report real update download progress, retry interrupted transfers, isolate concurrent downloads, reject invalid partial responses, and provide a manual download fallback. (#1043, #1049)
+
+### Changed
+
+- Update website dependencies, goquery, and Wails to beta.15 with a matching frontend runtime. (#1047, #1048)
+
 ## [1.3.28] - 2026-08-29
 
 ### Added

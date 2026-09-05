@@ -610,6 +610,24 @@ Upload custom CSS file
 Parameters:
   - `file` (formData, required): CSS file to upload
 
+## Download Update
+
+### `POST /download-update`
+
+Download update
+
+Parameters:
+  - `request` (body, required): Download request (download_url, asset_name, optional request_id)
+
+Request body: see the Swagger schema for full field details.
+
+### `GET /download-update/progress`
+
+Get update download progress
+
+Parameters:
+  - `request_id` (query, required): Download request ID
+
 ## Email
 
 ### `POST /email/imap/test`
@@ -808,15 +826,6 @@ Clear all translations
 ### `GET /update/check`
 
 Check for updates
-
-### `POST /update/download`
-
-Download update
-
-Parameters:
-  - `request` (body, required): Download request (download_url, asset_name)
-
-Request body: see the Swagger schema for full field details.
 
 ### `POST /update/install`
 

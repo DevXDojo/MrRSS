@@ -5,7 +5,8 @@ describe('Auto Update Feature', () => {
     has_update: true,
     current_version: '1.3.12',
     latest_version: '1.3.13',
-    download_url: 'https://github.com/DevXDojo/MrRSS/releases/download/v1.3.13/MrRSS-1.3.13-windows-amd64-installer.exe',
+    download_url:
+      'https://github.com/DevXDojo/MrRSS/releases/download/v1.3.13/MrRSS-1.3.13-windows-amd64-installer.exe',
     asset_name: 'MrRSS-1.3.13-windows-amd64-installer.exe',
   };
 
@@ -44,7 +45,10 @@ describe('Auto Update Feature', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings modal
-      cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+      cy.get('button')
+        .filter('[title="Settings"], [title="设置"]')
+        .should('exist')
+        .click({ force: true });
 
       // Wait for settings modal to be visible
       cy.contains(/settings|设置/i).should('be.visible');
@@ -63,7 +67,10 @@ describe('Auto Update Feature', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings modal
-      cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+      cy.get('button')
+        .filter('[title="Settings"], [title="设置"]')
+        .should('exist')
+        .click({ force: true });
 
       cy.contains(/general|常规/i).click({ force: true });
       cy.wait('@getSettings');
@@ -92,7 +99,10 @@ describe('Auto Update Feature', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings and enable auto update
-      cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+      cy.get('button')
+        .filter('[title="Settings"], [title="设置"]')
+        .should('exist')
+        .click({ force: true });
 
       cy.contains(/general|常规/i).click({ force: true });
       cy.wait('@getSettings');
@@ -110,7 +120,10 @@ describe('Auto Update Feature', () => {
       cy.wait(500);
 
       // Reopen settings
-      cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+      cy.get('button')
+        .filter('[title="Settings"], [title="设置"]')
+        .should('exist')
+        .click({ force: true });
       cy.wait('@getSettings');
 
       // Navigate to general tab
@@ -300,7 +313,10 @@ describe('Auto Update Feature', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings modal
-      cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+      cy.get('button')
+        .filter('[title="Settings"], [title="设置"]')
+        .should('exist')
+        .click({ force: true });
 
       // Navigate to About tab
       cy.contains(/about|关于/i).click({ force: true });
@@ -326,7 +342,10 @@ describe('Auto Update Feature', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings modal
-      cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+      cy.get('button')
+        .filter('[title="Settings"], [title="设置"]')
+        .should('exist')
+        .click({ force: true });
 
       // Navigate to About tab
       cy.contains(/about|关于/i).click({ force: true });
@@ -459,54 +478,68 @@ describe('Auto Update Feature', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle download failure gracefully', () => {
-      // Enable startup update checks.
-      cy.intercept('GET', '/api/settings', {
-        statusCode: 200,
-        body: {
-          update_check_enabled: 'true',
-          theme: 'light',
-          language: 'en-US',
-          update_interval: '30',
-        },
-      }).as('getSettings');
+    [false, true].forEach((forceNetworkError) => {
+      it(`should handle ${forceNetworkError ? 'transport' : 'server'} download failure gracefully`, () => {
+        // Enable startup update checks.
+        cy.intercept('GET', '/api/settings', {
+          statusCode: 200,
+          body: {
+            update_check_enabled: 'true',
+            theme: 'light',
+            language: 'en-US',
+            update_interval: '30',
+          },
+        }).as('getSettings');
 
-      // Mock update check API
-      cy.intercept('GET', '/api/check-updates', {
-        statusCode: 200,
-        body: mockUpdateInfo,
-      }).as('checkUpdates');
+        // Mock update check API
+        cy.intercept('GET', '/api/check-updates', {
+          statusCode: 200,
+          body: mockUpdateInfo,
+        }).as('checkUpdates');
 
-      // Mock download failure
-      cy.intercept('POST', '/api/download-update', {
-        statusCode: 500,
-        body: { success: false, error_code: 'download_network_error' },
-      }).as('downloadUpdate');
+        // Mock download failure
+        cy.intercept(
+          'POST',
+          '/api/download-update',
+          forceNetworkError
+            ? { forceNetworkError: true }
+            : {
+                statusCode: 500,
+                body: { success: false, error_code: 'download_network_error' },
+              }
+        ).as('downloadUpdate');
+        cy.intercept('POST', '/api/install-update', () => {
+          throw new Error('Installation must not start after a failed download');
+        });
 
-      cy.visit('/');
-      cy.wait('@getFeeds');
+        cy.visit('/');
+        cy.wait('@getFeeds');
 
-      // Wait for update dialog to appear
-      cy.wait(4000);
-      cy.contains(/update available|有可用更新/i, { timeout: 5000 }).should('be.visible');
+        // Wait for update dialog to appear
+        cy.wait(4000);
+        cy.contains(/update available|有可用更新/i, { timeout: 5000 }).should('be.visible');
 
-      // Click "Update Now" button
-      cy.contains(/update now|立即更新/i).click();
+        // Click "Update Now" button
+        cy.contains(/update now|立即更新/i).click();
 
-      // Wait for download attempt
-      cy.wait('@downloadUpdate');
+        // Wait for download attempt
+        cy.wait('@downloadUpdate');
 
-      // Verify error message is shown (via toast notification)
-      cy.get('.toast-container').should('exist');
-      cy.contains(/release page|发布页/i).should('be.visible');
-      cy.contains(/network|网络/i).should('be.visible');
+        // Verify error message is shown (via toast notification)
+        cy.get('.toast-container').should('exist');
+        cy.contains(/release page|发布页/i).should('be.visible');
+        cy.contains(/network|网络/i).should('be.visible');
+      });
     });
 
     it('should handle update check failure gracefully', () => {
       cy.wait('@getFeeds', { timeout: 10000 });
 
       // Open settings modal
-      cy.get('button').filter('[title="Settings"], [title="设置"]').should('exist').click({ force: true });
+      cy.get('button')
+        .filter('[title="Settings"], [title="设置"]')
+        .should('exist')
+        .click({ force: true });
 
       // Navigate to About tab
       cy.contains(/about|关于/i).click({ force: true });

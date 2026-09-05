@@ -1,8 +1,6 @@
 package update
 
 import (
-	"MrRSS/internal/handlers/core"
-	"MrRSS/internal/handlers/response"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/handlers/response"
 )
 
 // HandleDownloadUpdate downloads the update file.
@@ -23,7 +24,7 @@ import (
 // @Success      200  {object}  map[string]interface{}  "Download success (success, request_id, file_path, total_bytes, bytes_written)"
 // @Failure      400  {object}  map[string]string  "Bad request (invalid URL, asset name, or request ID)"
 // @Failure      500  {object}  map[string]string  "Download failed"
-// @Router       /update/download [post]
+// @Router       /download-update [post]
 func HandleDownloadUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, nil, http.StatusMethodNotAllowed)
@@ -119,7 +120,7 @@ func createUpdateDownloadPath(assetName string) (string, error) {
 // @Success      200  {object}  map[string]interface{}  "Download progress"
 // @Failure      400  {object}  map[string]string  "Invalid request ID"
 // @Failure      404  {object}  map[string]string  "Download request not found"
-// @Router       /update/download/progress [get]
+// @Router       /download-update/progress [get]
 func HandleDownloadUpdateProgress(_ *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		response.Error(w, nil, http.StatusMethodNotAllowed)

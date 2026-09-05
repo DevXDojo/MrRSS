@@ -518,7 +518,10 @@ function simpleHash(str: string): string {
 }
 
 // Translate content paragraphs while preserving inline elements (formulas, code, images)
-async function translateContentParagraphs(content: string, force: boolean = false): Promise<boolean> {
+async function translateContentParagraphs(
+  content: string,
+  force: boolean = false
+): Promise<boolean> {
   if (!translationEnabled.value || !content) {
     return true;
   }
@@ -539,7 +542,9 @@ async function translateContentParagraphs(content: string, force: boolean = fals
   const articleID = props.article?.id || null;
   const requestID = ++contentTranslationRequestId;
   const requestIsCurrent = () =>
-    requestID === contentTranslationRequestId && props.article?.id === articleID && translationEnabled.value;
+    requestID === contentTranslationRequestId &&
+    props.article?.id === articleID &&
+    translationEnabled.value;
   lastTranslatedArticleId.value = articleID;
   lastTranslatedContentHash.value = contentHash;
 

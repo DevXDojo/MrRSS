@@ -3,6 +3,8 @@ import { createPinia, setActivePinia } from 'pinia';
 import { useAppStore } from './app';
 import type { Article } from '@/types/models';
 
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ locale: { value: 'en' } }) }));
+
 const article = (id: number, title = `Article ${id}`) => ({ id, title }) as Article;
 const response = (articles: Article[]) => new Response(JSON.stringify(articles));
 
@@ -15,21 +17,30 @@ describe('article refresh integration', () => {
     store.articles = [article(75)];
     store.currentArticleId = 75;
     let finishRefresh!: (value: Response) => void;
-    const fetchMock = vi.fn().mockImplementationOnce(() => new Promise<Response>((resolve) => {
-      finishRefresh = resolve;
-    }));
+    const fetchMock = vi.fn().mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          finishRefresh = resolve;
+        })
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const refresh = store.fetchArticles(false, true);
-    expect(store.currentArticle?.id).toBe(75);
+    expect(store.navigableArticles.find((item) => item.id === store.currentArticleId)?.id).toBe(75);
     finishRefresh(response(Array.from({ length: 50 }, (_, i) => article(i + 1))));
     await refresh;
-    expect(store.currentArticle?.id).toBe(75);
+    expect(store.navigableArticles.find((item) => item.id === store.currentArticleId)?.id).toBe(75);
 
-    fetchMock.mockResolvedValueOnce(response(Array.from({ length: 50 }, (_, i) => article(i + 51, 'Fresh'))));
+    fetchMock.mockResolvedValueOnce(
+      response(Array.from({ length: 50 }, (_, i) => article(i + 51, 'Fresh')))
+    );
     await store.loadMore();
-    expect(store.articles.map((item) => item.id)).toEqual(Array.from({ length: 100 }, (_, i) => i + 1));
-    expect(store.currentArticle?.title).toBe('Fresh');
+    expect(store.articles.map((item) => item.id)).toEqual(
+      Array.from({ length: 100 }, (_, i) => i + 1)
+    );
+    expect(store.navigableArticles.find((item) => item.id === store.currentArticleId)?.title).toBe(
+      'Fresh'
+    );
   });
 
   it('lets navigation supersede an in-flight background refresh', async () => {
@@ -37,9 +48,18 @@ describe('article refresh integration', () => {
     store.articles = [article(75)];
     store.currentArticleId = 75;
     let finishRefresh!: (value: Response) => void;
-    vi.stubGlobal('fetch', vi.fn()
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => { finishRefresh = resolve; }))
-      .mockResolvedValueOnce(response([article(200)])));
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<Response>((resolve) => {
+              finishRefresh = resolve;
+            })
+        )
+        .mockResolvedValueOnce(response([article(200)]))
+    );
     const refresh = store.fetchArticles(false, true);
     store.currentFeedId = 2;
     await store.fetchArticles();
@@ -55,7 +75,7 @@ describe('article refresh integration', () => {
     store.currentArticleId = 75;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 500 })));
     await store.fetchArticles(false, true);
-    expect(store.currentArticle?.id).toBe(75);
+    expect(store.navigableArticles.find((item) => item.id === store.currentArticleId)?.id).toBe(75);
     expect(store.isLoading).toBe(false);
   });
 });

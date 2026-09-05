@@ -8,7 +8,11 @@ import en from './i18n/locales/en';
 import App from './App.vue';
 import { setSettingsFromRawData } from './composables/core/useSettings';
 import { getRecommendedFonts } from './utils/fontDetector';
-import { createAutoRefreshScheduler, getAutoRefreshInterval, preserveSelectedArticle } from './stores/app';
+import {
+  createAutoRefreshScheduler,
+  getAutoRefreshInterval,
+  preserveSelectedArticle,
+} from './stores/app';
 
 // Create stub components for complex child components
 const createStub = (name: string) => ({
