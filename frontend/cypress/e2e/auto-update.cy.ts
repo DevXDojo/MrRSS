@@ -374,6 +374,17 @@ describe('Auto Update Feature', () => {
         delay: 2000,
       }).as('downloadUpdate');
 
+      cy.intercept('GET', '/api/download-update/progress*', {
+        statusCode: 200,
+        body: {
+          state: 'downloading',
+          bytes_written: 5242880,
+          total_bytes: 10485760,
+          percentage: 50,
+          indeterminate: false,
+        },
+      }).as('downloadProgress');
+
       cy.visit('/');
       cy.wait('@getFeeds');
 
@@ -389,6 +400,11 @@ describe('Auto Update Feature', () => {
 
       // Verify progress bar exists
       cy.get('[data-testid="update-download-progress"]').should('be.visible');
+      cy.wait('@downloadProgress');
+      cy.contains('50%').should('be.visible');
+      cy.wait('@downloadUpdate')
+        .its('request.body.request_id')
+        .should('match', /^[A-Za-z0-9_-]+$/);
     });
 
     it('should show installing message after download completes', () => {
@@ -464,7 +480,7 @@ describe('Auto Update Feature', () => {
       // Mock download failure
       cy.intercept('POST', '/api/download-update', {
         statusCode: 500,
-        body: { error: 'Download failed' },
+        body: { success: false, error_code: 'download_network_error' },
       }).as('downloadUpdate');
 
       cy.visit('/');
@@ -482,6 +498,8 @@ describe('Auto Update Feature', () => {
 
       // Verify error message is shown (via toast notification)
       cy.get('.toast-container').should('exist');
+      cy.contains(/release page|发布页/i).should('be.visible');
+      cy.contains(/network|网络/i).should('be.visible');
     });
 
     it('should handle update check failure gracefully', () => {

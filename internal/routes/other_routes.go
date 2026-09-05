@@ -32,6 +32,7 @@ func registerOtherRoutes(mux *http.ServeMux, h *core.Handler) {
 	// Update
 	mux.HandleFunc("/api/check-updates", func(w http.ResponseWriter, r *http.Request) { update.HandleCheckUpdates(h, w, r) })
 	mux.HandleFunc("/api/download-update", func(w http.ResponseWriter, r *http.Request) { update.HandleDownloadUpdate(h, w, r) })
+	mux.HandleFunc("/api/download-update/progress", func(w http.ResponseWriter, r *http.Request) { update.HandleDownloadUpdateProgress(h, w, r) })
 	mux.HandleFunc("/api/install-update", func(w http.ResponseWriter, r *http.Request) { update.HandleInstallUpdate(h, w, r) })
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { update.HandleVersion(h, w, r) })
 

@@ -28,6 +28,10 @@ interface Props {
   downloadingUpdate?: boolean;
   installingUpdate?: boolean;
   downloadProgress?: number;
+  downloadProgressKnown?: boolean;
+  downloadBytesWritten?: number;
+  downloadTotalBytes?: number;
+  downloadErrorCode?: string;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -36,6 +40,10 @@ withDefaults(defineProps<Props>(), {
   downloadingUpdate: false,
   installingUpdate: false,
   downloadProgress: 0,
+  downloadProgressKnown: false,
+  downloadBytesWritten: 0,
+  downloadTotalBytes: 0,
+  downloadErrorCode: '',
 });
 
 const emit = defineEmits<{
@@ -79,6 +87,11 @@ function openGitHubRepo() {
 
 function openGitHubRelease() {
   openInBrowser('https://github.com/DevXDojo/MrRSS/releases/latest');
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '0 MB';
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 </script>
 
@@ -153,6 +166,26 @@ function openGitHubRelease() {
               <span v-else-if="installingUpdate">{{ t('setting.update.installingUpdate') }}</span>
               <span v-else>{{ t('modal.update.downloadUpdate') }}</span>
             </button>
+            <div v-if="downloadingUpdate" class="mt-2 text-xs text-text-secondary">
+              <span v-if="downloadProgressKnown">
+                {{ Math.round(downloadProgress) }}% · {{ formatBytes(downloadBytesWritten) }} /
+                {{ formatBytes(downloadTotalBytes) }}
+              </span>
+              <span v-else>{{ formatBytes(downloadBytesWritten) }}</span>
+            </div>
+            <div
+              v-if="downloadErrorCode"
+              class="mt-2 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-text-secondary"
+            >
+              <p>{{ t('setting.update.downloadFailedHelp') }}</p>
+              <button
+                type="button"
+                class="mt-1 text-accent hover:underline"
+                @click="openGitHubRelease"
+              >
+                {{ t('setting.update.downloadManually') }}
+              </button>
+            </div>
           </div>
 
           <!-- Fallback to GitHub if no download URL -->

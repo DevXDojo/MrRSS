@@ -40,6 +40,9 @@ export interface UpdateInfo {
 export interface DownloadResponse {
   success: boolean;
   file_path: string;
+  request_id?: string;
+  total_bytes?: number;
+  bytes_written?: number;
 }
 
 export interface InstallResponse {
