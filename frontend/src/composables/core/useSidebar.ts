@@ -2,6 +2,7 @@ import { computed, ref, watch, type Ref } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { openInBrowser } from '@/utils/browser';
+import { useSidebarSort } from '@/composables/ui/useSidebarSort';
 import type { Feed } from '@/types/models';
 
 interface TreeNode {
@@ -18,6 +19,7 @@ interface TreeData {
 
 export function useSidebar() {
   const store = useAppStore();
+  const { compareFeeds, isPinned, togglePin } = useSidebarSort();
   const { t } = useI18n();
 
   // Load saved category state from localStorage
@@ -83,6 +85,11 @@ export function useSidebar() {
     if (uncategorized.length > 0) {
       categories.add('uncategorized');
     }
+    function sortFeeds(nodes: Record<string, TreeNode>) {
+      for (const node of Object.values(nodes)) { node._feeds.sort(compareFeeds); sortFeeds(node._children); }
+    }
+    sortFeeds(t);
+    uncategorized.sort(compareFeeds);
     return { tree: t, uncategorized, categories };
   });
 
@@ -209,6 +216,7 @@ export function useSidebar() {
 
   // Feed actions
   async function handleFeedAction(action: string, feed: Feed): Promise<void> {
+    if (action === 'pin') { await togglePin(`feed:${feed.id}`); return; }
     if (action === 'markAllRead') {
       await store.markAllAsRead(feed.id);
       window.showToast(t('article.action.markedAllAsRead'), 'success');
@@ -311,6 +319,7 @@ export function useSidebar() {
       danger?: boolean;
     }> = [];
 
+    items.push({ label: t(isPinned(`feed:${feed.id}`) ? 'sidebar.order.unpinItem' : 'sidebar.order.pinItem'), action: 'pin', icon: 'PhPushPin' });
     // For FreshRSS feeds, show "Sync Feed" instead of "Refresh Feed"
     if (feed.is_freshrss_source) {
       items.push({
@@ -370,6 +379,7 @@ export function useSidebar() {
 
   // Category actions
   async function handleCategoryAction(action: string, categoryName: string): Promise<void> {
+    if (action === 'pin') { await togglePin(`category:${categoryName}`); return; }
     if (action === 'markAllRead') {
       // Use the category parameter for the API call
       const category = categoryName === 'uncategorized' ? '' : categoryName;
@@ -461,6 +471,7 @@ export function useSidebar() {
     ];
 
     if (categoryName !== 'uncategorized') {
+      items.push({ label: t(isPinned(`category:${categoryName}`) ? 'sidebar.order.unpinItem' : 'sidebar.order.pinItem'), action: 'pin', icon: 'PhPushPin' });
       items.push({ separator: true });
       items.push({ label: t('modal.feed.renameCategory'), action: 'rename', icon: 'ph-pencil' });
     }

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Pin categories and subscriptions within their level, and sort the sidebar by name, count, latest article or saved custom order. (#548)
+
 - Export versioned JSON automation-rule backups and import validated rules without replacing existing rules or immediately applying them to old articles. (#455)
 
 - Add confirmed category dissolution and bulk unsubscribe actions, with atomic updates and protection for FreshRSS-managed subscriptions. (#508)

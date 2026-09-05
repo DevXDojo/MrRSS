@@ -2,6 +2,7 @@ import { computed, provide, ref, onUnmounted, type InjectionKey, type Ref } from
 import { useSettings } from '@/composables/core/useSettings';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
+import { useSidebarSort } from './useSidebarSort';
 
 export function parseCategoryOrder(value: string): string[] {
   try {
@@ -26,6 +27,7 @@ export function useCategoryOrder() {
   const { settings } = useSettings();
   const store = useAppStore();
   const { t } = useI18n();
+  const { mode, compareCategories, isPinned } = useSidebarSort();
   const order = computed(() => parseCategoryOrder(settings.value.sidebar_category_order));
   const source = ref<string | null>(null);
   const preview = ref<{ path: string; before: boolean } | null>(null);
@@ -33,15 +35,14 @@ export function useCategoryOrder() {
 
   function entries<T>(children: Record<string, T>, parent = ''): [string, T][] {
     const path = (name: string) => parent ? `${parent}/${name}` : name;
-    const position = (name: string) => {
-      const index = order.value.indexOf(path(name));
-      return index < 0 ? Number.MAX_SAFE_INTEGER : index;
-    };
-    return Object.entries(children).sort(([a], [b]) => position(a) - position(b) || a.localeCompare(b));
+    return Object.entries(children).sort(([a], [b]) => compareCategories(path(a), path(b), order.value));
   }
 
   function end() { source.value = null; preview.value = null; }
   function start(path: string, event: DragEvent) {
+    if (mode.value !== 'manual') {
+      event.preventDefault(); window.showToast(t('sidebar.order.manualRequired'), 'info'); return;
+    }
     if (saving.value) { event.preventDefault(); return; }
     event.stopPropagation();
     source.value = path;
@@ -51,7 +52,7 @@ export function useCategoryOrder() {
   function over(path: string, event: DragEvent) {
     if (source.value === null) return false;
     event.stopPropagation();
-    if (source.value === path || categoryParent(source.value) !== categoryParent(path)) {
+    if (source.value === path || categoryParent(source.value) !== categoryParent(path) || isPinned(`category:${source.value}`) !== isPinned(`category:${path}`)) {
       preview.value = null;
       if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
       return true;

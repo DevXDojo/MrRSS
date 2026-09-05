@@ -1199,7 +1199,11 @@ const en: TranslationMessages = {
       unsubscribeConfirm: 'Unsubscribe all {count} feeds in "{name}" and its subcategories? Their articles, including favorites, will be deleted.',
       done: 'Category updated', failed: 'Could not update the category. No changes were applied.',
     },
-    order: { dragCategory: 'Drag to reorder sibling categories', saved: 'Category order saved' },
+    order: {
+      sort: 'Sort categories and feeds', manual: 'Custom order', name_asc: 'Name: A–Z', name_desc: 'Name: Z–A',
+      count_asc: 'Count: low to high', count_desc: 'Count: high to low', latest: 'Latest article first',
+      pinItem: 'Pin to top of this level', unpinItem: 'Unpin', manualRequired: 'Choose Custom order before dragging. Pinned items stay at the top.',
+ dragCategory: 'Drag to reorder sibling categories', saved: 'Category order saved' },
     activity: {
       addFeed: 'Add Feed',
       allArticles: 'All Articles',

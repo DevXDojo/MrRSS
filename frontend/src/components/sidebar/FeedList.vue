@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
+import { useSidebarSort, sidebarSortModes } from '@/composables/ui/useSidebarSort';
 import { useCategoryOrder } from '@/composables/ui/useCategoryOrder';
 import { useDragDrop } from '@/composables/ui/useDragDrop';
 import { useSidebar } from '@/composables/core/useSidebar';
@@ -124,6 +125,7 @@ const draggingFilterId = ref<number | null>(null);
 
 // Compact mode setting (layout_mode === 'compact')
 const { entries: categoryEntries } = useCategoryOrder();
+const { mode: sidebarSortMode, setMode: setSidebarSortMode } = useSidebarSort();
 
 const compactMode = computed(() => {
   return settings.value.layout_mode === 'compact';
@@ -260,6 +262,7 @@ const {
 
 // Handle drag events
 function handleDragStart(feedId: number, event: Event) {
+  if (sidebarSortMode.value !== 'manual') { event.preventDefault(); window.showToast(t('sidebar.order.manualRequired'), 'info'); return; }
   const feed = store.feeds?.find((f) => f.id === feedId);
   if (feed?.is_freshrss_source) {
     event.preventDefault();
@@ -667,6 +670,13 @@ function handleFilterDragEnd() {
             </div>
           </div>
 
+          <div class="px-2 pb-2">
+            <select :value="sidebarSortMode" :aria-label="t('sidebar.order.sort')"
+              class="w-full rounded bg-bg-tertiary text-text-secondary text-xs p-1.5"
+              @change="setSidebarSortMode(($event.target as HTMLSelectElement).value)">
+              <option v-for="mode in sidebarSortModes" :key="mode" :value="mode">{{ t(`sidebar.order.${mode}`) }}</option>
+            </select>
+          </div>
           <!-- Categories List -->
           <div
             class="categories-list sidebar-hover-scrollbar flex-1 overflow-y-auto overflow-x-hidden"

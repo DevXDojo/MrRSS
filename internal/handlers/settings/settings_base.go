@@ -106,6 +106,8 @@ var AllSettings = []SettingDef{
 	{Key: "show_floating_toc", Encrypted: false},
 	{Key: "show_hidden_articles", Encrypted: false},
 	{Key: "sidebar_category_order", Encrypted: false},
+	{Key: "sidebar_pinned_items", Encrypted: false},
+	{Key: "sidebar_sort_mode", Encrypted: false},
 	{Key: "startup_on_boot", Encrypted: false},
 	{Key: "summary_enabled", Encrypted: false},
 	{Key: "summary_length", Encrypted: false},

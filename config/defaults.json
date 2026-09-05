@@ -88,6 +88,8 @@
   "show_floating_toc": false,
   "show_hidden_articles": false,
   "sidebar_category_order": "[]",
+  "sidebar_pinned_items": "[]",
+  "sidebar_sort_mode": "manual",
   "startup_on_boot": false,
   "summary_enabled": true,
   "summary_length": "medium",

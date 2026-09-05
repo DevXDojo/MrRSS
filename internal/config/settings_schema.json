@@ -312,6 +312,12 @@
       "encrypted": false,
       "frontend_key": "aiSearchEnabled"
     },
+    "sidebar_sort_mode": {
+      "type": "string", "default": "manual", "category": "reading", "encrypted": false, "frontend_key": "sidebar_sort_mode"
+    },
+    "sidebar_pinned_items": {
+      "type": "string", "default": "[]", "category": "reading", "encrypted": false, "frontend_key": "sidebar_pinned_items"
+    },
     "sidebar_category_order": {
       "type": "string",
       "default": "[]",

@@ -94,6 +94,8 @@ export interface SettingsData {
   show_floating_toc: boolean;
   show_hidden_articles: boolean;
   sidebar_category_order: string;
+  sidebar_pinned_items: string;
+  sidebar_sort_mode: string;
   startup_on_boot: boolean;
   summary_enabled: boolean;
   summary_length: string;

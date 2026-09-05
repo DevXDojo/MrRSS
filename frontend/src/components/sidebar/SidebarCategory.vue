@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, inject, onUnmounted } from 'vue';
 import { categoryDragKey } from '@/composables/ui/useCategoryOrder';
-import { PhFolder, PhFolderDashed, PhCaretDown, PhDotsSixVertical } from '@phosphor-icons/vue';
+import { PhFolder, PhFolderDashed, PhCaretDown, PhDotsSixVertical, PhPushPin } from '@phosphor-icons/vue';
+import { useSidebarSort } from '@/composables/ui/useSidebarSort';
 import { useI18n } from 'vue-i18n';
 import type { Feed } from '@/types/models';
 import type { DropPreview } from '@/composables/ui/useDragDrop';
 import SidebarFeed from './SidebarFeed.vue';
 
 const { t } = useI18n();
+const { isPinned: isItemPinned } = useSidebarSort();
 const categoryDrag = inject(categoryDragKey, null);
 
 // Track click timeout to distinguish single click from double click
@@ -203,6 +205,7 @@ onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); })
       <span class="flex-1 flex items-center gap-2">
         <PhFolderDashed v-if="isUncategorized" :size="20" />
         <PhFolder v-else :size="20" :weight="'fill'" />
+        <PhPushPin v-if="isItemPinned(`category:${fullPath}`)" :size="12" class="text-accent" />
         {{ name }}
         <!-- FreshRSS indicator on category -->
         <!-- Only show if ALL feeds in this category are from FreshRSS -->

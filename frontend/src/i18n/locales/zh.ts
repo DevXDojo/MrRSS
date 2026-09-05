@@ -1167,7 +1167,11 @@ const zh: TranslationMessages = {
       unsubscribeConfirm: '取消“{name}”及子分类中的全部 {count} 个订阅？其文章（包括收藏）将被删除。',
       done: '分类已更新', failed: '分类操作失败，未应用任何修改。',
     },
-    order: { dragCategory: '拖动调整同级分类顺序', saved: '分类顺序已保存' },
+    order: {
+      sort: '分类和订阅排序', manual: '自定义顺序', name_asc: '名称：升序', name_desc: '名称：降序',
+      count_asc: '数量：从少到多', count_desc: '数量：从多到少', latest: '最新文章优先',
+      pinItem: '置顶到当前层级', unpinItem: '取消置顶', manualRequired: '请先选择“自定义顺序”再拖动，置顶项目会保留在顶部。',
+ dragCategory: '拖动调整同级分类顺序', saved: '分类顺序已保存' },
     activity: {
       addFeed: '添加订阅',
       allArticles: '所有文章',
