@@ -1189,6 +1189,12 @@ const en: TranslationMessages = {
     },
   },
   sidebar: {
+    categoryActions: {
+      dissolve: 'Dissolve category', unsubscribe: 'Unsubscribe category',
+      dissolveConfirm: 'Dissolve "{name}" and its subcategories? Keep all {count} subscriptions and their articles in Uncategorized.',
+      unsubscribeConfirm: 'Unsubscribe all {count} feeds in "{name}" and its subcategories? Their articles, including favorites, will be deleted.',
+      done: 'Category updated', failed: 'Could not update the category. No changes were applied.',
+    },
     order: { dragCategory: 'Drag to reorder sibling categories', saved: 'Category order saved' },
     activity: {
       addFeed: 'Add Feed',

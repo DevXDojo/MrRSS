@@ -14,6 +14,7 @@ import (
 
 // registerFeedRoutes registers all feed-related routes
 func registerFeedRoutes(mux *http.ServeMux, h *core.Handler) {
+	mux.HandleFunc("/api/feeds/category", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleCategory(h, w, r) })
 	mux.HandleFunc("/api/feeds", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleFeeds(h, w, r) })
 	mux.HandleFunc("/api/feeds/add", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleAddFeed(h, w, r) })
 	mux.HandleFunc("/api/feeds/delete", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleDeleteFeed(h, w, r) })

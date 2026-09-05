@@ -378,6 +378,37 @@ export function useSidebar() {
       });
       store.fetchUnreadCounts();
       window.showToast(t('article.action.markedAllAsRead'), 'success');
+    } else if (action === 'dissolve' || action === 'unsubscribeCategory') {
+      const category = categoryName === 'uncategorized' ? '' : categoryName;
+      const feeds = store.feeds.filter((feed) => feed.category === category || (category !== '' && feed.category.startsWith(category + '/')));
+      if (feeds.some((feed) => feed.is_freshrss_source)) {
+        window.showToast(t('setting.freshrss.feedLocked'), 'info');
+        return;
+      }
+      const dissolve = action === 'dissolve';
+      const confirmed = await window.showConfirm({
+        title: t(dissolve ? 'sidebar.categoryActions.dissolve' : 'sidebar.categoryActions.unsubscribe'),
+        message: t(dissolve ? 'sidebar.categoryActions.dissolveConfirm' : 'sidebar.categoryActions.unsubscribeConfirm', { name: categoryName, count: feeds.length }),
+        confirmText: t('common.action.confirm'), cancelText: t('common.action.cancel'), isDanger: !dissolve,
+      });
+      if (!confirmed) return;
+      try {
+        const response = await fetch('/api/feeds/category', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, action: dissolve ? 'dissolve' : 'unsubscribe' }),
+        });
+        if (!response.ok) throw new Error(await response.text());
+        store.currentArticleId = null;
+        store.currentFeedId = null;
+        store.currentCategory = null;
+        await store.fetchFeeds();
+        await store.fetchArticles();
+        await store.fetchUnreadCounts();
+        await store.fetchFilterCounts();
+        window.showToast(t('sidebar.categoryActions.done'), 'success');
+      } catch {
+        window.showToast(t('sidebar.categoryActions.failed'), 'error');
+      }
     } else if (action === 'rename') {
       const newName = await window.showInput({
         title: t('modal.feed.renameCategory'),
@@ -421,7 +452,7 @@ export function useSidebar() {
     e.preventDefault();
     e.stopPropagation();
 
-    const items: Array<{ label?: string; action?: string; icon?: string; separator?: boolean }> = [
+    const items: Array<{ label?: string; action?: string; icon?: string; separator?: boolean; danger?: boolean }> = [
       {
         label: t('article.action.markAllAsReadFeed'),
         action: 'markAllRead',
@@ -432,6 +463,13 @@ export function useSidebar() {
     if (categoryName !== 'uncategorized') {
       items.push({ separator: true });
       items.push({ label: t('modal.feed.renameCategory'), action: 'rename', icon: 'ph-pencil' });
+    }
+
+    const category = categoryName === 'uncategorized' ? '' : categoryName;
+    const synced = store.feeds.some((feed) => (feed.category === category || (category !== '' && feed.category.startsWith(category + '/'))) && feed.is_freshrss_source);
+    if (!synced) {
+      if (category) items.push({ label: t('sidebar.categoryActions.dissolve'), action: 'dissolve', icon: 'PhFolderMinus' });
+      items.push({ label: t('sidebar.categoryActions.unsubscribe'), action: 'unsubscribeCategory', icon: 'PhTrash', danger: true });
     }
 
     window.dispatchEvent(

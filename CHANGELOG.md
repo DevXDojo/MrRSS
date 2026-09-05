@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add confirmed category dissolution and bulk unsubscribe actions, with atomic updates and protection for FreshRSS-managed subscriptions. (#508)
+
 - Drag sibling categories, including nested folders, into a persistent custom order in sidebar edit mode. (#757, #587)
 
 - Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).

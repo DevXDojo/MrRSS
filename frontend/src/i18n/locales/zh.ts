@@ -1157,6 +1157,12 @@ const zh: TranslationMessages = {
     },
   },
   sidebar: {
+    categoryActions: {
+      dissolve: '解散分类', unsubscribe: '取消订阅整个分类',
+      dissolveConfirm: '解散“{name}”及其子分类？保留全部 {count} 个订阅及文章，并移至未分类。',
+      unsubscribeConfirm: '取消“{name}”及子分类中的全部 {count} 个订阅？其文章（包括收藏）将被删除。',
+      done: '分类已更新', failed: '分类操作失败，未应用任何修改。',
+    },
     order: { dragCategory: '拖动调整同级分类顺序', saved: '分类顺序已保存' },
     activity: {
       addFeed: '添加订阅',
