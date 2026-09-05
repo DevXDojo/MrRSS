@@ -610,7 +610,7 @@ const en: TranslationMessages = {
       aiSearchEnabled: 'AI Search',
       aiSearchEnabledDesc: 'Use AI to intelligently search articles with keyword expansion',
       endpoint: 'Endpoint',
-      aiEndpointDesc: 'Full API endpoint URL including path',
+      aiEndpointDesc: 'Full API URL: /chat/completions, Claude /v1/messages, or Gemini /v1beta (uses the model below)',
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI Features',
       aiModel: 'Model Name',

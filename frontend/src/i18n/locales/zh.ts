@@ -594,7 +594,7 @@ const zh: TranslationMessages = {
       aiSearchEnabled: 'AI 搜索',
       aiSearchEnabledDesc: '使用 AI 智能扩展关键词搜索文章',
       endpoint: '端点',
-      aiEndpointDesc: '完整的 API 端点 URL，包括路径',
+      aiEndpointDesc: '完整 API 地址：/chat/completions、Claude /v1/messages，或 Gemini /v1beta（使用下方模型名）',
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI 功能',
       aiModel: '模型名称',

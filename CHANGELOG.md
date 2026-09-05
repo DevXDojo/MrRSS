@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Distinguish native Gemini from its compatible Chat Completions API, use the selected model in native URLs, preserve system instructions and multipart answers, and document provider setup in both languages (#542).
+
 - Complete native Claude Messages integration: detect custom `/messages` routes, normalize official base URLs, separate chat system instructions, and preserve native protocol errors (#656).
 
 - Close macOS windows to the tray on the first click; fullscreen windows hide after the native exit event, and reopening cancels a pending hide and focuses the reader (#796).

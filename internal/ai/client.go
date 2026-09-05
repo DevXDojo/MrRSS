@@ -147,7 +147,11 @@ func (c *Client) tryFormat(handler FormatHandler, config RequestConfig) (Respons
 	}
 
 	// Format endpoint
-	formattedEndpoint := handler.FormatEndpoint(c.config.Endpoint, c.config.Model)
+	model := config.Model
+	if model == "" {
+		model = c.config.Model
+	}
+	formattedEndpoint := handler.FormatEndpoint(c.config.Endpoint, model)
 
 	// Special handling for Ollama: use /api/chat if messages are provided
 	if _, ok := handler.(*OllamaHandler); ok && len(config.Messages) > 0 {
@@ -194,7 +198,7 @@ func (c *Client) sendRequestToEndpointWithHandler(jsonBody []byte, apiURL string
 	}
 
 	// Check if this is a Gemini endpoint that needs API key in URL
-	isGeminiEndpoint := IsGeminiEndpoint(apiURL)
+	_, isGeminiEndpoint := handler.(*GeminiHandler)
 
 	// For Gemini API, add API key as URL query parameter instead of Authorization header
 	if isGeminiEndpoint && c.config.APIKey != "" {
