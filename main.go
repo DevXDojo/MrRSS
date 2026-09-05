@@ -156,6 +156,7 @@ func main() {
 	var quitRequested atomic.Bool
 	var lastMaximized atomic.Bool
 	var hiddenToTray atomic.Bool
+	var hideAfterFullscreen atomic.Bool
 
 	// API Routes
 	log.Println("Setting up API routes...")
@@ -203,6 +204,7 @@ func main() {
 		if mainWindow == nil {
 			return
 		}
+		hideAfterFullscreen.Store(false)
 		// Read the snapshot before Show/UnMinimise can emit native state events.
 		restoreMaximized := hiddenToTray.Load() && lastMaximized.Load()
 		mainWindow.Show()
@@ -415,50 +417,32 @@ func main() {
 		})
 	}
 
-	// Track last window close attempt to handle macOS fullscreen properly
-	var lastCloseAttempt atomic.Int64
-
-	// Register hook for window closing event
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		if quitRequested.Load() {
-			return // Allow close
-		}
-
-		if shouldCloseToTray() {
-			// On macOS, handle fullscreen exit gracefully
-			if runtime.GOOS == "darwin" {
-				now := time.Now().UnixMilli()
-				last := lastCloseAttempt.Load()
-
-				// If last close was within 500ms, user clicked close twice quickly
-				// This means fullscreen exit completed, proceed with hiding
-				if last > 0 && (now-last) < 500 {
-					lastCloseAttempt.Store(0) // Reset
-					storeWindowState()
-					setupSystemTray()
-					hiddenToTray.Store(true)
-					mainWindow.Hide()
-					e.Cancel()
-					return
-				}
-
-				// First close attempt - try to exit fullscreen
-				lastCloseAttempt.Store(now)
-				mainWindow.Restore()
-				// Cancel this close event
-				// If window was fullscreen, user needs to click close again
-				// If not fullscreen, Restore() does nothing and next close will proceed
-				e.Cancel()
-				return
-			}
-
-			// Non-macOS platforms: directly hide to tray
-			storeWindowState()
-			setupSystemTray()
+	// Fullscreen exits asynchronously on macOS. Hide on its completion event,
+	// rather than requiring a second close within an arbitrary time window.
+	mainWindow.RegisterHook(events.Common.WindowUnFullscreen, func(e *application.WindowEvent) {
+		if hideAfterFullscreen.Swap(false) && !quitRequested.Load() {
 			hiddenToTray.Store(true)
 			mainWindow.Hide()
-			e.Cancel()
 		}
+	})
+
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if quitRequested.Load() || !shouldCloseToTray() {
+			return
+		}
+		e.Cancel()
+		if hideAfterFullscreen.Load() {
+			return
+		}
+		storeWindowState()
+		setupSystemTray()
+		if runtime.GOOS == "darwin" && mainWindow.IsFullscreen() {
+			hideAfterFullscreen.Store(true)
+			mainWindow.UnFullscreen()
+			return
+		}
+		hiddenToTray.Store(true)
+		mainWindow.Hide()
 	})
 
 	mainWindow.RegisterHook(events.Common.WindowMaximise, func(e *application.WindowEvent) {
