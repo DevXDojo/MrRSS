@@ -238,6 +238,8 @@ docker run -d -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-amd64
 docker run -d -p 1234:1234 ghcr.io/devxdojo/mrrss:latest-arm64
 ```
 
+For browser access and local setup, see [Browser interface](docs/SERVER_MODE/README.md).
+
 Please refer to the [Server Mode API Documentation](docs/SERVER_MODE/swagger.json) for a complete API reference.
 To let Codex operate MrRSS through this API, install the release skill package described in [MrRSS Skills](docs/SKILLS.md).
 
