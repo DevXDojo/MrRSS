@@ -22,10 +22,12 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
   const prevTranslationSettings: Ref<{
     enabled: boolean;
     targetLang: string;
+    triggerMode: string;
     provider: string;
   }> = ref({
     enabled: settingsDefaults.translation_enabled,
     targetLang: settingsDefaults.target_language,
+    triggerMode: settingsDefaults.translation_trigger_mode,
     provider: settingsDefaults.translation_provider,
   });
 
@@ -60,6 +62,7 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       prevTranslationSettings.value = {
         enabled: settingsRef.value.translation_enabled,
         targetLang: settingsRef.value.target_language,
+          triggerMode: settingsRef.value.translation_trigger_mode,
         provider: settingsRef.value.translation_provider,
       };
       prevArticleDisplaySettings.value = {
@@ -125,12 +128,14 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       });
 
       // Clear and re-translate if translation settings changed
-      if (translationChanged) {
-        await fetch('/api/articles/clear-translations', { method: 'POST' });
+      const triggerModeChanged = prevTranslationSettings.value.triggerMode !== settingsRef.value.translation_trigger_mode;
+      if (translationChanged || triggerModeChanged) {
+        if (translationChanged) await fetch('/api/articles/clear-translations', { method: 'POST' });
         // Update tracking
         prevTranslationSettings.value = {
           enabled: settingsRef.value.translation_enabled,
           targetLang: settingsRef.value.target_language,
+          triggerMode: settingsRef.value.translation_trigger_mode,
           provider: settingsRef.value.translation_provider,
         };
         // Notify ArticleList about translation settings change
@@ -139,11 +144,12 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
             detail: {
               enabled: settingsRef.value.translation_enabled,
               targetLang: settingsRef.value.target_language,
+          triggerMode: settingsRef.value.translation_trigger_mode,
             },
           })
         );
         // Refresh articles to show without translations, then re-translate if enabled
-        store.fetchArticles();
+        if (translationChanged) store.fetchArticles();
       }
 
       // Refresh articles if show_hidden_articles changed

@@ -106,6 +106,7 @@ export interface SettingsData {
   translation_enabled: boolean;
   translation_only_mode: boolean;
   translation_provider: string;
+  translation_trigger_mode: string;
   ui_font_family: string;
   ui_font_size: number;
   update_check_enabled: boolean;

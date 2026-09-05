@@ -88,6 +88,13 @@
       "encrypted": false,
       "frontend_key": "translationOnlyMode"
     },
+    "translation_trigger_mode": {
+      "type": "string",
+      "default": "auto",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "translation_trigger_mode"
+    },
     "target_language": {
       "type": "string",
       "default": "zh",

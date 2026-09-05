@@ -6,6 +6,7 @@ interface TranslationSettings {
   enabled: boolean;
   targetLang: string;
   translationOnlyMode: boolean;
+  triggerMode: 'auto' | 'manual';
 }
 
 export function useArticleTranslation() {
@@ -14,6 +15,7 @@ export function useArticleTranslation() {
     enabled: false,
     targetLang: 'en',
     translationOnlyMode: false,
+    triggerMode: 'auto',
   });
   const translatingArticles: Ref<Set<number>> = ref(new Set());
   let observer: IntersectionObserver | null = null;
@@ -27,6 +29,7 @@ export function useArticleTranslation() {
         enabled: data.translation_enabled === 'true',
         targetLang: data.target_language || 'en',
         translationOnlyMode: data.translation_only_mode === 'true',
+        triggerMode: data.translation_trigger_mode === 'manual' ? 'manual' : 'auto',
       };
     } catch (e) {
       console.error('Error loading translation settings:', e);
@@ -42,7 +45,7 @@ export function useArticleTranslation() {
     observer = new IntersectionObserver(
       (entries) => {
         // Check if translation is still enabled before processing
-        if (!translationSettings.value.enabled) {
+        if (!translationSettings.value.enabled || translationSettings.value.triggerMode === 'manual') {
           return;
         }
 
@@ -131,11 +134,12 @@ export function useArticleTranslation() {
   }
 
   // Update translation settings from event
-  function handleTranslationSettingsChange(enabled: boolean, targetLang: string): void {
+  function handleTranslationSettingsChange(enabled: boolean, targetLang: string, triggerMode?: string): void {
     translationSettings.value = {
       enabled,
       targetLang,
       translationOnlyMode: translationSettings.value.translationOnlyMode,
+      triggerMode: triggerMode === 'manual' ? 'manual' : 'auto',
     };
 
     // Disconnect observer if translation is disabled

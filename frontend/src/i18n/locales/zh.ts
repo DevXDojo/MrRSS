@@ -120,6 +120,10 @@ const zh: TranslationMessages = {
       addToReadLater: '添加到稍后阅读',
     },
     translation: {
+      translateTitle: '翻译标题',
+      manualMode: '按需翻译',
+      manualHint: '点击“翻译标题”，或按住 Ctrl（macOS 为 Command）点击某一段以翻译该段。',
+      translatingTitle: '正在翻译标题…',
       aiLimitReached: 'AI 使用量已达上限，正在使用免费替代方案。',
     },
     videoPlayer: {
@@ -734,6 +738,10 @@ const zh: TranslationMessages = {
       translatingContent: '正在翻译内容...',
       translation: '翻译',
       translationCredentialsRequired: '翻译服务需要 API 密钥或凭据',
+      translationTriggerMode: '翻译触发方式',
+      translationTriggerModeDesc: '自动翻译，或仅在主动操作时翻译标题和段落。',
+      translationAutomatic: '自动翻译',
+      translationManual: '按需翻译',
       translationOnlyMode: '仅翻译模式',
       translationOnlyModeDesc: '仅显示翻译后的文本，隐藏原文',
       translationProvider: '翻译服务',

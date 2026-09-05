@@ -123,6 +123,10 @@ const en: TranslationMessages = {
       addToReadLater: 'Add to Read Later',
     },
     translation: {
+      translateTitle: 'Translate title',
+      manualMode: 'Translate on demand',
+      manualHint: 'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
+      translatingTitle: 'Translating title...',
       aiLimitReached: 'AI usage limit reached. Using free alternatives.',
     },
     videoPlayer: {
@@ -752,6 +756,10 @@ const en: TranslationMessages = {
       translatingContent: 'Translating content...',
       translation: 'Translation',
       translationCredentialsRequired: 'Translation service requires API key or credentials',
+      translationTriggerMode: 'Translation mode',
+      translationTriggerModeDesc: 'Translate automatically, or only when you request a title or paragraph.',
+      translationAutomatic: 'Automatic',
+      translationManual: 'On demand',
       translationOnlyMode: 'Translation Only Mode',
       translationOnlyModeDesc: 'Show only translated text, hide original content',
       translationProvider: 'Translation Provider',

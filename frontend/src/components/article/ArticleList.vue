@@ -423,6 +423,7 @@ interface CustomEventDetail {
   mode?: string;
   enabled?: boolean;
   targetLang?: string;
+  triggerMode?: string;
 }
 
 // Event handlers
@@ -435,9 +436,9 @@ function onDefaultViewModeChanged(e: Event): void {
 
 function onTranslationSettingsChanged(e: Event): void {
   const customEvent = e as CustomEvent<CustomEventDetail>;
-  const { enabled, targetLang } = customEvent.detail;
+  const { enabled, targetLang, triggerMode } = customEvent.detail;
   if (enabled !== undefined && targetLang) {
-    handleTranslationSettingsChange(enabled, targetLang);
+    handleTranslationSettingsChange(enabled, targetLang, triggerMode);
 
     // Re-setup observer if needed
     if (enabled && listRef.value) {

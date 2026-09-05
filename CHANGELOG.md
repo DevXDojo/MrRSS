@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).
+
 - Persist article AI chat exchanges in the existing chat session tables so conversations remain accessible after creating a new conversation, switching sessions, or restarting the app. (#1038) (@marcomarcogd)
 
 ### Changed

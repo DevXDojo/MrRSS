@@ -189,6 +189,8 @@ const { enhanceRendering, renderMathFormulas, highlightCodeBlocks } = useArticle
 const summaryEnabled = computed(() => summarySettings.value.enabled);
 const summaryProvider = computed(() => summarySettings.value.provider);
 const summaryTriggerMode = computed(() => summarySettings.value.triggerMode);
+const manualTranslation = computed(() => translationSettings.value.triggerMode === 'manual');
+let titleTranslationRequestId = 0;
 const translationEnabled = computed(() => translationSettings.value.enabled);
 const targetLanguage = computed(() => translationSettings.value.targetLang);
 
@@ -353,6 +355,7 @@ async function translateSummary(result: SummaryResult | null) {
 
   if (
     !translationEnabled.value ||
+    manualTranslation.value ||
     summaryProvider.value !== 'rss' ||
     !result?.summary ||
     result.is_too_short
@@ -499,11 +502,15 @@ const shouldWaitForFullContentBeforeSummary = computed(() => {
 });
 
 // Translate title
-async function translateTitle(article: Article) {
-  if (!translationEnabled.value || !article?.title) return;
-
+async function translateTitle(article: Article, force = false) {
+  const requestId = ++titleTranslationRequestId;
+  isTranslatingTitle.value = false;
+  if (!translationEnabled.value || !article?.title || (manualTranslation.value && !force)) return;
+  const requestIsCurrent = () => requestId === titleTranslationRequestId &&
+    props.article?.id === article.id && translationEnabled.value;
   isTranslatingTitle.value = true;
-  const translation = await translateText(article.title);
+  const translation = await translateText(article.title, force, false, requestIsCurrent);
+  if (!requestIsCurrent()) return;
   translatedTitle.value = translation.text;
   isTranslatingTitle.value = false;
 }
@@ -522,9 +529,17 @@ function simpleHash(str: string): string {
 // Translate content paragraphs while preserving inline elements (formulas, code, images)
 async function translateContentParagraphs(
   content: string,
-  force: boolean = false
+  force: boolean = false,
+  paragraph?: HTMLElement
 ): Promise<boolean> {
   if (!translationEnabled.value || !content) {
+    return true;
+  }
+
+  if (manualTranslation.value && !force) {
+    await nextTick();
+    const prose = articleScrollContainer.value?.querySelector('.prose-content');
+    if (prose) wrapOrphanedTextNodes(prose);
     return true;
   }
 
@@ -534,6 +549,7 @@ async function translateContentParagraphs(
   // Prevent duplicate translations for the same content
   // Check both article ID and content hash to handle RSS content vs full content
   if (
+    !force && !paragraph &&
     lastTranslatedArticleId.value === props.article?.id &&
     lastTranslatedContentHash.value === contentHash
   ) {
@@ -547,8 +563,8 @@ async function translateContentParagraphs(
     requestID === contentTranslationRequestId &&
     props.article?.id === articleID &&
     translationEnabled.value;
-  lastTranslatedArticleId.value = articleID;
-  lastTranslatedContentHash.value = contentHash;
+  lastTranslatedArticleId.value = paragraph ? null : articleID;
+  lastTranslatedContentHash.value = paragraph ? '' : contentHash;
 
   // Wait for content to render
   await nextTick();
@@ -564,7 +580,12 @@ async function translateContentParagraphs(
   }
 
   // Remove any existing translations first
-  const existingTranslations = proseContainer.querySelectorAll('.translation-text');
+  if (paragraph && !proseContainer.contains(paragraph)) {
+    isTranslatingContent.value = false;
+    return false;
+  }
+  const existingTranslations = (paragraph || proseContainer).querySelectorAll('.translation-text');
+  if (paragraph?.nextElementSibling?.classList.contains('translation-text')) paragraph.nextElementSibling.remove();
   existingTranslations.forEach((el) => el.remove());
 
   wrapOrphanedTextNodes(proseContainer);
@@ -595,7 +616,7 @@ async function translateContentParagraphs(
 
   // Process elements level by level to handle nested structures correctly
   // First, get all elements and sort them by depth (shallowest first)
-  const allElements = Array.from(proseContainer.querySelectorAll(textTags.join(',')));
+  const allElements = paragraph ? [paragraph] : Array.from(proseContainer.querySelectorAll(textTags.join(',')));
 
   // Sort by depth (number of ancestors) to process outermost elements first
   allElements.sort((a, b) => {
@@ -804,6 +825,18 @@ function attachExternalLinkHandlers() {
 
 // Clear text selection when clicking outside the selected content
 function handleContainerClick(event: MouseEvent) {
+  const clicked = event.target;
+  if (translationEnabled.value && (event.ctrlKey || event.metaKey) && clicked instanceof Element &&
+      !clicked.closest('a,button,input,textarea,select,code,pre,kbd,.katex,.translation-text,[contenteditable]')) {
+    const paragraph = clicked.closest<HTMLElement>('p,li,h1,h2,h3,h4,h5,h6,td,th,figcaption,dt,dd');
+    const prose = articleScrollContainer.value?.querySelector('.prose-content');
+    if (paragraph && prose?.contains(paragraph)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isTranslatingContent.value) void translateContentParagraphs(displayContent.value, true, paragraph);
+      return;
+    }
+  }
   const selection = window.getSelection();
   if (!selection || selection.toString().length === 0) return;
 
@@ -871,6 +904,8 @@ async function onSummarySettingsChanged(): Promise<void> {
 
 // Re-translate the RSS summary when translation settings or the target language change.
 async function onTranslationSettingsChanged(): Promise<void> {
+  titleTranslationRequestId += 1;
+  isTranslatingTitle.value = false;
   contentTranslationRequestId += 1;
   isTranslatingContent.value = false;
   await loadTranslationSettings();
@@ -918,7 +953,9 @@ watch(
       summaryResult.value = null;
       clearTranslatedSummary();
       translatedTitle.value = '';
-      contentTranslationRequestId += 1;
+      titleTranslationRequestId += 1;
+  isTranslatingTitle.value = false;
+  contentTranslationRequestId += 1;
       isTranslatingContent.value = false;
       lastTranslatedArticleId.value = null; // Reset translation tracking
       lastTranslatedContentHash.value = '';
@@ -1111,6 +1148,8 @@ watch(fullArticleContent, async (content) => {
 
 // Clean up event listeners
 onBeforeUnmount(() => {
+  titleTranslationRequestId += 1;
+  isTranslatingTitle.value = false;
   contentTranslationRequestId += 1;
   if (scrollSaveTimer) {
     clearTimeout(scrollSaveTimer);
@@ -1157,10 +1196,16 @@ onBeforeUnmount(() => {
           :translated-title="translatedTitle"
           :is-translating-title="isTranslatingTitle"
           :translation-enabled="translationEnabled"
+          :manual-translation="manualTranslation"
+          @translate-title="translateTitle(article, true)"
           :translation-skipped="translationSkipped"
           :is-translating-content="isTranslatingContent"
           @force-translate="forceTranslateContent"
         />
+
+        <p v-if="translationEnabled && manualTranslation" class="text-xs text-text-secondary mb-4">
+          {{ t('article.translation.manualHint') }}
+        </p>
 
         <!-- Audio Player (if article has audio) -->
         <AudioPlayer

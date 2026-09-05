@@ -11,17 +11,20 @@ interface Props {
   translatedTitle: string;
   isTranslatingTitle: boolean;
   translationEnabled: boolean;
+  manualTranslation?: boolean;
   translationSkipped?: boolean;
   isTranslatingContent?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  manualTranslation: false,
   translationSkipped: false,
   isTranslatingContent: false,
 });
 
 const emit = defineEmits<{
   'force-translate': [];
+  'translate-title': [];
 }>();
 
 const { t } = useI18n();
@@ -47,7 +50,7 @@ const translationStatusText = computed(() => {
   if (props.translationSkipped) {
     return t('setting.content.translationSkippedAlreadyTarget');
   }
-  return t('common.toast.autoTranslateEnabled');
+  return props.manualTranslation ? t('article.translation.manualMode') : t('common.toast.autoTranslateEnabled');
 });
 
 function selectArticleFeed() {
@@ -62,6 +65,12 @@ function selectArticleFeed() {
     <h1 class="text-xl sm:text-3xl font-bold leading-tight text-text-primary select-text">
       {{ article.title }}
     </h1>
+    <button v-if="translationEnabled" type="button"
+      class="mt-2 flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50"
+      :disabled="isTranslatingTitle" :title="t('article.translation.translateTitle')"
+      @click="emit('translate-title')">
+      <PhTranslate :size="14" />{{ t('article.translation.translateTitle') }}
+    </button>
     <!-- Translated Title (shown below if different from original) -->
     <h2
       v-if="showBilingualTitle"
@@ -72,7 +81,7 @@ function selectArticleFeed() {
     <!-- Translation loading indicator for title -->
     <div v-if="isTranslatingTitle" class="flex items-center gap-1 mt-1 text-text-secondary">
       <PhSpinnerGap :size="12" class="animate-spin" />
-      <span class="text-xs">Translating...</span>
+      <span class="text-xs">{{ t('article.translation.translatingTitle') }}</span>
     </div>
   </div>
 
