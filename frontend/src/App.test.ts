@@ -8,7 +8,7 @@ import en from './i18n/locales/en';
 import App from './App.vue';
 import { setSettingsFromRawData } from './composables/core/useSettings';
 import { getRecommendedFonts } from './utils/fontDetector';
-import { createAutoRefreshScheduler, getAutoRefreshInterval } from './stores/app';
+import { createAutoRefreshScheduler, getAutoRefreshInterval, preserveSelectedArticle } from './stores/app';
 
 // Create stub components for complex child components
 const createStub = (name: string) => ({
@@ -98,6 +98,15 @@ describe('App', () => {
 
     scheduler.stop();
     vi.useRealTimers();
+  });
+
+  it('preserves the selected article during a background refresh', () => {
+    const selected = { id: 75, title: 'Selected article' };
+    const fresh = [{ id: 1, title: 'Fresh article' }];
+
+    expect(preserveSelectedArticle(fresh, [selected], 75)).toEqual([fresh[0], selected]);
+    expect(preserveSelectedArticle([selected], [selected], 75)).toEqual([selected]);
+    expect(preserveSelectedArticle(fresh, [selected], null)).toEqual(fresh);
   });
 
   it('keeps long toast messages inside narrow viewports', () => {
