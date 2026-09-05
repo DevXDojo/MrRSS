@@ -4,6 +4,7 @@ package ai
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -33,10 +34,23 @@ func (h *AnthropicHandler) BuildRequest(config RequestConfig) (map[string]interf
 
 	// Messages
 	messages := []map[string]interface{}{}
+	systemParts := []string{}
+	if config.SystemPrompt != "" {
+		systemParts = append(systemParts, config.SystemPrompt)
+	}
 
 	if len(config.Messages) > 0 {
 		// Use provided messages
 		for _, msg := range config.Messages {
+			if msg["role"] == "system" {
+				if msg["content"] != "" {
+					systemParts = append(systemParts, msg["content"])
+				}
+				continue
+			}
+			if msg["role"] != "user" && msg["role"] != "assistant" {
+				return nil, fmt.Errorf("unsupported Anthropic message role: %s", msg["role"])
+			}
 			messages = append(messages, map[string]interface{}{
 				"role":    msg["role"],
 				"content": msg["content"],
@@ -59,8 +73,8 @@ func (h *AnthropicHandler) BuildRequest(config RequestConfig) (map[string]interf
 	request["messages"] = messages
 
 	// System prompt (separate field in Anthropic API)
-	if config.SystemPrompt != "" {
-		request["system"] = config.SystemPrompt
+	if len(systemParts) > 0 {
+		request["system"] = strings.Join(systemParts, "\n\n")
 	}
 
 	// Temperature
@@ -200,8 +214,15 @@ func (h *AnthropicHandler) FormatEndpoint(endpoint, model string) string {
 		return "https://api.anthropic.com/v1/messages"
 	}
 
-	// Use endpoint as-is (user should provide full API path)
-	return strings.TrimSuffix(endpoint, "/")
+	parsed, err := url.Parse(strings.TrimSpace(endpoint))
+	if err != nil || parsed.Host == "" {
+		return endpoint
+	}
+	switch strings.TrimRight(parsed.Path, "/") {
+	case "", "/v1":
+		parsed.Path = "/v1/messages"
+	}
+	return parsed.String()
 }
 
 // GetRequiredHeaders returns the required HTTP headers for Anthropic API

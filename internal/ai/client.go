@@ -93,35 +93,19 @@ func (c *Client) RequestWithMessages(messages []map[string]string) (ResponseResu
 func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error) {
 	provider := DetectAPIProvider(c.config.Endpoint)
 
-	// Try provider-specific format first based on endpoint detection
+	// An explicit protocol must preserve its own errors; retrying unrelated
+	// formats can hide authentication/rate-limit failures and duplicate requests.
 	switch provider {
 	case "gemini":
-		result, err := c.tryFormat(NewGeminiHandler(), config)
-		if err == nil {
-			return result, nil
-		}
-		// Fall through to other formats
-
+		return c.tryFormat(NewGeminiHandler(), config)
 	case "anthropic":
-		result, err := c.tryFormat(&AnthropicHandler{}, config)
-		if err == nil {
-			return result, nil
-		}
-		// Fall through to other formats
-
+		return c.tryFormat(&AnthropicHandler{}, config)
 	case "deepseek":
-		result, err := c.tryFormat(&DeepSeekHandler{}, config)
-		if err == nil {
-			return result, nil
-		}
-		// Fall through to other formats
-
+		return c.tryFormat(&DeepSeekHandler{}, config)
 	case "ollama":
-		result, err := c.tryFormat(NewOllamaHandler(), config)
-		if err == nil {
-			return result, nil
-		}
-		// Fall through to other formats
+		return c.tryFormat(NewOllamaHandler(), config)
+	case "openai":
+		return c.tryFormat(NewOpenAIHandler(), config)
 	}
 
 	// Try OpenAI format (most common, good fallback)

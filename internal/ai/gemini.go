@@ -203,46 +203,6 @@ func (h *GeminiHandler) FormatEndpoint(endpoint, model string) string {
 	return FormatGeminiEndpoint(endpoint, model)
 }
 
-// DetectAPIProvider detects the AI provider from the endpoint URL
-// Returns "gemini", "openai", "anthropic", "deepseek", "ollama", or "unknown"
-func DetectAPIProvider(endpoint string) string {
-	endpoint = strings.ToLower(endpoint)
-
-	// Gemini API endpoints
-	if strings.Contains(endpoint, "googleapis.com") ||
-		strings.Contains(endpoint, "generativelanguage.googleapis.com") ||
-		strings.Contains(endpoint, "gemini") {
-		return "gemini"
-	}
-
-	// Anthropic API endpoints
-	if strings.Contains(endpoint, "anthropic.com") ||
-		strings.Contains(endpoint, "claude") {
-		return "anthropic"
-	}
-
-	// DeepSeek API endpoints
-	if strings.Contains(endpoint, "deepseek.com") ||
-		strings.Contains(endpoint, "deepseek") {
-		return "deepseek"
-	}
-
-	// Ollama endpoints
-	if strings.Contains(endpoint, "localhost") ||
-		strings.Contains(endpoint, "127.0.0.1") ||
-		strings.Contains(endpoint, "ollama") {
-		return "ollama"
-	}
-
-	// OpenAI-compatible endpoints (default)
-	if strings.Contains(endpoint, "openai.com") ||
-		strings.Contains(endpoint, "api.openai.com") {
-		return "openai"
-	}
-
-	return "unknown"
-}
-
 // IsGeminiEndpoint checks if the given endpoint is a Gemini API endpoint
 func IsGeminiEndpoint(endpoint string) bool {
 	return DetectAPIProvider(endpoint) == "gemini"
