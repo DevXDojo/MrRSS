@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
+import { useCategoryOrder } from '@/composables/ui/useCategoryOrder';
 import { useDragDrop } from '@/composables/ui/useDragDrop';
 import { useSidebar } from '@/composables/core/useSidebar';
 import { useSettings } from '@/composables/core/useSettings';
@@ -122,6 +123,8 @@ const editingFilter = ref<SavedFilter | null>(null);
 const draggingFilterId = ref<number | null>(null);
 
 // Compact mode setting (layout_mode === 'compact')
+const { entries: categoryEntries } = useCategoryOrder();
+
 const compactMode = computed(() => {
   return settings.value.layout_mode === 'compact';
 });
@@ -669,7 +672,7 @@ function handleFilterDragEnd() {
             class="categories-list sidebar-hover-scrollbar flex-1 overflow-y-auto overflow-x-hidden"
           >
             <SidebarCategory
-              v-for="(data, name) in filteredTree.tree"
+              v-for="[name, data] in categoryEntries(filteredTree.tree)"
               :key="name"
               :name="name"
               :feeds="data._feeds"
@@ -681,6 +684,7 @@ function handleFilterDragEnd() {
               :current-feed-id="store.currentFeedId"
               :feed-unread-counts="feedUnreadCounts"
               :category-counts="categoryUnreadCounts"
+              :category-entries="categoryEntries"
               :is-drag-over="dragOverCategory === name"
               :is-edit-mode="isEditMode"
               :drop-preview="dropPreview"
@@ -720,6 +724,7 @@ function handleFilterDragEnd() {
               :current-feed-id="store.currentFeedId"
               :feed-unread-counts="feedUnreadCounts"
               :category-counts="categoryUnreadCounts"
+              :category-entries="categoryEntries"
               :is-drag-over="dragOverCategory === 'uncategorized'"
               :is-edit-mode="isEditMode"
               :drop-preview="dropPreview"

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { PhFolder, PhFolderDashed, PhCaretDown } from '@phosphor-icons/vue';
+import { computed, ref, inject, onUnmounted } from 'vue';
+import { categoryDragKey } from '@/composables/ui/useCategoryOrder';
+import { PhFolder, PhFolderDashed, PhCaretDown, PhDotsSixVertical } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
 import type { Feed } from '@/types/models';
 import type { DropPreview } from '@/composables/ui/useDragDrop';
 import SidebarFeed from './SidebarFeed.vue';
 
 const { t } = useI18n();
+const categoryDrag = inject(categoryDragKey, null);
 
 // Track click timeout to distinguish single click from double click
 const clickTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -37,6 +39,7 @@ interface Props {
   categoryPath?: string;
   isCategoryOpen?: (path: string) => boolean;
   compactMode?: boolean;
+  categoryEntries?: (children: Record<string, TreeNode>, parent: string) => [string, TreeNode][];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -70,6 +73,7 @@ const emit = defineEmits<{
 
 // Handle dragover on the feeds-list container using event delegation
 function handleFeedsListDragOver(event: DragEvent) {
+  if (categoryDrag?.source.value !== null && categoryDrag?.source.value !== undefined) { event.stopPropagation(); return; }
   event.preventDefault();
   event.stopPropagation();
   const list = event.currentTarget as HTMLElement;
@@ -86,6 +90,7 @@ function handleFeedsListDragOver(event: DragEvent) {
 }
 
 function handleDrop(event: DragEvent) {
+  if (categoryDrag?.drop(fullPath.value, event)) return;
   event.preventDefault();
   event.stopPropagation();
   emit('drop');
@@ -93,6 +98,7 @@ function handleDrop(event: DragEvent) {
 
 // Handle dragover on category container (for dropping at category level)
 function handleCategoryDragOver(event: DragEvent) {
+  if (categoryDrag?.over(fullPath.value, event)) return;
   event.preventDefault();
   event.stopPropagation();
   // Notify parent that we're dragging over this category
@@ -165,6 +171,7 @@ function handleCaretClick() {
   // The click.stop modifier prevents event bubbling, so we need to manually trigger it
   document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
+onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); });
 </script>
 
 <template>
@@ -175,17 +182,24 @@ function handleCaretClick() {
       props.compactMode ? 'mb-0.5' : 'mb-1',
     ]"
     :data-level="level"
+    :data-category-path="fullPath"
     @dragover.self="handleCategoryDragOver"
     @dragleave.self="(e) => $emit('dragleave', props.name, e)"
     @drop.self.prevent="handleDrop"
   >
     <div
-      :class="['category-header', isActive ? 'active' : '', props.compactMode ? 'compact' : '']"
+      :class="['category-header', isActive ? 'active' : '', props.compactMode ? 'compact' : '', { 'category-drop-before': categoryDrag?.preview.value?.path === fullPath && categoryDrag?.preview.value?.before, 'category-drop-after': categoryDrag?.preview.value?.path === fullPath && !categoryDrag?.preview.value?.before }]"
       @click="handleCategoryClick"
       @dblclick="handleCategoryDoubleClick"
       @contextmenu="(e) => emit('categoryContextMenu', e, fullPath)"
       @dragover="handleCategoryDragOver"
+      @drop="handleDrop"
     >
+      <span v-if="isEditMode && !isUncategorized" class="cursor-grab text-text-secondary mr-1"
+        draggable="true" :title="t('sidebar.order.dragCategory')"
+        @click.stop @dragstart="categoryDrag?.start(fullPath, $event)" @dragend="categoryDrag?.end()">
+        <PhDotsSixVertical :size="16" />
+      </span>
       <span class="flex-1 flex items-center gap-2">
         <PhFolderDashed v-if="isUncategorized" :size="20" />
         <PhFolder v-else :size="20" :weight="'fill'" />
@@ -266,7 +280,7 @@ function handleCaretClick() {
       <!-- Child categories (multi-level support) -->
       <template v-if="hasChildren">
         <SidebarCategory
-          v-for="(childData, childName) in children"
+          v-for="[childName, childData] in (categoryEntries ? categoryEntries(children || {}, fullPath) : Object.entries(children || {}))"
           :key="childName"
           :name="childName"
           :feeds="childData._feeds"
@@ -277,6 +291,7 @@ function handleCaretClick() {
           :is-active="false"
           :unread-count="categoryCounts[fullPath + '/' + childName] || 0"
           :category-counts="categoryCounts"
+          :category-entries="categoryEntries"
           :current-feed-id="currentFeedId"
           :feed-unread-counts="feedUnreadCounts"
           :is-drag-over="false"
@@ -389,6 +404,9 @@ function handleCaretClick() {
     padding-left: calc(0.5rem + 0.25rem + 4rem);
   }
 }
+.category-header.category-drop-before { box-shadow: inset 0 3px var(--accent-color); }
+.category-header.category-drop-after { box-shadow: inset 0 -3px var(--accent-color); }
+
 .category-header.active {
   @apply bg-bg-tertiary text-accent;
 }

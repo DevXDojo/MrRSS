@@ -1189,6 +1189,7 @@ const en: TranslationMessages = {
     },
   },
   sidebar: {
+    order: { dragCategory: 'Drag to reorder sibling categories', saved: 'Category order saved' },
     activity: {
       addFeed: 'Add Feed',
       allArticles: 'All Articles',

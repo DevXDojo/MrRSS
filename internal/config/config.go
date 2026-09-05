@@ -106,6 +106,7 @@ type Defaults struct {
 	ShowArticlePreviewImages bool       `json:"show_article_preview_images"`
 	ShowFloatingToc bool                `json:"show_floating_toc"`
 	ShowHiddenArticles bool             `json:"show_hidden_articles"`
+	SidebarCategoryOrder string         `json:"sidebar_category_order"`
 	StartupOnBoot bool                  `json:"startup_on_boot"`
 	SummaryEnabled bool                 `json:"summary_enabled"`
 	SummaryLength string                `json:"summary_length"`
@@ -326,6 +327,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.ShowFloatingToc)
 	case "show_hidden_articles":
 		return strconv.FormatBool(defaults.ShowHiddenArticles)
+	case "sidebar_category_order":
+		return defaults.SidebarCategoryOrder
 	case "startup_on_boot":
 		return strconv.FormatBool(defaults.StartupOnBoot)
 	case "summary_enabled":

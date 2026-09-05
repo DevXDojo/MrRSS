@@ -1157,6 +1157,7 @@ const zh: TranslationMessages = {
     },
   },
   sidebar: {
+    order: { dragCategory: '拖动调整同级分类顺序', saved: '分类顺序已保存' },
     activity: {
       addFeed: '添加订阅',
       allArticles: '所有文章',

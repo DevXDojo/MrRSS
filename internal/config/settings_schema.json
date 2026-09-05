@@ -312,6 +312,13 @@
       "encrypted": false,
       "frontend_key": "aiSearchEnabled"
     },
+    "sidebar_category_order": {
+      "type": "string",
+      "default": "[]",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "sidebar_category_order"
+    },
     "summary_enabled": {
       "type": "bool",
       "default": true,

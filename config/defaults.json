@@ -87,6 +87,7 @@
   "show_article_preview_images": true,
   "show_floating_toc": false,
   "show_hidden_articles": false,
+  "sidebar_category_order": "[]",
   "startup_on_boot": false,
   "summary_enabled": true,
   "summary_length": "medium",

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Drag sibling categories, including nested folders, into a persistent custom order in sidebar edit mode. (#757, #587)
+
 - Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).
 - Add selected-text search with Google, Bing, Baidu, and DuckDuckGo in the article reader, preserving native menus outside plain text selections. (#358)
 
