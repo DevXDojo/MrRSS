@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stabilize feed drag indicators over icons, row gaps and empty categories, and keep drag auto-scrolling tied to the pointer. (#501)
+
 - Show favorite counts for subscriptions and nested categories, and keep read favorites visible regardless of the unread-only preference. (#653)
 
 - Image gallery articles now honor per-feed and global external-browser preferences, including video feeds (#779).

@@ -70,65 +70,24 @@ const emit = defineEmits<{
 
 // Handle dragover on the feeds-list container using event delegation
 function handleFeedsListDragOver(event: DragEvent) {
-  // Prevent default to allow drop
   event.preventDefault();
-  // Stop propagation to prevent triggering parent handlers
   event.stopPropagation();
-
-  // Find which feed item we're hovering over
-  const target = event.target as HTMLElement;
-  const feedItem = target.closest('.feed-item');
-
-  if (feedItem) {
-    // Get the feed ID from the data attribute
-    const feedIdStr = feedItem.getAttribute('data-feed-id');
-    const feedId = feedIdStr ? parseInt(feedIdStr, 10) : null;
-    console.log('[SidebarCategory] Emitting feedDragOver with feedId:', feedId, 'event:', event);
-    emit('feedDragOver', feedId, event);
-  } else {
-    // Not hovering over any specific feed (in gaps between feeds or empty space)
-    // Calculate which feed we're closest to based on Y position
-    const feedsList = event.currentTarget as HTMLElement;
-    if (feedsList) {
-      const feedItems = Array.from(feedsList.querySelectorAll('.feed-item'));
-
-      // If there are no feed items (empty category), emit null immediately
-      if (feedItems.length === 0) {
-        console.log('[SidebarCategory] Empty category, emitting feedDragOver with null feedId');
-        emit('feedDragOver', null, event);
-        return;
-      }
-
-      const listRect = feedsList.getBoundingClientRect();
-      const mouseY = event.clientY - listRect.top;
-
-      // Find the feed item closest to the mouse Y position
-      let closestFeedId: number | null = null;
-      let minDistance = Infinity;
-
-      for (const item of feedItems) {
-        const rect = item.getBoundingClientRect();
-        const itemCenterY = (rect.top + rect.bottom) / 2 - listRect.top;
-        const distance = Math.abs(mouseY - itemCenterY);
-
-        if (distance < minDistance) {
-          minDistance = distance;
-          const feedIdStr = item.getAttribute('data-feed-id');
-          closestFeedId = feedIdStr ? parseInt(feedIdStr, 10) : null;
-        }
-      }
-
-      console.log('[SidebarCategory] In gap, closest feedId:', closestFeedId, 'event:', event);
-      emit('feedDragOver', closestFeedId, event);
-    } else {
-      console.log('[SidebarCategory] Emitting feedDragOver with null feedId, event:', event);
-      emit('feedDragOver', null, event);
-    }
+  const list = event.currentTarget as HTMLElement;
+  const target = event.target instanceof Element ? event.target.closest('.feed-item') : null;
+  let nearest = target;
+  if (!nearest) {
+    const rows = Array.from(list.querySelectorAll<HTMLElement>(':scope > .feed-wrapper > .feed-item'));
+    nearest = rows.sort((a, b) => {
+      const distance = (el: HTMLElement) => Math.abs(event.clientY - (el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2));
+      return distance(a) - distance(b);
+    })[0] || null;
   }
+  emit('feedDragOver', nearest ? Number(nearest.getAttribute('data-feed-id')) : null, event);
 }
 
 function handleDrop(event: DragEvent) {
   event.preventDefault();
+  event.stopPropagation();
   emit('drop');
 }
 
@@ -264,6 +223,7 @@ function handleCaretClick() {
               isDragOver &&
               dropPreview &&
               dropPreview.targetFeedId === feed.id &&
+              draggingFeedId !== feed.id &&
               dropPreview.beforeTarget
             "
             class="drop-indicator"
@@ -287,6 +247,7 @@ function handleCaretClick() {
               isDragOver &&
               dropPreview &&
               dropPreview.targetFeedId === feed.id &&
+              draggingFeedId !== feed.id &&
               !dropPreview.beforeTarget
             "
             class="drop-indicator"
@@ -465,16 +426,15 @@ function handleCaretClick() {
 
 /* End indicator positioned relative to feeds list */
 .drop-indicator.end-indicator {
-  position: relative;
-  margin-top: 2px;
-  margin-bottom: 2px;
+  position: absolute;
+  bottom: 0;
 }
 
 /* Empty category indicator - more prominent */
 .drop-indicator.empty-category-indicator {
   height: 4px;
-  margin-top: 8px;
-  margin-bottom: 8px;
+  top: 8px;
+  bottom: auto;
 }
 
 @keyframes pulse-indicator {

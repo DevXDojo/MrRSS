@@ -161,6 +161,7 @@ function handleCategoriesExpanded() {
 onUnmounted(() => {
   window.removeEventListener('layout-mode-changed', handleLayoutModeChange);
   window.removeEventListener('categories-expanded', handleCategoriesExpanded);
+  if (autoExpandTimeout) clearTimeout(autoExpandTimeout);
 });
 
 // Edit mode for drag reordering
@@ -269,6 +270,7 @@ function handleDragStart(feedId: number, event: Event) {
 }
 
 function handleDragEnd() {
+  isDragging.value = false;
   onDragEnd();
 }
 
