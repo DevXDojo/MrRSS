@@ -262,7 +262,11 @@ const {
 
 // Handle drag events
 function handleDragStart(feedId: number, event: Event) {
-  if (sidebarSortMode.value !== 'manual') { event.preventDefault(); window.showToast(t('sidebar.order.manualRequired'), 'info'); return; }
+  if (sidebarSortMode.value !== 'manual') {
+    event.preventDefault();
+    window.showToast(t('sidebar.order.manualRequired'), 'info');
+    return;
+  }
   const feed = store.feeds?.find((f) => f.id === feedId);
   if (feed?.is_freshrss_source) {
     event.preventDefault();
@@ -671,10 +675,15 @@ function handleFilterDragEnd() {
           </div>
 
           <div class="px-2 pb-2">
-            <select :value="sidebarSortMode" :aria-label="t('sidebar.order.sort')"
+            <select
+              :value="sidebarSortMode"
+              :aria-label="t('sidebar.order.sort')"
               class="w-full rounded bg-bg-tertiary text-text-secondary text-xs p-1.5"
-              @change="setSidebarSortMode(($event.target as HTMLSelectElement).value)">
-              <option v-for="mode in sidebarSortModes" :key="mode" :value="mode">{{ t(`sidebar.order.${mode}`) }}</option>
+              @change="setSidebarSortMode(($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="mode in sidebarSortModes" :key="mode" :value="mode">
+                {{ t(`sidebar.order.${mode}`) }}
+              </option>
             </select>
           </div>
           <!-- Categories List -->
@@ -699,6 +708,7 @@ function handleFilterDragEnd() {
               :is-edit-mode="isEditMode"
               :drop-preview="dropPreview"
               :dragging-feed-id="draggingFeedId"
+              :drag-over-path="dragOverCategory"
               :is-category-open="checkIsCategoryOpen"
               :compact-mode="compactMode"
               @toggle="() => toggleCategory(name)"
@@ -711,12 +721,12 @@ function handleFilterDragEnd() {
               @feed-context-menu="onFeedContextMenu"
               @dragstart="(feedId: number, e: Event) => handleDragStart(feedId, e)"
               @dragend="handleDragEnd"
-              @feed-drag-over="(feedId: number | null, e: Event) => handleDragOver(name, feedId, e)"
+              @feed-drag-over="handleDragOver"
               @category-drag-over="
                 (categoryName: string, e: Event) => handleCategoryDragOver(categoryName, e)
               "
               @dragleave="(categoryName: string, e: Event) => handleDragLeave(categoryName, e)"
-              @drop="() => handleDrop(name, data._feeds)"
+              @drop="handleDrop"
             />
 
             <!-- Uncategorized -->
@@ -739,6 +749,7 @@ function handleFilterDragEnd() {
               :is-edit-mode="isEditMode"
               :drop-preview="dropPreview"
               :dragging-feed-id="draggingFeedId"
+              :drag-over-path="dragOverCategory"
               :is-category-open="checkIsCategoryOpen"
               :compact-mode="compactMode"
               @toggle="toggleCategory('uncategorized')"
@@ -748,14 +759,12 @@ function handleFilterDragEnd() {
               @feed-context-menu="onFeedContextMenu"
               @dragstart="(feedId: number, e: Event) => handleDragStart(feedId, e)"
               @dragend="handleDragEnd"
-              @feed-drag-over="
-                (feedId: number | null, e: Event) => handleDragOver('uncategorized', feedId, e)
-              "
+              @feed-drag-over="handleDragOver"
               @category-drag-over="
                 (categoryName: string, e: Event) => handleCategoryDragOver(categoryName, e)
               "
               @dragleave="(categoryName: string, e: Event) => handleDragLeave(categoryName, e)"
-              @drop="() => handleDrop('uncategorized', filteredTree.uncategorized)"
+              @drop="handleDrop"
             />
           </div>
 

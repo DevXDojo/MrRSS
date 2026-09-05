@@ -93,7 +93,9 @@ const isAISearchEnabled = computed(() => settings.value.ai_search_enabled);
 const filteredArticlesFromServer = computed(() => store.filteredArticlesFromServer);
 const isFilterLoading = computed(() => store.isFilterLoading);
 
-const applyUnreadFilter = computed(() => store.showOnlyUnread && store.currentFilter !== 'favorites');
+const applyUnreadFilter = computed(
+  () => store.showOnlyUnread && store.currentFilter !== 'favorites'
+);
 
 // Computed filtered articles - optimized to avoid excessive recomputation
 const filteredArticles = computed(() => {

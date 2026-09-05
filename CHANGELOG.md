@@ -10,22 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Pin categories and subscriptions within their level, and sort the sidebar by name, count, latest article or saved custom order. (#548)
-
 - Export versioned JSON automation-rule backups and import validated rules without replacing existing rules or immediately applying them to old articles. (#455)
-
 - Add confirmed category dissolution and bulk unsubscribe actions, with atomic updates and protection for FreshRSS-managed subscriptions. (#508)
-
 - Drag sibling categories, including nested folders, into a persistent custom order in sidebar edit mode. (#757, #587)
-
 - Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).
 - Add selected-text search with Google, Bing, Baidu, and DuckDuckGo in the article reader, preserving native menus outside plain text selections. (#358)
 
 ### Fixed
 
 - Stabilize feed drag indicators over icons, row gaps and empty categories, and keep drag auto-scrolling tied to the pointer. (#501)
-
 - Show favorite counts for subscriptions and nested categories, and keep read favorites visible regardless of the unread-only preference. (#653)
-
 - Image gallery articles now honor per-feed and global external-browser preferences, including video feeds (#779).
 - Support browser clipboard access with native fallback and report failures from the article toolbar copy-link action. (#427)
 - Return from favorites, read later, or search to an article's feed without stale filters or losing articles outside the first page; add a feed navigation context-menu action. (#561)

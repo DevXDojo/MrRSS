@@ -328,7 +328,12 @@ export const useAppStore = defineStore('app', () => {
 
     let url = `/api/articles?page=${page.value}&limit=${limit}`;
     if (currentFilter.value) url += `&filter=${currentFilter.value}`;
-    if (showOnlyUnread.value && currentFilter.value !== 'unread' && currentFilter.value !== 'favorites') url += '&only_unread=true';
+    if (
+      showOnlyUnread.value &&
+      currentFilter.value !== 'unread' &&
+      currentFilter.value !== 'favorites'
+    )
+      url += '&only_unread=true';
     if (currentFeedId.value) url += `&feed_id=${currentFeedId.value}`;
     if (currentCategory.value !== null)
       url += `&category=${encodeURIComponent(currentCategory.value)}`;

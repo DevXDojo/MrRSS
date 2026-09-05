@@ -4,7 +4,7 @@
 
 执行约定：每个功能或修复单独提交；整组完成后统一验证；每完成一组完全停止，收到用户继续指令后才处理下一组。分组是候选队列，不承诺一次解决所有条目。遇到需要大改或缺少复现资料的条目记录原因并暂缓，不扩大本轮范围。不自动发布版本、不合并 main、不自动关闭缺乏验证证据的 issue。
 
-当前轮次：第一、二组已完成，本轮结束后停止。已审查并整合 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
+当前轮次：第一、二、三组已完成，本轮结束后停止。已审查并整合 PR #1047、#1048、#1049、#1050、#1051、#1052、#1053，修复后纳入发布分支。#1054 是 release/v1.3.29 → main 的发布草稿，保持不合并。
 
 排序原则：先处理有明确复现和现成修复的高影响故障，再处理局部交互、管理功能及正文问题；平台依赖和缺资料问题先确认复现。组内大致按影响与实现成本排序。云同步、移动端及跨模块大改暂缓。
 
@@ -26,15 +26,15 @@
 - [x] [#736](https://github.com/DevXDojo/MrRSS/issues/736) [FEATURE] 关于翻译功能的建议
 - [x] [#779](https://github.com/DevXDojo/MrRSS/issues/779) [FEATURE] B站视频查看模式
 
-## 第三组：分类与订阅管理（待继续）
+## 第三组：分类与订阅管理（已完成）
 
-- [ ] [#757](https://github.com/DevXDojo/MrRSS/issues/757) [FEATURE] 分类文件夹可以拖动排序，类似对订阅源进行的拖动排序操作
-- [ ] [#587](https://github.com/DevXDojo/MrRSS/issues/587) [FEATURE] 可调整订阅源分组上下位置（可与订阅拖动调整方式相同）
-- [ ] [#501](https://github.com/DevXDojo/MrRSS/issues/501) [BUG] 拖动订阅源时蓝色的框跳动
-- [ ] [#653](https://github.com/DevXDojo/MrRSS/issues/653) [FEATURE] 收藏夹改进建议
-- [ ] [#455](https://github.com/DevXDojo/MrRSS/issues/455) [FEATURE] 自动化规则的导出与导入功能
-- [ ] [#508](https://github.com/DevXDojo/MrRSS/issues/508) [FEATURE] 侧边栏分类功能增强
-- [ ] [#548](https://github.com/DevXDojo/MrRSS/issues/548) [FEATURE] 建议增加置顶和多种配排序方式
+- [x] [#757](https://github.com/DevXDojo/MrRSS/issues/757) [FEATURE] 分类文件夹可以拖动排序，类似对订阅源进行的拖动排序操作
+- [x] [#587](https://github.com/DevXDojo/MrRSS/issues/587) [FEATURE] 可调整订阅源分组上下位置（可与订阅拖动调整方式相同）
+- [x] [#501](https://github.com/DevXDojo/MrRSS/issues/501) [BUG] 拖动订阅源时蓝色的框跳动
+- [x] [#653](https://github.com/DevXDojo/MrRSS/issues/653) [FEATURE] 收藏夹改进建议
+- [x] [#455](https://github.com/DevXDojo/MrRSS/issues/455) [FEATURE] 自动化规则的导出与导入功能
+- [x] [#508](https://github.com/DevXDojo/MrRSS/issues/508) [FEATURE] 侧边栏分类功能增强
+- [x] [#548](https://github.com/DevXDojo/MrRSS/issues/548) [FEATURE] 建议增加置顶和多种配排序方式
 
 ## 第四组：正文、抓取与渲染（先复现再实现，待继续）
 
@@ -174,3 +174,33 @@
 验证边界：本机验证 Windows；未运行 macOS/Linux 原生桌面测试。Vite 仍有既有的大包体提示。初次 Go 检查与前端打包发生嵌入资源替换竞争，打包完成后重跑已通过；浏览器回归初次出现的选择器误报已修正并完整重跑通过。
 
 停点：第二组完成，隔离测试服务已停止。下一组为“分类与订阅管理”；本轮不启动第三组，不合并发布草稿 #1054，不发布版本。
+
+
+## 第三组审查与验证记录
+
+本组完成后停止，第四组及以后需用户明确继续。新增约定：每组完成后更新 PR #1054 的 description，每条已完成 issue 独占一行 `Fixed #编号`；并核对 GitHub 的 closingIssuesReferences。该发布草稿仍保持 release/v1.3.29 → main，暂不合并。
+
+| Issue | 功能提交 | 实现范围 |
+| --- | --- | --- |
+| #653 | `49ac36a9` | 收藏计数使用全部收藏数量；汇总嵌套分类；已读收藏不受“仅未读”偏好影响。 |
+| #501 | `d064cfd7` | 图标及间隙使用稳定行目标；插入线不占布局空间；中点防抖及拖动自动滚动；补齐嵌套事件传递。 |
+| #757、#587 | `b8b039db` | 同级分类可拖动排序，支持嵌套分类且保存后重启保留，不改变层级或订阅归属。 |
+| #508 | `ebc62c4b` | 分类右键可解散或取消整个分类的订阅；明确提示子分类及收藏影响；事务失败回滚；保护 FreshRSS 订阅。 |
+| #455 | `0b5ef61c` | 导出 MrRSS 版本化 JSON；校验导入格式、字段和动作；追加且重新分配 ID，保留启用状态；不立即处理旧文章。 |
+| #548 | `6bfed17c` | 同级分类/订阅置顶；名称升降序、数量升降序、最新文章、自定义顺序；选项持久化，拖动需自定义模式。 |
+
+组末验证：
+
+- `go test -timeout=5m ./...`：通过；覆盖分类事务回滚、字面分类前缀、保留/删除文章、FreshRSS 保护、接口参数及方法验证、已读收藏行为。
+- Vitest：109/109 通过；新增规则备份往返、格式拒绝、ID 隔离及排序优先级测试。
+- 本轮改动的 src 文件 ESLint：`--max-warnings 0` 通过。
+- 浏览器回归包含分类根节点及嵌套拖动、图标拖放、排序和置顶持久化、收藏计数、批量操作确认、规则导入/导出，并覆盖前两组阅读与更新流程。
+- 新 `/api/feeds/category` 接口已同步 Swagger 与由其生成的 API 参考。changelog 已逐项更新。
+
+注意：规则备份使用 MrRSS 自有版本化格式，也接受旧设置中的原始规则数组，不宣称兼容其他阅读器的备份格式。解散操作将该分类及子分类的订阅移入“未分类”并保留文章；取消订阅会删除其文章，执行前明确确认。
+
+最终核对：浏览器回归 28/28 通过（本组 6、阅读交互 6、正文翻译 1、更新 15）；`wails3 build` 通过，Windows 产物为 `build/bin/MrRSS.exe`。测试服务已停止，未操作用户订阅数据库。构建生成的锁文件平台元数据噪声已排除，`git diff --check` 通过。
+
+PR #1054 已补齐三组共 19 条逐行 `Fixed #编号`，GitHub 的 closingIssuesReferences 已识别全部 19 个 issue；目标为默认分支 main、状态 OPEN / draft。待该发布 PR 正式合并时自动关闭关联 issue，本轮不合并它。
+
+停点：第三组已完成，第四组“正文、抓取与渲染”尚未开始。总体维护目标仍有后续分组，需用户明确继续。

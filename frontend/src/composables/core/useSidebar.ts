@@ -86,7 +86,10 @@ export function useSidebar() {
       categories.add('uncategorized');
     }
     function sortFeeds(nodes: Record<string, TreeNode>) {
-      for (const node of Object.values(nodes)) { node._feeds.sort(compareFeeds); sortFeeds(node._children); }
+      for (const node of Object.values(nodes)) {
+        node._feeds.sort(compareFeeds);
+        sortFeeds(node._children);
+      }
     }
     sortFeeds(t);
     uncategorized.sort(compareFeeds);
@@ -216,7 +219,10 @@ export function useSidebar() {
 
   // Feed actions
   async function handleFeedAction(action: string, feed: Feed): Promise<void> {
-    if (action === 'pin') { await togglePin(`feed:${feed.id}`); return; }
+    if (action === 'pin') {
+      await togglePin(`feed:${feed.id}`);
+      return;
+    }
     if (action === 'markAllRead') {
       await store.markAllAsRead(feed.id);
       window.showToast(t('article.action.markedAllAsRead'), 'success');
@@ -319,7 +325,11 @@ export function useSidebar() {
       danger?: boolean;
     }> = [];
 
-    items.push({ label: t(isPinned(`feed:${feed.id}`) ? 'sidebar.order.unpinItem' : 'sidebar.order.pinItem'), action: 'pin', icon: 'PhPushPin' });
+    items.push({
+      label: t(isPinned(`feed:${feed.id}`) ? 'sidebar.order.unpinItem' : 'sidebar.order.pinItem'),
+      action: 'pin',
+      icon: 'PhPushPin',
+    });
     // For FreshRSS feeds, show "Sync Feed" instead of "Refresh Feed"
     if (feed.is_freshrss_source) {
       items.push({
@@ -379,7 +389,10 @@ export function useSidebar() {
 
   // Category actions
   async function handleCategoryAction(action: string, categoryName: string): Promise<void> {
-    if (action === 'pin') { await togglePin(`category:${categoryName}`); return; }
+    if (action === 'pin') {
+      await togglePin(`category:${categoryName}`);
+      return;
+    }
     if (action === 'markAllRead') {
       // Use the category parameter for the API call
       const category = categoryName === 'uncategorized' ? '' : categoryName;
@@ -390,21 +403,35 @@ export function useSidebar() {
       window.showToast(t('article.action.markedAllAsRead'), 'success');
     } else if (action === 'dissolve' || action === 'unsubscribeCategory') {
       const category = categoryName === 'uncategorized' ? '' : categoryName;
-      const feeds = store.feeds.filter((feed) => feed.category === category || (category !== '' && feed.category.startsWith(category + '/')));
+      const feeds = store.feeds.filter(
+        (feed) =>
+          feed.category === category ||
+          (category !== '' && feed.category.startsWith(category + '/'))
+      );
       if (feeds.some((feed) => feed.is_freshrss_source)) {
         window.showToast(t('setting.freshrss.feedLocked'), 'info');
         return;
       }
       const dissolve = action === 'dissolve';
       const confirmed = await window.showConfirm({
-        title: t(dissolve ? 'sidebar.categoryActions.dissolve' : 'sidebar.categoryActions.unsubscribe'),
-        message: t(dissolve ? 'sidebar.categoryActions.dissolveConfirm' : 'sidebar.categoryActions.unsubscribeConfirm', { name: categoryName, count: feeds.length }),
-        confirmText: t('common.action.confirm'), cancelText: t('common.action.cancel'), isDanger: !dissolve,
+        title: t(
+          dissolve ? 'sidebar.categoryActions.dissolve' : 'sidebar.categoryActions.unsubscribe'
+        ),
+        message: t(
+          dissolve
+            ? 'sidebar.categoryActions.dissolveConfirm'
+            : 'sidebar.categoryActions.unsubscribeConfirm',
+          { name: categoryName, count: feeds.length }
+        ),
+        confirmText: t('common.action.confirm'),
+        cancelText: t('common.action.cancel'),
+        isDanger: !dissolve,
       });
       if (!confirmed) return;
       try {
         const response = await fetch('/api/feeds/category', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ category, action: dissolve ? 'dissolve' : 'unsubscribe' }),
         });
         if (!response.ok) throw new Error(await response.text());
@@ -462,7 +489,13 @@ export function useSidebar() {
     e.preventDefault();
     e.stopPropagation();
 
-    const items: Array<{ label?: string; action?: string; icon?: string; separator?: boolean; danger?: boolean }> = [
+    const items: Array<{
+      label?: string;
+      action?: string;
+      icon?: string;
+      separator?: boolean;
+      danger?: boolean;
+    }> = [
       {
         label: t('article.action.markAllAsReadFeed'),
         action: 'markAllRead',
@@ -471,16 +504,37 @@ export function useSidebar() {
     ];
 
     if (categoryName !== 'uncategorized') {
-      items.push({ label: t(isPinned(`category:${categoryName}`) ? 'sidebar.order.unpinItem' : 'sidebar.order.pinItem'), action: 'pin', icon: 'PhPushPin' });
+      items.push({
+        label: t(
+          isPinned(`category:${categoryName}`) ? 'sidebar.order.unpinItem' : 'sidebar.order.pinItem'
+        ),
+        action: 'pin',
+        icon: 'PhPushPin',
+      });
       items.push({ separator: true });
       items.push({ label: t('modal.feed.renameCategory'), action: 'rename', icon: 'ph-pencil' });
     }
 
     const category = categoryName === 'uncategorized' ? '' : categoryName;
-    const synced = store.feeds.some((feed) => (feed.category === category || (category !== '' && feed.category.startsWith(category + '/'))) && feed.is_freshrss_source);
+    const synced = store.feeds.some(
+      (feed) =>
+        (feed.category === category ||
+          (category !== '' && feed.category.startsWith(category + '/'))) &&
+        feed.is_freshrss_source
+    );
     if (!synced) {
-      if (category) items.push({ label: t('sidebar.categoryActions.dissolve'), action: 'dissolve', icon: 'PhFolderMinus' });
-      items.push({ label: t('sidebar.categoryActions.unsubscribe'), action: 'unsubscribeCategory', icon: 'PhTrash', danger: true });
+      if (category)
+        items.push({
+          label: t('sidebar.categoryActions.dissolve'),
+          action: 'dissolve',
+          icon: 'PhFolderMinus',
+        });
+      items.push({
+        label: t('sidebar.categoryActions.unsubscribe'),
+        action: 'unsubscribeCategory',
+        icon: 'PhTrash',
+        danger: true,
+      });
     }
 
     window.dispatchEvent(

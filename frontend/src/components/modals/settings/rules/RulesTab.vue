@@ -322,9 +322,27 @@ async function onDrop(targetRuleId: number, event: DragEvent) {
       </SettingItem>
 
       <div class="flex flex-wrap gap-2 mb-4">
-        <input ref="fileInput" type="file" accept=".json,application/json" class="hidden" @change="upload" />
-        <ButtonControl :label="t('setting.rule.exportRules')" :icon="PhDownloadSimple" type="secondary" :disabled="rules.length === 0" @click="download" />
-        <ButtonControl :label="t('setting.rule.importRules')" :icon="PhUploadSimple" type="secondary" :disabled="importing" @click="fileInput?.click()" />
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".json,application/json"
+          class="hidden"
+          @change="upload"
+        />
+        <ButtonControl
+          :label="t('setting.rule.exportRules')"
+          :icon="PhDownloadSimple"
+          type="secondary"
+          :disabled="rules.length === 0"
+          @click="download"
+        />
+        <ButtonControl
+          :label="t('setting.rule.importRules')"
+          :icon="PhUploadSimple"
+          type="secondary"
+          :disabled="importing"
+          @click="fileInput?.click()"
+        />
       </div>
       <!-- Empty state -->
       <div v-if="rules.length === 0" class="empty-state">

@@ -23,7 +23,8 @@ export function useDragDrop() {
   function trackDrag(event: DragEvent) {
     pointerX = event.clientX;
     pointerY = event.clientY;
-    if (event.target instanceof Element && !event.target.closest('.categories-list')) resetPreview();
+    if (event.target instanceof Element && !event.target.closest('.categories-list'))
+      resetPreview();
   }
 
   function onDragStart(feedId: number, event: Event) {
@@ -48,7 +49,9 @@ export function useDragDrop() {
   }
 
   function onDragEnd() {
-    document.querySelectorAll('.feed-item.dragging').forEach((el) => el.classList.remove('dragging'));
+    document
+      .querySelectorAll('.feed-item.dragging')
+      .forEach((el) => el.classList.remove('dragging'));
     draggingFeedId.value = null;
     resetPreview();
     if (scrollTimer) clearInterval(scrollTimer);
@@ -71,16 +74,24 @@ export function useDragDrop() {
       return;
     }
     // Resolve from the stable row, even when the event originated on an SVG or in a gap.
-    const target = targetFeedId === null ? null : scrollContainer?.querySelector<HTMLElement>(`[data-feed-id="${targetFeedId}"]`);
+    const target =
+      targetFeedId === null
+        ? null
+        : scrollContainer?.querySelector<HTMLElement>(`[data-feed-id="${targetFeedId}"]`);
     let beforeTarget = true;
     if (target) {
       const rect = target.getBoundingClientRect();
       const middle = rect.top + rect.height / 2;
       // Keep the current side in a small dead zone to prevent jitter at the midpoint.
-      beforeTarget = dropPreview.value.targetFeedId === targetFeedId && Math.abs(drag.clientY - middle) < 3
-        ? dropPreview.value.beforeTarget : drag.clientY < middle;
+      beforeTarget =
+        dropPreview.value.targetFeedId === targetFeedId && Math.abs(drag.clientY - middle) < 3
+          ? dropPreview.value.beforeTarget
+          : drag.clientY < middle;
     }
-    if (dropPreview.value.targetFeedId !== targetFeedId || dropPreview.value.beforeTarget !== beforeTarget) {
+    if (
+      dropPreview.value.targetFeedId !== targetFeedId ||
+      dropPreview.value.beforeTarget !== beforeTarget
+    ) {
       dropPreview.value = { targetFeedId, beforeTarget };
     }
   }
@@ -88,16 +99,28 @@ export function useDragDrop() {
   function onDragLeave(_category: string, event: Event) {
     const drag = event as DragEvent;
     const container = drag.currentTarget;
-    if (container instanceof Element && drag.relatedTarget instanceof Node && container.contains(drag.relatedTarget)) return;
+    if (
+      container instanceof Element &&
+      drag.relatedTarget instanceof Node &&
+      container.contains(drag.relatedTarget)
+    )
+      return;
     // A following dragover chooses the new row. Clear only when leaving the list entirely.
-    if (drag.relatedTarget instanceof Element && drag.relatedTarget.closest('.categories-list')) return;
+    if (drag.relatedTarget instanceof Element && drag.relatedTarget.closest('.categories-list'))
+      return;
     resetPreview();
   }
 
-  async function onDrop(category: string, feeds: Feed[]): Promise<{ success: boolean; error?: string }> {
+  async function onDrop(
+    category: string,
+    feeds: Feed[]
+  ): Promise<{ success: boolean; error?: string }> {
     const feedId = draggingFeedId.value;
     if (feedId === null) return { success: false, error: 'No feed being dragged' };
-    const targetCategory = (dragOverCategory.value ?? category) === 'uncategorized' ? '' : (dragOverCategory.value ?? category);
+    const targetCategory =
+      (dragOverCategory.value ?? category) === 'uncategorized'
+        ? ''
+        : (dragOverCategory.value ?? category);
     const { targetFeedId, beforeTarget } = dropPreview.value;
     const sorted = [...feeds].sort((a, b) => (a.position || 0) - (b.position || 0) || a.id - b.id);
     // Dropping on the source row is a no-op, not a move to the end.
@@ -107,7 +130,8 @@ export function useDragDrop() {
     const position = targetIndex < 0 ? others.length : targetIndex + (beforeTarget ? 0 : 1);
     try {
       const response = await fetch('/api/feeds/reorder', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feed_id: feedId, category: targetCategory, position }),
       });
       if (!response.ok) throw new Error(await response.text());
@@ -120,5 +144,14 @@ export function useDragDrop() {
   }
 
   onUnmounted(onDragEnd);
-  return { draggingFeedId, dragOverCategory, dropPreview, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop };
+  return {
+    draggingFeedId,
+    dragOverCategory,
+    dropPreview,
+    onDragStart,
+    onDragEnd,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+  };
 }

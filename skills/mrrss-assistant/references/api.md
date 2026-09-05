@@ -392,6 +392,15 @@ Parameters:
 
 Request body: see the Swagger schema for full field details.
 
+### `POST /feeds/category`
+
+Dissolve a category or unsubscribe its feeds
+
+Parameters:
+  - `request` (body, required): category and action (dissolve or unsubscribe)
+
+Request body: see the Swagger schema for full field details.
+
 ### `POST /feeds/delete`
 
 Delete a feed

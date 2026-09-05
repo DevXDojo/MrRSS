@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, inject, onUnmounted } from 'vue';
 import { categoryDragKey } from '@/composables/ui/useCategoryOrder';
-import { PhFolder, PhFolderDashed, PhCaretDown, PhDotsSixVertical, PhPushPin } from '@phosphor-icons/vue';
+import {
+  PhFolder,
+  PhFolderDashed,
+  PhCaretDown,
+  PhDotsSixVertical,
+  PhPushPin,
+} from '@phosphor-icons/vue';
 import { useSidebarSort } from '@/composables/ui/useSidebarSort';
 import { useI18n } from 'vue-i18n';
 import type { Feed } from '@/types/models';
@@ -41,6 +47,7 @@ interface Props {
   categoryPath?: string;
   isCategoryOpen?: (path: string) => boolean;
   compactMode?: boolean;
+  dragOverPath?: string | null;
   categoryEntries?: (children: Record<string, TreeNode>, parent: string) => [string, TreeNode][];
 }
 
@@ -61,8 +68,8 @@ const emit = defineEmits<{
   selectFeed: [feedId: number];
   categoryContextMenu: [event: MouseEvent, path: string];
   feedContextMenu: [event: MouseEvent, feed: Feed];
-  feedDragOver: [feedId: number | null, event: Event];
-  drop: [];
+  feedDragOver: [path: string, feedId: number | null, event: Event];
+  drop: [path: string, feeds: Feed[]];
   dragstart: [feedId: number, event: Event];
   dragend: [];
   dragleave: [categoryName: string, event: Event];
@@ -75,27 +82,41 @@ const emit = defineEmits<{
 
 // Handle dragover on the feeds-list container using event delegation
 function handleFeedsListDragOver(event: DragEvent) {
-  if (categoryDrag?.source.value !== null && categoryDrag?.source.value !== undefined) { event.stopPropagation(); return; }
+  if (categoryDrag?.source.value !== null && categoryDrag?.source.value !== undefined) {
+    event.stopPropagation();
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   const list = event.currentTarget as HTMLElement;
   const target = event.target instanceof Element ? event.target.closest('.feed-item') : null;
   let nearest = target;
   if (!nearest) {
-    const rows = Array.from(list.querySelectorAll<HTMLElement>(':scope > .feed-wrapper > .feed-item'));
-    nearest = rows.sort((a, b) => {
-      const distance = (el: HTMLElement) => Math.abs(event.clientY - (el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2));
-      return distance(a) - distance(b);
-    })[0] || null;
+    const rows = Array.from(
+      list.querySelectorAll<HTMLElement>(':scope > .feed-wrapper > .feed-item')
+    );
+    nearest =
+      rows.sort((a, b) => {
+        const distance = (el: HTMLElement) =>
+          Math.abs(
+            event.clientY - (el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)
+          );
+        return distance(a) - distance(b);
+      })[0] || null;
   }
-  emit('feedDragOver', nearest ? Number(nearest.getAttribute('data-feed-id')) : null, event);
+  emit(
+    'feedDragOver',
+    dragPath.value,
+    nearest ? Number(nearest.getAttribute('data-feed-id')) : null,
+    event
+  );
 }
 
 function handleDrop(event: DragEvent) {
   if (categoryDrag?.drop(fullPath.value, event)) return;
   event.preventDefault();
   event.stopPropagation();
-  emit('drop');
+  emit('drop', dragPath.value, props.feeds);
 }
 
 // Handle dragover on category container (for dropping at category level)
@@ -104,9 +125,9 @@ function handleCategoryDragOver(event: DragEvent) {
   event.preventDefault();
   event.stopPropagation();
   // Notify parent that we're dragging over this category
-  emit('categoryDragOver', props.name, event);
+  emit('categoryDragOver', dragPath.value, event);
   // Also emit feedDragOver for drop preview
-  emit('feedDragOver', null, event);
+  emit('feedDragOver', dragPath.value, null, event);
 }
 
 // Computed properties for child categories
@@ -122,6 +143,8 @@ const fullPath = computed(() => {
   }
   return props.categoryPath ? `${props.categoryPath}/${props.name}` : props.name;
 });
+
+const dragPath = computed(() => (props.isUncategorized ? 'uncategorized' : fullPath.value));
 
 // Check if a category should be open
 const checkIsOpen = (path: string) => {
@@ -173,7 +196,9 @@ function handleCaretClick() {
   // The click.stop modifier prevents event bubbling, so we need to manually trigger it
   document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
-onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); });
+onUnmounted(() => {
+  if (clickTimeout.value) clearTimeout(clickTimeout.value);
+});
 </script>
 
 <template>
@@ -186,20 +211,36 @@ onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); })
     :data-level="level"
     :data-category-path="fullPath"
     @dragover.self="handleCategoryDragOver"
-    @dragleave.self="(e) => $emit('dragleave', props.name, e)"
+    @dragleave.self="(e) => $emit('dragleave', dragPath, e)"
     @drop.self.prevent="handleDrop"
   >
     <div
-      :class="['category-header', isActive ? 'active' : '', props.compactMode ? 'compact' : '', { 'category-drop-before': categoryDrag?.preview.value?.path === fullPath && categoryDrag?.preview.value?.before, 'category-drop-after': categoryDrag?.preview.value?.path === fullPath && !categoryDrag?.preview.value?.before }]"
+      :class="[
+        'category-header',
+        isActive ? 'active' : '',
+        props.compactMode ? 'compact' : '',
+        {
+          'category-drop-before':
+            categoryDrag?.preview.value?.path === fullPath && categoryDrag?.preview.value?.before,
+          'category-drop-after':
+            categoryDrag?.preview.value?.path === fullPath && !categoryDrag?.preview.value?.before,
+        },
+      ]"
       @click="handleCategoryClick"
       @dblclick="handleCategoryDoubleClick"
       @contextmenu="(e) => emit('categoryContextMenu', e, fullPath)"
       @dragover="handleCategoryDragOver"
       @drop="handleDrop"
     >
-      <span v-if="isEditMode && !isUncategorized" class="cursor-grab text-text-secondary mr-1"
-        draggable="true" :title="t('sidebar.order.dragCategory')"
-        @click.stop @dragstart="categoryDrag?.start(fullPath, $event)" @dragend="categoryDrag?.end()">
+      <span
+        v-if="isEditMode && !isUncategorized"
+        class="cursor-grab text-text-secondary mr-1"
+        draggable="true"
+        :title="t('sidebar.order.dragCategory')"
+        @click.stop
+        @dragstart="categoryDrag?.start(fullPath, $event)"
+        @dragend="categoryDrag?.end()"
+      >
         <PhDotsSixVertical :size="16" />
       </span>
       <span class="flex-1 flex items-center gap-2">
@@ -283,7 +324,9 @@ onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); })
       <!-- Child categories (multi-level support) -->
       <template v-if="hasChildren">
         <SidebarCategory
-          v-for="[childName, childData] in (categoryEntries ? categoryEntries(children || {}, fullPath) : Object.entries(children || {}))"
+          v-for="[childName, childData] in categoryEntries
+            ? categoryEntries(children || {}, fullPath)
+            : Object.entries(children || {})"
           :key="childName"
           :name="childName"
           :feeds="childData._feeds"
@@ -297,11 +340,19 @@ onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); })
           :category-entries="categoryEntries"
           :current-feed-id="currentFeedId"
           :feed-unread-counts="feedUnreadCounts"
-          :is-drag-over="false"
+          :is-drag-over="dragOverPath === fullPath + '/' + childName"
+          :drag-over-path="dragOverPath"
+          :drop-preview="dropPreview"
           :is-edit-mode="isEditMode"
           :dragging-feed-id="draggingFeedId"
           :is-category-open="props.isCategoryOpen"
           :compact-mode="props.compactMode"
+          @feed-drag-over="(path, id, event) => emit('feedDragOver', path, id, event)"
+          @category-drag-over="(path, event) => emit('categoryDragOver', path, event)"
+          @drop="(path, childFeeds) => emit('drop', path, childFeeds)"
+          @dragstart="(id, event) => emit('dragstart', id, event)"
+          @dragend="emit('dragend')"
+          @dragleave="(path, event) => emit('dragleave', path, event)"
           @toggle="emit('childToggle', fullPath + '/' + childName)"
           @select-category="(path) => emit('childSelectCategory', path)"
           @category-context-menu="(e, path) => emit('childContextMenu', e, path)"
@@ -369,7 +420,7 @@ onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); })
 
 /* Special styling for category header when its container is a drag target */
 .category-container.drag-over .category-header {
-  @apply text-accent font-bold;
+  @apply text-accent;
   background-color: transparent;
 }
 @media (min-width: 640px) {
@@ -407,8 +458,12 @@ onUnmounted(() => { if (clickTimeout.value) clearTimeout(clickTimeout.value); })
     padding-left: calc(0.5rem + 0.25rem + 4rem);
   }
 }
-.category-header.category-drop-before { box-shadow: inset 0 3px var(--accent-color); }
-.category-header.category-drop-after { box-shadow: inset 0 -3px var(--accent-color); }
+.category-header.category-drop-before {
+  box-shadow: inset 0 3px var(--accent-color);
+}
+.category-header.category-drop-after {
+  box-shadow: inset 0 -3px var(--accent-color);
+}
 
 .category-header.active {
   @apply bg-bg-tertiary text-accent;
