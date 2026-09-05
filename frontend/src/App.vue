@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAppStore } from './stores/app';
+import { getAutoRefreshInterval, useAppStore } from './stores/app';
 import { useI18n } from 'vue-i18n';
 import Sidebar from './components/sidebar/Sidebar.vue';
 import ArticleList from './components/article/ArticleList.vue';
@@ -43,6 +43,7 @@ watchEffect(() => {
 });
 
 onUnmounted(() => {
+  store.startAutoRefresh(0);
   const rootStyle = document.documentElement.style;
   rootStyle.removeProperty('--ui-font-family');
   rootStyle.removeProperty('--ui-font-size');
@@ -124,6 +125,7 @@ onMounted(async () => {
 
   // Load remaining settings (theme and other settings are already loaded in main.ts)
   let updateInterval = 10;
+  let refreshMode = 'fixed';
   let lastGlobalRefresh = '';
   let updateCheckEnabled = true;
 
@@ -148,10 +150,11 @@ onMounted(async () => {
     }
 
     // Apply other settings
+    refreshMode = data.refresh_mode || 'fixed';
     if (data.update_interval) {
       updateInterval = parseInt(data.update_interval);
-      store.startAutoRefresh(updateInterval);
     }
+    store.startAutoRefresh(getAutoRefreshInterval(refreshMode, updateInterval));
 
     if (data.last_global_refresh) {
       lastGlobalRefresh = data.last_global_refresh;
@@ -233,7 +236,8 @@ onMounted(async () => {
         console.error('Error fetching latest last_global_refresh:', e);
       }
 
-      const shouldRefresh = shouldTriggerRefresh(latestLastGlobalRefresh, updateInterval);
+      const shouldRefresh =
+        refreshMode === 'fixed' && shouldTriggerRefresh(latestLastGlobalRefresh, updateInterval);
       if (shouldRefresh) {
         store.refreshFeeds();
       }
