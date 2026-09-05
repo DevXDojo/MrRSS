@@ -351,6 +351,12 @@ const zh: TranslationMessages = {
       startDiscovery: '开始发现',
     },
     feed: {
+      cookieOrigin: "Cookie 对应网站",
+      cookie: "Cookie",
+      cookieSaved: "已保存，留空则保留",
+      clearCookie: "移除已保存的 Cookie",
+      cookieHelp: "填写网站的协议与域名，仅向该地址的订阅和文章请求发送 Cookie，并在本机加密保存。",
+
       contentOptions: "全文提取",
       contentOptionsHelp: "仅用于当前订阅源。选择器留空时自动提取。单独保存此处设置后，重新获取文章全文即可生效。",
       contentSelector: "正文 CSS 选择器",

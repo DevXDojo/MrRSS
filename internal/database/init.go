@@ -29,6 +29,9 @@ func (db *DB) Init() error {
 			return
 		}
 
+		_, _ = db.DB.Exec(`ALTER TABLE feed_content_options ADD COLUMN cookie TEXT NOT NULL DEFAULT ''`)
+		_, _ = db.DB.Exec(`ALTER TABLE feed_content_options ADD COLUMN cookie_origin TEXT NOT NULL DEFAULT ''`)
+
 		// Initialize FreshRSS sync queue table
 		if err = InitFreshRSSSyncTable(db.DB); err != nil {
 			return

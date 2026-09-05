@@ -11,6 +11,7 @@ import (
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/models"
+	"MrRSS/internal/utils/httputil"
 	"MrRSS/internal/utils/textutil"
 	"codeberg.org/readeck/go-readability/v2"
 	"github.com/PuerkitoBio/goquery"
@@ -37,6 +38,19 @@ func (h *Handler) FetchFullArticleContentContext(ctx context.Context, articleURL
 	client, err := h.createArticleHTTPClient(source)
 	if err != nil {
 		return "", err
+	}
+	options := database.FeedContentOptions{}
+	if source != nil {
+		options, err = h.DB.GetFeedContentOptions(ctx, source.ID)
+		if err != nil {
+			return "", fmt.Errorf("read content options: %w", err)
+		}
+	}
+	if err := options.Validate(); err != nil {
+		return "", err
+	}
+	if options.Cookie != nil {
+		client = httputil.WithScopedCookie(client, options.CookieOrigin, *options.Cookie)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, articleURL, nil)
 	if err != nil {
@@ -72,16 +86,6 @@ func (h *Handler) FetchFullArticleContentContext(ctx context.Context, articleURL
 		if ref, err := base.Parse(baseHref); err == nil && (ref.Scheme == "http" || ref.Scheme == "https") {
 			base = ref
 		}
-	}
-	options := database.FeedContentOptions{}
-	if source != nil {
-		options, err = h.DB.GetFeedContentOptions(ctx, source.ID)
-		if err != nil {
-			return "", fmt.Errorf("read content options: %w", err)
-		}
-	}
-	if err := options.Validate(); err != nil {
-		return "", err
 	}
 	if strings.TrimSpace(options.RemoveSelector) != "" {
 		matcher, _ := cascadia.Compile(options.RemoveSelector)

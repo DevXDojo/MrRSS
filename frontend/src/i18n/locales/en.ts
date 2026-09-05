@@ -365,6 +365,12 @@ const en: TranslationMessages = {
       startDiscovery: 'Start discovery',
     },
     feed: {
+      cookieOrigin: "Cookie website",
+      cookie: "Cookie",
+      cookieSaved: "Saved; leave blank to keep it",
+      clearCookie: "Remove saved Cookie",
+      cookieHelp: "Enter the exact website origin (scheme and host). Used for feed and article requests to that origin only. Stored encrypted on this device.",
+
       contentOptions: "Full-text extraction",
       contentOptionsHelp: "Applies to this subscription. Leave selectors empty for automatic extraction. Save these settings separately, then fetch the article again.",
       contentSelector: "Content CSS selector",

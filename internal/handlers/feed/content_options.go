@@ -37,7 +37,7 @@ func HandleContentOptions(h *core.Handler, w http.ResponseWriter, r *http.Reques
 	}
 	if r.Method == http.MethodPost {
 		var options database.FeedContentOptions
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384)).Decode(&options); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32768)).Decode(&options); err != nil {
 			response.Error(w, err, http.StatusBadRequest)
 			return
 		}
@@ -55,5 +55,6 @@ func HandleContentOptions(h *core.Handler, w http.ResponseWriter, r *http.Reques
 		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
+	options.Cookie = nil // Never return saved credentials to the UI.
 	response.JSON(w, options)
 }
