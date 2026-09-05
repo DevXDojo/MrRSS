@@ -164,7 +164,7 @@ func HandleFetchFullArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	}
 
 	// Fetch full content
-	fullContent, err := h.FetchFullArticleContentWithFeed(article.URL, feed)
+	fullContent, err := h.FetchFullArticleContentContext(r.Context(), article.URL, feed)
 	if err != nil {
 		log.Printf("Error fetching full article content: %v", err)
 		response.Error(w, err, http.StatusInternalServerError)

@@ -3,12 +3,10 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -25,8 +23,6 @@ import (
 	"MrRSS/internal/utils/httputil"
 	"MrRSS/internal/utils/textutil"
 	"MrRSS/internal/utils/urlutil"
-
-	"codeberg.org/readeck/go-readability/v2"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -205,56 +201,6 @@ func (h *Handler) recoverArchivedContent(article *models.Article, source *models
 		return article.OriginalSummary, false, nil
 	}
 	return "", false, sourceErr
-}
-
-// FetchFullArticleContent fetches the full article content from the original URL using readability.
-func (h *Handler) FetchFullArticleContent(articleURL string) (string, error) {
-	return h.FetchFullArticleContentWithFeed(articleURL, nil)
-}
-
-// FetchFullArticleContentWithFeed fetches full content using the same proxy semantics as feed refresh.
-func (h *Handler) FetchFullArticleContentWithFeed(articleURL string, feedConfig *models.Feed) (string, error) {
-	parsedURL, err := url.ParseRequestURI(articleURL)
-	if err != nil {
-		return "", fmt.Errorf("parse article URL: %w", err)
-	}
-
-	client, err := h.createArticleHTTPClient(feedConfig)
-	if err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, articleURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("fetch page: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("fetch page: HTTP %d", resp.StatusCode)
-	}
-
-	article, err := readability.FromReader(resp.Body, parsedURL)
-	if err != nil {
-		return "", fmt.Errorf("readability parse: %w", err)
-	}
-
-	// Render the article content as HTML
-	var buf bytes.Buffer
-	err = article.RenderHTML(&buf)
-	if err != nil {
-		return "", fmt.Errorf("render HTML: %w", err)
-	}
-
-	return buf.String(), nil
 }
 
 func (h *Handler) createArticleHTTPClient(feedConfig *models.Feed) (*http.Client, error) {
