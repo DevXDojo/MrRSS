@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Preserve maximized windows when restoring from the tray, tray menu, or a second instance; avoid replaying window bounds and accidentally unmaximizing via Restore (#320).
+
 - Keep custom CSS active across the whole application, including startup and views without an open article; support replacement and deletion without stale requests restoring old styles (#672).
 
 - Remove blocking external font and icon requests during startup; the interface can render on restricted or offline networks (#626).
