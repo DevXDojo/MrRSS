@@ -102,6 +102,10 @@ func HandleReloadArticleContent(h *core.Handler, w http.ResponseWriter, r *http.
 		return
 	}
 
+	if h.ContentCache != nil {
+		h.ContentCache.Delete(articleID)
+	}
+
 	response.JSON(w, map[string]string{"status": "reloading"})
 }
 

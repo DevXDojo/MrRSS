@@ -56,7 +56,8 @@ func (db *DB) DeleteArticleContent(articleID int64) error {
 func (db *DB) CleanupOldArticleContents(maxAgeDays int) (int64, error) {
 	db.WaitForReady()
 	result, err := db.Exec(
-		`DELETE FROM article_contents WHERE fetched_at < datetime('now', '-' || ? || ' days')`,
+		`DELETE FROM article_contents WHERE fetched_at < datetime('now', '-' || ? || ' days')
+ AND article_id IN (SELECT id FROM articles WHERE is_favorite = 0 AND is_read_later = 0)`,
 		maxAgeDays,
 	)
 	if err != nil {

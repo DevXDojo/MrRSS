@@ -167,3 +167,10 @@ func (cc *ContentCache) Size() int {
 	defer cc.mu.RUnlock()
 	return len(cc.content) + len(cc.feeds)
 }
+
+// Delete invalidates an article after an explicit reload.
+func (cc *ContentCache) Delete(articleID int64) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+	delete(cc.content, articleID)
+}

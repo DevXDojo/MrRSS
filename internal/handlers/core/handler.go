@@ -120,14 +120,14 @@ func (h *Handler) Statistics() *statistics.Service {
 func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 	// First, check database cache (persistent cache)
 	content, found, err := h.DB.GetArticleContent(articleID)
-	if err == nil && found {
+	if err == nil && found && strings.TrimSpace(content) != "" {
 		// Also populate memory cache for faster subsequent access
 		h.ContentCache.Set(articleID, content)
 		return content, true, nil
 	}
 
 	// Check memory cache (in-memory cache, might be stale but fast)
-	if content, found := h.ContentCache.Get(articleID); found {
+	if content, found := h.ContentCache.Get(articleID); found && strings.TrimSpace(content) != "" {
 		return content, true, nil
 	}
 
@@ -147,13 +147,10 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 		return "", false, nil
 	}
 
-	// Trigger immediate feed refresh using the new task manager
-	// This bypasses the queue and pool limits
+	// Read the source once; reading an article must not refresh the entire feed
+	// or trigger unrelated saves and cleanup.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
-	// Fetch the feed immediately (article click triggered)
-	h.Fetcher.FetchFeedForArticle(ctx, *targetFeed)
 
 	// Parse the feed to get fresh content
 	parsedFeed, err := h.Fetcher.ParseFeedWithFeed(ctx, targetFeed, true) // High priority for content fetching
@@ -169,6 +166,10 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 	if matchingItem != nil {
 		content := feed.ExtractContent(matchingItem)
 		cleanContent := textutil.CleanHTML(content)
+
+		if strings.TrimSpace(cleanContent) == "" {
+			return "", false, nil
+		}
 
 		// Cache the content in both memory and database
 		h.ContentCache.Set(articleID, cleanContent)
