@@ -207,13 +207,8 @@ func main() {
 		hideAfterFullscreen.Store(false)
 		// Read the snapshot before Show/UnMinimise can emit native state events.
 		restoreMaximized := hiddenToTray.Load() && lastMaximized.Load()
-		mainWindow.Show()
-		mainWindow.UnMinimise()
-		if restoreMaximized {
-			mainWindow.Maximise()
-		}
+		showExistingWindow(mainWindow, restoreMaximized)
 		hiddenToTray.Store(false)
-		mainWindow.Focus()
 	}
 
 	log.Println("Starting Wails v3...")

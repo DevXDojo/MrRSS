@@ -43,7 +43,6 @@ const contentStyle = computed(() => {
 
   return style;
 });
-
 </script>
 
 <template>

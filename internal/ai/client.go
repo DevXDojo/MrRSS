@@ -172,7 +172,7 @@ func (c *Client) tryFormat(handler FormatHandler, config RequestConfig) (Respons
 		return ResponseResult{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 	if err := handler.ValidateResponse(resp.StatusCode, bodyBytes); err != nil {
-		return ResponseResult{}, err
+		return ResponseResult{}, fmt.Errorf("AI API HTTP %d: %w", resp.StatusCode, err)
 	}
 
 	// Parse response

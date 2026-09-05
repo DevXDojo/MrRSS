@@ -18,6 +18,9 @@ func DetectAPIProvider(endpoint string) string {
 	case strings.HasSuffix(path, "/messages"):
 		return "anthropic"
 	case strings.HasSuffix(path, "/chat/completions"):
+		if strings.Contains(host, "deepseek") {
+			return "deepseek"
+		}
 		return "openai"
 	case strings.HasSuffix(path, ":generatecontent"):
 		return "gemini"
