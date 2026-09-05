@@ -22,6 +22,7 @@ import {
 import { useSettings } from '@/composables/core/useSettings';
 import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
+import { wrapOrphanedTextNodes } from '@/utils/translationParagraphs';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import './ArticleContent.css';
 
@@ -35,6 +36,12 @@ interface SummaryResult {
   source?: string;
   thinking?: string;
   error?: string;
+}
+
+interface TranslationResult {
+  text: string;
+  html: string;
+  failed: boolean;
 }
 
 interface Props {
@@ -199,6 +206,7 @@ const lastTranslatedArticleId = ref<number | null>(null);
 const lastTranslatedContentHash = ref<string>(''); // Track translated content by hash
 const translationSkipped = ref(false);
 let summaryTranslationRequestId = 0;
+let contentTranslationRequestId = 0;
 
 function loadArticleScrollPositions(): Record<string, number> {
   try {
@@ -282,10 +290,11 @@ async function loadSettings() {
 async function translateText(
   text: string,
   force: boolean = false,
-  updateTranslationStatus: boolean = true
-): Promise<{ text: string; html: string }> {
+  updateTranslationStatus: boolean = true,
+  requestIsCurrent: () => boolean = () => true
+): Promise<TranslationResult> {
   if (!text || !translationEnabled.value) {
-    return { text: '', html: '' };
+    return { text: '', html: '', failed: false };
   }
 
   const requestBody = {
@@ -303,6 +312,7 @@ async function translateText(
 
     if (res.ok) {
       const data = await res.json();
+      if (!requestIsCurrent()) return { text: '', html: '', failed: false };
 
       // Check if translation was skipped
       if (updateTranslationStatus && (data.skipped === 'true' || data.skipped === true)) {
@@ -317,14 +327,15 @@ async function translateText(
       return {
         text: data.translated_text || '',
         html: data.html || '',
+        failed: false,
       };
     } else {
-      window.showToast(t('common.errors.translatingContent'), 'error');
+      if (requestIsCurrent()) window.showToast(t('common.errors.translatingContent'), 'error');
     }
   } catch {
-    window.showToast(t('common.errors.translating'), 'error');
+    if (requestIsCurrent()) window.showToast(t('common.errors.translating'), 'error');
   }
-  return { text: '', html: '' };
+  return { text: '', html: '', failed: true };
 }
 
 function clearTranslatedSummary() {
@@ -363,9 +374,11 @@ async function translateSummary(result: SummaryResult | null) {
 
 // Force translate content
 async function forceTranslateContent() {
-  if (!props.articleContent) return;
+  if (!displayContent.value) return;
 
-  await translateContentParagraphs(props.articleContent);
+  lastTranslatedArticleId.value = null;
+  lastTranslatedContentHash.value = '';
+  await translateContentParagraphs(displayContent.value, true);
 }
 
 // Fetch full article content from the original URL
@@ -505,9 +518,9 @@ function simpleHash(str: string): string {
 }
 
 // Translate content paragraphs while preserving inline elements (formulas, code, images)
-async function translateContentParagraphs(content: string) {
+async function translateContentParagraphs(content: string, force: boolean = false): Promise<boolean> {
   if (!translationEnabled.value || !content) {
-    return;
+    return true;
   }
 
   // Calculate content hash to detect if content has changed
@@ -519,34 +532,35 @@ async function translateContentParagraphs(content: string) {
     lastTranslatedArticleId.value === props.article?.id &&
     lastTranslatedContentHash.value === contentHash
   ) {
-    return;
+    return true;
   }
 
   isTranslatingContent.value = true;
-  lastTranslatedArticleId.value = props.article?.id || null;
+  const articleID = props.article?.id || null;
+  const requestID = ++contentTranslationRequestId;
+  const requestIsCurrent = () =>
+    requestID === contentTranslationRequestId && props.article?.id === articleID && translationEnabled.value;
+  lastTranslatedArticleId.value = articleID;
   lastTranslatedContentHash.value = contentHash;
 
   // Wait for content to render
   await nextTick();
+  if (!requestIsCurrent()) return false;
 
   // Find all text elements in the prose content
-  const proseContainer = document.querySelector('.prose-content');
+  const proseContainer = articleScrollContainer.value?.querySelector('.prose-content');
   if (!proseContainer) {
     isTranslatingContent.value = false;
-    return;
+    lastTranslatedArticleId.value = null;
+    lastTranslatedContentHash.value = '';
+    return false;
   }
 
   // Remove any existing translations first
   const existingTranslations = proseContainer.querySelectorAll('.translation-text');
   existingTranslations.forEach((el) => el.remove());
 
-  // Check if content is plain text (no HTML tags) and wrap it in <p> tags
-  // This handles cases where article content is stored as plain text without HTML structure
-  const hasHTMLTags = /<[^>]+>/.test(proseContainer.innerHTML);
-  if (!hasHTMLTags && proseContainer.textContent && proseContainer.textContent.trim().length > 0) {
-    const textContent = proseContainer.innerHTML;
-    proseContainer.innerHTML = `<p>${textContent}</p>`;
-  }
+  wrapOrphanedTextNodes(proseContainer);
 
   // Find all translatable elements
   // For lists: translate individual li items, translation stays inside the same li
@@ -570,6 +584,7 @@ async function translateContentParagraphs(content: string) {
 
   // Track which elements we've already translated to avoid duplicates
   const translatedElements = new Set<HTMLElement>();
+  let translationFailed = false;
 
   // Process elements level by level to handle nested structures correctly
   // First, get all elements and sort them by depth (shallowest first)
@@ -663,7 +678,12 @@ async function translateContentParagraphs(content: string) {
     if (!textWithPlaceholders || textWithPlaceholders.length < 2) continue;
 
     // Translate the text (with placeholders and link markers)
-    const translation = await translateText(textWithPlaceholders);
+    const translation = await translateText(textWithPlaceholders, force, true, requestIsCurrent);
+    if (!requestIsCurrent()) return false;
+    if (translation.failed) {
+      translationFailed = true;
+      continue;
+    }
     const translatedText = translation.text;
 
     // Skip if translation is same as original or empty
@@ -709,6 +729,7 @@ async function translateContentParagraphs(content: string) {
 
   // Re-apply rendering enhancements to translation elements (for math formulas)
   await nextTick();
+  if (!requestIsCurrent()) return false;
   proseContainer.querySelectorAll('.translation-text').forEach((el) => {
     renderMathFormulas(el as HTMLElement);
     highlightCodeBlocks(el as HTMLElement);
@@ -719,6 +740,11 @@ async function translateContentParagraphs(content: string) {
   await reattachContentInteractions();
 
   isTranslatingContent.value = false;
+  if (translationFailed) {
+    lastTranslatedArticleId.value = null;
+    lastTranslatedContentHash.value = '';
+  }
+  return !translationFailed;
 }
 
 async function reattachContentInteractions() {
@@ -838,6 +864,8 @@ async function onSummarySettingsChanged(): Promise<void> {
 
 // Re-translate the RSS summary when translation settings or the target language change.
 async function onTranslationSettingsChanged(): Promise<void> {
+  contentTranslationRequestId += 1;
+  isTranslatingContent.value = false;
   await loadTranslationSettings();
   clearTranslatedSummary();
 
@@ -883,7 +911,10 @@ watch(
       summaryResult.value = null;
       clearTranslatedSummary();
       translatedTitle.value = '';
+      contentTranslationRequestId += 1;
+      isTranslatingContent.value = false;
       lastTranslatedArticleId.value = null; // Reset translation tracking
+      lastTranslatedContentHash.value = '';
       fullArticleContent.value = ''; // Reset full article content when switching articles
 
       if (props.article) {
@@ -1073,6 +1104,7 @@ watch(fullArticleContent, async (content) => {
 
 // Clean up event listeners
 onBeforeUnmount(() => {
+  contentTranslationRequestId += 1;
   if (scrollSaveTimer) {
     clearTimeout(scrollSaveTimer);
     scrollSaveTimer = null;

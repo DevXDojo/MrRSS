@@ -89,7 +89,10 @@ describe('Article Operations', () => {
 
     // Try to find mark all as read button (it might be in a context menu or toolbar)
     cy.get('body').then(($body) => {
-      if ($body.find('button').filter((i, el) => /mark.*all|全部标记/i.test(el.textContent || '')).length > 0) {
+      if (
+        $body.find('button').filter((i, el) => /mark.*all|全部标记/i.test(el.textContent || ''))
+          .length > 0
+      ) {
         cy.get('button')
           .contains(/mark.*all|全部标记/i)
           .click({ force: true });
@@ -127,7 +130,10 @@ describe('Article Operations', () => {
 
     // Find search input
     cy.get('body').then(($body) => {
-      if ($body.find('input[type="search"], input[placeholder*="search"], input[placeholder*="搜索"]').length > 0) {
+      if (
+        $body.find('input[type="search"], input[placeholder*="search"], input[placeholder*="搜索"]')
+          .length > 0
+      ) {
         cy.get('input[type="search"], input[placeholder*="search"], input[placeholder*="搜索"]')
           .last()
           .type('test{enter}');
@@ -162,6 +168,85 @@ describe('Article Operations', () => {
         cy.log('No articles found to test open in browser');
       }
     });
+  });
+
+  it('should translate orphaned article text next to media', () => {
+    const settingsState: Record<string, string> = {
+      language: 'en-US',
+      theme: 'light',
+      layout_mode: 'normal',
+      default_view_mode: 'rendered',
+      translation_enabled: 'true',
+      translation_provider: 'ai',
+      translation_only_mode: 'false',
+      target_language: 'zh-CN',
+      summary_enabled: 'false',
+      full_text_fetch_enabled: 'false',
+      update_check_enabled: 'false',
+    };
+    const feed = {
+      id: 1,
+      title: 'Translation Feed',
+      url: 'https://example.com/feed.xml',
+      category: '',
+    };
+    const article = {
+      id: 1,
+      feed_id: 1,
+      feed_title: feed.title,
+      title: 'English title',
+      url: 'https://example.com/article',
+      published_at: '2026-04-22T00:00:00Z',
+      translated_title: '',
+      is_read: false,
+      is_favorite: false,
+      is_hidden: false,
+      is_read_later: false,
+    };
+
+    cy.intercept('/api/**', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/settings', { statusCode: 200, body: settingsState });
+    cy.intercept('GET', '/api/feeds', { statusCode: 200, body: [feed] }).as('translationFeeds');
+    cy.intercept('GET', '/api/tags', { statusCode: 200, body: [] });
+    cy.intercept('GET', '/api/saved-filters', { statusCode: 200, body: [] });
+    cy.intercept(
+      { method: 'GET', pathname: '/api/articles' },
+      { statusCode: 200, body: [article] }
+    ).as('translationArticles');
+    cy.intercept('GET', '/api/articles/unread-counts', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/articles/filter-counts', { statusCode: 200, body: {} });
+    cy.intercept('GET', '/api/progress', { statusCode: 200, body: { is_running: false } });
+    cy.intercept('GET', '/api/articles/content*', {
+      statusCode: 200,
+      body: {
+        content:
+          'This text is a direct DOM text node and must still be translated.<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">',
+        cached: true,
+      },
+    }).as('translationContent');
+    cy.intercept('POST', '/api/articles/translate-text', (req) => {
+      if (req.body.text === article.title) {
+        req.reply({
+          statusCode: 200,
+          body: { translated_text: '英文标题', html: '', skipped: false },
+        });
+        return;
+      }
+      req.alias = 'translateArticleBody';
+      expect(req.body.text).to.contain('direct DOM text node');
+      req.reply({
+        statusCode: 200,
+        body: { translated_text: '这段正文已成功翻译', html: '', skipped: false },
+      });
+    });
+
+    cy.reload();
+    cy.wait('@translationFeeds');
+    cy.wait('@translationArticles');
+    cy.get('[data-article-id="1"]').click();
+    cy.wait('@translationContent');
+    cy.wait('@translateArticleBody');
+    cy.contains('这段正文已成功翻译').should('be.visible');
   });
 
   it('should explain AI search results and keep list and card navigation in search context', () => {
@@ -412,7 +497,10 @@ describe('Article Operations', () => {
       if (lastMessage === 'trigger failure') {
         req.reply({
           statusCode: 500,
-          body: { error: 'Failed to get response from AI. Please try again.', session_id: sessionID },
+          body: {
+            error: 'Failed to get response from AI. Please try again.',
+            session_id: sessionID,
+          },
         });
         return;
       }
@@ -458,5 +546,4 @@ describe('Article Operations', () => {
     cy.contains('.chat-panel', 'trigger failure').should('be.visible');
     cy.contains('Failed to get response from AI. Please try again.').should('be.visible');
   });
-
 });
