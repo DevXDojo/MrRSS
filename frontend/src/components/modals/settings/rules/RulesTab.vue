@@ -2,7 +2,8 @@
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { ref, onMounted, watch, type Ref } from 'vue';
-import { PhLightning, PhPlus } from '@phosphor-icons/vue';
+import { useRuleBackup } from '@/composables/rules/useRuleBackup';
+import { PhLightning, PhPlus, PhDownloadSimple, PhUploadSimple } from '@phosphor-icons/vue';
 import RuleEditorModal from '../../rules/RuleEditorModal.vue';
 import RuleItem from './RuleItem.vue';
 import type { Condition } from '@/composables/rules/useRuleOptions';
@@ -33,6 +34,9 @@ const emit = defineEmits<{
 
 // Rules list
 const rules: Ref<Rule[]> = ref([]);
+const { fileInput, importing, download, upload } = useRuleBackup(rules, (value) => {
+  emit('update:settings', { ...props.settings, rules: value });
+});
 
 // Drag and drop state
 const draggingRuleId: Ref<number | null> = ref(null);
@@ -317,6 +321,11 @@ async function onDrop(targetRuleId: number, event: DragEvent) {
         />
       </SettingItem>
 
+      <div class="flex flex-wrap gap-2 mb-4">
+        <input ref="fileInput" type="file" accept=".json,application/json" class="hidden" @change="upload" />
+        <ButtonControl :label="t('setting.rule.exportRules')" :icon="PhDownloadSimple" type="secondary" :disabled="rules.length === 0" @click="download" />
+        <ButtonControl :label="t('setting.rule.importRules')" :icon="PhUploadSimple" type="secondary" :disabled="importing" @click="fileInput?.click()" />
+      </div>
       <!-- Empty state -->
       <div v-if="rules.length === 0" class="empty-state">
         <PhLightning :size="48" class="mx-auto mb-3 opacity-30" />
