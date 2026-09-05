@@ -351,6 +351,14 @@ const zh: TranslationMessages = {
       startDiscovery: '开始发现',
     },
     feed: {
+      contentOptions: "全文提取",
+      contentOptionsHelp: "仅用于当前订阅源。选择器留空时自动提取。单独保存此处设置后，重新获取文章全文即可生效。",
+      contentSelector: "正文 CSS 选择器",
+      removeSelector: "移除元素 CSS 选择器",
+      saveContentOptions: "保存提取设置",
+      contentOptionsSaved: "提取设置已保存",
+      contentOptionsError: "无法读取或保存提取设置，请检查选择器后重试。",
+
       adding: '添加中...',
       addNewFeed: '添加新订阅',
       addSubscription: '添加订阅',

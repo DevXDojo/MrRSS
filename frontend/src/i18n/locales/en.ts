@@ -365,6 +365,14 @@ const en: TranslationMessages = {
       startDiscovery: 'Start discovery',
     },
     feed: {
+      contentOptions: "Full-text extraction",
+      contentOptionsHelp: "Applies to this subscription. Leave selectors empty for automatic extraction. Save these settings separately, then fetch the article again.",
+      contentSelector: "Content CSS selector",
+      removeSelector: "Remove CSS selector",
+      saveContentOptions: "Save extraction settings",
+      contentOptionsSaved: "Extraction settings saved",
+      contentOptionsError: "Unable to load or save extraction settings. Check the selectors and try again.",
+
       adding: 'Adding...',
       addNewFeed: 'Add New Feed',
       addSubscription: 'Add Subscription',

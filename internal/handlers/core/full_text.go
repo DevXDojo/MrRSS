@@ -9,10 +9,12 @@ import (
 	"net/url"
 	"strings"
 
+	"MrRSS/internal/database"
 	"MrRSS/internal/models"
 	"MrRSS/internal/utils/textutil"
 	"codeberg.org/readeck/go-readability/v2"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/andybalholm/cascadia"
 	"golang.org/x/net/html/charset"
 )
 
@@ -71,7 +73,43 @@ func (h *Handler) FetchFullArticleContentContext(ctx context.Context, articleURL
 			base = ref
 		}
 	}
+	options := database.FeedContentOptions{}
+	if source != nil {
+		options, err = h.DB.GetFeedContentOptions(ctx, source.ID)
+		if err != nil {
+			return "", fmt.Errorf("read content options: %w", err)
+		}
+	}
+	if err := options.Validate(); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(options.RemoveSelector) != "" {
+		matcher, _ := cascadia.Compile(options.RemoveSelector)
+		doc.FindMatcher(matcher).Remove()
+	}
 	normalizeArticleImages(doc, base)
+	if strings.TrimSpace(options.ContentSelector) != "" {
+		matcher, _ := cascadia.Compile(options.ContentSelector)
+		selected := doc.FindMatcher(matcher)
+		if selected.Length() == 0 {
+			return "", fmt.Errorf("content selector matched no elements")
+		}
+		var fragments strings.Builder
+		selected.Each(func(_ int, selection *goquery.Selection) {
+			// Nested matches are already included by their matching ancestor.
+			if selection.ParentsMatcher(matcher).Length() > 0 {
+				return
+			}
+			fragment, _ := goquery.OuterHtml(selection)
+			fragments.WriteString(fragment)
+		})
+		content := textutil.PrepareArticleContent(fragments.String(), base.String())
+		if content == "" {
+			return "", fmt.Errorf("content selector produced empty content")
+		}
+		return content, nil
+	}
+
 	page, err := doc.Html()
 	if err != nil {
 		return "", fmt.Errorf("render page: %w", err)
