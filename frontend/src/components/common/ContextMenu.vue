@@ -27,6 +27,15 @@ const emit = defineEmits<{
 
 const menuRef: Ref<HTMLDivElement | null> = ref(null);
 const adjustedPosition = ref({ top: 0, left: 0 });
+let listenerTimer: ReturnType<typeof setTimeout>;
+
+function handleKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    emit('close');
+  }
+}
 
 // Map old icon names to new component names
 const iconMap: Record<string, string> = {
@@ -102,7 +111,8 @@ onMounted(() => {
   adjustMenuPosition();
 
   // Use setTimeout to avoid catching the event that opened the menu
-  setTimeout(() => {
+  document.addEventListener('keydown', handleKeyDown, true);
+  listenerTimer = setTimeout(() => {
     document.addEventListener('click', handleClickOutside);
     document.addEventListener('contextmenu', handleClickOutside);
   }, 0);
@@ -117,6 +127,8 @@ watch(
 );
 
 onUnmounted(() => {
+  clearTimeout(listenerTimer);
+  document.removeEventListener('keydown', handleKeyDown, true);
   document.removeEventListener('click', handleClickOutside);
   document.removeEventListener('contextmenu', handleClickOutside);
 });

@@ -137,7 +137,7 @@ func (f *Factory) createBaiduProvider(config *baiduConfig) Provider {
 
 // createAIProvider 创建 AI 翻译提供商
 func (f *Factory) createAIProvider(config *aiConfig) Provider {
-	translator := NewAITranslator(config.APIKey, config.Endpoint, config.Model)
+	translator := NewAITranslatorWithDB(config.APIKey, config.Endpoint, config.Model, f.settingsProvider)
 	if config.SystemPrompt != "" {
 		translator.SetSystemPrompt(config.SystemPrompt)
 	}

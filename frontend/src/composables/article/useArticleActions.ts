@@ -106,6 +106,11 @@ export function useArticleActions(
 
     // Add remaining menu items
     menuItems.push(
+      {
+        label: t('article.action.goToFeed'),
+        action: 'goToFeed',
+        icon: 'ph-arrow-bend-left-down',
+      },
       { separator: true },
       {
         label: article.is_hidden
@@ -193,6 +198,10 @@ export function useArticleActions(
     article: Article,
     onReadStatusChange?: () => void
   ): Promise<void> {
+    if (action === 'goToFeed') {
+      store.selectFeedInArticleList(article.feed_id, article.id);
+      return;
+    }
     if (action === 'toggleRead') {
       const newState = !article.is_read;
       article.is_read = newState;

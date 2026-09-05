@@ -93,6 +93,9 @@ export interface SettingsData {
   show_article_preview_images: boolean;
   show_floating_toc: boolean;
   show_hidden_articles: boolean;
+  sidebar_category_order: string;
+  sidebar_pinned_items: string;
+  sidebar_sort_mode: string;
   startup_on_boot: boolean;
   summary_enabled: boolean;
   summary_length: string;
@@ -106,6 +109,7 @@ export interface SettingsData {
   translation_enabled: boolean;
   translation_only_mode: boolean;
   translation_provider: string;
+  translation_trigger_mode: string;
   ui_font_family: string;
   ui_font_size: number;
   update_check_enabled: boolean;

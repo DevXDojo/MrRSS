@@ -101,6 +101,9 @@ export function generateInitialSettings(): SettingsData {
     show_article_preview_images: settingsDefaults.show_article_preview_images,
     show_floating_toc: settingsDefaults.show_floating_toc,
     show_hidden_articles: settingsDefaults.show_hidden_articles,
+    sidebar_category_order: settingsDefaults.sidebar_category_order,
+    sidebar_pinned_items: settingsDefaults.sidebar_pinned_items,
+    sidebar_sort_mode: settingsDefaults.sidebar_sort_mode,
     startup_on_boot: settingsDefaults.startup_on_boot,
     summary_enabled: settingsDefaults.summary_enabled,
     summary_length: settingsDefaults.summary_length,
@@ -114,6 +117,7 @@ export function generateInitialSettings(): SettingsData {
     translation_enabled: settingsDefaults.translation_enabled,
     translation_only_mode: settingsDefaults.translation_only_mode,
     translation_provider: settingsDefaults.translation_provider,
+    translation_trigger_mode: settingsDefaults.translation_trigger_mode,
     ui_font_family: settingsDefaults.ui_font_family,
     ui_font_size: settingsDefaults.ui_font_size,
     update_check_enabled: settingsDefaults.update_check_enabled,
@@ -240,6 +244,9 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     show_article_preview_images: data.show_article_preview_images === 'true',
     show_floating_toc: data.show_floating_toc === 'true',
     show_hidden_articles: data.show_hidden_articles === 'true',
+    sidebar_category_order: data.sidebar_category_order || settingsDefaults.sidebar_category_order,
+    sidebar_pinned_items: data.sidebar_pinned_items || settingsDefaults.sidebar_pinned_items,
+    sidebar_sort_mode: data.sidebar_sort_mode || settingsDefaults.sidebar_sort_mode,
     startup_on_boot: data.startup_on_boot === 'true',
     summary_enabled: data.summary_enabled === 'true',
     summary_length: data.summary_length || settingsDefaults.summary_length,
@@ -253,6 +260,8 @@ export function parseSettingsData(data: Record<string, string>): SettingsData {
     translation_enabled: data.translation_enabled === 'true',
     translation_only_mode: data.translation_only_mode === 'true',
     translation_provider: data.translation_provider || settingsDefaults.translation_provider,
+    translation_trigger_mode:
+      data.translation_trigger_mode || settingsDefaults.translation_trigger_mode,
     ui_font_family: data.ui_font_family || settingsDefaults.ui_font_family,
     ui_font_size: parseInt(data.ui_font_size) || settingsDefaults.ui_font_size,
     update_check_enabled: data.update_check_enabled === 'true',
@@ -436,6 +445,11 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     show_hidden_articles: (
       settingsRef.value.show_hidden_articles ?? settingsDefaults.show_hidden_articles
     ).toString(),
+    sidebar_category_order:
+      settingsRef.value.sidebar_category_order ?? settingsDefaults.sidebar_category_order,
+    sidebar_pinned_items:
+      settingsRef.value.sidebar_pinned_items ?? settingsDefaults.sidebar_pinned_items,
+    sidebar_sort_mode: settingsRef.value.sidebar_sort_mode ?? settingsDefaults.sidebar_sort_mode,
     startup_on_boot: (
       settingsRef.value.startup_on_boot ?? settingsDefaults.startup_on_boot
     ).toString(),
@@ -459,6 +473,8 @@ export function buildAutoSavePayload(settingsRef: Ref<SettingsData>): Record<str
     ).toString(),
     translation_provider:
       settingsRef.value.translation_provider ?? settingsDefaults.translation_provider,
+    translation_trigger_mode:
+      settingsRef.value.translation_trigger_mode ?? settingsDefaults.translation_trigger_mode,
     ui_font_family: settingsRef.value.ui_font_family ?? settingsDefaults.ui_font_family,
     ui_font_size: (settingsRef.value.ui_font_size ?? settingsDefaults.ui_font_size).toString(),
     update_check_enabled: (

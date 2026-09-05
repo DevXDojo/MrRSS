@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import {
   PhListDashes,
   PhSquaresFour,
@@ -40,12 +41,14 @@ interface NavItem {
   icon: any;
   label: string;
   activeIcon?: any;
+  shortcut?: (keyof import('@/composables/ui/shortcutBindings').KeyboardShortcuts)[];
   filterType: 'all' | 'unread' | 'favorites' | 'readLater' | 'imageGallery';
 }
 
 const navItems: NavItem[] = [
   {
     id: 'all',
+    shortcut: ['goToAllArticles'],
     icon: PhListDashes,
     activeIcon: PhSquaresFour,
     label: t('sidebar.activity.allArticles'),
@@ -53,18 +56,21 @@ const navItems: NavItem[] = [
   },
   {
     id: 'unread',
+    shortcut: ['goToUnread', 'toggleUnreadFilter'],
     icon: PhTray,
     label: t('sidebar.feedList.unread'),
     filterType: 'unread',
   },
   {
     id: 'favorites',
+    shortcut: ['goToFavorites', 'toggleFavoritesFilter'],
     icon: PhStar,
     label: t('sidebar.activity.favorites'),
     filterType: 'favorites',
   },
   {
     id: 'readLater',
+    shortcut: ['goToReadLater', 'toggleReadLaterFilter'],
     icon: PhClockCountdown,
     label: t('sidebar.activity.readLater'),
     filterType: 'readLater',
@@ -209,7 +215,7 @@ defineExpose({
               store.currentFilter === item.filterType ? 'text-accent' : '',
             ]"
             style="width: 44px; height: 44px"
-            :title="item.label"
+            :title="item.shortcut ? withShortcut(item.label, item.shortcut) : item.label"
             @click="handleNavClick(item)"
           >
             <!-- Icon -->
@@ -242,7 +248,7 @@ defineExpose({
         <button
           class="relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
           style="width: 44px; height: 44px"
-          :title="t('sidebar.activity.addFeed')"
+          :title="withShortcut(t('sidebar.activity.addFeed'), 'addFeed')"
           @click="emit('add-feed')"
         >
           <PhPlus :size="24" weight="regular" class="transition-all" />
@@ -265,7 +271,7 @@ defineExpose({
         <button
           class="relative flex items-center justify-center text-text-secondary flex-shrink-0 transition-all hover:text-accent"
           style="width: 44px; height: 44px"
-          :title="t('setting.tab.settings')"
+          :title="withShortcut(t('setting.tab.settings'), 'openSettings')"
           @click="emit('settings')"
         >
           <PhGear :size="24" weight="regular" class="transition-all" />

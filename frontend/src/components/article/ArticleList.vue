@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, type Ref } from 'vue';
@@ -92,6 +93,10 @@ const isAISearchEnabled = computed(() => settings.value.ai_search_enabled);
 const filteredArticlesFromServer = computed(() => store.filteredArticlesFromServer);
 const isFilterLoading = computed(() => store.isFilterLoading);
 
+const applyUnreadFilter = computed(
+  () => store.showOnlyUnread && store.currentFilter !== 'favorites'
+);
+
 // Computed filtered articles - optimized to avoid excessive recomputation
 const filteredArticles = computed(() => {
   const usesClientSideUnreadFilter = activeFilters.value.length > 0 || isAISearchActive.value;
@@ -99,7 +104,7 @@ const filteredArticles = computed(() => {
   // If AI search is active, use AI search results
   if (isAISearchActive.value) {
     let articles = aiSearchResults.value;
-    if (store.showOnlyUnread) {
+    if (applyUnreadFilter.value) {
       articles = articles.filter(
         (article) =>
           !article.is_read ||
@@ -117,13 +122,13 @@ const filteredArticles = computed(() => {
   // Using a simpler filter that avoids Set.has() calls when possible
   if (
     usesClientSideUnreadFilter &&
-    store.showOnlyUnread &&
+    applyUnreadFilter.value &&
     temporarilyKeepArticles.value.size > 0
   ) {
     articles = articles.filter(
       (article) => !article.is_read || temporarilyKeepArticles.value.has(article.id)
     );
-  } else if (usesClientSideUnreadFilter && store.showOnlyUnread) {
+  } else if (usesClientSideUnreadFilter && applyUnreadFilter.value) {
     // Fast path when no temporarily kept articles
     articles = articles.filter((article) => !article.is_read);
   }
@@ -422,6 +427,7 @@ interface CustomEventDetail {
   mode?: string;
   enabled?: boolean;
   targetLang?: string;
+  triggerMode?: string;
 }
 
 // Event handlers
@@ -434,9 +440,9 @@ function onDefaultViewModeChanged(e: Event): void {
 
 function onTranslationSettingsChanged(e: Event): void {
   const customEvent = e as CustomEvent<CustomEventDetail>;
-  const { enabled, targetLang } = customEvent.detail;
+  const { enabled, targetLang, triggerMode } = customEvent.detail;
   if (enabled !== undefined && targetLang) {
-    handleTranslationSettingsChange(enabled, targetLang);
+    handleTranslationSettingsChange(enabled, targetLang, triggerMode);
 
     // Re-setup observer if needed
     if (enabled && listRef.value) {
@@ -902,12 +908,13 @@ async function markAllVisibleAsRead(): Promise<void> {
           </button>
           <button
             class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-            :title="t('article.action.markAllRead')"
+            :title="withShortcut(t('article.action.markAllRead'), 'markAllRead')"
             @click="markAllAsRead"
           >
             <PhCheckCircle :size="18" class="sm:w-5 sm:h-5" />
           </button>
           <button
+            v-if="store.currentFilter !== 'favorites'"
             class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
             :class="store.showOnlyUnread ? 'text-accent' : ''"
             :title="
@@ -946,7 +953,7 @@ async function markAllVisibleAsRead(): Promise<void> {
           >
             <button
               class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-              :title="t('article.action.refresh')"
+              :title="withShortcut(t('article.action.refresh'), 'refreshFeeds')"
               @click="refreshArticles"
             >
               <PhArrowClockwise

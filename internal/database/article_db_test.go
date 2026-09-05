@@ -56,6 +56,10 @@ func TestCleanupBySizePreservesUnreadMetadataAndDeletesContentFirst(t *testing.T
 		t.Fatalf("SetArticleContent error: %v", err)
 	}
 
+	if _, err := db.Exec("UPDATE article_contents SET fetched_at = datetime('now','-10 days') WHERE article_id = ?", articleID); err != nil {
+		t.Fatal(err)
+	}
+
 	deleted, err := db.CleanupBySize()
 	if err != nil {
 		t.Fatalf("CleanupBySize error: %v", err)
@@ -176,7 +180,7 @@ func TestCleanupReadArticlesOverPerFeedLimitKeepsFeedsIndependent(t *testing.T) 
 	}
 }
 
-func TestGetArticlesWithUnreadFilterCombinesWithFavorites(t *testing.T) {
+func TestGetArticlesWithUnreadFilterKeepsReadAndUnreadFavorites(t *testing.T) {
 	db := setupDBWithFeed(t)
 
 	var feedID int64
@@ -213,11 +217,13 @@ func TestGetArticlesWithUnreadFilterCombinesWithFavorites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetArticlesWithUnreadFilter error: %v", err)
 	}
-	if len(articles) != 1 {
-		t.Fatalf("expected 1 unread favorite, got %d", len(articles))
+	if len(articles) != 2 {
+		t.Fatalf("expected both read and unread favorites, got %d", len(articles))
 	}
-	if articles[0].Title != "Unread favorite" || articles[0].IsRead || !articles[0].IsFavorite {
-		t.Fatalf("unexpected article returned: %+v", articles[0])
+	for _, article := range articles {
+		if !article.IsFavorite {
+			t.Fatalf("non-favorite returned: %+v", article)
+		}
 	}
 }
 

@@ -5,6 +5,52 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.29] - 2026-09-05
+
+### Added
+
+- Configure per-subscription full-text CSS selection and removal, including local extraction settings for FreshRSS feeds. (#908)
+- Save and replace encrypted Cookies scoped to an exact website origin for feed and article requests. (#828)
+- Render Markdown feed bodies, tables and code fences while preserving language and math markers. (#799)
+- Pin categories and subscriptions within their level, and sort the sidebar by name, count, latest article or saved custom order. (#548)
+- Export versioned JSON automation-rule backups and import validated rules without replacing existing rules or immediately applying them to old articles. (#455)
+- Add confirmed category dissolution and bulk unsubscribe actions, with atomic updates and protection for FreshRSS-managed subscriptions. (#508)
+- Drag sibling categories, including nested folders, into a persistent custom order in sidebar edit mode. (#757, #587)
+- Added on-demand translation with a title button and Ctrl/Command-click paragraph translation, while retaining automatic translation by default (#736).
+- Add selected-text search with Google, Bing, Baidu, and DuckDuckGo in the article reader, preserving native menus outside plain text selections. (#358)
+
+### Changed
+
+- Document the existing browser reader, frontend/server build sequence, local URL, and server data directory in English and Chinese (#421).
+- Keep custom CSS active across the whole application, including startup and views without an open article; support replacement and deletion without stale requests restoring old styles (#672).
+- Show current, customizable keyboard shortcuts in navigation, article, search, and toolbar hints; hide shortcut hints when shortcuts are disabled. (#567)
+- Update website dependencies, goquery, and Wails to beta.15 with a matching frontend runtime. (#1047, #1048)
+
+### Fixed
+
+- Distinguish native Gemini from its compatible Chat Completions API, use the selected model in native URLs, preserve system instructions and multipart answers, and document provider setup in both languages (#542).
+- Complete native Claude Messages integration: detect custom `/messages` routes, normalize official base URLs, separate chat system instructions, and preserve native protocol errors (#656).
+- Close macOS windows to the tray on the first click; fullscreen windows hide after the native exit event, and reopening cancels a pending hide and focuses the reader (#796).
+- Preserve maximized windows when restoring from the tray, tray menu, or a second instance; avoid replaying window bounds and accidentally unmaximizing via Restore (#320).
+- Remove blocking external font and icon requests during startup; the interface can render on restricted or offline networks (#626).
+- Recover empty or expired article caches, invalidate both cache layers on reload, and preserve saved reading content during automatic age cleanup. (#795)
+- Schedule size cleanup after refresh tasks; remove eligible content oldest-first while retaining fresh, favorite and read-later content. (#805)
+- Recover older articles that have left the RSS window and discard stale reader requests, retaining saved descriptions when the source is unavailable. (#948)
+- Automatically fetch full text once per selected article, including empty RSS entries, with manual retry and isolation from late responses. (#982)
+- Decode article page encodings, resolve images against redirect destinations, retain common lazy images, and support semantic-container extraction fallback. (#601)
+- Balance gallery columns using decoded image dimensions, reserve lazy-image space, preserve visible scroll anchors, and deduplicate paginated entries. (#605)
+- Stabilize feed drag indicators over icons, row gaps and empty categories, and keep drag auto-scrolling tied to the pointer. (#501)
+- Show favorite counts for subscriptions and nested categories, and keep read favorites visible regardless of the unread-only preference. (#653)
+- Image gallery articles now honor per-feed and global external-browser preferences, including video feeds (#779).
+- Support browser clipboard access with native fallback and report failures from the article toolbar copy-link action. (#427)
+- Return from favorites, read later, or search to an article's feed without stale filters or losing articles outside the first page; add a feed navigation context-menu action. (#561)
+- Keep button hover hints consistent when the pointer is over a decorative icon. (#696)
+- Prevent automatic refresh loops when the configured interval exceeds the browser timer limit. (#1046, #1051)
+- Keep the selected article visible during background refreshes, discard stale navigation responses, and avoid duplicate articles when paging. (#874, #1052)
+- Use consistent proxy-aware HTTP transport for AI profile tests, translation, summaries, and chat, preserving custom configuration and escaped proxy credentials. (#1044, #1050)
+- Translate mixed text and media article content while retaining inline links and emphasis, supporting retries, and ignoring stale translation results. (#909, #1053)
+- Report real update download progress, retry interrupted transfers, isolate concurrent downloads, reject invalid partial responses, and provide a manual download fallback. (#1043, #1049)
+
 ## [1.3.28] - 2026-08-29
 
 ### Added

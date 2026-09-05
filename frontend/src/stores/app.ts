@@ -4,9 +4,108 @@ import type { Article, Feed, Tag, UnreadCounts, RefreshProgress } from '@/types/
 import type { FilterCondition } from '@/types/filter';
 import { useSettings } from '@/composables/core/useSettings';
 
+export function preserveSelectedArticle<T extends { id: number }>(
+  freshArticles: T[],
+  previousArticles: T[],
+  currentArticleId: number | null
+): T[] {
+  if (!currentArticleId || freshArticles.some((article) => article.id === currentArticleId)) {
+    return freshArticles;
+  }
+  const selectedArticle = previousArticles.find((article) => article.id === currentArticleId);
+  return selectedArticle ? [...freshArticles, selectedArticle] : freshArticles;
+}
+
 export type Filter = 'all' | 'unread' | 'favorites' | 'readLater' | 'imageGallery' | '';
 export type ThemePreference = 'light' | 'dark' | 'auto';
 export type Theme = 'light' | 'dark';
+
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const MINUTE_MS = 60_000;
+
+interface AutoRefreshScheduler {
+  start: (minutes: number) => void;
+  stop: () => void;
+}
+
+export function getAutoRefreshInterval(refreshMode: string, minutes: number): number {
+  return refreshMode === 'fixed' ? minutes : 0;
+}
+
+export function createAutoRefreshScheduler(
+  onRefresh: () => void | Promise<void>,
+  canRefresh: () => boolean = () => true,
+  now: () => number = Date.now
+): AutoRefreshScheduler {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let intervalMs = 0;
+  let nextRefreshAt = 0;
+  let generation = 0;
+
+  const clearTimer = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  const schedule = (currentGeneration: number) => {
+    if (currentGeneration !== generation || intervalMs <= 0) {
+      return;
+    }
+
+    const remaining = Math.max(0, nextRefreshAt - now());
+    timer = setTimeout(
+      () => {
+        timer = null;
+        if (currentGeneration !== generation || intervalMs <= 0) {
+          return;
+        }
+
+        const currentTime = now();
+        if (currentTime < nextRefreshAt) {
+          schedule(currentGeneration);
+          return;
+        }
+
+        // Advance directly to the next future deadline. If the computer slept
+        // across several intervals, this triggers one catch-up refresh instead
+        // of replaying every missed interval.
+        const missedIntervals = Math.floor((currentTime - nextRefreshAt) / intervalMs);
+        nextRefreshAt += (missedIntervals + 1) * intervalMs;
+        schedule(currentGeneration);
+
+        if (canRefresh()) {
+          void onRefresh();
+        }
+      },
+      Math.min(remaining, MAX_TIMER_DELAY_MS)
+    );
+  };
+
+  const stop = () => {
+    generation += 1;
+    intervalMs = 0;
+    nextRefreshAt = 0;
+    clearTimer();
+  };
+
+  return {
+    start(minutes: number) {
+      stop();
+
+      const requestedInterval = minutes * MINUTE_MS;
+      if (!Number.isFinite(requestedInterval) || requestedInterval <= 0) {
+        return;
+      }
+
+      intervalMs = requestedInterval;
+      nextRefreshAt = now() + intervalMs;
+      schedule(generation);
+    },
+    stop,
+  };
+}
 
 // Temporary selection state for feed drawer selections
 export interface TempSelection {
@@ -44,7 +143,7 @@ export interface AppActions {
   setFeed: (feedId: number) => void;
   selectFeedInArticleList: (feedId: number, articleId?: number) => void;
   setCategory: (category: string) => void;
-  fetchArticles: (append?: boolean) => Promise<void>;
+  fetchArticles: (append?: boolean, preserveExisting?: boolean | 'navigation') => Promise<void>;
   loadMore: () => Promise<void>;
   fetchFeeds: () => Promise<void>;
   fetchUnreadCounts: () => Promise<void>;
@@ -119,8 +218,8 @@ export const useAppStore = defineStore('app', () => {
 
   // Refresh progress
   const refreshProgress = ref<RefreshProgress>({ isRunning: false });
-  let refreshInterval: ReturnType<typeof setInterval> | null = null;
   let latestFeedsRequestId = 0;
+  let latestArticlesRequestId = 0;
   let activeFeedsRequests = 0;
 
   // Actions - Article Management
@@ -152,14 +251,28 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function selectFeedInArticleList(feedId: number, articleId?: number): void {
+    const selected = navigableArticles.value.find((article) => article.id === articleId);
     currentFilter.value = 'all';
     currentFeedId.value = feedId;
     currentCategory.value = null;
     tempSelection.value = { feedId, category: null };
+    activeFilters.value = [];
+    isFilterLoading.value = false;
+    filteredArticlesFromServer.value = [];
+    articleNavigationContext.value = null;
+    searchQuery.value = '';
+    showOnlyUnread.value = false;
+    localStorage.setItem('showOnlyUnread', 'false');
+    articles.value = articles.value.filter((article) => article.feed_id === feedId);
+    if (selected && !articles.value.some((article) => article.id === selected.id)) {
+      articles.value.push(selected);
+    }
     if (articleId !== undefined) {
       currentArticleId.value = articleId;
     }
-    fetchArticles();
+    window.dispatchEvent(new CustomEvent('article-feed-selected'));
+    void fetchFilterCounts();
+    void fetchArticles(false, 'navigation');
   }
 
   function setCategory(category: string): void {
@@ -192,13 +305,21 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function fetchArticles(append: boolean = false): Promise<void> {
-    if (isLoading.value) return;
+  async function fetchArticles(
+    append: boolean = false,
+    preserveExisting: boolean | 'navigation' = false
+  ): Promise<void> {
+    if (isLoading.value && (append || preserveExisting === true)) return;
+
+    const requestId = ++latestArticlesRequestId;
+    const previousArticles = articles.value;
 
     // If not appending, reset to page 1 and clear articles
     if (!append) {
       page.value = 1;
-      articles.value = [];
+      if (!preserveExisting) {
+        articles.value = [];
+      }
       hasMore.value = true;
     }
 
@@ -207,28 +328,41 @@ export const useAppStore = defineStore('app', () => {
 
     let url = `/api/articles?page=${page.value}&limit=${limit}`;
     if (currentFilter.value) url += `&filter=${currentFilter.value}`;
-    if (showOnlyUnread.value && currentFilter.value !== 'unread') url += '&only_unread=true';
+    if (
+      showOnlyUnread.value &&
+      currentFilter.value !== 'unread' &&
+      currentFilter.value !== 'favorites'
+    )
+      url += '&only_unread=true';
     if (currentFeedId.value) url += `&feed_id=${currentFeedId.value}`;
     if (currentCategory.value !== null)
       url += `&category=${encodeURIComponent(currentCategory.value)}`;
 
     try {
       const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch articles: HTTP ${res.status}`);
       const data: Article[] = (await res.json()) || [];
+      if (!Array.isArray(data)) throw new Error('Invalid article response');
+      if (requestId !== latestArticlesRequestId) return;
 
       if (data.length < limit) {
         hasMore.value = false;
       }
 
       if (append) {
-        articles.value = [...articles.value, ...data];
+        // A selected article retained during refresh may reappear on this page.
+        // Use the fresh copy at its proper position instead of rendering it twice.
+        const pageIds = new Set(data.map((article) => article.id));
+        articles.value = [...articles.value.filter((article) => !pageIds.has(article.id)), ...data];
       } else {
-        articles.value = data;
+        articles.value = preserveExisting
+          ? preserveSelectedArticle(data, previousArticles, currentArticleId.value)
+          : data;
       }
     } catch {
       // Error handled silently
     } finally {
-      isLoading.value = false;
+      if (requestId === latestArticlesRequestId) isLoading.value = false;
     }
   }
 
@@ -537,7 +671,7 @@ export const useAppStore = defineStore('app', () => {
 
         // Still refresh feeds and articles to get any updates from FreshRSS sync
         fetchFeeds();
-        fetchArticles();
+        fetchArticles(false, true);
         fetchUnreadCounts();
 
         // Notify components that settings have been updated
@@ -624,7 +758,7 @@ export const useAppStore = defineStore('app', () => {
         if (!data.is_running) {
           clearInterval(interval);
           fetchFeeds();
-          fetchArticles();
+          fetchArticles(false, true);
           fetchUnreadCounts();
 
           // Notify components that settings have been updated (e.g., last_article_update)
@@ -692,7 +826,7 @@ export const useAppStore = defineStore('app', () => {
           console.log('[FreshRSS] Sync completed detected, refreshing data...');
           // Refresh all data
           await fetchFeeds();
-          await fetchArticles();
+          await fetchArticles(false, true);
           await fetchUnreadCounts();
         }
 
@@ -792,16 +926,13 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  const autoRefreshScheduler = createAutoRefreshScheduler(
+    refreshFeeds,
+    () => !refreshProgress.value.isRunning
+  );
+
   function startAutoRefresh(minutes: number): void {
-    if (refreshInterval) clearInterval(refreshInterval);
-    if (minutes > 0) {
-      refreshInterval = setInterval(
-        () => {
-          refreshFeeds();
-        },
-        minutes * 60 * 1000
-      );
-    }
+    autoRefreshScheduler.start(minutes);
   }
 
   function toggleShowOnlyUnread(): void {

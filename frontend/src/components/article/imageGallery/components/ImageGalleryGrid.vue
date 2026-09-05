@@ -7,6 +7,7 @@ import ImageCard from './ImageCard.vue';
 
 interface Props {
   columns: Article[][];
+  imageDimensions: Map<number, { width: number; height: number }>;
   isLoading: boolean;
   showTextOverlay: boolean;
   imageCountCache: Map<number, number>;
@@ -15,6 +16,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
+  imageSize: [id: number, width: number, height: number];
   openImage: [article: Article];
   contextMenu: [event: MouseEvent, article: Article];
   toggleFavorite: [article: Article, event: Event];
@@ -46,16 +48,26 @@ function getImageCount(article: Article): number {
 </script>
 
 <template>
-  <div ref="localContainerRef" class="flex-1 overflow-y-auto scroll-smooth" style="min-height: 0">
+  <div
+    ref="localContainerRef"
+    class="flex-1 min-h-0 min-w-0 overflow-y-auto"
+    data-testid="gallery-scroll"
+  >
     <!-- Masonry Grid -->
     <div v-if="columns.length > 0 && columns.some((col) => col.length > 0)" class="p-4 flex gap-4">
-      <div v-for="(column, colIndex) in columns" :key="colIndex" class="flex-1 flex flex-col gap-4">
+      <div
+        v-for="(column, colIndex) in columns"
+        :key="colIndex"
+        class="flex-1 min-w-0 flex flex-col gap-4"
+      >
         <ImageCard
           v-for="article in column"
           :key="article.id"
           :article="article"
+          :image-size="imageDimensions.get(article.id)"
           :image-count="getImageCount(article)"
           :show-text-overlay="showTextOverlay"
+          @image-size="(width, height) => emit('imageSize', article.id, width, height)"
           @click="emit('openImage', article)"
           @context-menu="emit('contextMenu', $event, article)"
           @favorite="emit('toggleFavorite', article, $event)"

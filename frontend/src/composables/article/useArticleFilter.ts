@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/app';
 import type { Article } from '@/types/models';
 import type { FilterCondition } from '@/types/filter';
@@ -21,9 +21,12 @@ export function useArticleFilter() {
   const filterPage = ref(1);
   const filterHasMore = ref(true);
   const filterTotal = ref(0);
+  let requestId = 0;
 
   // Reset filter state
   function resetFilterState(): void {
+    requestId++;
+    store.setIsFilterLoading(false);
     store.setFilteredArticlesFromServer([]);
     filterPage.value = 1;
     filterHasMore.value = true;
@@ -37,6 +40,10 @@ export function useArticleFilter() {
       return;
     }
 
+    const currentRequestId = ++requestId;
+    const requestedFilters = store.activeFilters;
+    const isCurrent = () =>
+      currentRequestId === requestId && store.activeFilters === requestedFilters;
     store.setIsFilterLoading(true);
     try {
       const page = append ? filterPage.value : 1;
@@ -51,8 +58,10 @@ export function useArticleFilter() {
         }),
       });
 
+      if (!isCurrent()) return;
       if (res.ok) {
         const data = await res.json();
+        if (!isCurrent()) return;
         const articles = data.articles || [];
 
         if (append) {
@@ -83,12 +92,13 @@ export function useArticleFilter() {
         }
       }
     } catch (e) {
+      if (!isCurrent()) return;
       console.error('Error fetching filtered articles:', e);
       if (!append) {
         store.setFilteredArticlesFromServer([]);
       }
     } finally {
-      store.setIsFilterLoading(false);
+      if (currentRequestId === requestId) store.setIsFilterLoading(false);
     }
   }
 
@@ -102,6 +112,8 @@ export function useArticleFilter() {
 
   // Clear all filters
   function clearAllFilters(): void {
+    requestId++;
+    store.setIsFilterLoading(false);
     store.setActiveFilters([]);
     store.setFilteredArticlesFromServer([]);
     filterPage.value = 1;

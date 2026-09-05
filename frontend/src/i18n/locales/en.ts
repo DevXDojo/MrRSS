@@ -3,6 +3,8 @@ import type { TranslationMessages } from '../types';
 const en: TranslationMessages = {
   article: {
     action: {
+      goToFeed: 'Go to Feed',
+      searchWith: 'Search with {engine}',
       addToFavorite: 'Add to Favorites',
       addToReadLater: 'Add to Read Later',
       backToUrl: 'Back to URL',
@@ -121,6 +123,11 @@ const en: TranslationMessages = {
       addToReadLater: 'Add to Read Later',
     },
     translation: {
+      translateTitle: 'Translate title',
+      manualMode: 'Translate on demand',
+      manualHint:
+        'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
+      translatingTitle: 'Translating title...',
       aiLimitReached: 'AI usage limit reached. Using free alternatives.',
     },
     videoPlayer: {
@@ -358,6 +365,23 @@ const en: TranslationMessages = {
       startDiscovery: 'Start discovery',
     },
     feed: {
+      cookieOrigin: 'Cookie website',
+      cookie: 'Cookie',
+      cookieSaved: 'Saved; leave blank to keep it',
+      clearCookie: 'Remove saved Cookie',
+      cookieHelp:
+        'Enter the exact website origin (scheme and host). Used for feed and article requests to that origin only. Stored encrypted on this device.',
+
+      contentOptions: 'Full-text extraction',
+      contentOptionsHelp:
+        'Applies to this subscription. Leave selectors empty for automatic extraction. Save these settings separately, then fetch the article again.',
+      contentSelector: 'Content CSS selector',
+      removeSelector: 'Remove CSS selector',
+      saveContentOptions: 'Save extraction settings',
+      contentOptionsSaved: 'Extraction settings saved',
+      contentOptionsError:
+        'Unable to load or save extraction settings. Check the selectors and try again.',
+
       adding: 'Adding...',
       addNewFeed: 'Add New Feed',
       addSubscription: 'Add Subscription',
@@ -586,7 +610,8 @@ const en: TranslationMessages = {
       aiSearchEnabled: 'AI Search',
       aiSearchEnabledDesc: 'Use AI to intelligently search articles with keyword expansion',
       endpoint: 'Endpoint',
-      aiEndpointDesc: 'Full API endpoint URL including path',
+      aiEndpointDesc:
+        'Full API URL: /chat/completions, Claude /v1/messages, or Gemini /v1beta (uses the model below)',
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI Features',
       aiModel: 'Model Name',
@@ -750,6 +775,11 @@ const en: TranslationMessages = {
       translatingContent: 'Translating content...',
       translation: 'Translation',
       translationCredentialsRequired: 'Translation service requires API key or credentials',
+      translationTriggerMode: 'Translation mode',
+      translationTriggerModeDesc:
+        'Translate automatically, or only when you request a title or paragraph.',
+      translationAutomatic: 'Automatic',
+      translationManual: 'On demand',
       translationOnlyMode: 'Translation Only Mode',
       translationOnlyModeDesc: 'Show only translated text, hide original content',
       translationProvider: 'Translation Provider',
@@ -812,7 +842,7 @@ const en: TranslationMessages = {
       cssApplied: 'Custom CSS is active',
       cssDeleteFailed: 'Failed to delete CSS file',
       cssDeleted: 'CSS file deleted successfully',
-      cssDesc: 'Upload a custom CSS file to style article content in rendered view',
+      cssDesc: 'Upload a custom CSS file to style the application and article content',
       cssGuide: 'View Custom CSS Guide',
       cssUpload: 'Upload CSS',
       cssUploadFailed: 'Failed to upload CSS file',
@@ -1090,6 +1120,14 @@ const en: TranslationMessages = {
       addRule: 'Add Rule',
       applyRuleNow: 'Apply Now',
       noActionsSelected: 'Please select at least one action',
+      exportRules: 'Export rules',
+      importRules: 'Import rules',
+      importConfirm:
+        'Append {count} rules to the existing list? Their enabled states will be preserved. They will apply to future refreshes; existing articles will not be processed now.',
+      importSuccess: 'Imported {count} rules',
+      invalidBackup: 'Invalid or unsupported MrRSS rules backup. No rules were imported.',
+      backupTooLarge: 'The rules backup exceeds the 5 MB limit.',
+      importFailed: 'Could not import rules. Please reload settings before retrying.',
       noRules: 'No rules defined',
       noRulesHint: 'Create a rule to automatically process articles',
       removeAction: 'Remove Action',
@@ -1150,6 +1188,15 @@ const en: TranslationMessages = {
       autoUpdateIntervalDesc: 'Interval for automatic update checks',
       checkForUpdates: 'Check for Updates',
       currentVersion: 'Current version',
+      downloadFailedHelp:
+        'The automatic download did not finish. Check your network or proxy and retry, or download the update manually.',
+      downloadManually: 'Open the release page',
+      downloadNetworkError:
+        'Could not connect to GitHub. Check your network or proxy settings and try again.',
+      downloadProxyError: 'The proxy settings are invalid. Check Network settings and try again.',
+      downloadServerError:
+        'The GitHub download service is temporarily unavailable. Try again later.',
+      downloadTimeout: 'The update download timed out. Check your network or proxy and try again.',
       installFailed: 'Installation failed',
       installingUpdate: 'Installing update...',
       latestVersion: 'Latest version',
@@ -1168,6 +1215,30 @@ const en: TranslationMessages = {
     },
   },
   sidebar: {
+    categoryActions: {
+      dissolve: 'Dissolve category',
+      unsubscribe: 'Unsubscribe category',
+      dissolveConfirm:
+        'Dissolve "{name}" and its subcategories? Keep all {count} subscriptions and their articles in Uncategorized.',
+      unsubscribeConfirm:
+        'Unsubscribe all {count} feeds in "{name}" and its subcategories? Their articles, including favorites, will be deleted.',
+      done: 'Category updated',
+      failed: 'Could not complete the category operation. Reload before retrying.',
+    },
+    order: {
+      sort: 'Sort categories and feeds',
+      manual: 'Custom order',
+      name_asc: 'Name: A–Z',
+      name_desc: 'Name: Z–A',
+      count_asc: 'Count: low to high',
+      count_desc: 'Count: high to low',
+      latest: 'Latest article first',
+      pinItem: 'Pin to top of this level',
+      unpinItem: 'Unpin',
+      manualRequired: 'Choose Custom order before dragging. Pinned items stay at the top.',
+      dragCategory: 'Drag to reorder sibling categories',
+      saved: 'Category order saved',
+    },
     activity: {
       addFeed: 'Add Feed',
       allArticles: 'All Articles',

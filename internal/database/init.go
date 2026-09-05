@@ -22,6 +22,16 @@ func (db *DB) Init() error {
 			return
 		}
 
+		if _, err = db.DB.Exec(`CREATE TABLE IF NOT EXISTS feed_content_options (
+            feed_id INTEGER PRIMARY KEY REFERENCES feeds(id) ON DELETE CASCADE,
+            content_selector TEXT NOT NULL DEFAULT '', remove_selector TEXT NOT NULL DEFAULT ''
+        )`); err != nil {
+			return
+		}
+
+		_, _ = db.DB.Exec(`ALTER TABLE feed_content_options ADD COLUMN cookie TEXT NOT NULL DEFAULT ''`)
+		_, _ = db.DB.Exec(`ALTER TABLE feed_content_options ADD COLUMN cookie_origin TEXT NOT NULL DEFAULT ''`)
+
 		// Initialize FreshRSS sync queue table
 		if err = InitFreshRSSSyncTable(db.DB); err != nil {
 			return

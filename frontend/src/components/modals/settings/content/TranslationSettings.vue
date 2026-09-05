@@ -143,6 +143,20 @@ async function clearTranslationCache() {
     <NestedSettingsContainer v-if="settings.translation_enabled">
       <SubSettingItem
         :icon="PhTranslate"
+        :title="t('setting.content.translationTriggerMode')"
+        :description="t('setting.content.translationTriggerModeDesc')"
+      >
+        <BaseSelect
+          :model-value="settings.translation_trigger_mode"
+          :options="[
+            { value: 'auto', label: t('setting.content.translationAutomatic') },
+            { value: 'manual', label: t('setting.content.translationManual') },
+          ]"
+          @update:model-value="updateSetting('translation_trigger_mode', $event)"
+        />
+      </SubSettingItem>
+      <SubSettingItem
+        :icon="PhTranslate"
         :title="t('setting.content.translationOnlyMode')"
         :description="t('setting.content.translationOnlyModeDesc')"
       >

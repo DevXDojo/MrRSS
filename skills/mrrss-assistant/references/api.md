@@ -6,7 +6,7 @@ Generated from `docs/SERVER_MODE/swagger.json`. Regenerate with:
 python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
 ```
 
-- API version: `1.3.28`
+- API version: `1.3.29`
 - API root: `{base_url}/api`
 - Endpoint paths below are relative to the API root unless they already start with `/api/`.
 
@@ -392,6 +392,32 @@ Parameters:
 
 Request body: see the Swagger schema for full field details.
 
+### `POST /feeds/category`
+
+Dissolve a category or unsubscribe its feeds
+
+Parameters:
+  - `request` (body, required): category and action (dissolve or unsubscribe)
+
+Request body: see the Swagger schema for full field details.
+
+### `GET /feeds/content-options`
+
+Feed content extraction settings
+
+Parameters:
+  - `id` (query, required): Feed ID
+
+### `POST /feeds/content-options`
+
+Feed content extraction settings
+
+Parameters:
+  - `id` (query, required): Feed ID
+  - `options` (body, required):
+
+Request body: see the Swagger schema for full field details.
+
 ### `POST /feeds/delete`
 
 Delete a feed
@@ -610,6 +636,24 @@ Upload custom CSS file
 Parameters:
   - `file` (formData, required): CSS file to upload
 
+## Download Update
+
+### `POST /download-update`
+
+Download update
+
+Parameters:
+  - `request` (body, required): Download request (download_url, asset_name, optional request_id)
+
+Request body: see the Swagger schema for full field details.
+
+### `GET /download-update/progress`
+
+Get update download progress
+
+Parameters:
+  - `request_id` (query, required): Download request ID
+
 ## Email
 
 ### `POST /email/imap/test`
@@ -808,15 +852,6 @@ Clear all translations
 ### `GET /update/check`
 
 Check for updates
-
-### `POST /update/download`
-
-Download update
-
-Parameters:
-  - `request` (body, required): Download request (download_url, asset_name)
-
-Request body: see the Swagger schema for full field details.
 
 ### `POST /update/install`
 

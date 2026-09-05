@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { withShortcut } from '@/composables/ui/shortcutBindings';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhMagnifyingGlass, PhX, PhSparkle, PhSpinner } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
@@ -17,6 +18,12 @@ const searchQuery = ref('');
 const isSearching = ref(false);
 const hasResults = ref(false);
 const errorMessage = ref('');
+let searchRequestId = 0;
+onMounted(() => window.addEventListener('article-feed-selected', clearSearch));
+onBeforeUnmount(() => {
+  searchRequestId += 1;
+  window.removeEventListener('article-feed-selected', clearSearch);
+});
 
 // Computed
 const canSearch = computed(() => searchQuery.value.trim().length > 0 && !isSearching.value);
@@ -26,6 +33,7 @@ async function performAISearch() {
   if (!canSearch.value) return;
 
   isSearching.value = true;
+  const requestId = ++searchRequestId;
   errorMessage.value = '';
 
   try {
@@ -36,6 +44,7 @@ async function performAISearch() {
     });
 
     const data = await response.json();
+    if (requestId !== searchRequestId) return;
 
     if (!data.success) {
       errorMessage.value = getAIErrorMessage(data, response.status);
@@ -79,15 +88,18 @@ async function performAISearch() {
       window.showToast(t('aiSearch.foundResults', { count: articles.length }), 'success');
     }
   } catch (error) {
+    if (requestId !== searchRequestId) return;
     console.error('AI Search error:', error);
     errorMessage.value = t('aiSearch.searchFailed');
     window.showToast(errorMessage.value, 'error');
   } finally {
-    isSearching.value = false;
+    if (requestId === searchRequestId) isSearching.value = false;
   }
 }
 
 function clearSearch() {
+  searchRequestId += 1;
+  isSearching.value = false;
   searchQuery.value = '';
   hasResults.value = false;
   errorMessage.value = '';
@@ -110,6 +122,8 @@ function handleKeyDown(event: KeyboardEvent) {
       <div class="relative flex-1">
         <input
           v-model="searchQuery"
+          data-search-input
+          :title="withShortcut(t('aiSearch.placeholder'), 'focusSearch')"
           type="text"
           :placeholder="t('aiSearch.placeholder')"
           class="w-full bg-bg-tertiary px-3 py-2 pl-8 text-sm focus:outline-none transition-colors"

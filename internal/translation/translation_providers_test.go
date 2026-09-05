@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"MrRSS/internal/ai"
+	"MrRSS/internal/utils/httputil"
 )
 
 type rtFunc func(*http.Request) (*http.Response, error)
@@ -156,5 +158,68 @@ func TestAITranslate_RemovesThinkingBlocks(t *testing.T) {
 	}
 	if out != "Bonjour" {
 		t.Fatalf("expected thinking-free translation, got %q", out)
+	}
+}
+
+func TestAITranslatorRetainsHTTPClientAfterConfigurationChanges(t *testing.T) {
+	translator := NewAITranslator("apikey", "https://api.test", "m1")
+	requestCount := 0
+	injectedClient := &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
+		requestCount++
+		if req.Header.Get("X-Gateway") != "enabled" {
+			t.Fatalf("expected custom header to be retained, got %q", req.Header.Get("X-Gateway"))
+		}
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatalf("failed to read request body: %v", err)
+		}
+		if !strings.Contains(string(bodyBytes), "Custom translation prompt") {
+			t.Fatalf("expected custom system prompt in request: %s", string(bodyBytes))
+		}
+		body := `{"choices":[{"message":{"content":"Bonjour"}}]}`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     http.Header{"Content-Type": {"application/json"}},
+		}, nil
+	}), Timeout: 5 * time.Second}
+
+	translator.httpClient = injectedClient
+	translator.SetSystemPrompt("Custom translation prompt")
+	translator.SetCustomHeaders(`{"X-Gateway":"enabled"}`)
+
+	translated, err := translator.Translate("Hello", "fr")
+	if err != nil {
+		t.Fatalf("Translate failed: %v", err)
+	}
+	if translated != "Bonjour" {
+		t.Fatalf("expected Bonjour, got %q", translated)
+	}
+	if requestCount != 1 {
+		t.Fatalf("expected injected transport to receive one request, got %d", requestCount)
+	}
+}
+
+func TestAITranslatorNegotiatesHTTP2WithCompatibleGateway(t *testing.T) {
+	t.Setenv(httputil.InsecureSkipTLSVerifyEnv, "true")
+
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor != 2 {
+			t.Errorf("expected translation request over HTTP/2, got %s", r.Proto)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"response":"Bonjour","done":true}`)
+	}))
+	server.EnableHTTP2 = true
+	server.StartTLS()
+	defer server.Close()
+
+	translator := NewAITranslator("", server.URL+"/api/generate", "test-model")
+	translated, err := translator.Translate("Hello", "fr")
+	if err != nil {
+		t.Fatalf("Translate failed over HTTP/2: %v", err)
+	}
+	if translated != "Bonjour" {
+		t.Fatalf("expected Bonjour, got %q", translated)
 	}
 }

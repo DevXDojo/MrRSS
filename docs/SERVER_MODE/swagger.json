@@ -12,7 +12,7 @@
             "name": "GPL-3.0",
             "url": "https://www.gnu.org/licenses/gpl-3.0.en.html"
         },
-        "version": "1.3.28"
+        "version": "1.3.29"
     },
     "host": "localhost:1234",
     "basePath": "/api",
@@ -3125,6 +3125,107 @@
                 }
             }
         },
+        "/download-update": {
+            "post": {
+                "description": "Download the update file from GitHub releases to the temp directory",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "update"
+                ],
+                "summary": "Download update",
+                "parameters": [
+                    {
+                        "description": "Download request (download_url, asset_name, optional request_id)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Download success (success, request_id, file_path, total_bytes, bytes_written)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (invalid URL, asset name, or request ID)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Download failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/download-update/progress": {
+            "get": {
+                "description": "Get real-time progress for an update download request",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "update"
+                ],
+                "summary": "Get update download progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Download request ID",
+                        "name": "request_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Download progress",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Download request not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/email/imap/test": {
             "post": {
                 "description": "Test IMAP server connection with provided credentials",
@@ -5117,59 +5218,6 @@
                 }
             }
         },
-        "/update/download": {
-            "post": {
-                "description": "Download the update file from GitHub releases to the temp directory",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "update"
-                ],
-                "summary": "Download update",
-                "parameters": [
-                    {
-                        "description": "Download request (download_url, asset_name)",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Download success (success, file_path, total_bytes, bytes_written)",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request (invalid URL or asset name)",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/update/install": {
             "post": {
                 "description": "Install the downloaded update (will restart the application)",
@@ -5372,6 +5420,178 @@
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/feeds/category": {
+            "post": {
+                "description": "Atomically dissolve a category into uncategorized feeds or unsubscribe the category tree. FreshRSS categories are protected.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Dissolve a category or unsubscribe its feeds",
+                "parameters": [
+                    {
+                        "description": "category and action (dissolve or unsubscribe)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/feeds/content-options": {
+            "get": {
+                "description": "Read or save per-feed content/removal CSS selectors and an encrypted, exact-origin Cookie. Cookie is write-only: responses return has_cookie; omit cookie to retain it or send an empty string to remove it. Available for local and FreshRSS feeds.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Feed content extraction settings",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Feed ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.FeedContentOptions"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Read or save per-feed content/removal CSS selectors and an encrypted, exact-origin Cookie. Cookie is write-only: responses return has_cookie; omit cookie to retain it or send an empty string to remove it. Available for local and FreshRSS feeds.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Feed content extraction settings",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Feed ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "name": "options",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/database.FeedContentOptions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.FeedContentOptions"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -6400,6 +6620,26 @@
                 },
                 "y": {
                     "type": "integer"
+                }
+            }
+        },
+        "database.FeedContentOptions": {
+            "type": "object",
+            "properties": {
+                "content_selector": {
+                    "type": "string"
+                },
+                "cookie": {
+                    "type": "string"
+                },
+                "cookie_origin": {
+                    "type": "string"
+                },
+                "has_cookie": {
+                    "type": "boolean"
+                },
+                "remove_selector": {
+                    "type": "string"
                 }
             }
         }

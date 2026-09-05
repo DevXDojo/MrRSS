@@ -6,11 +6,14 @@ import {
   PhImage,
   PhDotsSixVertical,
   PhLock,
+  PhPushPin,
 } from '@phosphor-icons/vue';
 import type { Feed } from '@/types/models';
+import { useSidebarSort } from '@/composables/ui/useSidebarSort';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
+const { isPinned: isItemPinned } = useSidebarSort();
 
 interface Props {
   feed: Feed;
@@ -99,9 +102,11 @@ function handleDragEnd() {
     :class="['feed-item', isActive ? 'active' : '', props.compactMode ? 'compact' : '']"
     :data-feed-id="feed.id"
     :data-level="level || 0"
+    :data-pinned="isItemPinned(`feed:${feed.id}`)"
     @click="emit('click')"
     @contextmenu="(e) => emit('contextmenu', e)"
   >
+    <PhPushPin v-if="isItemPinned(`feed:${feed.id}`)" :size="12" class="shrink-0 text-accent" />
     <!-- Drag handle (only visible in edit mode and not for FreshRSS feeds) -->
     <div
       v-if="isEditMode && !feed.is_freshrss_source"

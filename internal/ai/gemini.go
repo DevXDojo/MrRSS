@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -19,6 +20,10 @@ func NewGeminiHandler() *GeminiHandler {
 // BuildRequest builds a Gemini API request
 func (h *GeminiHandler) BuildRequest(config RequestConfig) (map[string]interface{}, error) {
 	contents := []map[string]interface{}{}
+	systemParts := []string{}
+	if config.SystemPrompt != "" {
+		systemParts = append(systemParts, config.SystemPrompt)
+	}
 
 	// If messages are provided, convert them to Gemini format
 	if len(config.Messages) > 0 {
@@ -31,10 +36,15 @@ func (h *GeminiHandler) BuildRequest(config RequestConfig) (map[string]interface
 				continue
 			}
 
+			if role == "system" {
+				systemParts = append(systemParts, content)
+				continue
+			}
+
 			// Map roles to Gemini format
 			geminiRole := "user"
 			switch role {
-			case "system", "user":
+			case "user":
 				geminiRole = "user"
 			case "assistant":
 				geminiRole = "model"
@@ -101,17 +111,17 @@ func (h *GeminiHandler) BuildRequest(config RequestConfig) (map[string]interface
 
 	// Add system instruction if provided (Gemini-specific)
 	// Note: systemInstruction does NOT have a "role" field in Gemini API
-	if config.SystemPrompt != "" {
+	if len(systemParts) > 0 {
 		request["systemInstruction"] = map[string]interface{}{
 			"parts": []map[string]string{
-				{"text": config.SystemPrompt},
+				{"text": strings.Join(systemParts, "\n\n")},
 			},
 		}
 	}
 
 	// Add thinking config if provided (for thinking models)
 	if config.ThinkingConfig != nil {
-		request["thinkingConfig"] = config.ThinkingConfig
+		genConfig["thinkingConfig"] = config.ThinkingConfig
 	}
 
 	return request, nil
@@ -136,7 +146,8 @@ func (h *GeminiHandler) ParseResponse(body []byte) (ResponseResult, error) {
 		Candidates []struct {
 			Content struct {
 				Parts []struct {
-					Text string `json:"text"`
+					Text    string `json:"text"`
+					Thought bool   `json:"thought"`
 				} `json:"parts"`
 			} `json:"content"`
 			FinishReason string `json:"finishReason"`
@@ -177,9 +188,21 @@ func (h *GeminiHandler) ParseResponse(body []byte) (ResponseResult, error) {
 		return ResponseResult{}, fmt.Errorf("response blocked for image safety reasons")
 	}
 
-	content := strings.TrimSpace(candidate.Content.Parts[0].Text)
+	var answer, thinking strings.Builder
+	for _, part := range candidate.Content.Parts {
+		if part.Thought {
+			thinking.WriteString(part.Text)
+		} else {
+			answer.WriteString(part.Text)
+		}
+	}
+	content := strings.TrimSpace(answer.String())
+	if content == "" {
+		return ResponseResult{}, fmt.Errorf("empty content in Gemini response")
+	}
 	return ResponseResult{
 		Content:    content,
+		Thinking:   strings.TrimSpace(thinking.String()),
 		FormatUsed: FormatTypeGemini,
 	}, nil
 }
@@ -190,9 +213,9 @@ func (h *GeminiHandler) ValidateResponse(statusCode int, body []byte) error {
 	case http.StatusOK:
 		return nil
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return fmt.Errorf("gemini authentication failed")
+		return fmt.Errorf("gemini authentication failed (HTTP %d)", statusCode)
 	case http.StatusNotFound:
-		return fmt.Errorf("gemini model not found")
+		return fmt.Errorf("gemini model not found (HTTP %d)", statusCode)
 	default:
 		return fmt.Errorf("gemini API returned status %d: %s", statusCode, string(body))
 	}
@@ -201,46 +224,6 @@ func (h *GeminiHandler) ValidateResponse(statusCode int, body []byte) error {
 // FormatEndpoint formats the endpoint URL for Gemini API
 func (h *GeminiHandler) FormatEndpoint(endpoint, model string) string {
 	return FormatGeminiEndpoint(endpoint, model)
-}
-
-// DetectAPIProvider detects the AI provider from the endpoint URL
-// Returns "gemini", "openai", "anthropic", "deepseek", "ollama", or "unknown"
-func DetectAPIProvider(endpoint string) string {
-	endpoint = strings.ToLower(endpoint)
-
-	// Gemini API endpoints
-	if strings.Contains(endpoint, "googleapis.com") ||
-		strings.Contains(endpoint, "generativelanguage.googleapis.com") ||
-		strings.Contains(endpoint, "gemini") {
-		return "gemini"
-	}
-
-	// Anthropic API endpoints
-	if strings.Contains(endpoint, "anthropic.com") ||
-		strings.Contains(endpoint, "claude") {
-		return "anthropic"
-	}
-
-	// DeepSeek API endpoints
-	if strings.Contains(endpoint, "deepseek.com") ||
-		strings.Contains(endpoint, "deepseek") {
-		return "deepseek"
-	}
-
-	// Ollama endpoints
-	if strings.Contains(endpoint, "localhost") ||
-		strings.Contains(endpoint, "127.0.0.1") ||
-		strings.Contains(endpoint, "ollama") {
-		return "ollama"
-	}
-
-	// OpenAI-compatible endpoints (default)
-	if strings.Contains(endpoint, "openai.com") ||
-		strings.Contains(endpoint, "api.openai.com") {
-		return "openai"
-	}
-
-	return "unknown"
 }
 
 // IsGeminiEndpoint checks if the given endpoint is a Gemini API endpoint
@@ -271,12 +254,27 @@ func IsGeminiError(errorMessage string) bool {
 // FormatGeminiEndpoint formats a Gemini endpoint with the given model
 // If the endpoint already contains a model, it's replaced
 func FormatGeminiEndpoint(baseEndpoint, model string) string {
-	// Gemini endpoint (user should provide full API path)
 	if baseEndpoint == "" {
-		// Default Gemini endpoint
-		return "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
+		baseEndpoint = "https://generativelanguage.googleapis.com/v1beta"
 	}
-
-	// Use endpoint as-is (user should provide full API path)
-	return strings.TrimSuffix(baseEndpoint, "/")
+	parsed, err := url.Parse(strings.TrimSpace(baseEndpoint))
+	if err != nil || parsed.Host == "" {
+		return baseEndpoint
+	}
+	path := strings.TrimRight(parsed.Path, "/")
+	model = strings.TrimPrefix(model, "models/")
+	switch path {
+	case "":
+		path = "/v1beta/models/" + model + ":generateContent"
+	case "/v1", "/v1beta":
+		path += "/models/" + model + ":generateContent"
+	default:
+		// Preserve gateway prefixes, query options, and custom nonstandard routes.
+		if index := strings.LastIndex(path, "/models/"); index >= 0 && strings.HasSuffix(path, ":generateContent") && model != "" {
+			path = path[:index] + "/models/" + model + ":generateContent"
+		}
+	}
+	parsed.Path = path
+	parsed.RawPath = ""
+	return parsed.String()
 }

@@ -2,116 +2,118 @@ import { ref, nextTick, watch } from 'vue';
 import type { Article } from '@/types/models';
 import type { MasonryLayoutReturn } from '../types';
 
-const TARGET_COLUMN_WIDTH = 250; // Target column width: 250px for optimal image viewing
-const MIN_COLUMNS = 2; // Minimum 2 columns, no maximum
-
-/**
- * Composable for managing masonry layout calculations
- * @param articles - The articles to arrange in masonry layout
- * @returns Masonry layout state and methods
- */
 export function useMasonryLayout(articles: { value: Article[] }): MasonryLayoutReturn {
   const columns = ref<Article[][]>([]);
-  const columnCount = ref(4);
+  const columnCount = ref(1);
   const containerRef = ref<HTMLElement | null>(null);
+  const imageDimensions = ref(new Map<number, { width: number; height: number }>());
   let resizeObserver: ResizeObserver | null = null;
-  let isObserverSetup = false;
+  let stopWatch: (() => void) | null = null;
+  let frame: number | null = null;
+  let lastWidth = 0;
 
-  /**
-   * Calculate number of columns based on container width dynamically
-   */
-  function calculateColumns(): void {
-    if (!containerRef.value) return;
-    const width = containerRef.value.offsetWidth;
-
-    // Calculate columns based on target width
-    const calculatedColumns = Math.floor(width / TARGET_COLUMN_WIDTH);
-
-    // Ensure at least MIN_COLUMNS columns
-    columnCount.value = Math.max(MIN_COLUMNS, calculatedColumns);
-
-    // Rearrange columns after calculating new count
-    arrangeColumns();
+  function arrangeColumns() {
+    const width = Math.max(
+      1,
+      ((containerRef.value?.clientWidth || 1000) - 32 - (columnCount.value - 1) * 16) /
+        columnCount.value
+    );
+    const cols: Article[][] = Array.from({ length: columnCount.value }, () => []);
+    const heights = Array(columnCount.value).fill(0);
+    const sorted = [
+      ...new Map(articles.value.map((article) => [article.id, article])).values(),
+    ].sort(
+      (a, b) =>
+        new Date(b.published_at).getTime() - new Date(a.published_at).getTime() || b.id - a.id
+    );
+    for (const article of sorted) {
+      const index = heights.indexOf(Math.min(...heights));
+      cols[index].push(article);
+      const size = imageDimensions.value.get(article.id);
+      heights[index] += width * (size ? size.height / size.width : 0.75) + 80;
+    }
+    columns.value = sorted.length ? cols : [];
+    if (!sorted.length) imageDimensions.value.clear();
   }
 
-  /**
-   * Setup resize observer on container
-   */
-  function setupResizeObserver(): void {
-    if (isObserverSetup) return; // Already set up
+  // Batch image decodes into a single layout update and keep the visible card anchored.
+  function scheduleLayout() {
+    if (frame !== null) return;
+    frame = requestAnimationFrame(async () => {
+      frame = null;
+      const container = containerRef.value;
+      const top = container?.getBoundingClientRect().top || 0;
+      const anchor =
+        container &&
+        [...container.querySelectorAll<HTMLElement>('[data-gallery-article]')].find(
+          (card) => card.getBoundingClientRect().bottom > top
+        );
+      const id = anchor?.dataset.galleryArticle;
+      const before = anchor?.getBoundingClientRect().top;
+      const scrollTop = container?.scrollTop || 0;
+      arrangeColumns();
+      await nextTick();
+      if (
+        !container ||
+        containerRef.value !== container ||
+        !id ||
+        before === undefined ||
+        scrollTop === 0
+      )
+        return;
+      const replacement = container.querySelector<HTMLElement>(`[data-gallery-article="${id}"]`);
+      if (replacement) container.scrollTop += replacement.getBoundingClientRect().top - before;
+    });
+  }
 
-    // Watch for containerRef to become available
-    const stopWatch = watch(
+  function setImageSize(id: number, width: number, height: number) {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    const previous = imageDimensions.value.get(id);
+    if (previous?.width === width && previous?.height === height) return;
+    imageDimensions.value.set(id, { width, height });
+    scheduleLayout();
+  }
+
+  function calculateColumns() {
+    const width = containerRef.value?.clientWidth || 0;
+    if (!width || width === lastWidth) return;
+    lastWidth = width;
+    columnCount.value = Math.max(1, Math.floor((width - 16) / 266));
+    scheduleLayout();
+  }
+
+  function setupResizeObserver() {
+    if (stopWatch) return;
+    stopWatch = watch(
       containerRef,
-      (el) => {
-        if (el && !isObserverSetup) {
-          // Set up the observer
-          resizeObserver = new ResizeObserver(() => {
-            calculateColumns();
-          });
-          resizeObserver.observe(el);
-          isObserverSetup = true;
-
-          // Calculate columns immediately after setting up observer
-          nextTick(() => {
-            calculateColumns();
-          });
-
-          // Stop watching once observer is set up
-          stopWatch();
-        }
+      (element) => {
+        resizeObserver?.disconnect();
+        if (!element) return;
+        lastWidth = 0;
+        resizeObserver = new ResizeObserver(calculateColumns);
+        resizeObserver.observe(element);
+        calculateColumns();
       },
       { immediate: true }
     );
   }
 
-  /**
-   * Arrange articles into columns by time, balancing heights
-   */
-  function arrangeColumns(): void {
-    if (articles.value.length === 0) {
-      columns.value = [];
-      return;
-    }
-
-    // Initialize columns
-    const cols: Article[][] = Array.from({ length: columnCount.value }, () => []);
-    const colHeights: number[] = Array(columnCount.value).fill(0);
-
-    // Sort articles by published date (newest first)
-    const sortedArticles = [...articles.value].sort((a, b) => {
-      return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
-    });
-
-    // Place each article in the shortest column
-    sortedArticles.forEach((article) => {
-      const shortestColIndex = colHeights.indexOf(Math.min(...colHeights));
-      cols[shortestColIndex].push(article);
-      // Estimate height: 200px for image + 80px for info
-      colHeights[shortestColIndex] += 280;
-    });
-
-    columns.value = cols;
-  }
-
-  /**
-   * Cleanup resize observer
-   */
-  function cleanupResizeObserver(): void {
-    if (resizeObserver) {
-      if (containerRef.value) {
-        resizeObserver.unobserve(containerRef.value);
-      }
-      resizeObserver.disconnect();
-      resizeObserver = null;
-    }
-    isObserverSetup = false;
+  function cleanupResizeObserver() {
+    stopWatch?.();
+    stopWatch = null;
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    if (frame !== null) cancelAnimationFrame(frame);
+    frame = null;
+    containerRef.value = null;
   }
 
   return {
     columns,
     columnCount,
     containerRef,
+    imageDimensions,
+    setImageSize,
     calculateColumns,
     arrangeColumns,
     setupResizeObserver,

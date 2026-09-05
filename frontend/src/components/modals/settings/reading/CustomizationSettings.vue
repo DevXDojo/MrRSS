@@ -70,7 +70,7 @@ const handleFileUpload = async () => {
         // Don't show error toast for this, since upload succeeded
       }
 
-      // Notify ArticleBody components to reload CSS
+      // Notify the application to reload CSS
       window.dispatchEvent(new CustomEvent('custom-css-changed'));
     } else {
       console.error('CSS upload failed:', result);
@@ -115,7 +115,7 @@ const handleDeleteCSS = async () => {
       console.error('Failed to reload settings:', settingsError);
     }
 
-    // Notify ArticleBody components to reload CSS
+    // Notify the application to reload CSS
     window.dispatchEvent(new CustomEvent('custom-css-changed'));
   } catch (error) {
     console.error('Failed to delete CSS file:', error);

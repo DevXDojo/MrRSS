@@ -13,6 +13,7 @@ import XPathConfig from './parts/XPathConfig.vue';
 import EmailConfig from './parts/EmailConfig.vue';
 import CategorySelector from './parts/CategorySelector.vue';
 import TagSelector from './parts/TagSelector.vue';
+import FeedContentOptions from './parts/FeedContentOptions.vue';
 import AdvancedSettings from './parts/AdvancedSettings.vue';
 
 interface Props {
@@ -585,6 +586,10 @@ const submitButtonText = computed(() => {
       </div>
 
       <!-- Advanced Settings Section (Collapsible) -->
+      <FeedContentOptions
+        v-if="showAdvancedSettings && mode === 'edit' && feed"
+        :feed-id="feed.id"
+      />
       <AdvancedSettings
         v-if="showAdvancedSettings"
         :image-gallery-enabled="imageGalleryEnabled"

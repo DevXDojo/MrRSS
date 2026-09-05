@@ -143,7 +143,7 @@ func decodeFeedBody(body []byte, contentType string) (string, error) {
 }
 
 // fetchAndSanitizeFeed fetches feed content and sanitizes it before parsing
-func (f *Fetcher) fetchAndSanitizeFeed(ctx context.Context, feedURL string) (string, error) {
+func (f *Fetcher) fetchAndSanitizeFeed(ctx context.Context, feedURL string, sources ...*models.Feed) (string, error) {
 	debugTimer := NewDebugTimer(fmt.Sprintf("FetchSanitize-%s", feedURL), shouldEnableDebugLogging(feedURL))
 	defer debugTimer.End()
 
@@ -151,7 +151,11 @@ func (f *Fetcher) fetchAndSanitizeFeed(ctx context.Context, feedURL string) (str
 
 	// Use the feed's HTTP client to fetch content
 	debugTimer.LogWithTime("Getting HTTP client")
-	httpClient, err := f.getHTTPClient(models.Feed{URL: feedURL})
+	source := models.Feed{URL: feedURL}
+	if len(sources) > 0 && sources[0] != nil {
+		source = *sources[0]
+	}
+	httpClient, err := f.getHTTPClient(source)
 	if err != nil {
 		debugTimer.LogWithTime("Failed to create HTTP client: %v", err)
 		return "", fmt.Errorf("failed to create HTTP client: %w", err)
@@ -625,7 +629,7 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 	// Try fetching and sanitizing the feed first to handle file:// URLs in atom:link
 	debugTimer.LogWithTime("About to call fetchAndSanitizeFeed")
 	utils.DebugLog("parseFeedWithFeedInternal: Attempting to fetch and sanitize feed for %s", actualURL)
-	cleanedXML, sanitizeErr := f.fetchAndSanitizeFeed(fetchCtx, actualURL)
+	cleanedXML, sanitizeErr := f.fetchAndSanitizeFeed(fetchCtx, actualURL, feed)
 	debugTimer.LogWithTime("fetchAndSanitizeFeed completed, err=%v", sanitizeErr)
 
 	if sanitizeErr == nil {
@@ -658,7 +662,17 @@ func (f *Fetcher) parseFeedWithFeedInternal(ctx context.Context, feed *models.Fe
 	debugTimer.Stage("Standard parsing via ParseURLWithContext")
 	debugTimer.LogWithTime("About to call ParseURLWithContext")
 	utils.DebugLog("parseFeedWithFeedInternal: Attempting standard RSS parsing for %s", actualURL)
-	parsedFeed, err := f.fp.ParseURLWithContext(actualURL, fetchCtx)
+	parser := f.fp
+	if _, ok := f.fp.(*gofeed.Parser); ok {
+		client, err := f.getHTTPClient(*feed)
+		if err != nil {
+			return nil, err
+		}
+		configured := gofeed.NewParser()
+		configured.Client = client
+		parser = configured
+	}
+	parsedFeed, err := parser.ParseURLWithContext(actualURL, fetchCtx)
 	debugTimer.LogWithTime("ParseURLWithContext completed, err=%v", err)
 	if err != nil {
 		utils.DebugLog("parseFeedWithFeedInternal: Standard RSS parsing failed: %v", err)
@@ -718,7 +732,7 @@ func (f *Fetcher) parseFeedWithXPath(_ context.Context, feed *models.Feed) (*gof
 	}
 
 	// Fetch the content
-	httpClient, err := httputil.CreateHTTPClient("", 30*time.Second)
+	httpClient, err := f.getHTTPClient(*feed)
 	if err != nil {
 		return nil, &XPathError{
 			Operation: "fetch",

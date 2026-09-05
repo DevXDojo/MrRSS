@@ -186,11 +186,24 @@ func (f *Fetcher) getHTTPClient(feed models.Feed) (*http.Client, error) {
 
 	// Create HTTP client with browser-like headers to bypass Cloudflare and anti-bot protections
 	// This is critical for RSSHub feeds and other services with anti-bot protection
-	return httputil.CreateHTTPClientWithUserAgent(
+	client, err := httputil.CreateHTTPClientWithUserAgent(
 		proxyURL,
 		30*time.Second,
 		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	)
+	if err != nil {
+		return nil, err
+	}
+	if feed.ID > 0 {
+		options, err := f.db.GetFeedContentOptions(context.Background(), feed.ID)
+		if err != nil {
+			return nil, err
+		}
+		if options.Cookie != nil {
+			client = httputil.WithScopedCookie(client, options.CookieOrigin, *options.Cookie)
+		}
+	}
+	return client, nil
 }
 
 func (f *Fetcher) FetchAll(ctx context.Context) {

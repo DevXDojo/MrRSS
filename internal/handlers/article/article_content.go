@@ -8,6 +8,7 @@ import (
 	"MrRSS/internal/feed"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/utils/textutil"
 )
 
 // HandleGetArticleContent fetches the article content from RSS feed dynamically.
@@ -61,7 +62,7 @@ func HandleGetArticleContent(h *core.Handler, w http.ResponseWriter, r *http.Req
 	}
 
 	response.JSON(w, map[string]interface{}{
-		"content":  content,
+		"content":  textutil.PrepareArticleContent(content, article.URL),
 		"feed_url": feedURL,
 		"cached":   wasCached,
 	})
@@ -100,6 +101,10 @@ func HandleReloadArticleContent(h *core.Handler, w http.ResponseWriter, r *http.
 	if err := h.DB.DeleteArticleContent(articleID); err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return
+	}
+
+	if h.ContentCache != nil {
+		h.ContentCache.Delete(articleID)
 	}
 
 	response.JSON(w, map[string]string{"status": "reloading"})
@@ -159,7 +164,7 @@ func HandleFetchFullArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	}
 
 	// Fetch full content
-	fullContent, err := h.FetchFullArticleContentWithFeed(article.URL, feed)
+	fullContent, err := h.FetchFullArticleContentContext(r.Context(), article.URL, feed)
 	if err != nil {
 		log.Printf("Error fetching full article content: %v", err)
 		response.Error(w, err, http.StatusInternalServerError)

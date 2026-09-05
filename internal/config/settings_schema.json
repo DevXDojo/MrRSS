@@ -88,6 +88,13 @@
       "encrypted": false,
       "frontend_key": "translationOnlyMode"
     },
+    "translation_trigger_mode": {
+      "type": "string",
+      "default": "auto",
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "translation_trigger_mode"
+    },
     "target_language": {
       "type": "string",
       "default": "zh",
@@ -304,6 +311,19 @@
       "category": "ai",
       "encrypted": false,
       "frontend_key": "aiSearchEnabled"
+    },
+    "sidebar_sort_mode": {
+      "type": "string", "default": "manual", "category": "reading", "encrypted": false, "frontend_key": "sidebar_sort_mode"
+    },
+    "sidebar_pinned_items": {
+      "type": "string", "default": "[]", "category": "reading", "encrypted": false, "frontend_key": "sidebar_pinned_items"
+    },
+    "sidebar_category_order": {
+      "type": "string",
+      "default": "[]",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "sidebar_category_order"
     },
     "summary_enabled": {
       "type": "bool",

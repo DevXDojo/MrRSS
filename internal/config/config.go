@@ -18,119 +18,123 @@ var defaultsJSON []byte
 
 // Defaults holds all default settings values
 type Defaults struct {
-	AIAPIKey                      string `json:"ai_api_key"`
-	AIChatEnabled                 bool   `json:"ai_chat_enabled"`
-	AIChatProfileId               string `json:"ai_chat_profile_id"`
-	AICustomHeaders               string `json:"ai_custom_headers"`
-	AIEndpoint                    string `json:"ai_endpoint"`
-	AIModel                       string `json:"ai_model"`
-	AISearchEnabled               bool   `json:"ai_search_enabled"`
-	AISearchProfileId             string `json:"ai_search_profile_id"`
-	AISummaryProfileId            string `json:"ai_summary_profile_id"`
-	AISummaryPrompt               string `json:"ai_summary_prompt"`
-	AITranslationProfileId        string `json:"ai_translation_profile_id"`
-	AITranslationPrompt           string `json:"ai_translation_prompt"`
-	AIUsageLimit                  string `json:"ai_usage_limit"`
-	AIUsageTokens                 string `json:"ai_usage_tokens"`
-	AutoCleanupEnabled            bool   `json:"auto_cleanup_enabled"`
-	AutoShowAllContent            bool   `json:"auto_show_all_content"`
-	BaiduAppId                    string `json:"baidu_app_id"`
-	BaiduSecretKey                string `json:"baidu_secret_key"`
-	CloseToTray                   bool   `json:"close_to_tray"`
-	ContentFontFamily             string `json:"content_font_family"`
-	ContentFontSize               int    `json:"content_font_size"`
-	ContentLineHeight             string `json:"content_line_height"`
-	CustomCssFile                 string `json:"custom_css_file"`
-	CustomTranslationBodyTemplate string `json:"custom_translation_body_template"`
-	CustomTranslationEnabled      bool   `json:"custom_translation_enabled"`
-	CustomTranslationEndpoint     string `json:"custom_translation_endpoint"`
-	CustomTranslationHeaders      string `json:"custom_translation_headers"`
-	CustomTranslationLangMapping  string `json:"custom_translation_lang_mapping"`
-	CustomTranslationMethod       string `json:"custom_translation_method"`
-	CustomTranslationName         string `json:"custom_translation_name"`
-	CustomTranslationResponsePath string `json:"custom_translation_response_path"`
-	CustomTranslationTimeout      int    `json:"custom_translation_timeout"`
-	DeeplAPIKey                   string `json:"deepl_api_key"`
-	DeeplEndpoint                 string `json:"deepl_endpoint"`
-	DefaultViewMode               string `json:"default_view_mode"`
-	FeedDrawerExpanded            bool   `json:"feed_drawer_expanded"`
-	FeedDrawerPinned              bool   `json:"feed_drawer_pinned"`
-	FreshRSSAPIPassword           string `json:"freshrss_api_password"`
-	FreshRSSAutoSyncInterval      int    `json:"freshrss_auto_sync_interval"`
-	FreshRSSEnabled               bool   `json:"freshrss_enabled"`
-	FreshRSSLastSyncTime          string `json:"freshrss_last_sync_time"`
-	FreshRSSServerUrl             string `json:"freshrss_server_url"`
-	FreshRSSSyncOnStartup         bool   `json:"freshrss_sync_on_startup"`
-	FreshRSSUsername              string `json:"freshrss_username"`
-	FullTextFetchEnabled          bool   `json:"full_text_fetch_enabled"`
-	GoogleTranslateEndpoint       string `json:"google_translate_endpoint"`
-	HoverMarkAsRead               bool   `json:"hover_mark_as_read"`
-	ImageGalleryEnabled           bool   `json:"image_gallery_enabled"`
-	Language                      string `json:"language"`
-	LastGlobalRefresh             string `json:"last_global_refresh"`
-	LastNetworkTest               string `json:"last_network_test"`
-	LayoutMode                    string `json:"layout_mode"`
-	MaxArticleAgeDays             int    `json:"max_article_age_days"`
-	MaxCacheSizeMb                int    `json:"max_cache_size_mb"`
-	MaxConcurrentRefreshes        string `json:"max_concurrent_refreshes"`
-	MediaCacheEnabled             bool   `json:"media_cache_enabled"`
-	MediaCacheMaxAgeDays          int    `json:"media_cache_max_age_days"`
-	MediaCacheMaxSizeMb           int    `json:"media_cache_max_size_mb"`
-	MediaProxyFallback            bool   `json:"media_proxy_fallback"`
-	MicrosoftAPIKey               string `json:"microsoft_api_key"`
-	MicrosoftEndpoint             string `json:"microsoft_endpoint"`
-	MicrosoftRegion               string `json:"microsoft_region"`
-	NetworkBandwidthMbps          string `json:"network_bandwidth_mbps"`
-	NetworkLatencyMs              string `json:"network_latency_ms"`
-	NetworkSpeed                  string `json:"network_speed"`
-	NotionAPIKey                  string `json:"notion_api_key"`
-	NotionEnabled                 bool   `json:"notion_enabled"`
-	NotionPageId                  string `json:"notion_page_id"`
-	ObsidianEnabled               bool   `json:"obsidian_enabled"`
-	ObsidianVault                 string `json:"obsidian_vault"`
-	ObsidianVaultPath             string `json:"obsidian_vault_path"`
-	ProxyEnabled                  bool   `json:"proxy_enabled"`
-	ProxyHost                     string `json:"proxy_host"`
-	ProxyPassword                 string `json:"proxy_password"`
-	ProxyPort                     string `json:"proxy_port"`
-	ProxyType                     string `json:"proxy_type"`
-	ProxyUsername                 string `json:"proxy_username"`
-	RefreshMode                   string `json:"refresh_mode"`
-	RetryTimeoutSeconds           int    `json:"retry_timeout_seconds"`
-	RsshubAPIKey                  string `json:"rsshub_api_key"`
-	RsshubEnabled                 bool   `json:"rsshub_enabled"`
-	RsshubEndpoint                string `json:"rsshub_endpoint"`
-	Rules                         string `json:"rules"`
-	Shortcuts                     string `json:"shortcuts"`
-	ShortcutsEnabled              bool   `json:"shortcuts_enabled"`
-	ShowArticlePreviewImages      bool   `json:"show_article_preview_images"`
-	ShowFloatingToc               bool   `json:"show_floating_toc"`
-	ShowHiddenArticles            bool   `json:"show_hidden_articles"`
-	StartupOnBoot                 bool   `json:"startup_on_boot"`
-	SummaryEnabled                bool   `json:"summary_enabled"`
-	SummaryLength                 string `json:"summary_length"`
-	SummaryProvider               string `json:"summary_provider"`
-	SummaryTriggerMode            string `json:"summary_trigger_mode"`
-	TargetLanguage                string `json:"target_language"`
-	TencentRegion                 string `json:"tencent_region"`
-	TencentSecretId               string `json:"tencent_secret_id"`
-	TencentSecretKey              string `json:"tencent_secret_key"`
-	Theme                         string `json:"theme"`
-	TranslationEnabled            bool   `json:"translation_enabled"`
-	TranslationOnlyMode           bool   `json:"translation_only_mode"`
-	TranslationProvider           string `json:"translation_provider"`
-	UiFontFamily                  string `json:"ui_font_family"`
-	UiFontSize                    int    `json:"ui_font_size"`
-	UpdateCheckEnabled            bool   `json:"update_check_enabled"`
-	UpdateInterval                int    `json:"update_interval"`
-	WindowHeight                  string `json:"window_height"`
-	WindowMaximized               string `json:"window_maximized"`
-	WindowWidth                   string `json:"window_width"`
-	WindowX                       string `json:"window_x"`
-	WindowY                       string `json:"window_y"`
-	ZoteroAPIKey                  string `json:"zotero_api_key"`
-	ZoteroEnabled                 bool   `json:"zotero_enabled"`
-	ZoteroUserId                  string `json:"zotero_user_id"`
+	AIAPIKey string                     `json:"ai_api_key"`
+	AIChatEnabled bool                  `json:"ai_chat_enabled"`
+	AIChatProfileId string              `json:"ai_chat_profile_id"`
+	AICustomHeaders string              `json:"ai_custom_headers"`
+	AIEndpoint string                   `json:"ai_endpoint"`
+	AIModel string                      `json:"ai_model"`
+	AISearchEnabled bool                `json:"ai_search_enabled"`
+	AISearchProfileId string            `json:"ai_search_profile_id"`
+	AISummaryProfileId string           `json:"ai_summary_profile_id"`
+	AISummaryPrompt string              `json:"ai_summary_prompt"`
+	AITranslationProfileId string       `json:"ai_translation_profile_id"`
+	AITranslationPrompt string          `json:"ai_translation_prompt"`
+	AIUsageLimit string                 `json:"ai_usage_limit"`
+	AIUsageTokens string                `json:"ai_usage_tokens"`
+	AutoCleanupEnabled bool             `json:"auto_cleanup_enabled"`
+	AutoShowAllContent bool             `json:"auto_show_all_content"`
+	BaiduAppId string                   `json:"baidu_app_id"`
+	BaiduSecretKey string               `json:"baidu_secret_key"`
+	CloseToTray bool                    `json:"close_to_tray"`
+	ContentFontFamily string            `json:"content_font_family"`
+	ContentFontSize int                 `json:"content_font_size"`
+	ContentLineHeight string            `json:"content_line_height"`
+	CustomCssFile string                `json:"custom_css_file"`
+	CustomTranslationBodyTemplate string`json:"custom_translation_body_template"`
+	CustomTranslationEnabled bool       `json:"custom_translation_enabled"`
+	CustomTranslationEndpoint string    `json:"custom_translation_endpoint"`
+	CustomTranslationHeaders string     `json:"custom_translation_headers"`
+	CustomTranslationLangMapping string `json:"custom_translation_lang_mapping"`
+	CustomTranslationMethod string      `json:"custom_translation_method"`
+	CustomTranslationName string        `json:"custom_translation_name"`
+	CustomTranslationResponsePath string`json:"custom_translation_response_path"`
+	CustomTranslationTimeout int        `json:"custom_translation_timeout"`
+	DeeplAPIKey string                  `json:"deepl_api_key"`
+	DeeplEndpoint string                `json:"deepl_endpoint"`
+	DefaultViewMode string              `json:"default_view_mode"`
+	FeedDrawerExpanded bool             `json:"feed_drawer_expanded"`
+	FeedDrawerPinned bool               `json:"feed_drawer_pinned"`
+	FreshRSSAPIPassword string          `json:"freshrss_api_password"`
+	FreshRSSAutoSyncInterval int        `json:"freshrss_auto_sync_interval"`
+	FreshRSSEnabled bool                `json:"freshrss_enabled"`
+	FreshRSSLastSyncTime string         `json:"freshrss_last_sync_time"`
+	FreshRSSServerUrl string            `json:"freshrss_server_url"`
+	FreshRSSSyncOnStartup bool          `json:"freshrss_sync_on_startup"`
+	FreshRSSUsername string             `json:"freshrss_username"`
+	FullTextFetchEnabled bool           `json:"full_text_fetch_enabled"`
+	GoogleTranslateEndpoint string      `json:"google_translate_endpoint"`
+	HoverMarkAsRead bool                `json:"hover_mark_as_read"`
+	ImageGalleryEnabled bool            `json:"image_gallery_enabled"`
+	Language string                     `json:"language"`
+	LastGlobalRefresh string            `json:"last_global_refresh"`
+	LastNetworkTest string              `json:"last_network_test"`
+	LayoutMode string                   `json:"layout_mode"`
+	MaxArticleAgeDays int               `json:"max_article_age_days"`
+	MaxCacheSizeMb int                  `json:"max_cache_size_mb"`
+	MaxConcurrentRefreshes string       `json:"max_concurrent_refreshes"`
+	MediaCacheEnabled bool              `json:"media_cache_enabled"`
+	MediaCacheMaxAgeDays int            `json:"media_cache_max_age_days"`
+	MediaCacheMaxSizeMb int             `json:"media_cache_max_size_mb"`
+	MediaProxyFallback bool             `json:"media_proxy_fallback"`
+	MicrosoftAPIKey string              `json:"microsoft_api_key"`
+	MicrosoftEndpoint string            `json:"microsoft_endpoint"`
+	MicrosoftRegion string              `json:"microsoft_region"`
+	NetworkBandwidthMbps string         `json:"network_bandwidth_mbps"`
+	NetworkLatencyMs string             `json:"network_latency_ms"`
+	NetworkSpeed string                 `json:"network_speed"`
+	NotionAPIKey string                 `json:"notion_api_key"`
+	NotionEnabled bool                  `json:"notion_enabled"`
+	NotionPageId string                 `json:"notion_page_id"`
+	ObsidianEnabled bool                `json:"obsidian_enabled"`
+	ObsidianVault string                `json:"obsidian_vault"`
+	ObsidianVaultPath string            `json:"obsidian_vault_path"`
+	ProxyEnabled bool                   `json:"proxy_enabled"`
+	ProxyHost string                    `json:"proxy_host"`
+	ProxyPassword string                `json:"proxy_password"`
+	ProxyPort string                    `json:"proxy_port"`
+	ProxyType string                    `json:"proxy_type"`
+	ProxyUsername string                `json:"proxy_username"`
+	RefreshMode string                  `json:"refresh_mode"`
+	RetryTimeoutSeconds int             `json:"retry_timeout_seconds"`
+	RsshubAPIKey string                 `json:"rsshub_api_key"`
+	RsshubEnabled bool                  `json:"rsshub_enabled"`
+	RsshubEndpoint string               `json:"rsshub_endpoint"`
+	Rules string                        `json:"rules"`
+	Shortcuts string                    `json:"shortcuts"`
+	ShortcutsEnabled bool               `json:"shortcuts_enabled"`
+	ShowArticlePreviewImages bool       `json:"show_article_preview_images"`
+	ShowFloatingToc bool                `json:"show_floating_toc"`
+	ShowHiddenArticles bool             `json:"show_hidden_articles"`
+	SidebarCategoryOrder string         `json:"sidebar_category_order"`
+	SidebarPinnedItems string           `json:"sidebar_pinned_items"`
+	SidebarSortMode string              `json:"sidebar_sort_mode"`
+	StartupOnBoot bool                  `json:"startup_on_boot"`
+	SummaryEnabled bool                 `json:"summary_enabled"`
+	SummaryLength string                `json:"summary_length"`
+	SummaryProvider string              `json:"summary_provider"`
+	SummaryTriggerMode string           `json:"summary_trigger_mode"`
+	TargetLanguage string               `json:"target_language"`
+	TencentRegion string                `json:"tencent_region"`
+	TencentSecretId string              `json:"tencent_secret_id"`
+	TencentSecretKey string             `json:"tencent_secret_key"`
+	Theme string                        `json:"theme"`
+	TranslationEnabled bool             `json:"translation_enabled"`
+	TranslationOnlyMode bool            `json:"translation_only_mode"`
+	TranslationProvider string          `json:"translation_provider"`
+	TranslationTriggerMode string       `json:"translation_trigger_mode"`
+	UiFontFamily string                 `json:"ui_font_family"`
+	UiFontSize int                      `json:"ui_font_size"`
+	UpdateCheckEnabled bool             `json:"update_check_enabled"`
+	UpdateInterval int                  `json:"update_interval"`
+	WindowHeight string                 `json:"window_height"`
+	WindowMaximized string              `json:"window_maximized"`
+	WindowWidth string                  `json:"window_width"`
+	WindowX string                      `json:"window_x"`
+	WindowY string                      `json:"window_y"`
+	ZoteroAPIKey string                 `json:"zotero_api_key"`
+	ZoteroEnabled bool                  `json:"zotero_enabled"`
+	ZoteroUserId string                 `json:"zotero_user_id"`
 }
 
 var defaults Defaults
@@ -325,6 +329,12 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.ShowFloatingToc)
 	case "show_hidden_articles":
 		return strconv.FormatBool(defaults.ShowHiddenArticles)
+	case "sidebar_category_order":
+		return defaults.SidebarCategoryOrder
+	case "sidebar_pinned_items":
+		return defaults.SidebarPinnedItems
+	case "sidebar_sort_mode":
+		return defaults.SidebarSortMode
 	case "startup_on_boot":
 		return strconv.FormatBool(defaults.StartupOnBoot)
 	case "summary_enabled":
@@ -351,6 +361,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.TranslationOnlyMode)
 	case "translation_provider":
 		return defaults.TranslationProvider
+	case "translation_trigger_mode":
+		return defaults.TranslationTriggerMode
 	case "ui_font_family":
 		return defaults.UiFontFamily
 	case "ui_font_size":

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { ref, computed, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhEyeSlash, PhStar, PhClockCountdown } from '@phosphor-icons/vue';
@@ -211,6 +212,7 @@ onUnmounted(() => {
   <div
     :ref="(el) => emit('observeElement', el as Element | null)"
     :data-article-id="article.id"
+    :title="withShortcut(t('article.action.openArticle'), 'openArticle')"
     :class="[
       'article-card',
       article.is_read ? 'read' : '',

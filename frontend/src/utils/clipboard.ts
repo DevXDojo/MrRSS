@@ -10,10 +10,19 @@ import { Clipboard } from '@wailsio/runtime';
  * @param text Text to copy
  * @returns Promise that resolves to true if successful, false otherwise
  */
-async function copyToClipboard(text: string): Promise<boolean> {
+export async function copyToClipboard(text: string): Promise<boolean> {
   if (!text) {
     console.warn('copyToClipboard: text is empty');
     return false;
+  }
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // WebView clipboard permission may be unavailable; try the native API.
   }
 
   try {
