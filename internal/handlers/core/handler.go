@@ -155,7 +155,7 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 	// Parse the feed to get fresh content
 	parsedFeed, err := h.Fetcher.ParseFeedWithFeed(ctx, targetFeed, true) // High priority for content fetching
 	if err != nil {
-		return "", false, err
+		return h.recoverArchivedContent(article, targetFeed, err)
 	}
 
 	// Cache the feed for future use
@@ -168,7 +168,7 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 		cleanContent := textutil.CleanHTML(content)
 
 		if strings.TrimSpace(cleanContent) == "" {
-			return "", false, nil
+			return h.recoverArchivedContent(article, targetFeed, nil)
 		}
 
 		// Cache the content in both memory and database
@@ -180,7 +180,31 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 		return cleanContent, false, nil
 	}
 
-	return "", false, nil
+	return h.recoverArchivedContent(article, targetFeed, nil)
+}
+
+// recoverArchivedContent handles items which have rolled out of the source's RSS window.
+func (h *Handler) recoverArchivedContent(article *models.Article, source *models.Feed, sourceErr error) (string, bool, error) {
+	enabled, _ := h.DB.GetSetting("full_text_fetch_enabled")
+	if enabled == "true" && article.URL != "" {
+		content, err := h.FetchFullArticleContentWithFeed(article.URL, source)
+		if err == nil && strings.TrimSpace(content) != "" {
+			h.ContentCache.Set(article.ID, content)
+			if err := h.DB.SetArticleContent(article.ID, content); err != nil {
+				log.Printf("Cache recovered article: %v", err)
+			}
+			return content, false, nil
+		}
+		if sourceErr == nil {
+			sourceErr = err
+		}
+	}
+	// A saved source description remains useful even when the remote page is unavailable.
+	// Do not cache this fallback as full content, so retry can recover the actual article.
+	if strings.TrimSpace(article.OriginalSummary) != "" {
+		return article.OriginalSummary, false, nil
+	}
+	return "", false, sourceErr
 }
 
 // FetchFullArticleContent fetches the full article content from the original URL using readability.

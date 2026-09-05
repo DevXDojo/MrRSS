@@ -118,6 +118,8 @@ export function useArticleDetail() {
 
   const showContent = ref(false);
   const articleContent = ref('');
+  let contentRequestId = 0;
+  let contentController: AbortController | null = null;
   const isLoadingContent = ref(false);
   const currentArticleId = ref<number | null>(null);
   const defaultViewMode = ref<ViewMode>('original');
@@ -131,6 +133,9 @@ export function useArticleDetail() {
   watch(
     () => store.currentArticleId,
     async (newId, oldId) => {
+      contentRequestId += 1;
+      contentController?.abort();
+      if (!newId) { articleContent.value = ''; currentArticleId.value = null; isLoadingContent.value = false; }
       if (newId && newId !== oldId) {
         // Close image viewer when switching articles
         imageViewerSrc.value = null;
@@ -144,6 +149,7 @@ export function useArticleDetail() {
 
         // Always fetch article content for AI chat and translation features
         await fetchArticleContent();
+        if (store.currentArticleId !== newId) return;
 
         // Check if there's a pending render action from context menu
         if (pendingRenderAction.value) {
@@ -275,22 +281,26 @@ export function useArticleDetail() {
     if (!article.value) return;
 
     const loadingArticleId = article.value.id;
+    const requestId = ++contentRequestId;
+    contentController?.abort();
+    contentController = new AbortController();
+    const isCurrent = () => requestId === contentRequestId && store.currentArticleId === loadingArticleId;
     currentArticleId.value = loadingArticleId; // Track which article we're loading
     isLoadingContent.value = true;
 
     try {
-      const res = await fetch(`/api/articles/content?id=${loadingArticleId}`);
-      if (currentArticleId.value !== loadingArticleId) return;
+      const res = await fetch(`/api/articles/content?id=${loadingArticleId}`, { signal: contentController.signal });
+      if (!isCurrent()) return;
 
       if (res.ok) {
         const data = await res.json();
-        if (currentArticleId.value !== loadingArticleId) return;
+        if (!isCurrent()) return;
 
         let content = data.content || '';
 
         // Proxy images if media cache is enabled
         const cacheEnabled = await isMediaCacheEnabled();
-        if (currentArticleId.value !== loadingArticleId) return;
+        if (!isCurrent()) return;
 
         if (cacheEnabled && content) {
           // Use feed URL as referer for anti-hotlinking (more reliable than article URL)
@@ -310,10 +320,11 @@ export function useArticleDetail() {
         articleContent.value = '';
       }
     } catch (e) {
+      if (!isCurrent()) return;
       console.error('Error fetching article content:', e);
       articleContent.value = '';
     } finally {
-      if (currentArticleId.value === loadingArticleId) {
+      if (isCurrent()) {
         isLoadingContent.value = false;
       }
     }
@@ -330,6 +341,8 @@ export function useArticleDetail() {
     if (!article.value) return;
 
     const reloadingArticleId = article.value.id;
+    contentRequestId += 1;
+    contentController?.abort();
     articleContent.value = '';
     currentArticleId.value = null;
     isLoadingContent.value = true;
@@ -903,6 +916,8 @@ export function useArticleDetail() {
   });
 
   onBeforeUnmount(() => {
+    contentRequestId += 1;
+    contentController?.abort();
     window.removeEventListener('render-article-content', handleRenderContent);
     window.removeEventListener('explicit-render-action', handleExplicitRenderAction);
     window.removeEventListener('toggle-content-view', handleToggleContentView);
