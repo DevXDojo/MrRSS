@@ -24,7 +24,7 @@ import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
 import { wrapOrphanedTextNodes } from '@/utils/translationParagraphs';
 import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
-import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
+import { useFullArticle } from '@/composables/article/useFullArticle';
 import './ArticleContent.css';
 
 interface SummaryResult {
@@ -83,8 +83,6 @@ let pendingScrollRestoreArticleId: number | null = null;
 let pendingScrollRestoreAttempts = 0;
 
 // Full-text fetching state
-const isFetchingFullArticle = ref(false);
-const fullArticleContent = ref('');
 const autoShowAllContent = ref(false);
 
 // Computed property to determine if auto-expand should be enabled for this feed
@@ -151,15 +149,9 @@ const showFloatingToc = computed(() => appSettings.value.show_floating_toc);
 
 // Computed to check if full-text fetching should be shown
 const showFullTextButton = computed(() => {
-  // For XPath feeds without content, show button even if articleContent is empty
-  const feed = store.feeds.find((f) => f.id === props.article.feed_id);
-  const isXPathFeedWithoutContent =
-    feed && (feed.type === 'HTML+XPath' || feed.type === 'XML+XPath') && !props.articleContent;
-
   return (
     appSettings.value.full_text_fetch_enabled &&
     !props.isLoadingContent &&
-    (props.articleContent || isXPathFeedWithoutContent) && // Allow empty content for XPath feeds
     props.article?.url &&
     props.showContent &&
     !fullArticleContent.value // Don't show if we already have full content
@@ -386,67 +378,22 @@ async function forceTranslateContent() {
   await translateContentParagraphs(displayContent.value, true);
 }
 
-// Fetch full article content from the original URL
-// @param showErrors - whether to show error toasts (default: true for manual clicks, false for auto-fetch)
-async function fetchFullArticle(showErrors: boolean = true) {
-  if (!props.article?.id) return;
-
-  isFetchingFullArticle.value = true;
-  try {
-    const res = await fetch(`/api/articles/fetch-full?id=${props.article.id}`, {
-      method: 'POST',
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      let content = data.content || '';
-
-      // Proxy images if media cache is enabled
-      const cacheEnabled = await isMediaCacheEnabled();
-      if (cacheEnabled && content) {
-        // Use feed URL as referer for anti-hotlinking (more reliable than article URL)
-        const feedUrl = data.feed_url || props.article.url;
-        content = proxyImagesInHtml(content, feedUrl);
-      }
-
-      fullArticleContent.value = content;
-      if (showErrors) {
-        window.showToast(t('article.action.fullArticleFetched'), 'success');
-      }
-
-      // After fetching full content, regenerate summary and trigger translation
-      if (props.article) {
-        // Generate summary if we should wait for full content
-        // This handles the case where:
-        // 1. Summary uses AI auto trigger OR local algorithm
-        // 2. AND auto-show all content is enabled
-        if (shouldWaitForFullContentBeforeSummary.value) {
-          setTimeout(() => generateSummary(props.article), 100);
-        }
-
-        if (translationEnabled.value) {
-          // Only translate content, not title (title translation is cached in DB)
-          // Content hash will automatically detect new content and trigger translation
-          // Wait for DOM to update with new content before translating
-          await nextTick();
-          await translateContentParagraphs(fullArticleContent.value);
-        }
-      }
-    } else {
-      console.error('Error fetching full article:', res.status);
-      if (showErrors) {
-        window.showToast(t('common.errors.fetchingFullArticle'), 'error');
-      }
-    }
-  } catch (e) {
-    console.error('Error fetching full article:', e);
-    if (showErrors) {
-      window.showToast(t('common.errors.fetchingFullArticle'), 'error');
-    }
-  } finally {
-    isFetchingFullArticle.value = false;
-  }
-}
+const { fullArticleContent, isFetchingFullArticle, fetchFullArticle } = useFullArticle({
+  article: () => props.article,
+  enabled: () => appSettings.value.full_text_fetch_enabled,
+  automatic: () => shouldAutoExpandContent.value,
+  loading: () => props.isLoadingContent,
+  onSuccess: () => window.showToast(t('article.action.fullArticleFetched'), 'success'),
+  onError: () => window.showToast(t('common.errors.fetchingFullArticle'), 'error'),
+  onContent: async (content) => {
+    const article = props.article;
+    if (shouldWaitForFullContentBeforeSummary.value) void generateSummary(article);
+    await nextTick();
+    if (props.article.id !== article.id) return;
+    enhanceRendering('.prose-content');
+    if (translationEnabled.value) await translateContentParagraphs(content);
+  },
+});
 
 // Generate summary for the current article
 async function generateSummary(article: Article, force: boolean = false) {
@@ -972,7 +919,6 @@ watch(
       isTranslatingContent.value = false;
       lastTranslatedArticleId.value = null; // Reset translation tracking
       lastTranslatedContentHash.value = '';
-      fullArticleContent.value = ''; // Reset full article content when switching articles
 
       if (props.article) {
         // Check if article has a cached summary first
@@ -1049,15 +995,6 @@ watch(
       await reattachContentInteractions();
       await restorePendingArticleScrollPosition();
 
-      // Auto-fetch full article if setting is enabled
-      // Don't auto-fetch if we're already fetching
-      if (
-        shouldAutoExpandContent.value &&
-        !fullArticleContent.value &&
-        !isFetchingFullArticle.value
-      ) {
-        setTimeout(() => fetchFullArticle(false), 200);
-      }
 
       // Generate summary if needed
       // But wait for full content if both conditions are met:
@@ -1121,14 +1058,6 @@ onMounted(async () => {
       await reattachContentInteractions();
       await restorePendingArticleScrollPosition();
 
-      // Auto-fetch full article if setting is enabled and content is already loaded
-      if (
-        shouldAutoExpandContent.value &&
-        !fullArticleContent.value &&
-        !isFetchingFullArticle.value
-      ) {
-        setTimeout(() => fetchFullArticle(false), 200);
-      }
     }
   }
 });
