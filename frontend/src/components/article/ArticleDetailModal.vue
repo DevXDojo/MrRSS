@@ -166,7 +166,12 @@ const hasNextArticle = computed(
 );
 
 // Load default view mode on mount
+function onArticleFeedSelected() {
+  emit('close');
+}
+
 onMounted(async () => {
+  window.addEventListener('article-feed-selected', onArticleFeedSelected);
   try {
     await fetchSettings();
     // Apply default view mode
@@ -180,6 +185,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('article-feed-selected', onArticleFeedSelected);
   window.removeEventListener('keydown', handleKeydown);
 });
 
@@ -355,7 +361,12 @@ function handleOverlayClick(e: MouseEvent) {
           <button
             v-if="hasPreviousArticle"
             class="nav-btn"
-            :title="withShortcut(t('article.navigation.previousArticle'), ['previousArticle', 'previousArticleArrow'])"
+            :title="
+              withShortcut(t('article.navigation.previousArticle'), [
+                'previousArticle',
+                'previousArticleArrow',
+              ])
+            "
             @click="emit('previous')"
           >
             <PhCaretLeft :size="16" />
@@ -366,7 +377,9 @@ function handleOverlayClick(e: MouseEvent) {
           <button
             v-if="hasNextArticle"
             class="nav-btn"
-            :title="withShortcut(t('article.navigation.nextArticle'), ['nextArticle', 'nextArticleArrow'])"
+            :title="
+              withShortcut(t('article.navigation.nextArticle'), ['nextArticle', 'nextArticleArrow'])
+            "
             @click="emit('next')"
           >
             <span>{{ t('article.navigation.nextArticle') }}</span>

@@ -257,6 +257,7 @@ export const useAppStore = defineStore('app', () => {
     currentCategory.value = null;
     tempSelection.value = { feedId, category: null };
     activeFilters.value = [];
+    isFilterLoading.value = false;
     filteredArticlesFromServer.value = [];
     articleNavigationContext.value = null;
     searchQuery.value = '';
