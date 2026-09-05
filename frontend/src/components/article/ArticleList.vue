@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, type Ref } from 'vue';
@@ -902,7 +903,7 @@ async function markAllVisibleAsRead(): Promise<void> {
           </button>
           <button
             class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-            :title="t('article.action.markAllRead')"
+            :title="withShortcut(t('article.action.markAllRead'), 'markAllRead')"
             @click="markAllAsRead"
           >
             <PhCheckCircle :size="18" class="sm:w-5 sm:h-5" />
@@ -946,7 +947,7 @@ async function markAllVisibleAsRead(): Promise<void> {
           >
             <button
               class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-              :title="t('article.action.refresh')"
+              :title="withShortcut(t('article.action.refresh'), 'refreshFeeds')"
               @click="refreshArticles"
             >
               <PhArrowClockwise

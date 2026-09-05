@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { useI18n } from 'vue-i18n';
 import { useSettings } from '@/composables/core/useSettings';
 import { onMounted } from 'vue';
@@ -72,7 +73,7 @@ async function copyLink(article: Article) {
     <button
       v-if="isModal"
       class="flex items-center gap-1.5 sm:gap-2 text-text-secondary hover:text-text-primary text-sm sm:text-base"
-      :title="t('common.close')"
+      :title="withShortcut(t('common.close'), 'closeArticle')"
       @click="$emit('close')"
     >
       <PhX :size="20" class="sm:w-5 sm:h-5" />
@@ -89,7 +90,7 @@ async function copyLink(article: Article) {
     <div class="flex gap-1 sm:gap-2 ml-auto">
       <button
         class="action-btn"
-        :title="showContent ? t('article.action.viewOriginal') : t('article.action.viewContent')"
+        :title="withShortcut(showContent ? t('article.action.viewOriginal') : t('article.action.viewContent'), 'toggleContentView')"
         @click="$emit('toggleContentView')"
       >
         <PhGlobe v-if="showContent" :size="18" class="sm:w-5 sm:h-5" />
@@ -113,7 +114,7 @@ async function copyLink(article: Article) {
       </button>
       <button
         class="action-btn"
-        :title="article.is_read ? t('article.action.markAsUnread') : t('article.action.markAsRead')"
+        :title="withShortcut(article.is_read ? t('article.action.markAsUnread') : t('article.action.markAsRead'), 'toggleReadStatus')"
         @click="$emit('toggleRead')"
       >
         <PhEnvelopeOpen v-if="article.is_read" :size="18" class="sm:w-5 sm:h-5" />
@@ -124,11 +125,9 @@ async function copyLink(article: Article) {
           'action-btn',
           article.is_favorite ? 'text-yellow-500 hover:text-yellow-600' : 'hover:text-yellow-500',
         ]"
-        :title="
-          article.is_favorite
+        :title="withShortcut(article.is_favorite
             ? t('article.action.removeFromFavorite')
-            : t('article.toolbar.addToFavorite')
-        "
+            : t('article.toolbar.addToFavorite'), 'toggleFavoriteStatus')"
         @click="$emit('toggleFavorite')"
       >
         <PhStar
@@ -142,11 +141,9 @@ async function copyLink(article: Article) {
           'action-btn',
           article.is_read_later ? 'text-blue-500 hover:text-blue-600' : 'hover:text-blue-500',
         ]"
-        :title="
-          article.is_read_later
+        :title="withShortcut(article.is_read_later
             ? t('article.action.removeFromReadLater')
-            : t('article.toolbar.addToReadLater')
-        "
+            : t('article.toolbar.addToReadLater'), 'toggleReadLaterStatus')"
         @click="$emit('toggleReadLater')"
       >
         <PhClockCountdown
@@ -157,7 +154,7 @@ async function copyLink(article: Article) {
       </button>
       <button
         class="action-btn"
-        :title="t('article.action.openInBrowser')"
+        :title="withShortcut(t('article.action.openInBrowser'), 'openInBrowser')"
         @click="$emit('openOriginal')"
       >
         <PhArrowSquareOut :size="18" class="sm:w-5 sm:h-5" />

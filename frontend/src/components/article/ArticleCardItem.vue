@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhEyeSlash, PhStar, PhClockCountdown } from '@phosphor-icons/vue';
@@ -121,6 +122,7 @@ function handleImageError(event: Event) {
 <template>
   <div
     :data-article-id="article.id"
+    :title="withShortcut(t('article.action.openArticle'), 'openArticle')"
     :class="[
       'article-card-item',
       article.is_read ? 'read' : '',

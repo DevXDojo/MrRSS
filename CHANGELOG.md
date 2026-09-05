@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Show current, customizable keyboard shortcuts in navigation, article, search, and toolbar hints; hide shortcut hints when shortcuts are disabled. (#567)
+
 - Update website dependencies, goquery, and Wails to beta.15 with a matching frontend runtime. (#1047, #1048)
 
 ## [1.3.28] - 2026-08-29

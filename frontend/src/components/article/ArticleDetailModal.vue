@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAppStore } from '@/stores/app';
@@ -354,7 +355,7 @@ function handleOverlayClick(e: MouseEvent) {
           <button
             v-if="hasPreviousArticle"
             class="nav-btn"
-            :title="t('article.navigation.previousArticle')"
+            :title="withShortcut(t('article.navigation.previousArticle'), ['previousArticle', 'previousArticleArrow'])"
             @click="emit('previous')"
           >
             <PhCaretLeft :size="16" />
@@ -365,7 +366,7 @@ function handleOverlayClick(e: MouseEvent) {
           <button
             v-if="hasNextArticle"
             class="nav-btn"
-            :title="t('article.navigation.nextArticle')"
+            :title="withShortcut(t('article.navigation.nextArticle'), ['nextArticle', 'nextArticleArrow'])"
             @click="emit('next')"
           >
             <span>{{ t('article.navigation.nextArticle') }}</span>

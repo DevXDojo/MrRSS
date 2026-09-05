@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhMagnifyingGlass, PhX, PhSparkle, PhSpinner } from '@phosphor-icons/vue';
@@ -110,6 +111,8 @@ function handleKeyDown(event: KeyboardEvent) {
       <div class="relative flex-1">
         <input
           v-model="searchQuery"
+          data-search-input
+          :title="withShortcut(t('aiSearch.placeholder'), 'focusSearch')"
           type="text"
           :placeholder="t('aiSearch.placeholder')"
           class="w-full bg-bg-tertiary px-3 py-2 pl-8 text-sm focus:outline-none transition-colors"

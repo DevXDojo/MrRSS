@@ -106,7 +106,7 @@ const windowState = useWindowState();
 windowState.init();
 
 // Initialize keyboard shortcuts
-const { shortcuts } = useKeyboardShortcuts({
+const { shortcuts, shortcutsEnabled } = useKeyboardShortcuts({
   onOpenSettings: () => {
     showSettings.value = true;
   },
@@ -165,6 +165,8 @@ onMounted(async () => {
     }
 
     updateCheckEnabled = data.update_check_enabled !== 'false';
+
+    shortcutsEnabled.value = data.shortcuts_enabled !== 'false';
 
     // Load saved shortcuts
     if (data.shortcuts) {
