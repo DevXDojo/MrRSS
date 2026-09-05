@@ -95,7 +95,7 @@ export function useSidebar() {
     let countsSource: Record<number | string, number>;
     switch (store.currentFilter) {
       case 'favorites':
-        countsSource = store.filterCounts.favorites_unread;
+        countsSource = store.filterCounts.favorites;
         break;
       case 'readLater':
         countsSource = store.filterCounts.read_later_unread;
@@ -116,7 +116,11 @@ export function useSidebar() {
       if (feed.category) {
         const unreadCount = countsSource[feed.id] || 0;
         if (unreadCount > 0) {
-          counts[feed.category] = (counts[feed.category] || 0) + unreadCount;
+          const parts = feed.category.split('/');
+          for (let i = 1; i <= parts.length; i++) {
+            const path = parts.slice(0, i).join('/');
+            counts[path] = (counts[path] || 0) + unreadCount;
+          }
         }
       }
     });
@@ -137,7 +141,7 @@ export function useSidebar() {
     // Determine which counts to use based on current filter
     switch (store.currentFilter) {
       case 'favorites':
-        return store.filterCounts.favorites_unread;
+        return store.filterCounts.favorites;
       case 'readLater':
         return store.filterCounts.read_later_unread;
       case 'unread':

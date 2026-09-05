@@ -93,6 +93,8 @@ const isAISearchEnabled = computed(() => settings.value.ai_search_enabled);
 const filteredArticlesFromServer = computed(() => store.filteredArticlesFromServer);
 const isFilterLoading = computed(() => store.isFilterLoading);
 
+const applyUnreadFilter = computed(() => store.showOnlyUnread && store.currentFilter !== 'favorites');
+
 // Computed filtered articles - optimized to avoid excessive recomputation
 const filteredArticles = computed(() => {
   const usesClientSideUnreadFilter = activeFilters.value.length > 0 || isAISearchActive.value;
@@ -100,7 +102,7 @@ const filteredArticles = computed(() => {
   // If AI search is active, use AI search results
   if (isAISearchActive.value) {
     let articles = aiSearchResults.value;
-    if (store.showOnlyUnread) {
+    if (applyUnreadFilter.value) {
       articles = articles.filter(
         (article) =>
           !article.is_read ||
@@ -118,13 +120,13 @@ const filteredArticles = computed(() => {
   // Using a simpler filter that avoids Set.has() calls when possible
   if (
     usesClientSideUnreadFilter &&
-    store.showOnlyUnread &&
+    applyUnreadFilter.value &&
     temporarilyKeepArticles.value.size > 0
   ) {
     articles = articles.filter(
       (article) => !article.is_read || temporarilyKeepArticles.value.has(article.id)
     );
-  } else if (usesClientSideUnreadFilter && store.showOnlyUnread) {
+  } else if (usesClientSideUnreadFilter && applyUnreadFilter.value) {
     // Fast path when no temporarily kept articles
     articles = articles.filter((article) => !article.is_read);
   }
@@ -910,6 +912,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             <PhCheckCircle :size="18" class="sm:w-5 sm:h-5" />
           </button>
           <button
+            v-if="store.currentFilter !== 'favorites'"
             class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
             :class="store.showOnlyUnread ? 'text-accent' : ''"
             :title="

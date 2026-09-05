@@ -303,7 +303,7 @@ func (db *DB) GetArticlesWithUnreadFilter(filter string, feedID int64, category 
 		}
 	}
 
-	if onlyUnread && filter != "unread" {
+	if onlyUnread && filter != "unread" && filter != "favorites" {
 		whereClauses = append(whereClauses, "a.is_read = 0")
 	}
 

@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Show favorite counts for subscriptions and nested categories, and keep read favorites visible regardless of the unread-only preference. (#653)
+
 - Image gallery articles now honor per-feed and global external-browser preferences, including video feeds (#779).
 - Support browser clipboard access with native fallback and report failures from the article toolbar copy-link action. (#427)
 - Return from favorites, read later, or search to an article's feed without stale filters or losing articles outside the first page; add a feed navigation context-menu action. (#561)

@@ -26,6 +26,7 @@ interface Props {
   unreadCount: number;
   currentFeedId: number | null;
   feedUnreadCounts: Record<number, number>;
+  categoryCounts?: Record<string, number>;
   isDragOver?: boolean;
   isEditMode?: boolean;
   dropPreview?: DropPreview;
@@ -46,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
   dropPreview: undefined,
   draggingFeedId: null,
   compactMode: false,
+  categoryCounts: () => ({}),
 });
 
 const emit = defineEmits<{
@@ -312,7 +314,8 @@ function handleCaretClick() {
           :category-path="fullPath"
           :is-open="checkIsOpen(fullPath + '/' + childName)"
           :is-active="false"
-          :unread-count="0"
+          :unread-count="categoryCounts[fullPath + '/' + childName] || 0"
+          :category-counts="categoryCounts"
           :current-feed-id="currentFeedId"
           :feed-unread-counts="feedUnreadCounts"
           :is-drag-over="false"
