@@ -76,6 +76,33 @@ function openArticle() {
 }
 
 describe('Reading interactions', () => {
+  it('prevents selecting model labels while keeping model changes and message selection available', () => {
+    setup({ ai_chat_enabled: 'true', translation_enabled: 'false' });
+    cy.intercept('GET', '/api/ai/profiles', [
+      { id: 1, name: 'Model One', is_default: true },
+      { id: 2, name: 'Model Two', is_default: false },
+    ]);
+    cy.intercept('GET', '/api/ai/chat/sessions*', []);
+    cy.intercept('POST', '/api/ai-chat', (req) => {
+      expect(req.body.profile_id).to.equal(2);
+      req.reply({ response: 'Selectable answer', session_id: 1 });
+    }).as('modelChat');
+    openArticle();
+    cy.get('button[title="AI Chat"]').click();
+    cy.get('.chat-profile-selector .select-trigger')
+      .should('have.css', 'user-select', 'none')
+      .click();
+    cy.contains('.chat-profile-selector .select-option', 'Model Two')
+      .should('have.css', 'user-select', 'none')
+      .click();
+    cy.get('.chat-profile-selector .select-trigger').should('contain', 'Model Two');
+    cy.get('input[placeholder="Type a message..."]').type('Question{enter}');
+    cy.wait('@modelChat');
+    cy.contains('.chat-panel .select-text', 'Selectable answer')
+      .should('be.visible')
+      .and('have.css', 'user-select', 'text');
+  });
+
   it('translates only the requested title or paragraph in manual mode, and retries failures', () => {
     let calls = 0;
     let paragraphCalls = 0;

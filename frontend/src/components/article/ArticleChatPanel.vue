@@ -676,8 +676,8 @@ const currentSessionTitle = computed(() => {
   -ms-user-select: text !important;
 }
 
-.chat-panel :deep(.chat-profile-selector),
-.chat-panel :deep(.chat-profile-selector *) {
+.chat-panel .chat-profile-selector,
+.chat-panel .chat-profile-selector * {
   user-select: none !important;
   -webkit-user-select: none !important;
 }
