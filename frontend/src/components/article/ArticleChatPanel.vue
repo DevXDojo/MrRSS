@@ -233,6 +233,7 @@ async function saveSessionTitle(sessionId: number) {
     }
   } catch (e) {
     console.error('Failed to update session title:', e);
+    window.showToast(t('article.chat.titleSaveFailed'), 'error');
   }
 }
 
@@ -509,7 +510,7 @@ const currentSessionTitle = computed(() => {
                   />
                   <button
                     class="p-1 hover:bg-bg-primary rounded"
-                    @click="saveSessionTitle(session.id)"
+                    @click.stop="saveSessionTitle(session.id)"
                   >
                     <PhPaperPlaneRight :size="14" />
                   </button>
