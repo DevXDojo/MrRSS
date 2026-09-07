@@ -16,7 +16,7 @@ const article = {
   image_url: image,
 };
 
-function setup(overrides: Record<string, string> = {}, feedMode = 'global') {
+function setup(overrides: Record<string, string> = {}, feedMode = 'global', empty = false) {
   const settings: Record<string, string> = {
     language: 'en-US',
     theme: 'light',
@@ -53,8 +53,8 @@ function setup(overrides: Record<string, string> = {}, feedMode = 'global') {
   ]).as('feeds');
   cy.intercept('GET', '/api/tags', []);
   cy.intercept('GET', '/api/saved-filters', []);
-  cy.intercept({ method: 'GET', pathname: '/api/articles' }, [article]).as('articles');
-  cy.intercept('GET', '/api/articles/images*', [article]).as('images');
+  cy.intercept({ method: 'GET', pathname: '/api/articles' }, empty ? [] : [article]).as('articles');
+  cy.intercept('GET', '/api/articles/images*', empty ? [] : [article]).as('images');
   cy.intercept('GET', '/api/articles/extract-images*', { images: [image] });
   cy.intercept('GET', '/api/articles/unread-counts', {});
   cy.intercept('GET', '/api/articles/filter-counts', {});
@@ -76,6 +76,53 @@ function openArticle() {
 }
 
 describe('Reading interactions', () => {
+  for (const [language, unreadTitle, galleryTitle, unreadToggle, emptyText, completedText] of [
+    [
+      'en-US',
+      'Unread',
+      'Multimedia Gallery',
+      'Show only unread articles',
+      'No articles found.',
+      "You're all caught up",
+    ],
+    ['zh-CN', '未读', '多媒体模式', '仅显示未读文章', '未找到文章', '已读完全部文章'],
+  ]) {
+    it(`centers unread completion and distinguishes ordinary empty galleries in ${language}`, () => {
+      setup({ language, translation_enabled: 'false' }, 'global', true);
+      cy.get('[data-testid="article-list-empty"]').should('contain', emptyText);
+      cy.get(`.smart-activity-bar button[title^="${unreadTitle}"]`).click();
+      cy.get('[data-testid="article-list-empty"]')
+        .should('contain', completedText)
+        .then(($empty) => {
+          const element = $empty[0];
+          const viewport = element.parentElement!.getBoundingClientRect();
+          const first = element.firstElementChild!.getBoundingClientRect();
+          const last = element.lastElementChild!.getBoundingClientRect();
+          expect(
+            Math.abs((first.top + last.bottom) / 2 - (viewport.top + viewport.bottom) / 2)
+          ).to.be.lessThan(3);
+        });
+      cy.get(`.smart-activity-bar button[title="${galleryTitle}"]`).click();
+      cy.wait('@images');
+      cy.get('[data-testid="gallery-empty"]')
+        .should('contain', emptyText)
+        .and('not.contain', completedText);
+      cy.get(`button[title="${unreadToggle}"]`).click();
+      cy.wait('@images').its('request.url').should('contain', 'only_unread=true');
+      cy.get('[data-testid="gallery-empty"]')
+        .should('contain', completedText)
+        .then(($empty) => {
+          const element = $empty[0];
+          const viewport = element.parentElement!.getBoundingClientRect();
+          const first = element.firstElementChild!.getBoundingClientRect();
+          const last = element.lastElementChild!.getBoundingClientRect();
+          expect(
+            Math.abs((first.top + last.bottom) / 2 - (viewport.top + viewport.bottom) / 2)
+          ).to.be.lessThan(3);
+        });
+    });
+  }
+
   it('translates only the requested title or paragraph in manual mode, and retries failures', () => {
     let calls = 0;
     let paragraphCalls = 0;
