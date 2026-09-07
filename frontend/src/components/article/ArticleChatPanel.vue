@@ -477,7 +477,7 @@ const currentSessionTitle = computed(() => {
         <Transition name="slide-in">
           <div
             v-if="showSessions"
-            class="absolute top-12 left-0 right-0 bottom-12 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
+            class="absolute top-12 left-0 right-0 bottom-12 z-10 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
           >
             <div class="p-2 space-y-1">
               <div
@@ -492,17 +492,17 @@ const currentSessionTitle = computed(() => {
                 @click.stop="selectSession(session.id)"
               >
                 <PhChatCircleText :size="16" class="text-text-secondary" />
-                <div v-if="editingSessionId === session.id" class="flex-1 flex items-center gap-1">
+                <div v-if="editingSessionId === session.id" class="flex-1 min-w-0 flex items-center gap-1">
                   <input
                     v-model="editingSessionTitle"
-                    class="flex-1 px-2 py-1 text-sm bg-bg-primary border border-border rounded focus:outline-none focus:border-accent"
+                    class="flex-1 min-w-0 px-2 py-1 text-sm bg-bg-primary border border-border rounded focus:outline-none focus:border-accent"
                     @keyup.enter="saveSessionTitle(session.id)"
                     @keyup.esc="cancelEditSession"
                     @click.stop
                   />
                   <button
                     class="p-1 hover:bg-bg-primary rounded"
-                    @click="saveSessionTitle(session.id)"
+                    @click.stop="saveSessionTitle(session.id)"
                   >
                     <PhPaperPlaneRight :size="14" />
                   </button>
@@ -534,7 +534,11 @@ const currentSessionTitle = computed(() => {
         </Transition>
 
         <!-- Messages -->
-        <div ref="chatContainer" class="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth">
+        <div
+          ref="chatContainer"
+          class="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth"
+          :class="{ invisible: showSessions }"
+        >
           <div
             v-if="messages.length === 0"
             class="space-y-4 py-2 text-sm"
