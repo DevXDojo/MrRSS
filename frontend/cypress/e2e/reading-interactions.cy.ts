@@ -16,7 +16,11 @@ const article = {
   image_url: image,
 };
 
-function setup(overrides: Record<string, string> = {}, feedMode = 'global') {
+function setup(
+  overrides: Record<string, string> = {},
+  feedMode = 'global',
+  savedState: Record<string, string> = {}
+) {
   const settings: Record<string, string> = {
     language: 'en-US',
     theme: 'light',
@@ -65,7 +69,11 @@ function setup(overrides: Record<string, string> = {}, feedMode = 'global') {
     cached: true,
   }).as('content');
   cy.intercept('POST', '/api/browser/open', { statusCode: 200, body: {} }).as('openBrowser');
-  cy.visit('/');
+  cy.visit('/', {
+    onBeforeLoad(win) {
+      Object.entries(savedState).forEach(([key, value]) => win.localStorage.setItem(key, value));
+    },
+  });
   cy.wait(['@feeds', '@articles']);
 }
 
@@ -187,5 +195,102 @@ describe('Reading interactions', () => {
     cy.contains('English title').click();
     cy.get('[role="dialog"][aria-modal="true"]').should('be.visible');
     cy.get('@openBrowser.all').should('have.length', 0);
+  });
+
+  it('remembers the measured chat size after dragging, closing, reopening, and reloading', () => {
+    cy.viewport(1280, 900);
+    setup({ ai_chat_enabled: 'true' }, 'global', { FeedListExpanded: 'false' });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('GET', '/api/ai/chat/sessions*', []);
+    openArticle();
+    cy.get('.js-article-chat-button').click();
+    cy.get('.chat-panel')
+      .should(($panel) => {
+        const rect = $panel[0].getBoundingClientRect();
+        expect(rect.width).to.equal(500);
+        expect(rect.height).to.equal(600);
+      })
+      .then(($panel) => {
+        const rect = $panel[0].getBoundingClientRect();
+        cy.get('.chat-panel .cursor-nw-resize').trigger('mousedown', {
+          clientX: rect.left + 2,
+          clientY: rect.top + 2,
+          button: 0,
+          force: true,
+        });
+        cy.document().trigger('mousemove', { clientX: rect.left - 118, clientY: rect.top - 98 });
+      });
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(620);
+      expect(rect.height).to.equal(700);
+    });
+    cy.window().then((win) => expect(win.localStorage.getItem('mrrssChatPanelSize')).to.be.null);
+    cy.document().trigger('mouseup');
+    cy.window().then((win) => {
+      expect(JSON.parse(win.localStorage.getItem('mrrssChatPanelSize')!)).to.deep.equal({
+        width: 620,
+        height: 700,
+      });
+    });
+    cy.get('.chat-panel button[title="Close"]').click();
+    cy.get('.chat-panel').should('not.exist');
+    cy.get('.js-article-chat-button').click();
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(620);
+      expect(rect.height).to.equal(700);
+    });
+    cy.reload();
+    openArticle();
+    cy.get('.js-article-chat-button').click();
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(620);
+      expect(rect.height).to.equal(700);
+    });
+  });
+
+  it('temporarily fits a narrow viewport without replacing the preferred chat size', () => {
+    cy.viewport(1280, 900);
+    const preferred = { width: 680, height: 720 };
+    setup({ ai_chat_enabled: 'true' }, 'global', {
+      FeedListExpanded: 'false',
+      mrrssChatPanelSize: JSON.stringify(preferred),
+    });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('GET', '/api/ai/chat/sessions*', []);
+    openArticle();
+    cy.get('.js-article-chat-button').click();
+    cy.viewport(390, 500);
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(358);
+      expect(rect.height).to.equal(444);
+      expect(rect.left).to.be.at.least(0);
+      expect(rect.top).to.be.at.least(0);
+      expect(rect.right).to.be.at.most(390);
+      expect(rect.bottom).to.be.at.most(500);
+    });
+    cy.get('.chat-panel button[title="Close"]').click();
+    cy.get('.chat-panel').should('not.exist');
+    cy.get('.js-article-chat-button').click();
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(358);
+      expect(rect.height).to.equal(444);
+    });
+    cy.window().then((win) => {
+      expect(JSON.parse(win.localStorage.getItem('mrrssChatPanelSize')!)).to.deep.equal(preferred);
+    });
+    cy.viewport(1280, 900);
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(preferred.width);
+      expect(rect.height).to.equal(preferred.height);
+    });
+    cy.window().then((win) => {
+      expect(JSON.parse(win.localStorage.getItem('mrrssChatPanelSize')!)).to.deep.equal(preferred);
+    });
   });
 });
