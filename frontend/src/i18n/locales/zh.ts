@@ -62,6 +62,9 @@ const zh: TranslationMessages = {
       volume: '音量',
     },
     chat: {
+      linkedArticle: '对话关联文章',
+      articleMismatch: '此对话关联的是“{title}”。请切回该文章，或为当前文章新建对话。',
+      newChatForCurrentArticle: '为当前文章新建对话',
       aiChat: 'AI 聊天',
       aiChatError: '无法获取 AI 响应，请重试。',
       historySaveFailed: '回答已生成，但未能保存到历史记录。',

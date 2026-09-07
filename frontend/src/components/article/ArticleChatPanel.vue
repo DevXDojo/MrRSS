@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-v-html */
-import { ref, nextTick, computed, onMounted } from 'vue';
+import { ref, nextTick, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhChatCircleText,
@@ -69,6 +69,16 @@ const showSessions = ref(false);
 const editingSessionId = ref<number | null>(null);
 const editingSessionTitle = ref('');
 const selectedProfileId = ref(props.settings.ai_chat_profile_id || '');
+const boundArticle = ref<Article>({ ...props.article });
+const boundArticleContent = ref(props.articleContent);
+const articleMismatch = computed(() => props.article.id !== boundArticle.value.id);
+
+watch(
+  () => props.articleContent,
+  (content) => {
+    if (!articleMismatch.value) boundArticleContent.value = content;
+  }
+);
 
 const profileOptions = computed(() =>
   profiles.value.map((profile) => ({ value: String(profile.id), label: profile.name }))
@@ -122,9 +132,13 @@ onMounted(async () => {
 
 async function loadSessions() {
   try {
-    const response = await fetch(`/api/ai/chat/sessions?article_id=${props.article.id}`);
+    const articleId = boundArticle.value.id;
+    const response = await fetch(`/api/ai/chat/sessions?article_id=${articleId}`);
     if (response.ok) {
-      sessions.value = await response.json();
+      const loadedSessions: ChatSession[] = await response.json();
+      if (boundArticle.value.id === articleId) {
+        sessions.value = loadedSessions.filter((session) => session.article_id === articleId);
+      }
     }
   } catch (e) {
     console.error('Failed to load sessions:', e);
@@ -133,10 +147,13 @@ async function loadSessions() {
 
 async function selectSession(sessionId: number, force = false) {
   if (isLoading.value && !force) return;
+  const session = sessions.value.find((item) => item.id === sessionId);
+  if (!session || session.article_id !== boundArticle.value.id) return;
   try {
     const response = await fetch(`/api/ai/chat/messages?session_id=${sessionId}`);
     if (response.ok) {
       const loadedMessages = await response.json();
+      if (session.article_id !== boundArticle.value.id) return;
       messages.value = loadedMessages;
       currentSessionId.value = sessionId;
       // Set isFirstMessage based on whether the session has any messages
@@ -153,26 +170,44 @@ async function selectSession(sessionId: number, force = false) {
 
 async function createNewSession() {
   if (isLoading.value) return;
+  const article = { ...props.article };
+  const articleContent = props.articleContent;
+  isLoading.value = true;
   try {
     const response = await fetch('/api/ai/chat/session/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        article_id: props.article.id,
+        article_id: article.id,
         title: t('article.chat.newChat'),
       }),
     });
-
-    if (response.ok) {
-      const newSession = await response.json();
-      sessions.value.unshift(newSession);
-      // Select the new session and reset for first message
-      await selectSession(newSession.id);
-      // Ensure isFirstMessage is true for new sessions
-      isFirstMessage.value = true;
+    if (!response.ok) throw new Error(`Failed to create session: ${response.status}`);
+    const newSession: ChatSession = await response.json();
+    if (
+      !Number.isInteger(newSession.id) ||
+      newSession.id <= 0 ||
+      newSession.article_id !== article.id
+    ) {
+      throw new Error('Invalid chat session');
     }
+    if (boundArticle.value.id !== article.id) sessions.value = [];
+    boundArticle.value = article;
+    boundArticleContent.value =
+      props.article.id === article.id ? props.articleContent : articleContent;
+    currentSessionId.value = newSession.id;
+    messages.value = [];
+    inputMessage.value = '';
+    isFirstMessage.value = true;
+    showSessions.value = false;
+    cancelEditSession();
+    sessions.value.unshift(newSession);
+    await selectSession(newSession.id, true);
   } catch (e) {
     console.error('Failed to create session:', e);
+    window.showToast(t('common.errors.createFailed'), 'error');
+  } finally {
+    isLoading.value = false;
   }
 }
 
@@ -279,7 +314,7 @@ function stopResize() {
 
 async function sendMessage() {
   const message = inputMessage.value.trim();
-  if (!message || isLoading.value) return;
+  if (!message || isLoading.value || articleMismatch.value) return;
 
   messages.value.push({
     id: 0,
@@ -296,15 +331,15 @@ async function sendMessage() {
   try {
     // Prepare article content for AI context
     // Use up to 50000 characters for better context while staying reasonable
-    const articleContent = props.articleContent ? props.articleContent.slice(0, 50000) : '';
+    const articleContent = boundArticleContent.value.slice(0, 50000);
 
     const requestBody: any = {
       session_id: currentSessionId.value,
-      article_id: props.article.id,
+      article_id: boundArticle.value.id,
       messages: messages.value.slice(-10),
       is_first_message: isFirstMessage.value,
-      article_title: props.article.title,
-      article_url: props.article.url,
+      article_title: boundArticle.value.title,
+      article_url: boundArticle.value.url,
       // Include article content to ensure AI has context
       article_content: articleContent,
       profile_id: Number(selectedProfileId.value) || undefined,
@@ -364,6 +399,7 @@ async function sendMessage() {
 }
 
 async function sendSuggestedPrompt(prompt: string) {
+  if (isLoading.value || articleMismatch.value) return;
   inputMessage.value = prompt;
   await sendMessage();
 }
@@ -408,7 +444,7 @@ const currentSessionTitle = computed(() => {
       <div
         v-if="isOpen"
         ref="panelElement"
-        class="chat-panel fixed bottom-10 right-4 md:bottom-14 md:right-6 w-[500px] h-[600px] bg-bg-primary text-text-primary border border-border rounded-xl shadow-2xl flex flex-col z-50"
+        class="chat-panel fixed bottom-10 right-4 md:bottom-14 md:right-6 w-[500px] h-[600px] bg-bg-primary text-text-primary border border-border rounded-xl shadow-2xl grid grid-rows-[auto_minmax(0,auto)_minmax(0,1fr)_auto] z-50"
         :class="{ 'select-none': isResizing }"
       >
         <!-- Header -->
@@ -473,11 +509,39 @@ const currentSessionTitle = computed(() => {
           </div>
         </div>
 
+        <div
+          class="min-h-0 max-h-40 overflow-y-auto border-b border-border px-3 py-2"
+          data-testid="chat-context-article"
+          :data-context-article-id="boundArticle.id"
+        >
+          <p class="text-xs text-text-secondary">{{ t('article.chat.linkedArticle') }}</p>
+          <p class="line-clamp-2 text-sm font-medium" :title="boundArticle.title">
+            {{ boundArticle.title }}
+          </p>
+          <p class="truncate text-xs text-text-secondary">
+            {{ boundArticle.feed_title || boundArticle.feed_name || boundArticle.url }}
+          </p>
+          <div v-if="articleMismatch" class="mt-2 space-y-2" role="status">
+            <p class="text-xs text-text-secondary">
+              {{ t('article.chat.articleMismatch', { title: boundArticle.title }) }}
+            </p>
+            <button
+              type="button"
+              class="text-xs text-accent hover:underline disabled:opacity-50"
+              data-testid="chat-new-context"
+              :disabled="isLoading"
+              @click.stop="createNewSession"
+            >
+              {{ t('article.chat.newChatForCurrentArticle') }}
+            </button>
+          </div>
+        </div>
+
         <!-- Session List Sidebar -->
         <Transition name="slide-in">
           <div
             v-if="showSessions"
-            class="absolute top-12 left-0 right-0 bottom-12 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
+            class="col-start-1 row-start-3 z-10 min-h-0 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
           >
             <div class="p-2 space-y-1">
               <div
@@ -534,7 +598,10 @@ const currentSessionTitle = computed(() => {
         </Transition>
 
         <!-- Messages -->
-        <div ref="chatContainer" class="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth">
+        <div
+          ref="chatContainer"
+          class="col-start-1 row-start-3 min-h-0 overflow-y-auto p-3 space-y-3 scroll-smooth"
+        >
           <div
             v-if="messages.length === 0"
             class="space-y-4 py-2 text-sm"
@@ -551,6 +618,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || articleMismatch"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -568,6 +636,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || articleMismatch"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -585,6 +654,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || articleMismatch"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -643,18 +713,18 @@ const currentSessionTitle = computed(() => {
         </div>
 
         <!-- Input -->
-        <div class="p-3 border-t border-border bg-bg-secondary rounded-b-xl">
+        <div class="row-start-4 p-3 border-t border-border bg-bg-secondary rounded-b-xl">
           <div class="flex gap-2">
             <input
               v-model="inputMessage"
               type="text"
               :placeholder="t('article.chat.aiChatInputPlaceholder')"
               class="flex-1 px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-sm focus:outline-none focus:border-accent"
-              :disabled="isLoading"
+              :disabled="isLoading || articleMismatch"
               @keydown="handleKeydown"
             />
             <button
-              :disabled="isLoading || !inputMessage.trim()"
+              :disabled="isLoading || articleMismatch || !inputMessage.trim()"
               class="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               @click="sendMessage"
             >
