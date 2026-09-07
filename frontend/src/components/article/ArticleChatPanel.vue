@@ -258,7 +258,7 @@ function resize(e: MouseEvent) {
   const deltaX = startX.value - e.clientX;
   const deltaY = startY.value - e.clientY;
 
-  const newWidth = Math.max(300, startWidth.value + deltaX);
+  const newWidth = Math.max(420, startWidth.value + deltaX);
   const newHeight = Math.max(200, startHeight.value + deltaY);
 
   const panel = panelElement.value;
@@ -266,8 +266,6 @@ function resize(e: MouseEvent) {
     panel.classList.remove('w-[500px]', 'h-[600px]', 'w-[calc(100%-2rem)]', 'md:w-96');
     panel.style.width = `${newWidth}px`;
     panel.style.height = `${newHeight}px`;
-    panel.style.maxWidth = 'none';
-    panel.style.maxHeight = 'none';
   }
 }
 
@@ -415,20 +413,20 @@ const currentSessionTitle = computed(() => {
         <div
           class="flex items-center justify-between p-3 border-b border-border bg-bg-secondary rounded-t-xl relative"
         >
-          <div class="flex items-center gap-2 flex-1">
-            <PhChatCircleText :size="20" class="text-accent" />
+          <div class="flex min-w-0 items-center gap-2 flex-1">
+            <PhChatCircleText :size="20" class="shrink-0 text-accent" />
             <button
-              class="flex items-center gap-1 text-sm font-medium hover:text-accent transition-colors"
+              class="flex min-w-0 items-center gap-1 text-sm font-medium hover:text-accent transition-colors"
               :disabled="isLoading"
               :title="t('article.chat.switchSession')"
               data-testid="chat-session-switcher"
               @click.stop="showSessions = !showSessions"
             >
-              <span>{{ currentSessionTitle }}</span>
-              <PhClockCounterClockwise :size="16" />
+              <span class="truncate">{{ currentSessionTitle }}</span>
+              <PhClockCounterClockwise :size="16" class="shrink-0" />
             </button>
           </div>
-          <div class="flex items-center gap-1">
+          <div class="flex shrink-0 items-center gap-1">
             <BaseSelect
               v-if="profileOptions.length > 0"
               v-model="selectedProfileId"
@@ -669,10 +667,21 @@ const currentSessionTitle = computed(() => {
 
 <style>
 .chat-panel {
+  min-width: min(420px, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 3.5rem);
   user-select: text !important;
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
+}
+
+@media (min-width: 768px) {
+  .chat-panel {
+    min-width: min(420px, calc(100vw - 2.5rem));
+    max-width: calc(100vw - 2.5rem);
+    max-height: calc(100vh - 4.5rem);
+  }
 }
 
 .chat-panel.select-none {
