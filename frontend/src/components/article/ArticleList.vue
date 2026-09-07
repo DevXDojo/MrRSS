@@ -1151,7 +1151,12 @@ async function markAllVisibleAsRead(): Promise<void> {
               </div>
             </Transition>
           </div>
-          <button class="md:hidden text-xl sm:text-2xl p-1" @click="emit('toggleSidebar')">
+          <button
+            class="md:hidden text-xl sm:text-2xl p-1"
+            :title="t('shortcut.toggle.sidebar')"
+            :aria-expanded="isSidebarOpen"
+            @click="emit('toggleSidebar')"
+          >
             <PhList :size="18" class="sm:w-5 sm:h-5" />
           </button>
         </div>
