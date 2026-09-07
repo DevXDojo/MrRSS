@@ -252,7 +252,9 @@ describe('App', () => {
 describe('Chat generation cancellation', () => {
   function deferred<T>() {
     let resolve!: (value: T) => void;
-    const promise = new Promise<T>((done) => { resolve = done; });
+    const promise = new Promise<T>((done) => {
+      resolve = done;
+    });
     return { promise, resolve };
   }
 
@@ -270,7 +272,7 @@ describe('Chat generation cancellation', () => {
     });
   }
 
-  it('creates a session once and never starts a stopped first request', async () => {
+  it.each([false, true])('reuses stopped creation (%s)', async (resolvedBeforeRetry) => {
     const creation = deferred<Response>();
     const generated = deferred<Response>();
     const toast = vi.fn();
@@ -279,7 +281,9 @@ describe('Chat generation cancellation', () => {
     const fetchMock = vi.fn((url: string, options?: RequestInit) => {
       if (url === '/api/ai/chat/session/create') return creation.promise;
       if (url === '/api/ai-chat') return generated.promise;
-      return Promise.resolve(new Response(JSON.stringify(url === '/api/ai-chat/cancel' ? { success: true } : [])));
+      return Promise.resolve(
+        new Response(JSON.stringify(url === '/api/ai-chat/cancel' ? { success: true } : []))
+      );
     });
     vi.stubGlobal('fetch', fetchMock);
     const wrapper = mountChat();
@@ -289,17 +293,30 @@ describe('Chat generation cancellation', () => {
       await wrapper.get('[data-testid="chat-send-message"]').trigger('click');
       await flushPromises();
       await wrapper.get('[data-testid="chat-stop-generation"]').trigger('click');
+      expect((wrapper.get('input').element as HTMLInputElement).value).toBe('first');
+      expect(wrapper.text()).not.toContain('first');
+      if (resolvedBeforeRetry) {
+        creation.resolve(new Response(JSON.stringify({ id: 55, article_id: 12, title: 'first' })));
+        await flushPromises();
+        expect((wrapper.get('input').element as HTMLInputElement).value).toBe('first');
+        expect(fetchMock.mock.calls.filter(([url]) => url === '/api/ai-chat')).toHaveLength(0);
+      }
       await wrapper.get('input').setValue('second');
       await wrapper.get('[data-testid="chat-send-message"]').trigger('click');
       await flushPromises();
-      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/ai/chat/session/create')).toHaveLength(1);
-      creation.resolve(new Response(JSON.stringify({ id: 55, article_id: 12, title: 'first' })));
+      expect(
+        fetchMock.mock.calls.filter(([url]) => url === '/api/ai/chat/session/create')
+      ).toHaveLength(1);
+      if (!resolvedBeforeRetry) {
+        creation.resolve(new Response(JSON.stringify({ id: 55, article_id: 12, title: 'first' })));
+      }
       await flushPromises();
       const sends = fetchMock.mock.calls.filter(([url]) => url === '/api/ai-chat');
       expect(sends).toHaveLength(1);
       const request = JSON.parse(sends[0][1]?.body as string);
       expect(request.session_id).toBe(55);
       expect(request.request_id).toBeTruthy();
+      expect(request.messages).toHaveLength(1);
       expect(request.messages.at(-1).content).toBe('second');
       await wrapper.get('[data-testid="chat-stop-generation"]').trigger('click');
       await flushPromises();
@@ -315,14 +332,79 @@ describe('Chat generation cancellation', () => {
     }
   });
 
-  it.each(['close', 'unmount'])('isolates late responses and stops generation on %s', async (action) => {
+  it('preserves the first question when creating a session fails and retries it once', async () => {
+    let createCount = 0;
+    const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (url === '/api/ai/chat/session/create') {
+        createCount++;
+        return Promise.resolve(
+          createCount === 1
+            ? new Response('', { status: 503 })
+            : new Response(JSON.stringify({ id: 55, article_id: 12, title: 'retry me' }))
+        );
+      }
+      if (url === '/api/ai-chat') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ response: 'answer', session_id: 55 }))
+        );
+      }
+      return Promise.resolve(new Response('[]'));
+    });
+    const previousToast = window.showToast;
+    const toast = vi.fn();
+    window.showToast = toast;
+    vi.stubGlobal('fetch', fetchMock);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const wrapper = mountChat();
+    try {
+      await flushPromises();
+      await wrapper.get('input').setValue('retry me');
+      await wrapper.get('[data-testid="chat-send-message"]').trigger('click');
+      await flushPromises();
+      expect((wrapper.get('input').element as HTMLInputElement).value).toBe('retry me');
+      expect(wrapper.text()).not.toContain('retry me');
+      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/ai-chat')).toHaveLength(0);
+      expect(toast).toHaveBeenCalledTimes(1);
+      await wrapper.get('[data-testid="chat-send-message"]').trigger('click');
+      await flushPromises();
+      const sends = fetchMock.mock.calls.filter(([url]) => url === '/api/ai-chat');
+      expect(createCount).toBe(2);
+      expect(sends).toHaveLength(1);
+      const request = JSON.parse(sends[0][1]?.body as string);
+      expect(request.messages).toHaveLength(1);
+      expect(request.messages[0].content).toBe('retry me');
+      expect(request.is_first_message).toBe(true);
+      expect((wrapper.get('input').element as HTMLInputElement).value).toBe('');
+    } finally {
+      wrapper.unmount();
+      errorSpy.mockRestore();
+      window.showToast = previousToast;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it.each([
+    { action: 'close', hasAssistant: false },
+    { action: 'unmount', hasAssistant: false },
+    { action: 'close', hasAssistant: true },
+  ])('isolates retries: $action, assistant $hasAssistant', async ({ action, hasAssistant }) => {
     const first = deferred<Response>();
     const second = deferred<Response>();
     let sendCount = 0;
     const fetchMock = vi.fn((url: string, options?: RequestInit) => {
-      if (url === '/api/ai/chat/session/create') return Promise.resolve(new Response(JSON.stringify({ id: 55, article_id: 12, title: 'first' })));
+      if (url === '/api/ai/chat/session/create')
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: 55, article_id: 12, title: 'first' }))
+        );
       if (url === '/api/ai-chat') return ++sendCount === 1 ? first.promise : second.promise;
-      return Promise.resolve(new Response(JSON.stringify(url === '/api/ai-chat/cancel' ? { success: true } : [])));
+      if (url.startsWith('/api/ai/chat/messages?')) {
+        const history = [{ role: 'user', content: 'stored first question' }];
+        if (hasAssistant) history.push({ role: 'assistant', content: 'stored first answer' });
+        return Promise.resolve(new Response(JSON.stringify(history)));
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(url === '/api/ai-chat/cancel' ? { success: true } : []))
+      );
     });
     const toast = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -352,8 +434,13 @@ describe('Chat generation cancellation', () => {
       await flushPromises();
       const sends = fetchMock.mock.calls.filter(([url]) => url === '/api/ai-chat');
       const cancels = fetchMock.mock.calls.filter(([url]) => url === '/api/ai-chat/cancel');
+      const nextRequest = JSON.parse(sends[1][1]?.body as string);
+      expect(nextRequest.is_first_message).toBe(!hasAssistant);
+      expect(nextRequest.article_content).toBe('Article content');
       expect(cancels).toHaveLength(2);
-      expect(JSON.parse(cancels[0][1]?.body as string).request_id).not.toBe(JSON.parse(cancels[1][1]?.body as string).request_id);
+      expect(JSON.parse(cancels[0][1]?.body as string).request_id).not.toBe(
+        JSON.parse(cancels[1][1]?.body as string).request_id
+      );
       expect(sends[1][1]?.signal?.aborted).toBe(true);
       second.resolve(new Response(JSON.stringify({ response: 'closed result', session_id: 55 })));
       await flushPromises();

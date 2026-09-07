@@ -133,6 +133,7 @@ watch(
   async () => {
     void stopGeneration();
     const version = ++viewVersion;
+    creatingSession = null;
     currentSessionId.value = null;
     messages.value = [];
     sessions.value = [];
@@ -165,8 +166,9 @@ async function ensureSession(articleId: number, title: string): Promise<ChatSess
   const pending = creatingSession;
   try {
     return await pending.promise;
-  } finally {
+  } catch (error) {
     if (creatingSession === pending) creatingSession = null;
+    throw error;
   }
 }
 
@@ -246,9 +248,11 @@ async function selectSession(sessionId: number, force = false, isCurrentView = (
       if (!isCurrentView()) return;
       messages.value = loadedMessages;
       currentSessionId.value = sessionId;
-      // Set isFirstMessage based on whether the session has any messages
-      // New sessions (no messages) should have isFirstMessage = true
-      isFirstMessage.value = loadedMessages.length === 0;
+      // A cancelled first attempt may have saved only the user question.
+      // Keep article context until an assistant response has been saved.
+      isFirstMessage.value = !loadedMessages.some(
+        (message: ChatMessage) => message.role === 'assistant'
+      );
       showSessions.value = false;
       await nextTick();
       scrollToBottom();
@@ -260,11 +264,13 @@ async function selectSession(sessionId: number, force = false, isCurrentView = (
 
 async function createNewSession() {
   if (isLoading.value) return;
+  creatingSession = null;
   const version = ++viewVersion;
   const isCurrentView = () => !disposed && version === viewVersion && !activeRequest;
   try {
     const newSession = await ensureSession(props.article.id, t('article.chat.newChat'));
     if (!isCurrentView()) return;
+    creatingSession = null;
     sessions.value.unshift(newSession);
     await selectSession(newSession.id, false, isCurrentView);
   } catch (error) {
@@ -387,16 +393,7 @@ async function sendMessage() {
   ++viewVersion;
   const article = props.article;
   const articleContent = props.articleContent?.slice(0, 50000) || '';
-  messages.value.push({
-    id: 0,
-    role: 'user',
-    content: message,
-    created_at: new Date().toISOString(),
-  });
-  inputMessage.value = '';
   isLoading.value = true;
-  await nextTick();
-  scrollToBottom();
 
   try {
     // A short, single-flight create gives Stop a stable session ID before the
@@ -405,10 +402,24 @@ async function sendMessage() {
       const session = await ensureSession(run.articleId, Array.from(message).slice(0, 60).join(''));
       run.sessionId = session.id;
       if (!isCurrentRequest(run)) return;
+      // Consume the cached ID only when a live request takes ownership. A
+      // stopped create can finish before the user retries without duplicating it.
+      creatingSession = null;
       currentSessionId.value = session.id;
       sessions.value.unshift(session);
     }
     if (!isCurrentRequest(run)) return;
+    // Preserve the input if session creation fails or is stopped before sending.
+    messages.value.push({
+      id: 0,
+      role: 'user',
+      content: message,
+      created_at: new Date().toISOString(),
+    });
+    inputMessage.value = '';
+    await nextTick();
+    if (!isCurrentRequest(run)) return;
+    scrollToBottom();
     const response = await fetch('/api/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
