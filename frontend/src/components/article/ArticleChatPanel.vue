@@ -444,7 +444,7 @@ const currentSessionTitle = computed(() => {
       <div
         v-if="isOpen"
         ref="panelElement"
-        class="chat-panel fixed bottom-10 right-4 md:bottom-14 md:right-6 w-[500px] h-[600px] bg-bg-primary text-text-primary border border-border rounded-xl shadow-2xl grid grid-rows-[auto_minmax(0,auto)_minmax(0,1fr)_auto] z-50"
+        class="chat-panel fixed bottom-10 right-4 md:bottom-14 md:right-6 w-[500px] h-[600px] bg-bg-primary text-text-primary border border-border rounded-xl shadow-2xl grid grid-cols-1 grid-rows-[auto_minmax(0,auto)_minmax(0,1fr)_auto] z-50"
         :class="{ 'select-none': isResizing }"
       >
         <!-- Header -->

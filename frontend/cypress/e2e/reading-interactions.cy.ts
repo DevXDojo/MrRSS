@@ -78,6 +78,11 @@ function openArticle() {
 describe('Reading interactions', () => {
   it('shows the bound article and requires an explicit new chat before sending from another reader article', () => {
     let sends = 0;
+    const firstArticle = {
+      ...article,
+      title: 'LongUnbrokenArticleTitle'.repeat(80),
+      feed_title: 'LongUnbrokenFeedSource'.repeat(80),
+    };
     const secondArticle = {
       ...article,
       id: 2,
@@ -87,7 +92,7 @@ describe('Reading interactions', () => {
     };
     const sessions = [{ id: 11, article_id: 1, title: 'First article session', message_count: 1 }];
     setup({ ai_chat_enabled: 'true', translation_enabled: 'false' });
-    cy.intercept({ method: 'GET', pathname: '/api/articles' }, [article, secondArticle]).as(
+    cy.intercept({ method: 'GET', pathname: '/api/articles' }, [firstArticle, secondArticle]).as(
       'contextArticles'
     );
     cy.intercept('GET', '/api/articles/content*', (req) => {
@@ -134,8 +139,8 @@ describe('Reading interactions', () => {
     cy.get('button[title="AI Chat"]').click();
     cy.wait('@contextMessages');
     cy.get('[data-testid="chat-context-article"]')
-      .should('contain', article.title)
-      .and('contain', article.feed_title);
+      .should('contain', firstArticle.title)
+      .and('contain', firstArticle.feed_title);
     cy.get('[data-testid="chat-session-switcher"]').click();
     cy.get('[data-testid="chat-context-article"]').should('be.visible');
     cy.get('[data-session-id="11"]').should('be.visible').click();
@@ -153,6 +158,21 @@ describe('Reading interactions', () => {
       .should('be.disabled')
       .trigger('keydown', { key: 'Enter', force: true });
     cy.then(() => expect(sends).to.equal(0));
+    cy.get('.chat-panel').invoke('css', 'width', '420px');
+    cy.get('.chat-panel').should(($panel) => {
+      const panel = $panel[0];
+      const panelRect = panel.getBoundingClientRect();
+      const card = panel.querySelector('[data-testid="chat-context-article"]')!;
+      const input = panel.querySelector('input[placeholder="Type a message..."]')!;
+      const inputRow = input.parentElement!.parentElement!;
+      expect(panelRect.width).to.equal(420);
+      for (const element of [card, inputRow, input]) {
+        const rect = element.getBoundingClientRect();
+        expect(rect.width).to.be.greaterThan(0);
+        expect(rect.left).to.be.at.least(panelRect.left);
+        expect(rect.right).to.be.at.most(panelRect.right);
+      }
+    });
     for (const height of [200, 174]) {
       cy.get('.chat-panel').invoke('css', 'height', `${height}px`);
       cy.get('input[placeholder="Type a message..."]').then(($input) => {
