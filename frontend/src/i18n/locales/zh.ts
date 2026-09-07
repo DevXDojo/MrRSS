@@ -627,7 +627,7 @@ const zh: TranslationMessages = {
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI 功能',
       aiModel: '模型名称',
-      aiModelDesc: '用于翻译和摘要的 AI 模型',
+      aiModelDesc: '用于聊天、翻译和摘要的 AI 模型',
       aiModelPlaceholder: 'gpt-4o-mini',
       // AI 配置管理
       aiProfiles: 'AI 配置',
