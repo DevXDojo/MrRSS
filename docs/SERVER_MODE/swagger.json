@@ -2189,9 +2189,9 @@
                 }
             }
         },
-        "/chat": {
+        "/ai-chat": {
             "post": {
-                "description": "Send messages to AI for discussing article content (requires ai_chat_enabled setting)",
+                "description": "Send messages to AI for discussing article content (requires ai_chat_enabled setting). For cancellable requests, create a session first and send its session_id with a unique request_id.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2238,8 +2238,63 @@
                             }
                         }
                     },
+                    "408": {
+                        "description": "Chat generation stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ai-chat/cancel": {
+            "post": {
+                "description": "Cancel one request by session_id and request_id. Repeated, finished, and early cancellation all return success.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Stop AI chat generation",
+                "parameters": [
+                    {
+                        "description": "Request to cancel",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/chat.CancelChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2525,6 +2580,58 @@
                 }
             }
         },
+        "/ai/chat/session/create": {
+            "post": {
+                "description": "Create a new chat session for an article",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Create chat session",
+                "parameters": [
+                    {
+                        "description": "Session creation request (article_id, title)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/chat.CreateSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Created chat session",
+                        "schema": {
+                            "$ref": "#/definitions/database.ChatSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (missing article_id)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/chat/sessions": {
             "get": {
                 "description": "Get all chat sessions for a specific article",
@@ -2560,56 +2667,6 @@
                     },
                     "400": {
                         "description": "Bad request (missing or invalid article_id)",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Create a new chat session for an article",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "chat"
-                ],
-                "summary": "Create chat session",
-                "parameters": [
-                    {
-                        "description": "Session creation request (article_id, title)",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/chat.CreateSessionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Created chat session",
-                        "schema": {
-                            "$ref": "#/definitions/database.ChatSession"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request (missing article_id)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5751,6 +5808,17 @@
                 }
             }
         },
+        "chat.CancelChatRequest": {
+            "type": "object",
+            "properties": {
+                "request_id": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "chat.ChatMessage": {
             "type": "object",
             "properties": {
@@ -5769,6 +5837,9 @@
                 "article_content": {
                     "type": "string"
                 },
+                "article_id": {
+                    "type": "integer"
+                },
                 "article_title": {
                     "type": "string"
                 },
@@ -5783,17 +5854,36 @@
                     "items": {
                         "$ref": "#/definitions/chat.ChatMessage"
                     }
+                },
+                "profile_id": {
+                    "type": "integer"
+                },
+                "request_id": {
+                    "description": "Requires session_id when provided",
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "integer"
                 }
             }
         },
         "chat.ChatResponse": {
             "type": "object",
             "properties": {
+                "history_saved": {
+                    "type": "boolean"
+                },
                 "html": {
                     "description": "Rendered HTML version of markdown response",
                     "type": "string"
                 },
                 "response": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "integer"
+                },
+                "thinking": {
                     "type": "string"
                 }
             }

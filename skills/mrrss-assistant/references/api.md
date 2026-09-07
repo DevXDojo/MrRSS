@@ -15,9 +15,20 @@ python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE
 - Use `GET` endpoints freely for inspection.
 - Ask before `DELETE`, bulk updates, cache clearing, or settings changes.
 - Send JSON request bodies with `Content-Type: application/json` unless an endpoint describes file upload.
+- For cancellable chat, first create a session with `POST /api/ai/chat/session/create` and use the returned `id` as `session_id` in `POST /api/ai-chat`, together with a fresh `request_id` (at most 128 characters).
+- Stop that generation with `POST /api/ai-chat/cancel` and the same `session_id` and `request_id`. Cancellation is idempotent, including before generation starts or after it finishes. Use a new request ID for the next message; cancelled or completed IDs are retained briefly to reject delayed replays.
 - Redact credentials and API keys from user-facing output.
 
 ## Ai
+
+### `POST /ai/chat/session/create`
+
+Create chat session
+
+Parameters:
+  - `request` (body, required): Session creation request (article_id, title)
+
+Request body: see the Swagger schema for full field details.
 
 ### `GET /ai/profiles`
 
@@ -266,15 +277,6 @@ Get unread counts
 
 ## Chat
 
-### `POST /chat`
-
-AI chat with article
-
-Parameters:
-  - `request` (body, required): Chat request (messages, article info)
-
-Request body: see the Swagger schema for full field details.
-
 ### `DELETE /chat/message`
 
 Delete chat message
@@ -319,15 +321,6 @@ List chat sessions
 
 Parameters:
   - `article_id` (query, required): Article ID
-
-### `POST /chat/sessions`
-
-Create chat session
-
-Parameters:
-  - `request` (body, required): Session creation request (article_id, title)
-
-Request body: see the Swagger schema for full field details.
 
 ### `DELETE /chat/sessions/all`
 
@@ -591,6 +584,26 @@ Test custom translation
 
 Parameters:
   - `request` (body, required): Test request
+
+Request body: see the Swagger schema for full field details.
+
+## Ai Chat
+
+### `POST /ai-chat`
+
+AI chat with article
+
+Parameters:
+  - `request` (body, required): Chat request (messages, article info)
+
+Request body: see the Swagger schema for full field details.
+
+### `POST /ai-chat/cancel`
+
+Stop AI chat generation
+
+Parameters:
+  - `request` (body, required): Request to cancel
 
 Request body: see the Swagger schema for full field details.
 

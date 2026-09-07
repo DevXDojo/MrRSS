@@ -1,11 +1,14 @@
 package ai
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 type protocolTransport func(*http.Request) (*http.Response, error)
@@ -101,5 +104,82 @@ func TestKnownProtocolErrorsAreNotRetriedAsOtherFormats(t *testing.T) {
 				t.Fatalf("%s status=%d calls=%d code=%s error=%v", endpoint, status, calls, public.Code, err)
 			}
 		}
+	}
+}
+
+func TestRequestCancellationReachesEveryProtocolWithoutFallback(t *testing.T) {
+	for _, endpoint := range []string{"https://api.anthropic.com/v1/messages", "https://generativelanguage.googleapis.com/v1beta", "http://localhost:11434/api/chat", "https://example.com/v1/chat/completions", "https://example.com/custom"} {
+		t.Run(endpoint, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			entered := make(chan struct{})
+			calls := 0
+			client := NewClientWithHTTPClient(ClientConfig{Endpoint: endpoint, Model: "model"}, &http.Client{Transport: protocolTransport(func(r *http.Request) (*http.Response, error) {
+				calls++
+				close(entered)
+				<-r.Context().Done()
+				return nil, r.Context().Err()
+			})})
+			done := make(chan error, 1)
+			go func() {
+				_, err := client.RequestWithMessagesContext(ctx, []map[string]string{{"role": "user", "content": "question"}})
+				done <- err
+			}()
+			select {
+			case <-entered:
+			case <-time.After(time.Second):
+				t.Fatal("provider not called")
+			}
+			cancel()
+			select {
+			case err := <-done:
+				if !errors.Is(err, context.Canceled) || calls != 1 {
+					t.Fatalf("err=%v calls=%d", err, calls)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("provider did not cancel")
+			}
+		})
+	}
+}
+
+func TestChatRequestRegistryCancellationOrder(t *testing.T) {
+	var registry ChatRequestRegistry
+	registry.Cancel(1, "early")
+	ctx, finish := registry.Begin(context.Background(), 1, "early")
+	defer finish()
+	if ctx.Err() != context.Canceled {
+		t.Fatal("early cancel lost")
+	}
+	active, done := registry.Begin(context.Background(), 1, "active")
+	other, otherDone := registry.Begin(context.Background(), 2, "active")
+	defer otherDone()
+	registry.Cancel(1, "active")
+	if active.Err() != context.Canceled || other.Err() != nil {
+		t.Fatal("cancellation crossed session boundary")
+	}
+	if registry.RunIfActive(active, func() { t.Fatal("cancelled work executed") }) {
+		t.Fatal("cancelled request accepted")
+	}
+	done()
+	replay, replayDone := registry.Begin(context.Background(), 1, "active")
+	defer replayDone()
+	if replay.Err() != context.Canceled {
+		t.Fatal("finished request replayed")
+	}
+	completed, complete := registry.Begin(context.Background(), 1, "complete")
+	if !registry.RunIfActive(completed, func() {}) {
+		t.Fatal("active completion rejected")
+	}
+	complete()
+	registry.Cancel(1, "complete")
+	// Expired tombstones are reclaimed, while active entries survive pruning.
+	registry.mu.Lock()
+	registry.requests[chatRequestKey{1, "early"}].expires = time.Now().Add(-time.Second)
+	registry.mu.Unlock()
+	fresh, freshDone := registry.Begin(context.Background(), 1, "early")
+	defer freshDone()
+	if fresh.Err() != nil || other.Err() != nil {
+		t.Fatal("incorrect expiration cleanup")
 	}
 }
