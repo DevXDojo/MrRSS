@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -181,5 +185,166 @@ func TestChatRequestRegistryCancellationOrder(t *testing.T) {
 	defer freshDone()
 	if fresh.Err() != nil || other.Err() != nil {
 		t.Fatal("incorrect expiration cleanup")
+	}
+}
+
+// observeProtocolBody wraps the real transport body and signals only after bytes
+// have reached the AI client's ReadAll, not merely after response headers arrive.
+type observeProtocolBody struct {
+	io.ReadCloser
+	read chan struct{}
+	once sync.Once
+}
+
+func (b *observeProtocolBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if n > 0 {
+		b.once.Do(func() {
+			select {
+			case b.read <- struct{}{}:
+			default:
+			}
+		})
+	}
+	return n, err
+}
+
+func TestRequestCancellationWhileConnecting(t *testing.T) {
+	var providerCalls, dialCalls atomic.Int32
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providerCalls.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(provider.Close)
+	ctx, cancel := context.WithCancel(context.Background())
+	entered, release := make(chan struct{}), make(chan struct{})
+	var enteredOnce sync.Once
+	var dialing sync.WaitGroup
+	transport := &http.Transport{DialContext: func(dialCtx context.Context, network, address string) (net.Conn, error) {
+		dialCalls.Add(1)
+		dialing.Add(1)
+		defer dialing.Done()
+		enteredOnce.Do(func() { close(entered) })
+		// A transport dial may outlive a cancelled request for connection reuse.
+		// Keep an explicit cleanup gate so this test never leaves that dial blocked.
+		select {
+		case <-dialCtx.Done():
+		case <-release:
+		}
+		return nil, context.Canceled
+	}}
+	client := NewClientWithHTTPClient(ClientConfig{Endpoint: provider.URL + "/v1/chat/completions", Model: "model"}, &http.Client{Transport: transport})
+	result, finished := make(chan error, 1), make(chan struct{})
+	go func() {
+		defer close(finished)
+		_, err := client.RequestWithMessagesContext(ctx, []map[string]string{{"role": "user", "content": "question"}})
+		result <- err
+	}()
+	t.Cleanup(func() {
+		cancel()
+		close(release)
+		transport.CloseIdleConnections()
+		select {
+		case <-finished:
+		case <-time.After(3 * time.Second):
+			t.Error("request goroutine did not exit")
+		}
+		// All gates are open before waiting, including on an assertion failure.
+		dialing.Wait()
+	})
+	select {
+	case <-entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("connection attempt did not start")
+	}
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("connection cancellation error=%v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("request did not cancel while connecting")
+	}
+	if dialCalls.Load() != 1 || providerCalls.Load() != 0 {
+		t.Fatalf("dial calls=%d provider calls=%d", dialCalls.Load(), providerCalls.Load())
+	}
+}
+
+func TestRequestCancellationWhileReadingResponseBody(t *testing.T) {
+	endpoint := "http://provider.invalid/custom"
+	if DetectAPIProvider(endpoint) != "unknown" {
+		t.Fatal("test must exercise the fallback path")
+	}
+	var providerCalls, transportCalls atomic.Int32
+	release, providerCancelled, bodyRead := make(chan struct{}), make(chan struct{}), make(chan struct{}, 1)
+	var cancelledOnce sync.Once
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providerCalls.Add(1)
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		// This is deliberately incomplete JSON: the reader must wait for more body.
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"partial`))
+		w.(http.Flusher).Flush()
+		select {
+		case <-r.Context().Done():
+			cancelledOnce.Do(func() { close(providerCancelled) })
+		case <-release:
+		}
+	}))
+	ctx, cancel := context.WithCancel(context.Background())
+	dialer := &net.Dialer{}
+	transport := &http.Transport{DialContext: func(dialCtx context.Context, network, address string) (net.Conn, error) {
+		return dialer.DialContext(dialCtx, network, provider.Listener.Addr().String())
+	}}
+	// The synthetic hostname selects the unknown-protocol fallback path, while
+	// DialContext sends every request only to this local httptest server.
+	client := NewClientWithHTTPClient(ClientConfig{Endpoint: endpoint, Model: "model"}, &http.Client{Transport: protocolTransport(func(r *http.Request) (*http.Response, error) {
+		transportCalls.Add(1)
+		response, err := transport.RoundTrip(r)
+		if err == nil {
+			response.Body = &observeProtocolBody{ReadCloser: response.Body, read: bodyRead}
+		}
+		return response, err
+	})})
+	result, finished := make(chan error, 1), make(chan struct{})
+	go func() {
+		defer close(finished)
+		_, err := client.RequestWithMessagesContext(ctx, []map[string]string{{"role": "user", "content": "question"}})
+		result <- err
+	}()
+	t.Cleanup(func() {
+		cancel()
+		close(release)
+		transport.CloseIdleConnections()
+		provider.CloseClientConnections()
+		provider.Close()
+		select {
+		case <-finished:
+		case <-time.After(3 * time.Second):
+			t.Error("body reader goroutine did not exit")
+		}
+	})
+	select {
+	case <-bodyRead:
+	case <-time.After(3 * time.Second):
+		t.Fatal("client did not read the partial response body")
+	}
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("body cancellation error=%v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("response body read did not cancel")
+	}
+	select {
+	case <-providerCancelled:
+	case <-time.After(3 * time.Second):
+		t.Fatal("provider did not observe cancellation during body streaming")
+	}
+	if transportCalls.Load() != 1 || providerCalls.Load() != 1 {
+		t.Fatalf("cancelled body read retried: transport calls=%d provider calls=%d", transportCalls.Load(), providerCalls.Load())
 	}
 }
