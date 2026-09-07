@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-v-html */
-import { ref, nextTick, computed, onMounted } from 'vue';
+import { ref, nextTick, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhChatCircleText,
@@ -69,6 +69,8 @@ const showSessions = ref(false);
 const editingSessionId = ref<number | null>(null);
 const editingSessionTitle = ref('');
 const selectedProfileId = ref(props.settings.ai_chat_profile_id || '');
+
+watch([showSessions, currentSessionId, () => props.article.id], cancelEditSession);
 
 const profileOptions = computed(() =>
   profiles.value.map((profile) => ({ value: String(profile.id), label: profile.name }))
@@ -212,18 +214,23 @@ function startEditSession(session: ChatSession, e: Event) {
 }
 
 async function saveSessionTitle(sessionId: number) {
+  if (editingSessionId.value !== sessionId) return;
+  const title = editingSessionTitle.value;
   try {
-    await fetch(`/api/ai/chat/session?session_id=${sessionId}`, {
+    const response = await fetch(`/api/ai/chat/session?session_id=${sessionId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: editingSessionTitle.value }),
+      body: JSON.stringify({ title }),
     });
 
+    if (!response.ok) throw new Error(`Failed to update session title: ${response.status}`);
     const session = sessions.value.find((s) => s.id === sessionId);
     if (session) {
-      session.title = editingSessionTitle.value;
+      session.title = title;
     }
-    editingSessionId.value = null;
+    if (editingSessionId.value === sessionId && editingSessionTitle.value === title) {
+      cancelEditSession();
+    }
   } catch (e) {
     console.error('Failed to update session title:', e);
   }

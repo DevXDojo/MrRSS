@@ -76,6 +76,36 @@ function openArticle() {
 }
 
 describe('Reading interactions', () => {
+  it('discards unsaved title edits when leaving the session list or selecting another session', () => {
+    setup({ ai_chat_enabled: 'true', translation_enabled: 'false' });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('GET', '/api/ai/chat/sessions*', [
+      { id: 1, article_id: 1, title: 'First session', message_count: 0 },
+      { id: 2, article_id: 1, title: 'Second session', message_count: 0 },
+    ]);
+    cy.intercept('GET', '/api/ai/chat/messages*', []).as('chatMessages');
+    cy.intercept('PUT', '/api/ai/chat/session*', () => {
+      throw new Error('Leaving an edit must not save the draft');
+    });
+    openArticle();
+    cy.get('button[title="AI Chat"]').click();
+    cy.wait('@chatMessages');
+    cy.get('[data-testid="chat-session-switcher"]').click();
+    cy.get('[data-session-id="1"] button').first().click();
+    cy.get('[data-session-id="1"] input').clear().type('Unsaved title');
+    cy.get('[data-testid="chat-session-switcher"]').click();
+    cy.get('[data-testid="chat-session-switcher"]').click();
+    cy.get('[data-session-id="1"] input').should('not.exist');
+    cy.get('[data-session-id="1"]').should('contain', 'First session');
+    cy.get('[data-session-id="1"] button').first().click();
+    cy.get('[data-session-id="1"] input').clear().type('Another unsaved title');
+    cy.get('[data-session-id="2"]').click();
+    cy.wait('@chatMessages');
+    cy.get('[data-testid="chat-session-switcher"]').click();
+    cy.get('[data-session-id="1"] input').should('not.exist');
+    cy.get('[data-session-id="1"]').should('contain', 'First session');
+  });
+
   it('translates only the requested title or paragraph in manual mode, and retries failures', () => {
     let calls = 0;
     let paragraphCalls = 0;
