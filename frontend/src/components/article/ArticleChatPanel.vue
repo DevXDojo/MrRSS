@@ -598,13 +598,16 @@ const currentSessionTitle = computed(() => {
             class="flex group"
             :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
           >
-            <div class="flex items-start gap-1" :class="msg.role === 'user' ? 'flex-row-reverse' : ''">
+            <div
+              class="flex items-start gap-1"
+              :class="msg.role === 'user' ? 'flex-row-reverse' : 'w-full min-w-0'"
+            >
               <div
-                class="max-w-[80%] rounded-lg px-3 py-2 text-sm select-text cursor-text"
+                class="py-2 text-sm select-text cursor-text"
                 :class="
                   msg.role === 'user'
-                    ? 'bg-accent text-white'
-                    : 'bg-bg-secondary text-text-primary'
+                    ? 'max-w-[80%] rounded-lg px-3 bg-accent text-white'
+                    : 'min-w-0 flex-1 text-text-primary'
                 "
               >
                 <!-- Thinking section -->
@@ -627,7 +630,7 @@ const currentSessionTitle = computed(() => {
                 <div v-else class="whitespace-pre-wrap break-words">{{ msg.content }}</div>
               </div>
               <button
-                class="p-1 rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary transition-all"
+                class="shrink-0 p-1 rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary transition-all"
                 :title="t('article.chat.copyMessage')"
                 @click="copyMessage(msg.content)"
               >
