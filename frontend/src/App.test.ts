@@ -6,6 +6,8 @@ import { createPinia } from 'pinia';
 import { createI18n } from 'vue-i18n';
 import en from './i18n/locales/en';
 import App from './App.vue';
+import AIFeatureSettings from './components/modals/settings/ai/AIFeatureSettings.vue';
+import type { SettingsData } from './types/settings';
 import { setSettingsFromRawData } from './composables/core/useSettings';
 import { getRecommendedFonts } from './utils/fontDetector';
 import {
@@ -244,5 +246,33 @@ describe('App', () => {
     );
 
     getContextSpy.mockRestore();
+  });
+});
+
+describe('Chat response preferences', () => {
+  it('edits and clears the shared preference without changing model selection', async () => {
+    const settings = {
+      ai_chat_enabled: true,
+      ai_chat_profile_id: '7',
+      ai_chat_quick_prompts: '[]',
+      ai_chat_response_preferences: '',
+    } as SettingsData;
+    const wrapper = mount(AIFeatureSettings, {
+      props: { settings },
+      global: {
+        plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })],
+        stubs: { AIProfileSelector: true, AIChatQuickPromptsSettings: true },
+      },
+    });
+    const input = wrapper.get('textarea');
+    await input.setValue('用中文回答，保持简洁。');
+    const updated = wrapper.emitted('update:settings')?.[0]?.[0] as SettingsData;
+    expect(updated.ai_chat_response_preferences).toBe('用中文回答，保持简洁。');
+    expect(updated.ai_chat_profile_id).toBe('7');
+    await wrapper.setProps({ settings: updated });
+    await input.setValue('');
+    const cleared = wrapper.emitted('update:settings')?.[1]?.[0] as SettingsData;
+    expect(cleared.ai_chat_response_preferences).toBe('');
+    wrapper.unmount();
   });
 });
