@@ -188,4 +188,23 @@ describe('Reading interactions', () => {
     cy.get('[role="dialog"][aria-modal="true"]').should('be.visible');
     cy.get('@openBrowser.all').should('have.length', 0);
   });
+  for (const theme of ['light', 'dark']) {
+    it(`shows a visible keyboard focus target on the gallery close button in ${theme} mode`, () => {
+      setup({ theme }, 'rendered');
+      cy.get('[title="Multimedia Gallery"]').click();
+      cy.wait('@images');
+      cy.contains('English title').click();
+      cy.get('[data-image-viewer="true"]').should('be.visible');
+      cy.press(Cypress.Keyboard.Keys.TAB);
+      cy.get('[data-image-viewer="true"] button[aria-label="Close"]')
+        .focus()
+        .should('have.css', 'background-color', 'rgb(255, 255, 255)')
+        .and('have.css', 'color', 'rgb(0, 0, 0)')
+        .should(($button) => {
+          expect(getComputedStyle($button[0]).boxShadow).not.to.equal('none');
+        })
+        .click();
+      cy.get('[data-image-viewer="true"]').should('not.exist');
+    });
+  }
 });
