@@ -676,12 +676,6 @@ const currentSessionTitle = computed(() => {
   -ms-user-select: text !important;
 }
 
-.chat-panel .chat-profile-selector,
-.chat-panel .chat-profile-selector * {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-}
-
 .chat-panel.select-none {
   user-select: none !important;
   -webkit-user-select: none !important;
@@ -702,6 +696,12 @@ const currentSessionTitle = computed(() => {
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
+}
+
+.chat-panel .chat-profile-selector,
+.chat-panel .chat-profile-selector * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .chat-panel-enter-active,

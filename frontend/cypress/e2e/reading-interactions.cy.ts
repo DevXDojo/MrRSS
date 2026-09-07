@@ -89,6 +89,8 @@ describe('Reading interactions', () => {
     }).as('modelChat');
     openArticle();
     cy.get('button[title="AI Chat"]').click();
+    cy.get('.chat-profile-selector .select-trigger .select-text')
+      .should('have.css', 'user-select', 'none');
     cy.get('.chat-profile-selector .select-trigger')
       .should('have.css', 'user-select', 'none')
       .click();
