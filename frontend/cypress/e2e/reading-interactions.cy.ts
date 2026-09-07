@@ -188,4 +188,37 @@ describe('Reading interactions', () => {
     cy.get('[role="dialog"][aria-modal="true"]').should('be.visible');
     cy.get('@openBrowser.all').should('have.length', 0);
   });
+  for (const theme of ['light', 'dark']) {
+    for (const activation of ['click', 'Enter', 'Space']) {
+      it(`shows manual summary focus and generates once by ${activation} in ${theme} mode`, () => {
+        setup({ theme, summary_enabled: 'true', summary_provider: 'ai', summary_trigger_mode: 'manual' });
+        let requests = 0;
+        cy.intercept('POST', '/api/articles/summarize', (req) => {
+          requests++;
+          expect(req.body.article_id).to.equal(article.id);
+          req.reply({ summary: 'Generated on request.', sentence_count: 1, is_too_short: false });
+        }).as('generateSummary');
+        openArticle();
+        cy.contains('button', /^Generate Summary$/).should('be.visible');
+        cy.then(() => expect(requests).to.equal(0));
+        cy.press(Cypress.Keyboard.Keys.TAB);
+        cy.contains('button', /^Generate Summary$/)
+          .focus()
+          .should('be.focused')
+          .should(($button) => {
+            expect(getComputedStyle($button[0]).boxShadow).not.to.equal('none');
+          });
+        if (activation === 'click') {
+          cy.contains('button', /^Generate Summary$/).click();
+        } else if (activation === 'Enter') {
+          cy.contains('button', /^Generate Summary$/).type('{enter}');
+        } else {
+          cy.press(Cypress.Keyboard.Keys.SPACE);
+        }
+        cy.wait('@generateSummary');
+        cy.contains('Generated on request.').should('be.visible');
+        cy.then(() => expect(requests).to.equal(1));
+      });
+    }
+  }
 });
