@@ -5,6 +5,8 @@ import { mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { createI18n } from 'vue-i18n';
 import en from './i18n/locales/en';
+import zh from './i18n/locales/zh';
+import RuleLogicConnector from './components/modals/rules/RuleLogicConnector.vue';
 import App from './App.vue';
 import { setSettingsFromRawData } from './composables/core/useSettings';
 import { getRecommendedFonts } from './utils/fontDetector';
@@ -244,5 +246,26 @@ describe('App', () => {
     );
 
     getContextSpy.mockRestore();
+  });
+});
+
+
+describe('Rule logic localization', () => {
+  it('localizes AND/OR labels while preserving emitted rule operators', async () => {
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { en, zh } });
+    const wrapper = mount(RuleLogicConnector, {
+      props: { logic: 'and' },
+      global: { plugins: [i18n] },
+    });
+    const buttons = wrapper.findAll('button');
+    expect(buttons.map((button) => button.text())).toEqual(['且', '或']);
+    await buttons[1].trigger('click');
+    await buttons[0].trigger('click');
+    expect(wrapper.emitted('update')).toEqual([['or'], ['and']]);
+
+    i18n.global.locale.value = 'en';
+    await nextTick();
+    expect(buttons.map((button) => button.text())).toEqual(['AND', 'OR']);
+    wrapper.unmount();
   });
 });
