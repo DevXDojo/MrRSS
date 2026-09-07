@@ -1,14 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { nextTick } from 'vue';
-import { mount } from '@vue/test-utils';
+import { mount, shallowMount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { createI18n } from 'vue-i18n';
 import en from './i18n/locales/en';
+import zh from './i18n/locales/zh';
+import ArticleList from './components/article/ArticleList.vue';
+import type { Feed } from './types/models';
 import App from './App.vue';
 import { setSettingsFromRawData } from './composables/core/useSettings';
 import { getRecommendedFonts } from './utils/fontDetector';
 import {
+  useAppStore,
   createAutoRefreshScheduler,
   getAutoRefreshInterval,
   preserveSelectedArticle,
@@ -244,5 +248,48 @@ describe('App', () => {
     );
 
     getContextSpy.mockRestore();
+  });
+});
+
+
+describe('Selected source titles', () => {
+  it('omits only the all filter and localizes uncategorized selections', async () => {
+    const pinia = createPinia();
+    const i18n = createI18n({ legacy: false, locale: 'en', messages: { en, zh } });
+    const wrapper = shallowMount(ArticleList, { global: { plugins: [pinia, i18n] } });
+    const store = useAppStore(pinia);
+    store.feeds = [{ id: 7, title: 'Example Feed' } as Feed];
+    store.currentFilter = 'all';
+    await nextTick();
+    const title = () => wrapper.get('h3').text();
+    expect(title()).toBe('All Articles');
+
+    store.tempSelection = { feedId: 7, category: null };
+    await nextTick();
+    expect(title()).toBe('Example Feed');
+    for (const [filter, label] of [
+      ['unread', 'Unread Articles'],
+      ['favorites', 'Favorites'],
+      ['readLater', 'Read Later'],
+    ] as const) {
+      store.currentFilter = filter;
+      await nextTick();
+      expect(title()).toBe(`Example Feed - ${label}`);
+    }
+    store.currentFilter = 'all';
+    store.tempSelection = { feedId: null, category: 'Technology/News' };
+    await nextTick();
+    expect(title()).toBe('Technology/News');
+
+    store.tempSelection = { feedId: null, category: 'uncategorized' };
+    await nextTick();
+    expect(title()).toBe('Uncategorized');
+    i18n.global.locale.value = 'zh';
+    await nextTick();
+    expect(title()).toBe('未分类');
+    store.currentFilter = 'favorites';
+    await nextTick();
+    expect(title()).toBe(`未分类 - ${zh.sidebar.activity.favorites}`);
+    wrapper.unmount();
   });
 });
