@@ -13,6 +13,7 @@ import {
   PhCircle,
   PhClock,
   PhLightning,
+  PhStar,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
 import ArticleItem from './ArticleItem.vue';
@@ -240,9 +241,7 @@ async function preserveRelativeReadPosition(
   direction: 'above' | 'below'
 ): Promise<void> {
   const list = listRef.value;
-  const anchor = list?.querySelector<HTMLElement>(
-    `[data-article-id="${referenceArticle.id}"]`
-  );
+  const anchor = list?.querySelector<HTMLElement>(`[data-article-id="${referenceArticle.id}"]`);
   const anchorTop = anchor?.getBoundingClientRect().top;
   const referenceTime = new Date(referenceArticle.published_at).getTime();
 
@@ -930,8 +929,11 @@ const shouldShowBottomMarkAllRead = computed(() => {
 });
 
 const isUnreadEmptyState = computed(
-  () => store.currentFilter === 'unread' || store.showOnlyUnread
+  () =>
+    store.currentFilter !== 'favorites' &&
+    (store.currentFilter === 'unread' || store.showOnlyUnread)
 );
+const isFavoritesEmptyState = computed(() => store.currentFilter === 'favorites');
 
 // Mark all currently visible articles as read
 async function markAllVisibleAsRead(): Promise<void> {
@@ -1188,7 +1190,14 @@ async function markAllVisibleAsRead(): Promise<void> {
         class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
         data-testid="article-list-empty"
       >
-        <template v-if="isUnreadEmptyState">
+        <template v-if="isFavoritesEmptyState">
+          <PhStar :size="40" weight="duotone" class="mb-3 text-yellow-500" />
+          <div class="text-base font-medium text-text-primary">
+            {{ t('article.list.noFavorites') }}
+          </div>
+          <div class="mt-1 text-sm">{{ t('article.list.noFavoritesHint') }}</div>
+        </template>
+        <template v-else-if="isUnreadEmptyState">
           <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />
           <div class="text-base font-medium text-text-primary">
             {{ t('article.list.allCaughtUp') }}

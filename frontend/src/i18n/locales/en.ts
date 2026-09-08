@@ -119,6 +119,8 @@ const en: TranslationMessages = {
       allArticlesLoaded: 'All articles loaded',
       allCaughtUp: "You're all caught up",
       noUnreadArticles: 'There are no unread articles left.',
+      noFavorites: 'No favorites yet',
+      noFavoritesHint: 'Favorite articles you want to revisit, and they will appear here.',
     },
     navigation: {
       goToAllArticles: 'Go to All Articles',

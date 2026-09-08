@@ -116,6 +116,8 @@ const zh: TranslationMessages = {
       allArticlesLoaded: '已加载全部文章',
       allCaughtUp: '已读完全部文章',
       noUnreadArticles: '当前没有未读文章，稍后再来看看吧。',
+      noFavorites: '收藏夹还是空的',
+      noFavoritesHint: '收藏感兴趣的文章，之后可以在这里快速找到。',
     },
     navigation: {
       goToAllArticles: '转到所有文章',
