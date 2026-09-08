@@ -588,6 +588,22 @@ describe('Chat generation cancellation', () => {
           new Response(JSON.stringify({ id: 55, article_id: 12, title: 'first' }))
         );
       if (url === '/api/ai-chat') return ++sendCount === 1 ? first.promise : second.promise;
+      if (url.startsWith('/api/ai/chat/sessions?')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: 55,
+                article_id: 12,
+                title: 'first',
+                created_at: '',
+                updated_at: '',
+                message_count: hasAssistant ? 2 : 1,
+              },
+            ])
+          )
+        );
+      }
       if (url.startsWith('/api/ai/chat/messages?')) {
         const history = [{ role: 'user', content: 'stored first question' }];
         if (hasAssistant) history.push({ role: 'assistant', content: 'stored first answer' });
