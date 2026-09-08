@@ -114,6 +114,11 @@ func sanitizeFeedXML(xmlContent string) string {
 }
 
 var xmlEncodingRegex = regexp.MustCompile(`(?i)<\?xml\s+[^>]*encoding\s*=\s*["']([^"']+)["']`)
+var xmlEncodingValueRegex = regexp.MustCompile(`(?i)(<\?xml\s+[^>]*encoding\s*=\s*["'])[^"']+(["'])`)
+
+func normalizeDecodedXMLEncoding(content string) string {
+	return xmlEncodingValueRegex.ReplaceAllString(content, `${1}UTF-8${2}`)
+}
 
 func decodeFeedBody(body []byte, contentType string) (string, error) {
 	if len(body) == 0 {
@@ -127,7 +132,7 @@ func decodeFeedBody(body []byte, contentType string) (string, error) {
 			if readErr != nil {
 				return "", readErr
 			}
-			return string(decoded), nil
+			return normalizeDecodedXMLEncoding(string(decoded)), nil
 		}
 	}
 
@@ -139,7 +144,7 @@ func decodeFeedBody(body []byte, contentType string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(decoded), nil
+	return normalizeDecodedXMLEncoding(string(decoded)), nil
 }
 
 // fetchAndSanitizeFeed fetches feed content and sanitizes it before parsing
