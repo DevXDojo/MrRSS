@@ -58,7 +58,7 @@ type chatErrorResponse struct {
 // @Success      200  {object}  chat.ChatResponse  "AI response (response, html)"
 // @Failure      400  {object}  map[string]string  "Bad request (missing messages)"
 // @Failure      403  {object}  map[string]string  "AI chat is disabled or limit reached"
-// @Failure      408  {object}  map[string]string  "Chat generation stopped"
+// @Failure      408  {object}  chat.chatErrorResponse  "Chat generation stopped"
 // @Failure      500  {object}  map[string]string  "Internal server error"
 // @Router       /ai-chat [post]
 func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {

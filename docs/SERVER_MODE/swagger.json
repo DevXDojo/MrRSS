@@ -2241,10 +2241,7 @@
                     "408": {
                         "description": "Chat generation stopped",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/chat.chatErrorResponse"
                         }
                     },
                     "500": {
@@ -5885,6 +5882,17 @@
                 },
                 "thinking": {
                     "type": "string"
+                }
+            }
+        },
+        "chat.chatErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "integer"
                 }
             }
         },
