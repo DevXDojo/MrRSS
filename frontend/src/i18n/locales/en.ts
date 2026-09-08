@@ -65,6 +65,7 @@ const en: TranslationMessages = {
       volume: 'Volume',
     },
     chat: {
+      titleSaveFailed: 'Failed to save conversation title. Please try again.',
       aiChat: 'AI Chat',
       aiChatError: 'Failed to get response from AI. Please try again.',
       historySaveFailed: 'The answer was generated but could not be saved to chat history.',

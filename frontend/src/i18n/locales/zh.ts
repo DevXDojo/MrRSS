@@ -62,6 +62,7 @@ const zh: TranslationMessages = {
       volume: '音量',
     },
     chat: {
+      titleSaveFailed: '保存对话标题失败，请重试。',
       aiChat: 'AI 聊天',
       aiChatError: '无法获取 AI 响应，请重试。',
       historySaveFailed: '回答已生成，但未能保存到历史记录。',
