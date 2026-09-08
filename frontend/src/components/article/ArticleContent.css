@@ -426,36 +426,9 @@
   display: none !important;
 }
 
-/* Translation-only mode: hide original text content that has been translated */
-.translation-only-mode .prose p:has(+ .translation-text),
-.translation-only-mode .prose h1:has(+ .translation-text),
-.translation-only-mode .prose h2:has(+ .translation-text),
-.translation-only-mode .prose h3:has(+ .translation-text),
-.translation-only-mode .prose h4:has(+ .translation-text),
-.translation-only-mode .prose h5:has(+ .translation-text),
-.translation-only-mode .prose h6:has(+ .translation-text) {
-  display: none !important;
-}
-
-/* Hide list items that have translations inside them */
-.translation-only-mode .prose li:has(> .translation-text) {
-  display: none !important;
-}
-
-/* Hide table cells that have translations inside them */
-.translation-only-mode .prose td:has(> .translation-text),
-.translation-only-mode .prose th:has(> .translation-text) {
-  display: none !important;
-}
-
-/* Hide figcaption that has translation following it */
-.translation-only-mode .prose figcaption:has(+ .translation-text) {
-  display: none !important;
-}
-
-/* Hide definition list items that have translations inside them */
-.translation-only-mode .prose dt:has(> .translation-text),
-.translation-only-mode .prose dd:has(> .translation-text) {
+/* Translation-only mode: hide only the source nodes paired with a translation. */
+.translation-only-mode .prose .translation-source,
+.translation-only-mode .prose .translation-source-content {
   display: none !important;
 }
 

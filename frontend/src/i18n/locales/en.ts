@@ -822,8 +822,9 @@ const en: TranslationMessages = {
         'Translate automatically, or only when you request a title or paragraph.',
       translationAutomatic: 'Automatic',
       translationManual: 'On demand',
-      translationOnlyMode: 'Translation Only Mode',
-      translationOnlyModeDesc: 'Show only translated text, hide original content',
+      translationOnlyMode: 'Show translations only',
+      translationOnlyModeDesc:
+        'Hide source text after it is translated; on-demand mode hides only translated titles or paragraphs',
       translationProvider: 'Translation Provider',
       translationProviderDesc: 'Choose the translation service to use',
       translationSkippedAlreadyTarget: 'Translation skipped',
