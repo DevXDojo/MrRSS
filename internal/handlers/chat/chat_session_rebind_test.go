@@ -50,10 +50,20 @@ func TestPersistUserChatMessageRebindsSessionToCurrentArticle(t *testing.T) {
 	}
 
 	h := core.NewHandler(db, nil, nil, nil)
-	gotSessionID, enabled, err := persistUserChatMessage(h, &ChatRequest{
+	_, enabled, err := persistUserChatMessage(h, &ChatRequest{
 		SessionID: sessionID,
 		ArticleID: secondID,
-		Messages:  []ChatMessage{{Role: "user", Content: "Compare this article."}},
+		Messages:  []ChatMessage{{Role: "user", Content: "Accidental stale request."}},
+	})
+	if err == nil || enabled {
+		t.Fatalf("expected mismatched session without explicit rebind to fail, enabled=%v err=%v", enabled, err)
+	}
+
+	gotSessionID, enabled, err := persistUserChatMessage(h, &ChatRequest{
+		SessionID:     sessionID,
+		ArticleID:     secondID,
+		RebindSession: true,
+		Messages:      []ChatMessage{{Role: "user", Content: "Compare this article."}},
 	})
 	if err != nil {
 		t.Fatalf("persistUserChatMessage: %v", err)

@@ -73,6 +73,7 @@ const editingSessionTitle = ref('');
 const selectedProfileId = ref(props.settings.ai_chat_profile_id || '');
 const boundArticle = ref<Article>({ ...props.article });
 const boundArticleContent = ref(props.articleContent);
+const rebindSession = ref(false);
 const articleMismatch = computed(() => props.article.id !== boundArticle.value.id);
 
 watch(
@@ -93,13 +94,23 @@ interface ActiveChatRequest {
   stopped: boolean;
 }
 let activeRequest: ActiveChatRequest | null = null;
-let creatingSession: { articleId: number; draftVersion: number; promise: Promise<ChatSession> } | null = null;
+let creatingSession: {
+  articleId: number;
+  draftVersion: number;
+  promise: Promise<ChatSession>;
+} | null = null;
 let draftVersion = 0;
 let disposed = false;
 let viewVersion = 0;
 
 function isCurrentRequest(run: ActiveChatRequest) {
-  return !disposed && !run.stopped && activeRequest === run && boundArticle.value.id === run.articleId && draftVersion === run.draftVersion;
+  return (
+    !disposed &&
+    !run.stopped &&
+    activeRequest === run &&
+    boundArticle.value.id === run.articleId &&
+    draftVersion === run.draftVersion
+  );
 }
 
 async function cancelRequest(run: ActiveChatRequest) {
@@ -125,7 +136,12 @@ async function stopGeneration() {
   const version = ++viewVersion;
   run.controller.abort();
   await cancelRequest(run);
-  const stillStopped = () => !disposed && viewVersion === version && !activeRequest && boundArticle.value.id === run.articleId && draftVersion === run.draftVersion;
+  const stillStopped = () =>
+    !disposed &&
+    viewVersion === version &&
+    !activeRequest &&
+    boundArticle.value.id === run.articleId &&
+    draftVersion === run.draftVersion;
   if (run.sessionId && stillStopped()) {
     await loadSessions(stillStopped);
     if (stillStopped()) await selectSession(run.sessionId, true, stillStopped);
@@ -144,8 +160,16 @@ onBeforeUnmount(() => {
   stopResize();
 });
 
-async function ensureSession(articleId: number, title: string, draft: number): Promise<ChatSession> {
-  if (!creatingSession || creatingSession.articleId !== articleId || creatingSession.draftVersion !== draft) {
+async function ensureSession(
+  articleId: number,
+  title: string,
+  draft: number
+): Promise<ChatSession> {
+  if (
+    !creatingSession ||
+    creatingSession.articleId !== articleId ||
+    creatingSession.draftVersion !== draft
+  ) {
     const promise = (async () => {
       const response = await fetch('/api/ai/chat/session/create', {
         method: 'POST',
@@ -154,7 +178,11 @@ async function ensureSession(articleId: number, title: string, draft: number): P
       });
       if (!response.ok) throw new Error('Failed to create chat session');
       const session = (await response.json()) as ChatSession;
-      if (!Number.isSafeInteger(session.id) || session.id <= 0 || session.article_id !== articleId) {
+      if (
+        !Number.isSafeInteger(session.id) ||
+        session.id <= 0 ||
+        session.article_id !== articleId
+      ) {
         throw new Error('Chat session ID is missing');
       }
       return session;
@@ -291,6 +319,7 @@ async function selectSession(sessionId: number, force = false, isCurrentView?: (
       if (!isCurrentView() || session.article_id !== boundArticle.value.id) return;
       messages.value = loadedMessages;
       currentSessionId.value = sessionId;
+      rebindSession.value = false;
       // A cancelled first attempt may have saved only the user question.
       // Keep article context until an assistant response has been saved.
       isFirstMessage.value = !loadedMessages.some(
@@ -315,6 +344,7 @@ function createNewSession() {
   boundArticleContent.value = props.articleContent;
   if (changedArticle) sessions.value = [];
   currentSessionId.value = null;
+  rebindSession.value = false;
   messages.value = [];
   inputMessage.value = '';
   isFirstMessage.value = true;
@@ -331,6 +361,7 @@ function continueWithCurrentArticle() {
   boundArticle.value = { ...props.article };
   boundArticleContent.value = props.articleContent;
   isFirstMessage.value = true;
+  rebindSession.value = true;
   const currentSession = sessions.value.find((session) => session.id === currentSessionId.value);
   if (currentSession) {
     currentSession.article_id = props.article.id;
@@ -455,7 +486,8 @@ function stopResize() {
 
 async function sendMessage() {
   const message = inputMessage.value.trim();
-  if (!message || disposed || isLoading.value || showSessions.value || articleMismatch.value) return;
+  if (!message || disposed || isLoading.value || showSessions.value || articleMismatch.value)
+    return;
   const run: ActiveChatRequest = {
     id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     articleId: boundArticle.value.id,
@@ -474,7 +506,11 @@ async function sendMessage() {
     // A short, single-flight create gives Stop a stable session ID before the
     // long provider request starts. Do not abort creation and lose its ID.
     if (!run.sessionId) {
-      const session = await ensureSession(run.articleId, Array.from(message).slice(0, 60).join(''), run.draftVersion);
+      const session = await ensureSession(
+        run.articleId,
+        Array.from(message).slice(0, 60).join(''),
+        run.draftVersion
+      );
       run.sessionId = session.id;
       if (!isCurrentRequest(run)) return;
       // Consume the cached ID only when a live request takes ownership. A
@@ -509,6 +545,7 @@ async function sendMessage() {
         article_url: article.url,
         article_content: articleContent,
         profile_id: Number(selectedProfileId.value) || undefined,
+        rebind_session: rebindSession.value,
       }),
     });
     if (!isCurrentRequest(run)) return;
@@ -524,6 +561,7 @@ async function sendMessage() {
         created_at: new Date().toISOString(),
       });
       isFirstMessage.value = false;
+      rebindSession.value = false;
       if (data.session_id) {
         currentSessionId.value = data.session_id;
         await loadSessions(() => isCurrentRequest(run));
@@ -733,7 +771,10 @@ const currentSessionTitle = computed(() => {
                 @click.stop="selectSession(session.id)"
               >
                 <PhChatCircleText :size="16" class="text-text-secondary" />
-                <div v-if="editingSessionId === session.id" class="flex-1 min-w-0 flex items-center gap-1">
+                <div
+                  v-if="editingSessionId === session.id"
+                  class="flex-1 min-w-0 flex items-center gap-1"
+                >
                   <input
                     v-model="editingSessionTitle"
                     class="flex-1 min-w-0 px-2 py-1 text-sm bg-bg-primary border border-border rounded focus:outline-none focus:border-accent"
@@ -782,10 +823,7 @@ const currentSessionTitle = computed(() => {
           class="col-start-1 row-start-3 min-h-0 overflow-y-auto p-3 space-y-3 scroll-smooth"
           :class="{ invisible: showSessions }"
         >
-          <div
-            v-if="messages.length === 0"
-            class="space-y-4 py-2 text-sm"
-          >
+          <div v-if="messages.length === 0" class="space-y-4 py-2 text-sm">
             <p class="text-center text-text-secondary">{{ t('article.chat.aiChatWelcome') }}</p>
 
             <section class="space-y-2">

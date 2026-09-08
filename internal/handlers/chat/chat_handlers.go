@@ -31,6 +31,7 @@ type ChatRequest struct {
 	ArticleURL     string        `json:"article_url,omitempty"`
 	ArticleContent string        `json:"article_content,omitempty"`
 	IsFirstMessage bool          `json:"is_first_message,omitempty"`
+	RebindSession  bool          `json:"rebind_session,omitempty"`
 	ProfileID      int64         `json:"profile_id,omitempty"`
 }
 
@@ -279,6 +280,9 @@ func persistUserChatMessage(h *core.Handler, req *ChatRequest) (int64, bool, err
 			return sessionID, false, fmt.Errorf("chat session not found")
 		}
 		if session.ArticleID != req.ArticleID {
+			if !req.RebindSession {
+				return sessionID, false, fmt.Errorf("chat session does not belong to the article")
+			}
 			if err := h.DB.RebindChatSession(sessionID, req.ArticleID); err != nil {
 				return sessionID, false, err
 			}
