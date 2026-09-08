@@ -65,6 +65,7 @@ const en: TranslationMessages = {
       volume: 'Volume',
     },
     chat: {
+      titleSaveFailed: 'Failed to save conversation title. Please try again.',
       aiChat: 'AI Chat',
       aiChatError: 'Failed to get response from AI. Please try again.',
       historySaveFailed: 'The answer was generated but could not be saved to chat history.',
@@ -643,7 +644,7 @@ const en: TranslationMessages = {
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI Features',
       aiModel: 'Model Name',
-      aiModelDesc: 'AI model to use for translation and summarization',
+      aiModelDesc: 'AI model to use for chat, translation, and summarization',
       aiModelPlaceholder: 'gpt-4o-mini',
       // AI Profile Management
       aiProfiles: 'AI Profiles',
@@ -684,6 +685,9 @@ const en: TranslationMessages = {
       aiUsageResetSuccess: 'AI usage counter reset successfully',
       aiUsageTokens: 'Tokens Used',
       aiUsageLimitPlaceholder: '0',
+      responsePreferences: 'Chat response preferences',
+      responsePreferencesDesc: 'Apply to every AI chat model, including existing conversations. Leave blank to use the default behavior. Other AI features are unaffected.',
+      responsePreferencesPlaceholder: 'For example: answer in Chinese, keep it concise, and avoid repetition.',
       quickPrompts: 'Custom Chat Prompts',
       quickPromptsDesc: 'Add reusable questions to the AI chat suggestion cards',
       quickPromptPlaceholder: 'Enter a question or instruction',
