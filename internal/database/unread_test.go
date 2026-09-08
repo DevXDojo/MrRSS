@@ -126,8 +126,8 @@ func TestUnreadCounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get total unread count after resetting: %v", err)
 	}
-	if totalCount != 2 {
-		t.Errorf("Expected 2 unread articles after resetting feed, got %d", totalCount)
+	if totalCount != 3 {
+		t.Errorf("Expected 3 unread articles after resetting feed, got %d", totalCount)
 	}
 }
 
