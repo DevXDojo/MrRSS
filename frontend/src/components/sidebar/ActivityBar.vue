@@ -151,8 +151,7 @@ function handleNavClick(item: NavItem) {
           <!-- Unread Badge (only for 'all' button) -->
           <span
             v-if="item.id === 'all' && store.unreadCounts?.total > 0"
-            class="absolute bottom-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 text-[9px] font-medium flex items-center justify-center rounded-full text-white"
-            style="background-color: #999999"
+            class="absolute bottom-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 text-[9px] font-semibold flex items-center justify-center rounded-full bg-accent text-white ring-1 ring-bg-primary"
           >
             {{ store.unreadCounts?.total > 99 ? '99+' : store.unreadCounts?.total }}
           </span>
@@ -291,6 +290,3 @@ function handleNavClick(item: NavItem) {
 }
 </style>
 
-<style>
-/* Dark mode for unread badge - keep accent color */
-</style>
