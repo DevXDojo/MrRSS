@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { ref, watch } from 'vue';
-import { PhImage } from '@phosphor-icons/vue';
+import { PhCheckCircle, PhImage } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import ImageCard from './ImageCard.vue';
 
@@ -9,6 +9,7 @@ interface Props {
   columns: Article[][];
   imageDimensions: Map<number, { width: number; height: number }>;
   isLoading: boolean;
+  showOnlyUnread: boolean;
   showTextOverlay: boolean;
   imageCountCache: Map<number, number>;
 }
@@ -78,10 +79,20 @@ function getImageCount(article: Article): number {
     <!-- Empty State -->
     <div
       v-else-if="!isLoading"
-      class="flex flex-col items-center justify-center h-full w-full gap-4"
+      class="flex min-h-full w-full flex-col items-center justify-center p-6 text-center text-text-secondary"
+      data-testid="gallery-empty"
     >
-      <PhImage :size="64" class="text-text-secondary opacity-50" />
-      <p class="text-text-secondary">{{ t('article.content.noArticles') }}</p>
+      <template v-if="showOnlyUnread">
+        <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />
+        <div class="text-base font-medium text-text-primary">
+          {{ t('article.list.allCaughtUp') }}
+        </div>
+        <div class="mt-1 text-sm">{{ t('article.list.noUnreadArticles') }}</div>
+      </template>
+      <template v-else>
+        <PhImage :size="64" class="mb-4 opacity-50" />
+        <p>{{ t('article.content.noArticles') }}</p>
+      </template>
     </div>
 
     <!-- Loading Indicator -->

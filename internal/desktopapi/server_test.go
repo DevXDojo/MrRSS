@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"MrRSS/internal/database"
 	"MrRSS/internal/handlers/chat"
 	"MrRSS/internal/handlers/core"
+	"MrRSS/internal/models"
 	"MrRSS/internal/routes"
 )
 
@@ -111,6 +113,96 @@ func TestServerLifecycle(t *testing.T) {
 	}
 	if err := <-server.Errors(); err != nil {
 		t.Fatalf("Serve() error after shutdown = %v", err)
+	}
+}
+
+// Exercise the chat handler through each wire protocol, rather than only testing
+// settings serialization. Resumed chats and selected profiles use the same value.
+func TestChatResponsePreferencesAcrossModelsAndProtocols(t *testing.T) {
+	db, err := database.NewDB(filepath.Join(t.TempDir(), "preferences.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.Init(); err != nil {
+		t.Fatal(err)
+	}
+	for key, value := range map[string]string{"ai_chat_enabled": "true", "ai_usage_limit": "0", "ai_chat_response_preferences": "用中文回答，保持简洁。"} {
+		if err := db.SetSetting(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tracker := ai.NewUsageTracker(db)
+	tracker.SetMinInterval(0)
+	h := &core.Handler{DB: db, AITracker: tracker, AIProfileProvider: ai.NewProfileProvider(db)}
+	for _, protocol := range []string{"openai", "anthropic", "gemini", "ollama"} {
+		t.Run(protocol, func(t *testing.T) {
+			requests := make(chan map[string]any, 1)
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				requests <- body
+				responses := map[string]string{
+					"openai":    `{"choices":[{"message":{"content":"answer"}}]}`,
+					"anthropic": `{"content":[{"type":"text","text":"answer"}]}`,
+					"gemini":    `{"candidates":[{"content":{"parts":[{"text":"answer"}]},"finishReason":"STOP"}]}`,
+					"ollama":    `{"message":{"content":"answer"},"done":true}`,
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(responses[protocol]))
+			}))
+			defer provider.Close()
+			paths := map[string]string{"openai": "/v1/chat/completions", "anthropic": "/v1/messages", "gemini": "/v1beta/models/old:generateContent", "ollama": "/api/chat"}
+			for index, preference := range []string{"用中文回答，保持简洁。", "用中文回答，保持简洁。", ""} {
+				if err := db.SetSetting("ai_chat_response_preferences", preference); err != nil {
+					t.Fatal(err)
+				}
+				profileID, err := db.CreateAIProfile(&models.AIProfile{Name: protocol, Endpoint: provider.URL + paths[protocol], Model: []string{"first-model", "other-model", "default-model"}[index]})
+				if err != nil {
+					t.Fatal(err)
+				}
+				messages := make([]chat.ChatMessage, 12)
+				for i := range messages {
+					messages[i] = chat.ChatMessage{Role: "user", Content: "question"}
+				}
+				body, _ := json.Marshal(chat.ChatRequest{Messages: messages, ProfileID: profileID, IsFirstMessage: index == 0, ArticleContent: "article evidence"})
+				recorder := httptest.NewRecorder()
+				chat.HandleAIChat(h, recorder, httptest.NewRequest(http.MethodPost, "/api/ai-chat", bytes.NewReader(body)))
+				if recorder.Code != http.StatusOK {
+					t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+				}
+				request := <-requests
+				system := ""
+				switch protocol {
+				case "openai", "ollama":
+					for _, item := range request["messages"].([]any) {
+						msg := item.(map[string]any)
+						if msg["role"] == "system" {
+							system += msg["content"].(string)
+						}
+					}
+				case "anthropic":
+					system, _ = request["system"].(string)
+				case "gemini":
+					if instruction, ok := request["systemInstruction"].(map[string]any); ok {
+						for _, item := range instruction["parts"].([]any) {
+							system += item.(map[string]any)["text"].(string)
+						}
+					}
+				}
+				if preference != "" && strings.Count(system, preference) != 1 {
+					t.Fatalf("preference missing or duplicated: %q", system)
+				}
+				if preference == "" && system != "" {
+					t.Fatalf("cleared preference still sent: %q", system)
+				}
+				if index == 0 && !strings.Contains(system, "article evidence") {
+					t.Fatal("article context lost")
+				}
+			}
+		})
 	}
 }
 
