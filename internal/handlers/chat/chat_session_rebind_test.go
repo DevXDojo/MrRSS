@@ -22,13 +22,27 @@ func TestPersistUserChatMessageRebindsSessionToCurrentArticle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddFeed: %v", err)
 	}
-	firstID, err := db.AddArticle(&models.Article{FeedID: feedID, Title: "First", URL: "https://example.com/1", UniqueID: "1"})
+	firstResult, err := db.Exec(
+		`INSERT INTO articles (feed_id, title, url, unique_id) VALUES (?, ?, ?, ?)`,
+		feedID, "First", "https://example.com/1", "1",
+	)
 	if err != nil {
-		t.Fatalf("AddArticle first: %v", err)
+		t.Fatalf("insert first article: %v", err)
 	}
-	secondID, err := db.AddArticle(&models.Article{FeedID: feedID, Title: "Second", URL: "https://example.com/2", UniqueID: "2"})
+	firstID, err := firstResult.LastInsertId()
 	if err != nil {
-		t.Fatalf("AddArticle second: %v", err)
+		t.Fatalf("first article ID: %v", err)
+	}
+	secondResult, err := db.Exec(
+		`INSERT INTO articles (feed_id, title, url, unique_id) VALUES (?, ?, ?, ?)`,
+		feedID, "Second", "https://example.com/2", "2",
+	)
+	if err != nil {
+		t.Fatalf("insert second article: %v", err)
+	}
+	secondID, err := secondResult.LastInsertId()
+	if err != nil {
+		t.Fatalf("second article ID: %v", err)
 	}
 	sessionID, err := db.CreateChatSession(firstID, "Discussion")
 	if err != nil {
