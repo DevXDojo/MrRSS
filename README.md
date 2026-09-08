@@ -1,4 +1,4 @@
-﻿<h1><img src="imgs/logo-rounded.png" alt="MrRSS logo" style="height: 40px;"/>&nbsp;MrRSS</h1>
+<h1><img src="imgs/logo-rounded.png" alt="MrRSS logo" style="height: 40px;"/>&nbsp;MrRSS</h1>
 
 <a href="https://trendshift.io/repositories/15731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15731" alt="DevXDojo%2FMrRSS | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 

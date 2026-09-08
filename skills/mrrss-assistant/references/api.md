@@ -1,4 +1,4 @@
-﻿# MrRSS API Reference
+# MrRSS API Reference
 
 Generated from `docs/SERVER_MODE/swagger.json`. Regenerate with:
 
