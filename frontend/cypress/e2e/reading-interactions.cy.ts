@@ -160,6 +160,34 @@ describe('Reading interactions', () => {
       .and('have.css', 'user-select', 'text');
   });
 
+  it('keeps title editing above message actions without selecting the session on save', () => {
+    setup({ ai_chat_enabled: 'true', translation_enabled: 'false' });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('GET', '/api/ai/chat/sessions*', [
+      { id: 1, article_id: 1, title: 'Saved session', message_count: 1 },
+    ]);
+    cy.intercept('GET', '/api/ai/chat/messages*', [
+      { id: 1, role: 'user', content: 'Previous question', created_at: '' },
+    ]).as('chatMessages');
+    cy.intercept('PUT', '/api/ai/chat/session*', (req) => {
+      expect(req.body.title).to.equal('Renamed session');
+      req.reply({ success: true });
+    }).as('renameChat');
+    openArticle();
+    cy.get('button[title="AI Chat"]').click();
+    cy.wait('@chatMessages');
+    cy.get('[data-testid="chat-session-switcher"]').click();
+    cy.get('[data-session-id="1"] button').first().click();
+    cy.get('[data-session-id="1"] input').clear().type('Renamed session');
+    cy.get('.chat-panel button[title="Copy message"]').should('not.be.visible');
+    cy.get('[data-session-id="1"] button').first().click();
+    cy.wait('@renameChat');
+    cy.get('[data-session-id="1"]').should('be.visible').and('contain', 'Renamed session');
+    cy.get('@chatMessages.all').should('have.length', 1);
+    cy.get('[data-testid="chat-session-switcher"]').click();
+    cy.contains('.chat-panel', 'Previous question').should('be.visible');
+  });
+
   it('translates only the requested title or paragraph in manual mode, and retries failures', () => {
     let calls = 0;
     let paragraphCalls = 0;
