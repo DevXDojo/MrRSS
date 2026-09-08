@@ -54,7 +54,8 @@ type Handler struct {
 	DB                *database.DB
 	Fetcher           *feed.Fetcher
 	Translator        translation.Translator
-	AIProfileProvider *ai.ProfileProvider // AI profile provider for feature-specific configurations
+	AIProfileProvider *ai.ProfileProvider    // AI profile provider for feature-specific configurations
+	ChatRequests      ai.ChatRequestRegistry // Cancels only the identified chat request
 	AITracker         *ai.UsageTracker
 	DiscoveryService  *discovery.Service
 	App               interface{}         // Wails app instance for browser integration (interface{} to avoid import in server mode)

@@ -7,6 +7,7 @@ import {
   PhCheck,
   PhX,
   PhPaperPlaneRight,
+  PhStop,
   PhSpinner,
   PhClockCounterClockwise,
   PhPlus,
@@ -82,6 +83,92 @@ watch(
 );
 
 watch([showSessions, currentSessionId, () => props.article.id], cancelEditSession);
+
+interface ActiveChatRequest {
+  id: string;
+  articleId: number;
+  draftVersion: number;
+  sessionId: number | null;
+  controller: AbortController;
+  stopped: boolean;
+}
+let activeRequest: ActiveChatRequest | null = null;
+let creatingSession: { articleId: number; draftVersion: number; promise: Promise<ChatSession> } | null = null;
+let draftVersion = 0;
+let disposed = false;
+let viewVersion = 0;
+
+function isCurrentRequest(run: ActiveChatRequest) {
+  return !disposed && !run.stopped && activeRequest === run && boundArticle.value.id === run.articleId && draftVersion === run.draftVersion;
+}
+
+async function cancelRequest(run: ActiveChatRequest) {
+  if (!run.sessionId) return;
+  try {
+    await fetch('/api/ai-chat/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: run.sessionId, request_id: run.id }),
+      keepalive: true,
+    });
+  } catch (error) {
+    console.error('Failed to cancel chat generation:', error);
+  }
+}
+
+async function stopGeneration() {
+  const run = activeRequest;
+  if (!run) return;
+  run.stopped = true;
+  activeRequest = null;
+  isLoading.value = false;
+  const version = ++viewVersion;
+  run.controller.abort();
+  await cancelRequest(run);
+  const stillStopped = () => !disposed && viewVersion === version && !activeRequest && boundArticle.value.id === run.articleId && draftVersion === run.draftVersion;
+  if (run.sessionId && stillStopped()) {
+    await loadSessions(stillStopped);
+    if (stillStopped()) await selectSession(run.sessionId, true, stillStopped);
+  }
+}
+
+function closePanel() {
+  disposed = true;
+  void stopGeneration();
+  emit('close');
+}
+
+onBeforeUnmount(() => {
+  disposed = true;
+  void stopGeneration();
+  stopResize();
+});
+
+async function ensureSession(articleId: number, title: string, draft: number): Promise<ChatSession> {
+  if (!creatingSession || creatingSession.articleId !== articleId || creatingSession.draftVersion !== draft) {
+    const promise = (async () => {
+      const response = await fetch('/api/ai/chat/session/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ article_id: articleId, title }),
+      });
+      if (!response.ok) throw new Error('Failed to create chat session');
+      const session = (await response.json()) as ChatSession;
+      if (!Number.isSafeInteger(session.id) || session.id <= 0 || session.article_id !== articleId) {
+        throw new Error('Chat session ID is missing');
+      }
+      return session;
+    })();
+    creatingSession = { articleId, draftVersion: draft, promise };
+  }
+  const pending = creatingSession;
+  try {
+    return await pending.promise;
+  } catch (error) {
+    if (creatingSession === pending) creatingSession = null;
+    throw error;
+  }
+}
 
 const profileOptions = computed(() =>
   profiles.value.map((profile) => ({ value: String(profile.id), label: profile.name }))
@@ -160,24 +247,27 @@ onBeforeUnmount(() => {
 
 // Initialize: load sessions for this article
 onMounted(async () => {
+  const version = viewVersion;
+  const isCurrentView = () => !disposed && version === viewVersion && !activeRequest;
   await fetchProfiles();
+  if (!isCurrentView()) return;
   if (!selectedProfileId.value && defaultProfile.value) {
     selectedProfileId.value = String(defaultProfile.value.id);
   }
-  await loadSessions();
+  await loadSessions(isCurrentView);
   // Auto-select the most recent session if available
-  if (sessions.value.length > 0) {
-    await selectSession(sessions.value[0].id);
+  if (isCurrentView() && sessions.value.length > 0) {
+    await selectSession(sessions.value[0].id, false, isCurrentView);
   }
 });
 
-async function loadSessions() {
+async function loadSessions(isCurrentView = () => !disposed) {
   try {
     const articleId = boundArticle.value.id;
     const response = await fetch(`/api/ai/chat/sessions?article_id=${articleId}`);
     if (response.ok) {
       const loadedSessions: ChatSession[] = await response.json();
-      if (boundArticle.value.id === articleId) {
+      if (isCurrentView() && boundArticle.value.id === articleId) {
         sessions.value = loadedSessions.filter((session) => session.article_id === articleId);
       }
     }
@@ -186,20 +276,26 @@ async function loadSessions() {
   }
 }
 
-async function selectSession(sessionId: number, force = false) {
+async function selectSession(sessionId: number, force = false, isCurrentView?: () => boolean) {
   if (isLoading.value && !force) return;
+  if (!isCurrentView) {
+    const version = ++viewVersion;
+    isCurrentView = () => !disposed && version === viewVersion && !activeRequest;
+  }
   const session = sessions.value.find((item) => item.id === sessionId);
   if (!session || session.article_id !== boundArticle.value.id) return;
   try {
     const response = await fetch(`/api/ai/chat/messages?session_id=${sessionId}`);
     if (response.ok) {
       const loadedMessages = await response.json();
-      if (session.article_id !== boundArticle.value.id) return;
+      if (!isCurrentView() || session.article_id !== boundArticle.value.id) return;
       messages.value = loadedMessages;
       currentSessionId.value = sessionId;
-      // Set isFirstMessage based on whether the session has any messages
-      // New sessions (no messages) should have isFirstMessage = true
-      isFirstMessage.value = loadedMessages.length === 0;
+      // A cancelled first attempt may have saved only the user question.
+      // Keep article context until an assistant response has been saved.
+      isFirstMessage.value = !loadedMessages.some(
+        (message: ChatMessage) => message.role === 'assistant'
+      );
       showSessions.value = false;
       await nextTick();
       scrollToBottom();
@@ -211,6 +307,9 @@ async function selectSession(sessionId: number, force = false) {
 
 function createNewSession() {
   if (isLoading.value) return;
+  ++viewVersion;
+  ++draftVersion;
+  creatingSession = null;
   const changedArticle = boundArticle.value.id !== props.article.id;
   boundArticle.value = { ...props.article };
   boundArticleContent.value = props.articleContent;
@@ -337,29 +436,36 @@ function stopResize() {
 
 async function sendMessage() {
   const message = inputMessage.value.trim();
-  if (!message || isLoading.value || showSessions.value || articleMismatch.value) return;
-
+  if (!message || disposed || isLoading.value || showSessions.value || articleMismatch.value) return;
+  const run: ActiveChatRequest = {
+    id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    articleId: boundArticle.value.id,
+    draftVersion,
+    sessionId: currentSessionId.value,
+    controller: new AbortController(),
+    stopped: false,
+  };
+  activeRequest = run;
+  ++viewVersion;
+  const article = { ...boundArticle.value };
+  const articleContent = boundArticleContent.value.slice(0, 50000);
   isLoading.value = true;
 
   try {
-    if (!currentSessionId.value) {
-      const response = await fetch('/api/ai/chat/session/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          article_id: boundArticle.value.id,
-          title: Array.from(message).slice(0, 60).join(''),
-        }),
-      });
-      if (!response.ok) throw new Error((await readAIError(response)).message);
-      const session: ChatSession = await response.json();
-      if (!Number.isInteger(session.id) || session.id <= 0 || session.article_id !== boundArticle.value.id) {
-        throw new Error('Invalid chat session ID');
-      }
+    // A short, single-flight create gives Stop a stable session ID before the
+    // long provider request starts. Do not abort creation and lose its ID.
+    if (!run.sessionId) {
+      const session = await ensureSession(run.articleId, Array.from(message).slice(0, 60).join(''), run.draftVersion);
+      run.sessionId = session.id;
+      if (!isCurrentRequest(run)) return;
+      // Consume the cached ID only when a live request takes ownership. A
+      // stopped create can finish before the user retries without duplicating it.
+      creatingSession = null;
       currentSessionId.value = session.id;
       sessions.value.unshift(session);
     }
-
+    if (!isCurrentRequest(run)) return;
+    // Preserve the input if session creation fails or is stopped before sending.
     messages.value.push({
       id: 0,
       role: 'user',
@@ -368,74 +474,72 @@ async function sendMessage() {
     });
     inputMessage.value = '';
     await nextTick();
+    if (!isCurrentRequest(run)) return;
     scrollToBottom();
-
-    // Prepare article content for AI context
-    // Use up to 50000 characters for better context while staying reasonable
-    const articleContent = boundArticleContent.value.slice(0, 50000);
-
-    const requestBody: any = {
-      session_id: currentSessionId.value,
-      article_id: boundArticle.value.id,
-      messages: messages.value.slice(-10),
-      is_first_message: isFirstMessage.value,
-      article_title: boundArticle.value.title,
-      article_url: boundArticle.value.url,
-      // Include article content to ensure AI has context
-      article_content: articleContent,
-      profile_id: Number(selectedProfileId.value) || undefined,
-    };
-
     const response = await fetch('/api/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
+      signal: run.controller.signal,
+      body: JSON.stringify({
+        request_id: run.id,
+        session_id: run.sessionId,
+        article_id: run.articleId,
+        messages: messages.value.slice(-10),
+        is_first_message: isFirstMessage.value,
+        article_title: article.title,
+        article_url: article.url,
+        article_content: articleContent,
+        profile_id: Number(selectedProfileId.value) || undefined,
+      }),
     });
-
+    if (!isCurrentRequest(run)) return;
     if (response.ok) {
       const data = await response.json();
+      if (!isCurrentRequest(run)) return;
       messages.value.push({
         id: 0,
         role: 'assistant',
         content: data.response,
-        html: data.html, // Use pre-rendered HTML from backend
+        html: data.html,
         thinking: data.thinking,
         created_at: new Date().toISOString(),
       });
-
+      isFirstMessage.value = false;
       if (data.session_id) {
         currentSessionId.value = data.session_id;
-        await loadSessions();
+        await loadSessions(() => isCurrentRequest(run));
       }
-
-      if (data.history_saved === false) {
+      if (isCurrentRequest(run) && data.history_saved === false) {
         window.showToast(t('article.chat.historySaveFailed'), 'warning');
       }
-
-      isFirstMessage.value = false;
     } else {
-      console.error('AI chat request failed:', response.status);
       const chatError = await readAIError(response);
+      if (!isCurrentRequest(run)) return;
       const errorPayload =
         chatError.payload !== null && typeof chatError.payload === 'object'
           ? (chatError.payload as Record<string, unknown>)
           : null;
       const persistedSessionID = Number(errorPayload?.session_id || 0);
-
       if (persistedSessionID > 0) {
         currentSessionId.value = persistedSessionID;
-        await loadSessions();
-        await selectSession(persistedSessionID, true);
+        await loadSessions(() => isCurrentRequest(run));
+        if (!isCurrentRequest(run)) return;
+        await selectSession(persistedSessionID, true, () => isCurrentRequest(run));
       }
-      window.showToast(chatError.message, 'error');
+      if (isCurrentRequest(run)) window.showToast(chatError.message, 'error');
     }
-  } catch (e) {
-    console.error('AI chat error:', e);
-    window.showToast(t('article.chat.aiChatError'), 'error');
+  } catch (error) {
+    if (isCurrentRequest(run)) {
+      console.error('AI chat error:', error);
+      window.showToast(t('article.chat.aiChatError'), 'error');
+    }
   } finally {
-    isLoading.value = false;
-    await nextTick();
-    scrollToBottom();
+    if (isCurrentRequest(run)) {
+      activeRequest = null;
+      isLoading.value = false;
+      await nextTick();
+      scrollToBottom();
+    }
   }
 }
 
@@ -535,7 +639,8 @@ const currentSessionTitle = computed(() => {
             <button
               class="p-1 hover:bg-bg-tertiary rounded-lg transition-colors"
               :title="t('common.close')"
-              @click="emit('close')"
+              @click="closePanel"
+              data-testid="chat-close"
             >
               <PhX :size="18" class="text-text-secondary" />
             </button>
@@ -772,7 +877,19 @@ const currentSessionTitle = computed(() => {
               @keydown="handleKeydown"
             />
             <button
-              :disabled="isLoading || showSessions || articleMismatch || !inputMessage.trim()"
+              v-if="isLoading"
+              :title="t('article.chat.stopGenerating')"
+              :aria-label="t('article.chat.stopGenerating')"
+              data-testid="chat-stop-generation"
+              class="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+              @click="stopGeneration"
+            >
+              <PhStop :size="18" weight="fill" />
+            </button>
+            <button
+              v-else
+              data-testid="chat-send-message"
+              :disabled="showSessions || articleMismatch || !inputMessage.trim()"
               class="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               @click="sendMessage"
             >
