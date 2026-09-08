@@ -192,29 +192,14 @@ async function selectSession(sessionId: number, force = false) {
   }
 }
 
-async function createNewSession() {
+function createNewSession() {
   if (isLoading.value) return;
-  try {
-    const response = await fetch('/api/ai/chat/session/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        article_id: props.article.id,
-        title: t('article.chat.newChat'),
-      }),
-    });
-
-    if (response.ok) {
-      const newSession = await response.json();
-      sessions.value.unshift(newSession);
-      // Select the new session and reset for first message
-      await selectSession(newSession.id);
-      // Ensure isFirstMessage is true for new sessions
-      isFirstMessage.value = true;
-    }
-  } catch (e) {
-    console.error('Failed to create session:', e);
-  }
+  currentSessionId.value = null;
+  messages.value = [];
+  inputMessage.value = '';
+  isFirstMessage.value = true;
+  showSessions.value = false;
+  cancelEditSession();
 }
 
 async function deleteSession(sessionId: number, e: Event) {
@@ -332,19 +317,37 @@ async function sendMessage() {
   const message = inputMessage.value.trim();
   if (!message || isLoading.value || showSessions.value) return;
 
-  messages.value.push({
-    id: 0,
-    role: 'user',
-    content: message,
-    created_at: new Date().toISOString(),
-  });
-  inputMessage.value = '';
   isLoading.value = true;
 
-  await nextTick();
-  scrollToBottom();
-
   try {
+    if (!currentSessionId.value) {
+      const response = await fetch('/api/ai/chat/session/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          article_id: props.article.id,
+          title: Array.from(message).slice(0, 60).join(''),
+        }),
+      });
+      if (!response.ok) throw new Error((await readAIError(response)).message);
+      const session: ChatSession = await response.json();
+      if (!Number.isInteger(session.id) || session.id <= 0) {
+        throw new Error('Invalid chat session ID');
+      }
+      currentSessionId.value = session.id;
+      sessions.value.unshift(session);
+    }
+
+    messages.value.push({
+      id: 0,
+      role: 'user',
+      content: message,
+      created_at: new Date().toISOString(),
+    });
+    inputMessage.value = '';
+    await nextTick();
+    scrollToBottom();
+
     // Prepare article content for AI context
     // Use up to 50000 characters for better context while staying reasonable
     const articleContent = props.articleContent ? props.articleContent.slice(0, 50000) : '';

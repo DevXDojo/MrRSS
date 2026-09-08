@@ -138,6 +138,9 @@ describe('Reading interactions', () => {
       { id: 2, name: 'Model Two', is_default: false },
     ]);
     cy.intercept('GET', '/api/ai/chat/sessions*', []);
+    cy.intercept('POST', '/api/ai/chat/session/create', {
+      id: 1, article_id: article.id, title: 'Question', message_count: 0,
+    }).as('createModelChat');
     cy.intercept('POST', '/api/ai-chat', (req) => {
       expect(req.body.profile_id).to.equal(2);
       req.reply({ response: 'Selectable answer', session_id: 1 });
@@ -154,6 +157,7 @@ describe('Reading interactions', () => {
       .click();
     cy.get('.chat-profile-selector .select-trigger').should('contain', 'Model Two');
     cy.get('input[placeholder="Type a message..."]').type('Question{enter}');
+    cy.wait('@createModelChat').its('request.body.article_id').should('equal', article.id);
     cy.wait('@modelChat');
     cy.contains('.chat-panel .select-text', 'Selectable answer')
       .should('be.visible')
@@ -283,6 +287,43 @@ describe('Reading interactions', () => {
     cy.wait('@continueChat');
     cy.contains('.chat-panel', 'Continued answer').should('be.visible');
     cy.then(() => expect(sends).to.equal(1));
+  });
+
+  it('keeps new chats local until sending and creates only one session for the first question', () => {
+    let creates = 0;
+    let sends = 0;
+    setup({ ai_chat_enabled: 'true', translation_enabled: 'false' });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('GET', '/api/ai/chat/sessions*', []);
+    cy.intercept('POST', '/api/ai/chat/session/create', (req) => {
+      creates++;
+      expect(req.body.article_id).to.equal(1);
+      expect(req.body.title).to.equal('First real question');
+      req.reply({ id: 10, article_id: 1, title: req.body.title, message_count: 0 });
+    }).as('createChat');
+    cy.intercept('POST', '/api/ai-chat', (req) => {
+      sends++;
+      expect(creates).to.equal(1);
+      expect(req.body.session_id).to.equal(10);
+      expect(req.body.messages.at(-1).content).to.equal('First real question');
+      req.reply({ response: 'First answer', session_id: 10 });
+    }).as('sendChat');
+    openArticle();
+    cy.get('button[title="AI Chat"]').click();
+    cy.get('[data-testid="chat-new-session"]').click().click();
+    cy.get('input[placeholder="Type a message..."]').type('Discard this draft');
+    cy.get('[data-testid="chat-new-session"]').click();
+    cy.get('input[placeholder="Type a message..."]').should('have.value', '');
+    cy.then(() => expect(creates).to.equal(0));
+    cy.get('input[placeholder="Type a message..."]').type('First real question{enter}');
+    cy.wait('@createChat');
+    cy.wait('@sendChat');
+    cy.contains('.chat-panel', 'First answer').should('be.visible');
+    cy.get('[data-testid="chat-new-session"]').click().click();
+    cy.then(() => {
+      expect(creates).to.equal(1);
+      expect(sends).to.equal(1);
+    });
   });
 
   it('translates only the requested title or paragraph in manual mode, and retries failures', () => {
