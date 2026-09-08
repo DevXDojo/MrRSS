@@ -166,6 +166,9 @@ async function nextImage(): void {
  * Handle thumbnail selection
  */
 function handleThumbnailSelect(index: number): void {
+  // Clicking the active thumbnail does not change the image src, so no new
+  // load event would fire to clear a freshly enabled loading indicator.
+  if (index === localImageIndex.value) return;
   localImageIndex.value = index;
   viewer.currentImageLoading.value = true;
   viewer.resetView();
