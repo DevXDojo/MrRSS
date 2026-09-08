@@ -281,7 +281,7 @@ const articleListTitle = computed(() => {
   if (store.tempSelection.feedId) {
     const feed = store.feeds?.find((f) => f.id === store.tempSelection.feedId);
     const feedName = feed?.title || '';
-    const filterText = getFilterText();
+    const filterText = store.currentFilter === 'all' ? '' : getFilterText();
 
     // Truncate feed name if it's too long (leave room for " - filterText")
     const maxFeedNameLength = filterText ? 40 : 50;
@@ -291,8 +291,11 @@ const articleListTitle = computed(() => {
   }
 
   if (store.tempSelection.category) {
-    const categoryName = store.tempSelection.category;
-    const filterText = getFilterText();
+    const categoryName =
+      store.tempSelection.category === 'uncategorized'
+        ? t('sidebar.feedList.uncategorized')
+        : store.tempSelection.category;
+    const filterText = store.currentFilter === 'all' ? '' : getFilterText();
 
     // Truncate category name if it's too long
     const maxCategoryLength = filterText ? 40 : 50;
