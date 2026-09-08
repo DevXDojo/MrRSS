@@ -888,3 +888,74 @@ func TestSaveArticlesValidPubDateStillUpdatesTime(t *testing.T) {
 		t.Fatalf("valid pubDate not honored on refresh: got %v, want %v (diff %v)", stored, t2, diff)
 	}
 }
+
+func TestFirstChatQuestionNamesOnlyEmptyDefaultSessions(t *testing.T) {
+	db := setupDBWithFeed(t)
+	var feedID int64
+	if err := db.QueryRow(`SELECT id FROM feeds LIMIT 1`).Scan(&feedID); err != nil {
+		t.Fatal(err)
+	}
+	result, err := db.Exec(`INSERT INTO articles(feed_id,title,url) VALUES(?, 'chat', 'https://example.com/chat-title')`, feedID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	articleID, _ := result.LastInsertId()
+	for _, original := range []string{"New Chat", "新对话", "My own title"} {
+		t.Run(original, func(t *testing.T) {
+			id, err := db.CreateChatSession(articleID, original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			question := strings.Repeat("问😀", 40)
+			if _, err := db.CreateChatMessage(id, "user", "  "+question+"  ", ""); err != nil {
+				t.Fatal(err)
+			}
+			session, err := db.GetChatSession(id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := string([]rune(question)[:60])
+			if original == "My own title" {
+				want = original
+			}
+			if session.Title != want {
+				t.Fatalf("title=%q want=%q", session.Title, want)
+			}
+			if _, err := db.CreateChatMessage(id, "user", "second question", ""); err != nil {
+				t.Fatal(err)
+			}
+			session, _ = db.GetChatSession(id)
+			if session.Title != want {
+				t.Fatal("later question replaced title")
+			}
+		})
+	}
+	populatedID, err := db.CreateChatSession(articleID, "New Chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateChatMessage(populatedID, "assistant", "existing answer", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateChatMessage(populatedID, "user", "later question", ""); err != nil {
+		t.Fatal(err)
+	}
+	populated, err := db.GetChatSession(populatedID)
+	if err != nil || populated.Title != "New Chat" {
+		t.Fatalf("populated default session was renamed: %+v %v", populated, err)
+	}
+	id, err := db.CreateChatSession(articleID, "New Chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TRIGGER reject_chat_message BEFORE INSERT ON chat_messages BEGIN SELECT RAISE(ABORT, 'test failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateChatMessage(id, "user", "must roll back title", ""); err == nil {
+		t.Fatal("expected insert failure")
+	}
+	session, err := db.GetChatSession(id)
+	if err != nil || session.Title != "New Chat" || session.MessageCount != 0 {
+		t.Fatalf("transaction did not roll back: %+v %v", session, err)
+	}
+}
