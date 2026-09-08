@@ -45,6 +45,7 @@ const imageActions = useImageActions();
 // UI state
 const showTextOverlay = ref(true);
 const showThumbnailStrip = ref(true);
+const refreshRequested = ref(false);
 
 // Image viewer state
 const showImageViewer = ref(false);
@@ -403,6 +404,29 @@ function handleImageIndexUpdate(index: number): void {
   currentImageIndex.value = index;
 }
 
+async function refreshFeeds(): Promise<void> {
+  if (store.refreshProgress.isRunning) return;
+
+  refreshRequested.value = true;
+  await store.refreshFeeds();
+
+  // A refresh with no queued work can finish before the progress watcher runs.
+  if (!store.refreshProgress.isRunning && refreshRequested.value) {
+    await galleryData.refresh();
+    refreshRequested.value = false;
+  }
+}
+
+watch(
+  () => store.refreshProgress.isRunning,
+  async (isRunning, wasRunning) => {
+    if (refreshRequested.value && wasRunning && !isRunning) {
+      await galleryData.refresh();
+      refreshRequested.value = false;
+    }
+  }
+);
+
 // Watch for container ref to be set up and add scroll listener
 watch(
   () => masonryLayout.containerRef.value,
@@ -510,9 +534,11 @@ onUnmounted(() => {
     <!-- Header -->
     <ImageGalleryHeader
       :title="galleryTitle"
+      :is-refreshing="store.refreshProgress.isRunning"
       :show-text-overlay="showTextOverlay"
       :show-only-unread="galleryData.showOnlyUnread.value"
       @toggle-sidebar="emit('toggleSidebar')"
+      @refresh="refreshFeeds"
       @toggle-text-overlay="showTextOverlay = !showTextOverlay"
       @toggle-show-only-unread="galleryData.toggleShowOnlyUnread()"
     />

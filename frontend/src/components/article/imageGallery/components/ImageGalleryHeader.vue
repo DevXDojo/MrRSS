@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhCircle, PhList, PhTextT, PhTextTSlash } from '@phosphor-icons/vue';
+import { PhArrowClockwise, PhCircle, PhList, PhTextT, PhTextTSlash } from '@phosphor-icons/vue';
 
 interface Props {
   title: string;
+  isRefreshing: boolean;
   showTextOverlay: boolean;
   showOnlyUnread: boolean;
 }
@@ -12,6 +13,7 @@ defineProps<Props>();
 
 const emit = defineEmits<{
   toggleSidebar: [];
+  refresh: [];
   toggleTextOverlay: [];
   toggleShowOnlyUnread: [];
 }>();
@@ -40,6 +42,15 @@ const { t } = useI18n();
     </div>
 
     <div class="flex items-center gap-2">
+      <button
+        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        :title="t('article.action.refresh')"
+        :disabled="isRefreshing"
+        @click="emit('refresh')"
+      >
+        <PhArrowClockwise :size="20" :class="isRefreshing ? 'animate-spin' : ''" />
+      </button>
+
       <!-- Show only unread toggle button -->
       <button
         class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer"
