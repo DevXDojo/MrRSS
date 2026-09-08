@@ -103,6 +103,20 @@ func (db *DB) UpdateChatSessionTitle(sessionID int64, title string) error {
 	return nil
 }
 
+// RebindChatSession moves an existing conversation to a different article.
+// The message history is preserved so users can continue the same discussion
+// while supplying the newly selected article as the active context.
+func (db *DB) RebindChatSession(sessionID, articleID int64) error {
+	_, err := db.Exec(
+		`UPDATE chat_sessions SET article_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		articleID, sessionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to rebind chat session: %w", err)
+	}
+	return nil
+}
+
 // UpdateChatSessionTimestamp updates the updated_at timestamp of a chat session
 func (db *DB) UpdateChatSessionTimestamp(sessionID int64) error {
 	_, err := db.Exec(

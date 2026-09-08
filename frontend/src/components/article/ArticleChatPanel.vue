@@ -323,6 +323,25 @@ function createNewSession() {
   if (changedArticle) void loadSessions();
 }
 
+function continueWithCurrentArticle() {
+  if (isLoading.value || !articleMismatch.value) return;
+  ++viewVersion;
+  ++draftVersion;
+  creatingSession = null;
+  boundArticle.value = { ...props.article };
+  boundArticleContent.value = props.articleContent;
+  isFirstMessage.value = true;
+  const currentSession = sessions.value.find((session) => session.id === currentSessionId.value);
+  if (currentSession) {
+    currentSession.article_id = props.article.id;
+    sessions.value = [currentSession];
+  } else {
+    sessions.value = [];
+  }
+  showSessions.value = false;
+  cancelEditSession();
+}
+
 async function deleteSession(sessionId: number, e: Event) {
   e.stopPropagation();
   if (isLoading.value) return;
@@ -672,15 +691,26 @@ const currentSessionTitle = computed(() => {
             <p class="text-xs text-text-secondary">
               {{ t('article.chat.articleMismatch', { title: boundArticle.title }) }}
             </p>
-            <button
-              type="button"
-              class="text-xs text-accent hover:underline disabled:opacity-50"
-              data-testid="chat-new-context"
-              :disabled="isLoading"
-              @click.stop="createNewSession"
-            >
-              {{ t('article.chat.newChatForCurrentArticle') }}
-            </button>
+            <div class="flex flex-wrap gap-x-3 gap-y-1">
+              <button
+                type="button"
+                class="text-xs text-accent hover:underline disabled:opacity-50"
+                data-testid="chat-continue-current-article"
+                :disabled="isLoading"
+                @click.stop="continueWithCurrentArticle"
+              >
+                {{ t('article.chat.continueWithCurrentArticle') }}
+              </button>
+              <button
+                type="button"
+                class="text-xs text-text-secondary hover:text-accent hover:underline disabled:opacity-50"
+                data-testid="chat-new-context"
+                :disabled="isLoading"
+                @click.stop="createNewSession"
+              >
+                {{ t('article.chat.newChatForCurrentArticle') }}
+              </button>
+            </div>
           </div>
         </div>
 

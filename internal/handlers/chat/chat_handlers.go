@@ -275,8 +275,13 @@ func persistUserChatMessage(h *core.Handler, req *ChatRequest) (int64, bool, err
 		if err != nil {
 			return sessionID, false, err
 		}
-		if session == nil || session.ArticleID != req.ArticleID {
-			return sessionID, false, fmt.Errorf("chat session does not belong to the article")
+		if session == nil {
+			return sessionID, false, fmt.Errorf("chat session not found")
+		}
+		if session.ArticleID != req.ArticleID {
+			if err := h.DB.RebindChatSession(sessionID, req.ArticleID); err != nil {
+				return sessionID, false, err
+			}
 		}
 	} else {
 		title := []rune(lastUserMessage)

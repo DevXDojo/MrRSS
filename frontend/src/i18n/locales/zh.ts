@@ -64,7 +64,8 @@ const zh: TranslationMessages = {
     chat: {
       titleSaveFailed: '保存对话标题失败，请重试。',
       linkedArticle: '对话关联文章',
-      articleMismatch: '此对话关联的是“{title}”。请切回该文章，或为当前文章新建对话。',
+      articleMismatch: '此对话当前使用“{title}”作为上下文。',
+      continueWithCurrentArticle: '在当前对话中切换到这篇文章',
       newChatForCurrentArticle: '为当前文章新建对话',
       aiChat: 'AI 聊天',
       aiChatError: '无法获取 AI 响应，请重试。',
