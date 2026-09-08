@@ -12,6 +12,8 @@ import type { Feed } from './types/models';
 import App from './App.vue';
 import AIFeatureSettings from './components/modals/settings/ai/AIFeatureSettings.vue';
 import type { SettingsData } from './types/settings';
+import { useArticleActions } from './composables/article/useArticleActions';
+import type { Article } from './types/models';
 import { setSettingsFromRawData } from './composables/core/useSettings';
 import { getRecommendedFonts } from './utils/fontDetector';
 import {
@@ -395,5 +397,44 @@ describe('Selected source titles', () => {
     await nextTick();
     expect(title()).toBe(`未分类 - ${zh.sidebar.activity.favorites}`);
     wrapper.unmount();
+  });
+});
+describe('Article context menu read status', () => {
+  it('uses neutral read icons with distinct shapes while preserving status actions and colors', () => {
+    const i18n = createI18n({ legacy: false, locale: 'en', messages: { en } });
+    let actions: ReturnType<typeof useArticleActions>;
+    const wrapper = mount({
+      setup() {
+        actions = useArticleActions(i18n.global.t, { value: 'rendered' });
+        return {};
+      },
+      template: '<div />',
+    }, { global: { plugins: [createPinia(), i18n] } });
+    const openMenu = vi.fn();
+    window.addEventListener('open-context-menu', openMenu);
+    try {
+      for (const isRead of [false, true]) {
+        const article: Article = {
+          id: 1, feed_id: 1, title: 'Article', url: 'https://example.com/article',
+          published_at: '2026-01-01T00:00:00Z', is_read: isRead,
+          is_favorite: true, is_read_later: true, is_hidden: false,
+        };
+        actions!.showArticleContextMenu(new MouseEvent('contextmenu'), article);
+        const event = openMenu.mock.calls.at(-1)![0] as CustomEvent;
+        expect(event.detail.data).toBe(article);
+        expect(event.detail.items[0]).toMatchObject({
+          action: 'toggleRead', icon: 'ph-circle', iconColor: 'text-text-secondary',
+          iconWeight: isRead ? 'regular' : 'fill',
+          label: i18n.global.t(isRead ? 'article.action.markAsUnread' : 'article.action.markAsRead'),
+        });
+        expect(event.detail.items).toEqual(expect.arrayContaining([
+          expect.objectContaining({ action: 'toggleFavorite', iconColor: 'text-yellow-500' }),
+          expect.objectContaining({ action: 'toggleReadLater', iconColor: 'text-blue-500' }),
+        ]));
+      }
+    } finally {
+      window.removeEventListener('open-context-menu', openMenu);
+      wrapper.unmount();
+    }
   });
 });
