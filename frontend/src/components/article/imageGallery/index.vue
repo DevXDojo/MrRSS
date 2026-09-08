@@ -510,6 +510,7 @@ onUnmounted(() => {
       :columns="masonryLayout.columns.value"
       :image-dimensions="masonryLayout.imageDimensions.value"
       :is-loading="galleryData.isLoading.value"
+      :show-only-unread="galleryData.showOnlyUnread.value"
       :show-text-overlay="showTextOverlay"
       :image-count-cache="galleryData.imageCountCache.value"
       @image-size="masonryLayout.setImageSize"

@@ -71,7 +71,7 @@ func HandleListSessions(h *core.Handler, w http.ResponseWriter, r *http.Request)
 // @Success      200  {object}  database.ChatSession  "Created chat session"
 // @Failure      400  {object}  map[string]string  "Bad request (missing article_id)"
 // @Failure      500  {object}  map[string]string  "Internal server error"
-// @Router       /chat/sessions [post]
+// @Router       /ai/chat/session/create [post]
 func HandleCreateSession(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, nil, http.StatusMethodNotAllowed)
