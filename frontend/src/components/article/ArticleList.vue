@@ -22,6 +22,7 @@ import AISearchBar from './AISearchBar.vue';
 import { useArticleTranslation } from '@/composables/article/useArticleTranslation';
 import { useArticleFilter } from '@/composables/article/useArticleFilter';
 import { useArticleActions } from '@/composables/article/useArticleActions';
+import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseSettingsData } from '@/composables/core/useSettings.generated';
@@ -227,6 +228,12 @@ const { showArticleContextMenu } = useArticleActions(
   },
   preserveRelativeReadPosition
 );
+const { onContextMenu: showSelectionContextMenu } = useArticleSelectionMenu(listRef);
+
+function handleArticleContextMenu(event: MouseEvent, article: Article): void {
+  showSelectionContextMenu(event);
+  if (!event.defaultPrevented) showArticleContextMenu(event, article);
+}
 
 async function preserveRelativeReadPosition(
   referenceArticle: Article,
@@ -1213,7 +1220,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             :article="article"
             :is-active="cardModalArticle?.id === article.id"
             @click="selectArticle(article)"
-            @contextmenu="(e) => showArticleContextMenu(e, article)"
+            @contextmenu="(e) => handleArticleContextMenu(e, article)"
           />
           <div
             v-if="isAISearchActive && article.excerpt"
@@ -1251,7 +1258,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             :article="article"
             :is-active="store.currentArticleId === article.id"
             @click="selectArticle(article)"
-            @contextmenu="(e) => showArticleContextMenu(e, article)"
+            @contextmenu="(e) => handleArticleContextMenu(e, article)"
             @observe-element="observeArticle"
             @hover-mark-as-read="handleHoverMarkAsRead"
           />
