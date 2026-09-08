@@ -62,6 +62,7 @@ const zh: TranslationMessages = {
       volume: '音量',
     },
     chat: {
+      titleSaveFailed: '保存对话标题失败，请重试。',
       aiChat: 'AI 聊天',
       aiChatError: '无法获取 AI 响应，请重试。',
       historySaveFailed: '回答已生成，但未能保存到历史记录。',
@@ -627,7 +628,7 @@ const zh: TranslationMessages = {
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI 功能',
       aiModel: '模型名称',
-      aiModelDesc: '用于翻译和摘要的 AI 模型',
+      aiModelDesc: '用于聊天、翻译和摘要的 AI 模型',
       aiModelPlaceholder: 'gpt-4o-mini',
       // AI 配置管理
       aiProfiles: 'AI 配置',
