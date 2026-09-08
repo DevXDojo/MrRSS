@@ -1,4 +1,4 @@
-﻿# This file contains the configuration for this project.
+# This file contains the configuration for this project.
 # When you update `info` or `fileAssociations`, run `wails3 task common:update:build-assets` to update the assets.
 # Note that this will overwrite any changes you have made to the assets.
 version: '3'
