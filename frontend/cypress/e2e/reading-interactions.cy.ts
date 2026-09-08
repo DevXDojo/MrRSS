@@ -341,4 +341,107 @@ describe('Reading interactions', () => {
       expect(JSON.parse(win.localStorage.getItem('mrrssChatPanelSize')!)).to.deep.equal(preferred);
     });
   });
+
+  it('uses a 500 by 600 chat default and a viewport-limited 420 by 200 drag minimum', () => {
+    cy.viewport(1280, 900);
+    setup({ ai_chat_enabled: 'true' });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('GET', '/api/ai/chat/sessions*', []);
+    openArticle();
+    cy.get('.js-article-chat-button').click();
+    cy.get('.chat-panel')
+      .should(($panel) => {
+        const rect = $panel[0].getBoundingClientRect();
+        expect(rect.width).to.equal(500);
+        expect(rect.height).to.equal(600);
+      })
+      .then(($panel) => {
+        const rect = $panel[0].getBoundingClientRect();
+        cy.get('.chat-panel .cursor-nw-resize').trigger('mousedown', {
+          clientX: rect.left + 2,
+          clientY: rect.top + 2,
+          button: 0,
+          force: true,
+        });
+        cy.document().trigger('mousemove', { clientX: rect.right, clientY: rect.bottom });
+        cy.document().trigger('mouseup');
+      });
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(420);
+      expect(rect.height).to.equal(200);
+    });
+    cy.viewport(320, 230);
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(288);
+      expect(rect.height).to.equal(174);
+      expect(rect.left).to.be.at.least(0);
+      expect(rect.top).to.be.at.least(0);
+      expect(rect.right).to.be.at.most(320);
+      expect(rect.bottom).to.be.at.most(230);
+    });
+    cy.viewport(1280, 900);
+    cy.get('.chat-panel').should(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      expect(rect.width).to.equal(420);
+      expect(rect.height).to.equal(200);
+    });
+  });
+
+  it('truncates long session titles without pushing header actions outside the chat panel', () => {
+    cy.viewport(1280, 900);
+    setup({ ai_chat_enabled: 'true' });
+    const title = 'Long chat session title '.repeat(30);
+    cy.intercept('GET', '/api/ai/profiles', [
+      { id: 1, name: 'Long AI profile name '.repeat(10), is_default: true },
+    ]);
+    cy.intercept('GET', '/api/ai/chat/sessions*', [{ id: 1, article_id: article.id, title }]);
+    cy.intercept('GET', '/api/ai/chat/messages*', []).as('chatMessages');
+    openArticle();
+    cy.get('.js-article-chat-button').click();
+    cy.wait('@chatMessages');
+    cy.get('.chat-panel').then(($panel) => {
+      const rect = $panel[0].getBoundingClientRect();
+      cy.get('.chat-panel .cursor-nw-resize').trigger('mousedown', {
+        clientX: rect.left + 2,
+        clientY: rect.top + 2,
+        button: 0,
+        force: true,
+      });
+      cy.document().trigger('mousemove', { clientX: rect.right, clientY: rect.bottom });
+      cy.document().trigger('mouseup');
+    });
+    for (const [viewportWidth, viewportHeight, expectedWidth] of [
+      [1280, 900, 420],
+      [320, 330, 288],
+    ]) {
+      cy.viewport(viewportWidth, viewportHeight);
+      cy.get('.chat-panel').should(($panel) => {
+        const panel = $panel[0];
+        const rect = panel.getBoundingClientRect();
+        expect(rect.width).to.equal(expectedWidth);
+        const header = panel.firstElementChild as HTMLElement;
+        expect(header.scrollWidth).to.be.at.most(header.clientWidth);
+        for (const button of header.querySelectorAll('button')) {
+          const bounds = button.getBoundingClientRect();
+          expect(bounds.width).to.be.greaterThan(0);
+          expect(bounds.left).to.be.at.least(rect.left);
+          expect(bounds.right).to.be.at.most(rect.right);
+          expect(bounds.top).to.be.at.least(rect.top);
+          expect(bounds.bottom).to.be.at.most(rect.bottom);
+        }
+      });
+      cy.get('[data-testid="chat-session-switcher"] span')
+        .should('have.text', title)
+        .should(($title) => {
+          expect($title[0].scrollWidth).to.be.greaterThan($title[0].clientWidth);
+          expect(getComputedStyle($title[0]).textOverflow).to.equal('ellipsis');
+        });
+      cy.get('.chat-panel button[title="Close"]').should('be.visible');
+      cy.get('[data-testid="chat-new-session"]').should('be.visible');
+    }
+    cy.get('.chat-panel button[title="Close"]').click();
+    cy.get('.chat-panel').should('not.exist');
+  });
 });
