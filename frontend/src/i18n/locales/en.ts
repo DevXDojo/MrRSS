@@ -644,7 +644,7 @@ const en: TranslationMessages = {
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI Features',
       aiModel: 'Model Name',
-      aiModelDesc: 'AI model to use for translation and summarization',
+      aiModelDesc: 'AI model to use for chat, translation, and summarization',
       aiModelPlaceholder: 'gpt-4o-mini',
       // AI Profile Management
       aiProfiles: 'AI Profiles',
