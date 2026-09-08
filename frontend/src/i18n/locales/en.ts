@@ -1264,6 +1264,7 @@ const en: TranslationMessages = {
   },
   sidebar: {
     categoryActions: {
+      collapse: 'Collapse category',
       dissolve: 'Dissolve category',
       unsubscribe: 'Unsubscribe category',
       dissolveConfirm:
@@ -1365,3 +1366,4 @@ const en: TranslationMessages = {
 };
 
 export default en;
+      expand: 'Expand category',

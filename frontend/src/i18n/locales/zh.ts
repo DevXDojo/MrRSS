@@ -1228,6 +1228,7 @@ const zh: TranslationMessages = {
   },
   sidebar: {
     categoryActions: {
+      collapse: '折叠分类',
       dissolve: '解散分类',
       unsubscribe: '取消订阅整个分类',
       dissolveConfirm: '解散“{name}”及其子分类？保留全部 {count} 个订阅及文章，并移至未分类。',
@@ -1328,3 +1329,4 @@ const zh: TranslationMessages = {
 };
 
 export default zh;
+      expand: '展开分类',
