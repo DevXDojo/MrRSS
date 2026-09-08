@@ -141,6 +141,15 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	// Optimize context to reduce token usage
 	optimizedMessages := optimizeChatContext(req.Messages, req.ArticleTitle, req.ArticleURL, req.ArticleContent, req.IsFirstMessage)
 
+	// Read the shared chat preference for every request, including resumed
+	// conversations and explicitly selected models. Other AI features do not use it.
+	preferences, _ := h.DB.GetSetting("ai_chat_response_preferences")
+	if preferences = strings.TrimSpace(preferences); preferences != "" {
+		optimizedMessages = append([]ChatMessage{{
+			Role: "system", Content: "User response preferences for this chat:\n" + preferences,
+		}}, optimizedMessages...)
+	}
+
 	// Convert messages to map format
 	messagesMap := make([]map[string]string, len(optimizedMessages))
 	for i, msg := range optimizedMessages {
