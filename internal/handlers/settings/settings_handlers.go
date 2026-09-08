@@ -2,8 +2,10 @@ package settings
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"MrRSS/internal/handlers/core"
@@ -64,6 +66,24 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			currentValue, err := h.DB.GetSetting("freshrss_enabled")
 			if err == nil {
 				wasFreshRSSEnabled = currentValue == "true"
+			}
+		}
+
+		if rawStartupOnBoot, ok := req["startup_on_boot"]; ok {
+			startupOnBoot, err := strconv.ParseBool(strings.TrimSpace(rawStartupOnBoot))
+			if err != nil {
+				response.Error(w, fmt.Errorf("invalid startup_on_boot value: %w", err), http.StatusBadRequest)
+				return
+			}
+			req["startup_on_boot"] = strconv.FormatBool(startupOnBoot)
+
+			currentValue, _ := h.DB.GetSetting("startup_on_boot")
+			if h.SetStartupOnBoot != nil && currentValue != req["startup_on_boot"] {
+				if err := h.SetStartupOnBoot(startupOnBoot); err != nil {
+					log.Printf("Failed to update system startup integration: %v", err)
+					response.Error(w, fmt.Errorf("update system startup integration: %w", err), http.StatusInternalServerError)
+					return
+				}
 			}
 		}
 

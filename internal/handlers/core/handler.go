@@ -61,6 +61,7 @@ type Handler struct {
 	App               interface{}         // Wails app instance for browser integration (interface{} to avoid import in server mode)
 	ContentCache      *cache.ContentCache // Cache for article content
 	Stats             *statistics.Service // Statistics tracking service
+	SetStartupOnBoot  func(bool) error    // Optional desktop-only startup integration
 
 	// Discovery state tracking for polling-based progress
 	DiscoveryMu          sync.RWMutex
