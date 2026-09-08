@@ -4,6 +4,7 @@ import { ref, nextTick, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n';
 import {
   PhChatCircleText,
+  PhCheck,
   PhX,
   PhPaperPlaneRight,
   PhSpinner,
@@ -553,9 +554,11 @@ const currentSessionTitle = computed(() => {
                   />
                   <button
                     class="p-1 hover:bg-bg-primary rounded"
+                    :title="t('common.save')"
+                    :aria-label="t('common.save')"
                     @click.stop="saveSessionTitle(session.id)"
                   >
-                    <PhPaperPlaneRight :size="14" />
+                    <PhCheck :size="14" />
                   </button>
                 </div>
                 <span v-else class="flex-1 text-sm truncate">{{ session.title }}</span>
