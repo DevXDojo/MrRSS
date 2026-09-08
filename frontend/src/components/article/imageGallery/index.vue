@@ -79,6 +79,17 @@ const feedId = computed(() => store.currentFeedId);
 // Compute which category to fetch (if viewing a specific category)
 const category = computed(() => store.currentCategory);
 
+const galleryTitle = computed(() => {
+  if (feedId.value) {
+    return store.feeds.find((feed) => feed.id === feedId.value)?.title ||
+      t('sidebar.activity.imageGallery');
+  }
+  if (category.value !== null) {
+    return category.value || t('sidebar.feedList.uncategorized');
+  }
+  return t('sidebar.activity.imageGallery');
+});
+
 // Find current article index in articles array
 const currentArticleIndex = computed(() => {
   if (!selectedArticle.value) return -1;
@@ -498,6 +509,7 @@ onUnmounted(() => {
   <div class="flex flex-col flex-1 h-full bg-bg-primary">
     <!-- Header -->
     <ImageGalleryHeader
+      :title="galleryTitle"
       :show-text-overlay="showTextOverlay"
       :show-only-unread="galleryData.showOnlyUnread.value"
       @toggle-sidebar="emit('toggleSidebar')"
