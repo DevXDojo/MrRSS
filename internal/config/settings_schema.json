@@ -319,6 +319,13 @@
       "encrypted": false,
       "frontend_key": "aiChatEnabled"
     },
+    "ai_chat_response_preferences": {
+      "type": "string",
+      "default": "",
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "ai_chat_response_preferences"
+    },
     "ai_chat_quick_prompts": {
       "type": "string",
       "default": "[]",
