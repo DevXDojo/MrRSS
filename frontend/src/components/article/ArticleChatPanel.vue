@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-v-html */
-import { ref, nextTick, computed, onMounted } from 'vue';
+import { ref, nextTick, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhChatCircleText,
@@ -71,6 +71,8 @@ const editingSessionId = ref<number | null>(null);
 const editingSessionTitle = ref('');
 const selectedProfileId = ref(props.settings.ai_chat_profile_id || '');
 
+watch([showSessions, currentSessionId, () => props.article.id], cancelEditSession);
+
 const profileOptions = computed(() =>
   profiles.value.map((profile) => ({ value: String(profile.id), label: profile.name }))
 );
@@ -94,7 +96,9 @@ const questionPrompts = computed(() => [
 const customPrompts = computed<string[]>(() => {
   try {
     const parsed = JSON.parse(props.settings.ai_chat_quick_prompts || '[]');
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : [];
   } catch {
     return [];
   }
@@ -107,6 +111,42 @@ const startY = ref(0);
 const startWidth = ref(0);
 const startHeight = ref(0);
 const panelElement = ref<HTMLElement | null>(null);
+const panelSizeStorageKey = 'mrrssChatPanelSize';
+let preferredPanelSize = { width: 500, height: 600 };
+
+function applyPanelSize() {
+  const panel = panelElement.value;
+  if (!panel) return;
+  const desktop = window.innerWidth >= 768;
+  const availableWidth = Math.max(1, window.innerWidth - (desktop ? 24 : 16) - 16);
+  const availableHeight = Math.max(1, window.innerHeight - (desktop ? 56 : 40) - 16);
+  panel.style.width = `${Math.min(preferredPanelSize.width, availableWidth)}px`;
+  panel.style.height = `${Math.min(preferredPanelSize.height, availableHeight)}px`;
+}
+
+onMounted(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(panelSizeStorageKey) || 'null');
+    if (
+      saved &&
+      Number.isFinite(saved.width) &&
+      Number.isFinite(saved.height) &&
+      saved.width >= 300 &&
+      saved.height >= 200
+    ) {
+      preferredPanelSize = { width: Math.max(420, saved.width), height: saved.height };
+    }
+  } catch {
+    // Invalid or unavailable local storage should not prevent opening chat.
+  }
+  applyPanelSize();
+  window.addEventListener('resize', applyPanelSize);
+});
+
+onBeforeUnmount(() => {
+  stopResize();
+  window.removeEventListener('resize', applyPanelSize);
+});
 
 // Initialize: load sessions for this article
 onMounted(async () => {
@@ -213,20 +253,26 @@ function startEditSession(session: ChatSession, e: Event) {
 }
 
 async function saveSessionTitle(sessionId: number) {
+  if (editingSessionId.value !== sessionId) return;
+  const title = editingSessionTitle.value;
   try {
-    await fetch(`/api/ai/chat/session?session_id=${sessionId}`, {
+    const response = await fetch(`/api/ai/chat/session?session_id=${sessionId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: editingSessionTitle.value }),
+      body: JSON.stringify({ title }),
     });
 
+    if (!response.ok) throw new Error(`Failed to update session title: ${response.status}`);
     const session = sessions.value.find((s) => s.id === sessionId);
     if (session) {
-      session.title = editingSessionTitle.value;
+      session.title = title;
     }
-    editingSessionId.value = null;
+    if (editingSessionId.value === sessionId && editingSessionTitle.value === title) {
+      cancelEditSession();
+    }
   } catch (e) {
     console.error('Failed to update session title:', e);
+    window.showToast(t('article.chat.titleSaveFailed'), 'error');
   }
 }
 
@@ -259,20 +305,24 @@ function resize(e: MouseEvent) {
   const deltaX = startX.value - e.clientX;
   const deltaY = startY.value - e.clientY;
 
-  const newWidth = Math.max(300, startWidth.value + deltaX);
+  const newWidth = Math.max(420, startWidth.value + deltaX);
   const newHeight = Math.max(200, startHeight.value + deltaY);
 
   const panel = panelElement.value;
   if (panel) {
-    panel.classList.remove('w-[500px]', 'h-[600px]', 'w-[calc(100%-2rem)]', 'md:w-96');
-    panel.style.width = `${newWidth}px`;
-    panel.style.height = `${newHeight}px`;
-    panel.style.maxWidth = 'none';
-    panel.style.maxHeight = 'none';
+    preferredPanelSize = { width: newWidth, height: newHeight };
+    applyPanelSize();
   }
 }
 
 function stopResize() {
+  if (isResizing.value) {
+    try {
+      localStorage.setItem(panelSizeStorageKey, JSON.stringify(preferredPanelSize));
+    } catch {
+      // Resizing remains available when local storage cannot be written.
+    }
+  }
   isResizing.value = false;
   document.removeEventListener('mousemove', resize);
   document.removeEventListener('mouseup', stopResize);
@@ -416,23 +466,24 @@ const currentSessionTitle = computed(() => {
         <div
           class="flex items-center justify-between p-3 border-b border-border bg-bg-secondary rounded-t-xl relative"
         >
-          <div class="flex items-center gap-2 flex-1">
-            <PhChatCircleText :size="20" class="text-accent" />
+          <div class="flex min-w-0 items-center gap-2 flex-1">
+            <PhChatCircleText :size="20" class="shrink-0 text-accent" />
             <button
-              class="flex items-center gap-1 text-sm font-medium hover:text-accent transition-colors"
+              class="flex min-w-0 items-center gap-1 text-sm font-medium hover:text-accent transition-colors"
               :disabled="isLoading"
               :title="t('article.chat.switchSession')"
               data-testid="chat-session-switcher"
               @click.stop="showSessions = !showSessions"
             >
-              <span>{{ currentSessionTitle }}</span>
-              <PhClockCounterClockwise :size="16" />
+              <span class="truncate">{{ currentSessionTitle }}</span>
+              <PhClockCounterClockwise :size="16" class="shrink-0" />
             </button>
           </div>
-          <div class="flex items-center gap-1">
+          <div class="flex shrink-0 items-center gap-1">
             <BaseSelect
               v-if="profileOptions.length > 0"
               v-model="selectedProfileId"
+              class="chat-profile-selector"
               :options="profileOptions"
               width="w-28 sm:w-36"
               size="xs"
@@ -478,7 +529,7 @@ const currentSessionTitle = computed(() => {
         <Transition name="slide-in">
           <div
             v-if="showSessions"
-            class="absolute top-12 left-0 right-0 bottom-12 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
+            class="absolute top-12 left-0 right-0 bottom-12 z-10 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
           >
             <div class="p-2 space-y-1">
               <div
@@ -493,10 +544,10 @@ const currentSessionTitle = computed(() => {
                 @click.stop="selectSession(session.id)"
               >
                 <PhChatCircleText :size="16" class="text-text-secondary" />
-                <div v-if="editingSessionId === session.id" class="flex-1 flex items-center gap-1">
+                <div v-if="editingSessionId === session.id" class="flex-1 min-w-0 flex items-center gap-1">
                   <input
                     v-model="editingSessionTitle"
-                    class="flex-1 px-2 py-1 text-sm bg-bg-primary border border-border rounded focus:outline-none focus:border-accent"
+                    class="flex-1 min-w-0 px-2 py-1 text-sm bg-bg-primary border border-border rounded focus:outline-none focus:border-accent"
                     @keyup.enter="saveSessionTitle(session.id)"
                     @keyup.esc="cancelEditSession"
                     @click.stop
@@ -505,7 +556,7 @@ const currentSessionTitle = computed(() => {
                     class="p-1 hover:bg-bg-primary rounded"
                     :title="t('common.save')"
                     :aria-label="t('common.save')"
-                    @click="saveSessionTitle(session.id)"
+                    @click.stop="saveSessionTitle(session.id)"
                   >
                     <PhCheck :size="14" />
                   </button>
@@ -537,7 +588,11 @@ const currentSessionTitle = computed(() => {
         </Transition>
 
         <!-- Messages -->
-        <div ref="chatContainer" class="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth">
+        <div
+          ref="chatContainer"
+          class="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth"
+          :class="{ invisible: showSessions }"
+        >
           <div
             v-if="messages.length === 0"
             class="space-y-4 py-2 text-sm"
@@ -601,13 +656,16 @@ const currentSessionTitle = computed(() => {
             class="flex group"
             :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
           >
-            <div class="flex items-start gap-1" :class="msg.role === 'user' ? 'flex-row-reverse' : ''">
+            <div
+              class="flex items-start gap-1"
+              :class="msg.role === 'user' ? 'flex-row-reverse' : 'w-full min-w-0'"
+            >
               <div
-                class="max-w-[80%] rounded-lg px-3 py-2 text-sm select-text cursor-text"
+                class="py-2 text-sm select-text cursor-text"
                 :class="
                   msg.role === 'user'
-                    ? 'bg-accent text-white'
-                    : 'bg-bg-secondary text-text-primary'
+                    ? 'max-w-[80%] rounded-lg px-3 bg-accent text-white'
+                    : 'min-w-0 flex-1 text-text-primary'
                 "
               >
                 <!-- Thinking section -->
@@ -630,7 +688,7 @@ const currentSessionTitle = computed(() => {
                 <div v-else class="whitespace-pre-wrap break-words">{{ msg.content }}</div>
               </div>
               <button
-                class="p-1 rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary transition-all"
+                class="shrink-0 p-1 rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary transition-all"
                 :title="t('article.chat.copyMessage')"
                 @click="copyMessage(msg.content)"
               >
@@ -672,10 +730,21 @@ const currentSessionTitle = computed(() => {
 
 <style>
 .chat-panel {
+  min-width: min(420px, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 3.5rem);
   user-select: text !important;
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
+}
+
+@media (min-width: 768px) {
+  .chat-panel {
+    min-width: min(420px, calc(100vw - 2.5rem));
+    max-width: calc(100vw - 2.5rem);
+    max-height: calc(100vh - 4.5rem);
+  }
 }
 
 .chat-panel.select-none {
@@ -698,6 +767,12 @@ const currentSessionTitle = computed(() => {
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
+}
+
+.chat-panel .chat-profile-selector,
+.chat-panel .chat-profile-selector * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .chat-panel-enter-active,
