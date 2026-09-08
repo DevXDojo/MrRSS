@@ -1,6 +1,6 @@
 /// <reference types="cypress" />
 
-function setup() {
+function setup(savedState: Record<string, string> = {}) {
   const settings: Record<string, string> = {
     language: 'en-US',
     theme: 'light',
@@ -11,6 +11,7 @@ function setup() {
     full_text_fetch_enabled: 'false',
     update_check_enabled: 'false',
     shortcuts_enabled: 'true',
+    image_gallery_enabled: 'true',
     sidebar_sort_mode: 'manual',
     sidebar_category_order: '[]',
     sidebar_pinned_items: '[]',
@@ -61,6 +62,7 @@ function setup() {
   }).as('saveSettings');
   cy.intercept('GET', '/api/feeds', (req) => req.reply(feeds)).as('feeds');
   cy.intercept('GET', '/api/tags', []);
+  cy.intercept('GET', '/api/articles/images*', []);
   cy.intercept('GET', '/api/saved-filters', []);
   cy.intercept({ method: 'GET', pathname: '/api/articles' }, (req) =>
     req.reply([
@@ -98,10 +100,13 @@ function setup() {
       win.localStorage.setItem('FeedListPinned', 'true');
       win.localStorage.setItem('FeedListExpanded', 'true');
       win.localStorage.setItem('showOnlyUnread', 'true');
+      Object.entries(savedState).forEach(([key, value]) => win.localStorage.setItem(key, value));
     },
   });
   cy.wait(['@feeds', '@articles']);
-  cy.get('.categories-list').should('be.visible');
+  cy.get('.categories-list').should(
+    savedState.FeedListExpanded === 'false' ? 'not.exist' : 'be.visible'
+  );
 }
 const header = (path: string) =>
   `.category-container[data-category-path="${path}"] > .category-header`;
@@ -161,14 +166,16 @@ describe('Sidebar and subscription management', () => {
 
   it('sorts by count and recency while preserving pinned categories', () => {
     setup();
-    cy.get('select[aria-label="Sort categories and feeds"]').select('count_desc');
+    cy.get('button[aria-label="Sort categories and feeds"]').click();
+    cy.contains('button', 'Count: high to low').click();
     cy.wait('@saveSettings');
     cy.get(roots).first().should('have.attr', 'data-category-path', 'Beta');
     cy.get(header('Zulu')).rightclick();
     cy.contains('Pin to top of this level').click();
     cy.wait('@saveSettings');
     cy.get(roots).first().should('have.attr', 'data-category-path', 'Zulu');
-    cy.get('select[aria-label="Sort categories and feeds"]').select('name_asc');
+    cy.get('button[aria-label="Sort categories and feeds"]').click();
+    cy.contains('button', 'Name: A–Z').click();
     cy.wait('@saveSettings');
     cy.get(roots).first().should('have.attr', 'data-category-path', 'Zulu');
     cy.reload();
@@ -176,7 +183,8 @@ describe('Sidebar and subscription management', () => {
     cy.get(header('Zulu')).rightclick();
     cy.contains(/^Unpin$/).click();
     cy.wait('@saveSettings');
-    cy.get('select[aria-label="Sort categories and feeds"]').select('latest');
+    cy.get('button[aria-label="Sort categories and feeds"]').click();
+    cy.contains('button', 'Latest article first').click();
     cy.wait('@saveSettings');
     cy.get(roots).first().should('have.attr', 'data-category-path', 'Zulu');
   });
@@ -261,5 +269,71 @@ describe('Sidebar and subscription management', () => {
     cy.readFile('cypress/downloads/mrrss-rules.json')
       .its('rules.0.name')
       .should('equal', 'Imported favorites');
+  });
+
+  it('keeps navigation visible with old collapsed preferences and persists one drawer state', () => {
+    setup({ ActivityBarCollapsed: 'true', FeedListExpanded: 'false', FeedListPinned: 'true' });
+    cy.get('.smart-activity-bar').should('be.visible');
+    cy.get('button[title="Collapse Activity Bar"]').should('not.exist');
+    cy.get('.edge-toggle-button').should('not.exist');
+    cy.get('.smart-activity-bar button[title^="All Articles"]').should('contain', '13');
+    cy.get('.smart-activity-bar button[title^="Add Feed"]').should('be.visible');
+    cy.get('.smart-activity-bar button[title^="Settings"]').click();
+    cy.get('[data-settings-modal="true"]').should('be.visible');
+    cy.press(Cypress.Keyboard.Keys.ESC);
+    cy.get('[data-settings-modal="true"]').should('not.exist');
+
+    cy.get('button[title="Expand Feed List"]')
+      .should('have.attr', 'aria-expanded', 'false')
+      .click();
+    cy.get('.feed-drawer-wrapper').should('be.visible').and('have.class', 'pinned');
+    cy.get('.feed-drawer-wrapper button[title="Unpin"]').click();
+    cy.get('.feed-drawer-wrapper').should('be.visible').and('not.have.class', 'pinned');
+    cy.window().then((win) => {
+      expect(win.localStorage.getItem('FeedListExpanded')).to.equal('true');
+      expect(win.localStorage.getItem('FeedListPinned')).to.equal('false');
+    });
+    cy.reload();
+    cy.get('.feed-drawer-wrapper').should('be.visible').and('not.have.class', 'pinned');
+    cy.get('button[title="Collapse Feed List"]')
+      .should('have.attr', 'aria-expanded', 'true')
+      .click();
+    cy.get('.feed-drawer-wrapper').should('not.exist');
+    cy.reload();
+    cy.get('.feed-drawer-wrapper').should('not.exist');
+    cy.get('button[title="Expand Feed List"]').click();
+    cy.get('.feed-drawer-wrapper').should('not.have.class', 'pinned');
+    cy.get('.feed-drawer-wrapper button[title="Pin"]').click();
+    cy.get('.feed-drawer-wrapper').should('be.visible').and('have.class', 'pinned');
+    cy.get('.feed-drawer-wrapper button[title="Close"]').click();
+    cy.get('.feed-drawer-wrapper').should('not.exist');
+    cy.window().then((win) => {
+      expect(win.localStorage.getItem('FeedListExpanded')).to.equal('false');
+      expect(win.localStorage.getItem('FeedListPinned')).to.equal('true');
+    });
+    cy.get('.smart-activity-bar').should('be.visible');
+  });
+
+  it('shares drawer state between mobile reading and gallery controls without hiding navigation', () => {
+    cy.viewport(740, 900);
+    setup({ ActivityBarCollapsed: 'true', FeedListExpanded: 'false', FeedListPinned: 'false' });
+    cy.get('button[title="Toggle Sidebar"]').should('have.attr', 'aria-expanded', 'false').click();
+    cy.get('.feed-drawer-wrapper').should('be.visible');
+    cy.get('button[title="Collapse Feed List"]').click();
+    cy.get('.feed-drawer-wrapper').should('not.exist');
+    cy.get('button[title="Toggle Sidebar"]').should('have.attr', 'aria-expanded', 'false');
+    cy.get('.smart-activity-bar button[title="Multimedia Gallery"]').click();
+    cy.get('button[title="Toggle Sidebar"]').click();
+    cy.get('.feed-drawer-wrapper').should('be.visible');
+    cy.get('.feed-drawer-wrapper button[title="Close"]').click();
+    cy.get('.feed-drawer-wrapper').should('not.exist');
+    cy.get('button[title="Expand Feed List"]')
+      .should('have.attr', 'aria-expanded', 'false')
+      .click();
+    cy.get('.feed-drawer-wrapper').should('be.visible');
+    cy.get('.compact-sidebar-wrapper > .fixed').click('topRight');
+    cy.get('.feed-drawer-wrapper').should('not.exist');
+    cy.get('.smart-activity-bar button[title^="Settings"]').click();
+    cy.get('[data-settings-modal="true"]').should('be.visible');
   });
 });
