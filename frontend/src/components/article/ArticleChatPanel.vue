@@ -330,7 +330,7 @@ function stopResize() {
 
 async function sendMessage() {
   const message = inputMessage.value.trim();
-  if (!message || isLoading.value) return;
+  if (!message || isLoading.value || showSessions.value) return;
 
   messages.value.push({
     id: 0,
@@ -415,6 +415,7 @@ async function sendMessage() {
 }
 
 async function sendSuggestedPrompt(prompt: string) {
+  if (isLoading.value || showSessions.value) return;
   inputMessage.value = prompt;
   await sendMessage();
 }
@@ -609,6 +610,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || showSessions"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -626,6 +628,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || showSessions"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -643,6 +646,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || showSessions"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -711,11 +715,11 @@ const currentSessionTitle = computed(() => {
               type="text"
               :placeholder="t('article.chat.aiChatInputPlaceholder')"
               class="flex-1 px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-sm focus:outline-none focus:border-accent"
-              :disabled="isLoading"
+              :disabled="isLoading || showSessions"
               @keydown="handleKeydown"
             />
             <button
-              :disabled="isLoading || !inputMessage.trim()"
+              :disabled="isLoading || showSessions || !inputMessage.trim()"
               class="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               @click="sendMessage"
             >
