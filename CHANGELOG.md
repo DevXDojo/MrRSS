@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.32] - 2026-09-09
+
+### Added
+
+- Add shared AI chat response preferences that work across configured models. (#1112)
+- Show the article associated with an AI chat and explicitly continue the same conversation after switching articles. (#1117, #1118)
+- Add a stop action for AI chat generation and isolate cancelled requests from late responses. (#1119)
+- Accept OpenRouter base endpoints as well as complete Chat Completions URLs. (#1148)
+- Add a refresh action to the multimedia gallery and reload its contents when refresh completes. (#1159)
+
+### Changed
+
+- Center the unread-list completion state and give Favorites its own empty-state guidance. (#1099, #1160)
+- Remember the AI chat panel size and keep its title and actions usable at the minimum supported dimensions. (#1100, #1101)
+- Name default AI chat sessions from the first question, prevent selectable model labels, widen answer content, and remove the answer-bubble background. (#1102, #1103, #1104)
+- Keep chat title editing clear of message actions, discard stale title drafts, use a check icon for saving, and disable input while browsing history. (#1105, #1106, #1107, #1108)
+- Avoid creating duplicate blank chat sessions and localize rule connectors as “and/or”. (#1109, #1110)
+- Clarify which AI models support chat and simplify feed/category article-list headings. (#1111, #1113)
+- Improve hover feedback for the gallery close button and summary generation action. (#1114, #1115)
+- Align read-status colors, shortcut-setting icons, and the activity-bar overflow badge with their actual actions and dark theme. (#1116, #1149, #1153)
+- Unify activity-bar and feed-list collapse behavior, and enlarge category expand/collapse targets. (#1120, #1157)
+- Show the selected feed or category in the multimedia gallery header. (#1152)
+- Rename translation-only mode to make its behavior clearer and apply it to manually translated titles and paragraphs. (#1151)
+- Make “Reload Feed” restore visible articles to their initial unread state without changing ordinary refresh behavior. (#1162)
+- Synchronize application, installer, platform package, server, and Docker-facing version metadata for v1.3.32. (#1147)
+
+### Fixed
+
+- Normalize legacy feed XML declarations after GBK/GB18030 decoding so Chinese article titles are not decoded twice. (#1145)
+- Keep the image viewer responsive when the active thumbnail is clicked again. (#1156)
+- Show selected-text search actions in the article context menu when using card layout. (#1158)
+- Apply the start-on-system-boot setting to the operating system and repair previously saved enabled preferences. (#1161)
+
+### Maintenance
+
+- Update grouped Go, frontend, and website dependencies, including Wails, SQLite, crypto, Vue, Vite, and TypeScript tooling.
+- Update Cypress integration for Cypress 16 and expand article, chat, and sidebar regression coverage.
+- Remove the UTF-8 BOM from release version files and refresh release packaging validation.
+- Consolidate repository agent guidance and remove obsolete assistant-specific maintenance documents.
+
 ## [1.3.31] - 2026-09-06
 
 ### Added
