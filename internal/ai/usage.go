@@ -2,6 +2,7 @@
 package ai
 
 import (
+	"context"
 	"log"
 	"strconv"
 	"strings"
@@ -54,18 +55,35 @@ func (t *UsageTracker) CanMakeRequest() bool {
 
 // WaitForRateLimit blocks until a request can be made.
 func (t *UsageTracker) WaitForRateLimit() {
-	t.mu.Lock()
-	elapsed := time.Since(t.lastRequest)
-	wait := t.minInterval - elapsed
-	t.mu.Unlock()
+	_ = t.WaitForRateLimitContext(context.Background())
+}
 
-	if wait > 0 {
-		time.Sleep(wait)
+// WaitForRateLimitContext waits for a free slot without consuming one on cancellation.
+func (t *UsageTracker) WaitForRateLimitContext(ctx context.Context) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		t.mu.Lock()
+		wait := t.minInterval - time.Since(t.lastRequest)
+		if wait <= 0 {
+			if err := ctx.Err(); err != nil {
+				t.mu.Unlock()
+				return err
+			}
+			t.lastRequest = time.Now()
+			t.mu.Unlock()
+			return nil
+		}
+		t.mu.Unlock()
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
-
-	t.mu.Lock()
-	t.lastRequest = time.Now()
-	t.mu.Unlock()
 }
 
 // GetCurrentUsage returns the current token usage.

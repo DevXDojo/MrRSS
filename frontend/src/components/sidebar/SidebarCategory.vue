@@ -259,12 +259,16 @@ onUnmounted(() => {
         />
       </span>
       <span v-if="unreadCount > 0" class="unread-badge mr-1">{{ unreadCount }}</span>
-      <PhCaretDown
-        :size="20"
-        class="p-1 cursor-pointer transition-transform text-text-secondary"
-        :class="{ 'rotate-180': isOpen }"
+      <button
+        type="button"
+        class="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        :title="t(isOpen ? 'sidebar.categoryActions.collapse' : 'sidebar.categoryActions.expand')"
+        :aria-label="t(isOpen ? 'sidebar.categoryActions.collapse' : 'sidebar.categoryActions.expand')"
         @click.stop="handleCaretClick"
-      />
+        @dblclick.stop
+      >
+        <PhCaretDown :size="16" class="transition-transform" :class="{ 'rotate-180': isOpen }" />
+      </button>
     </div>
     <div
       v-show="isOpen"

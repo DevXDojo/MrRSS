@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -102,6 +103,20 @@ func (db *DB) UpdateChatSessionTitle(sessionID int64, title string) error {
 	return nil
 }
 
+// RebindChatSession moves an existing conversation to a different article.
+// The message history is preserved so users can continue the same discussion
+// while supplying the newly selected article as the active context.
+func (db *DB) RebindChatSession(sessionID, articleID int64) error {
+	_, err := db.Exec(
+		`UPDATE chat_sessions SET article_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		articleID, sessionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to rebind chat session: %w", err)
+	}
+	return nil
+}
+
 // UpdateChatSessionTimestamp updates the updated_at timestamp of a chat session
 func (db *DB) UpdateChatSessionTimestamp(sessionID int64) error {
 	_, err := db.Exec(
@@ -129,18 +144,44 @@ func (db *DB) DeleteChatSession(sessionID int64) error {
 
 // CreateChatMessage creates a new chat message in a session
 func (db *DB) CreateChatMessage(sessionID int64, role, content, thinking string) (int64, error) {
-	result, err := db.Exec(
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin chat message: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Name legacy empty sessions from their first question without replacing
+	// custom titles or racing another message or a manual rename.
+	if role == "user" && strings.TrimSpace(content) != "" {
+		title := []rune(strings.TrimSpace(content))
+		if len(title) > 60 {
+			title = title[:60]
+		}
+		if _, err := tx.Exec(`UPDATE chat_sessions SET title = ?
+			WHERE id = ? AND title IN ('New Chat', '新对话')
+			AND NOT EXISTS (SELECT 1 FROM chat_messages WHERE session_id = ?)`,
+			string(title), sessionID, sessionID); err != nil {
+			return 0, fmt.Errorf("name first chat message: %w", err)
+		}
+	}
+	result, err := tx.Exec(
 		`INSERT INTO chat_messages (session_id, role, content, thinking, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
 		sessionID, role, content, thinking,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create chat message: %w", err)
 	}
-
-	// Update session timestamp
-	_ = db.UpdateChatSessionTimestamp(sessionID)
-
-	return result.LastInsertId()
+	if _, err := tx.Exec(`UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, sessionID); err != nil {
+		return 0, fmt.Errorf("update chat session timestamp: %w", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("read chat message ID: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit chat message: %w", err)
+	}
+	return id, nil
 }
 
 // GetChatMessages retrieves all messages for a session, ordered by created_at asc

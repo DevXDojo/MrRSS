@@ -29,6 +29,7 @@ import (
 	"MrRSS/internal/network"
 	"MrRSS/internal/routes"
 	"MrRSS/internal/translation"
+	"MrRSS/internal/utils"
 	"MrRSS/internal/utils/fileutil"
 	"MrRSS/internal/utils/httputil"
 )
@@ -152,6 +153,20 @@ func main() {
 
 	fetcher := feed.NewFetcher(db)
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
+	h.SetStartupOnBoot = func(enabled bool) error {
+		if enabled {
+			return utils.EnableStartup()
+		}
+		return utils.DisableStartup()
+	}
+
+	// Repair the OS integration for users whose preference was saved before
+	// startup registration was wired to the settings endpoint.
+	if startupOnBoot, err := db.GetSetting("startup_on_boot"); err == nil && startupOnBoot == "true" {
+		if err := utils.EnableStartup(); err != nil {
+			log.Printf("Failed to restore system startup integration: %v", err)
+		}
+	}
 
 	var quitRequested atomic.Bool
 	var lastMaximized atomic.Bool

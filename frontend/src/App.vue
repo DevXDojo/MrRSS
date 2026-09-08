@@ -15,7 +15,7 @@ import ConfirmDialog from './components/modals/common/ConfirmDialog.vue';
 import InputDialog from './components/modals/common/InputDialog.vue';
 import MultiSelectDialog from './components/modals/common/MultiSelectDialog.vue';
 import Toast from './components/common/Toast.vue';
-import { onMounted, onUnmounted, ref, computed, watchEffect } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watch, watchEffect } from 'vue';
 import { useNotifications } from './composables/ui/useNotifications';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
 import { useContextMenu } from './composables/ui/useContextMenu';
@@ -60,7 +60,10 @@ const showSettings = ref(false);
 const settingsInitialTab = ref<TabName>('general');
 const showDiscoverBlogs = ref(false);
 const feedToDiscover = ref<Feed | null>(null);
-const isSidebarOpen = ref(true);
+const isSidebarOpen = ref(localStorage.getItem('FeedListExpanded') !== 'false');
+watch(isSidebarOpen, (expanded) => {
+  localStorage.setItem('FeedListExpanded', String(expanded));
+});
 
 // Check if we're in image gallery mode
 const isImageGalleryMode = computed(() => store.currentFilter === 'imageGallery');

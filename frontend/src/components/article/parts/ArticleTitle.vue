@@ -11,6 +11,7 @@ interface Props {
   translatedTitle: string;
   isTranslatingTitle: boolean;
   translationEnabled: boolean;
+  translationOnlyMode?: boolean;
   manualTranslation?: boolean;
   translationSkipped?: boolean;
   isTranslatingContent?: boolean;
@@ -18,6 +19,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   manualTranslation: false,
+  translationOnlyMode: false,
   translationSkipped: false,
   isTranslatingContent: false,
 });
@@ -64,7 +66,10 @@ function selectArticleFeed() {
   <!-- Title Section - Bilingual when translation enabled -->
   <div class="mb-3 sm:mb-4">
     <!-- Original Title -->
-    <h1 class="text-xl sm:text-3xl font-bold leading-tight text-text-primary select-text">
+    <h1
+      v-if="!translationOnlyMode || !showBilingualTitle"
+      class="text-xl sm:text-3xl font-bold leading-tight text-text-primary select-text"
+    >
       {{ article.title }}
     </h1>
     <button
@@ -78,12 +83,18 @@ function selectArticleFeed() {
       <PhTranslate :size="14" />{{ t('article.translation.translateTitle') }}
     </button>
     <!-- Translated Title (shown below if different from original) -->
-    <h2
+    <component
+      :is="translationOnlyMode ? 'h1' : 'h2'"
       v-if="showBilingualTitle"
-      class="text-base sm:text-xl font-medium leading-tight mt-2 text-text-secondary select-text"
+      class="leading-tight select-text"
+      :class="
+        translationOnlyMode
+          ? 'text-xl sm:text-3xl font-bold text-text-primary'
+          : 'text-base sm:text-xl font-medium mt-2 text-text-secondary'
+      "
     >
       {{ translatedTitle }}
-    </h2>
+    </component>
     <!-- Translation loading indicator for title -->
     <div v-if="isTranslatingTitle" class="flex items-center gap-1 mt-1 text-text-secondary">
       <PhSpinnerGap :size="12" class="animate-spin" />

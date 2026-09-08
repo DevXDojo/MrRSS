@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mmcdole/gofeed"
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
@@ -21,5 +22,16 @@ func TestDecodeFeedBodyPrefersXMLDeclarationEncoding(t *testing.T) {
 
 	if !strings.Contains(decoded, "创业邦") {
 		t.Fatalf("expected GBK XML declaration to be honored, got: %q", decoded)
+	}
+	if !strings.Contains(decoded, `encoding="UTF-8"`) {
+		t.Fatalf("expected decoded XML declaration to be normalized to UTF-8, got: %q", decoded)
+	}
+
+	parsed, err := gofeed.NewParser().ParseString(decoded)
+	if err != nil {
+		t.Fatalf("failed to parse decoded feed: %v", err)
+	}
+	if parsed.Title != "创业邦" {
+		t.Fatalf("parsed title = %q, want %q", parsed.Title, "创业邦")
 	}
 }

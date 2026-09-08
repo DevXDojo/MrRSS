@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-v-html */
-import { ref, nextTick, computed, onMounted } from 'vue';
+import { ref, nextTick, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhChatCircleText,
+  PhCheck,
   PhX,
   PhPaperPlaneRight,
+  PhStop,
   PhSpinner,
   PhClockCounterClockwise,
   PhPlus,
@@ -69,6 +71,132 @@ const showSessions = ref(false);
 const editingSessionId = ref<number | null>(null);
 const editingSessionTitle = ref('');
 const selectedProfileId = ref(props.settings.ai_chat_profile_id || '');
+const boundArticle = ref<Article>({ ...props.article });
+const boundArticleContent = ref(props.articleContent);
+const rebindSession = ref(false);
+const articleMismatch = computed(() => props.article.id !== boundArticle.value.id);
+
+watch(
+  () => props.articleContent,
+  (content) => {
+    if (!articleMismatch.value) boundArticleContent.value = content;
+  }
+);
+
+watch([showSessions, currentSessionId, () => props.article.id], cancelEditSession);
+
+interface ActiveChatRequest {
+  id: string;
+  articleId: number;
+  draftVersion: number;
+  sessionId: number | null;
+  controller: AbortController;
+  stopped: boolean;
+}
+let activeRequest: ActiveChatRequest | null = null;
+let creatingSession: {
+  articleId: number;
+  draftVersion: number;
+  promise: Promise<ChatSession>;
+} | null = null;
+let draftVersion = 0;
+let disposed = false;
+let viewVersion = 0;
+
+function isCurrentRequest(run: ActiveChatRequest) {
+  return (
+    !disposed &&
+    !run.stopped &&
+    activeRequest === run &&
+    boundArticle.value.id === run.articleId &&
+    draftVersion === run.draftVersion
+  );
+}
+
+async function cancelRequest(run: ActiveChatRequest) {
+  if (!run.sessionId) return;
+  try {
+    await fetch('/api/ai-chat/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: run.sessionId, request_id: run.id }),
+      keepalive: true,
+    });
+  } catch (error) {
+    console.error('Failed to cancel chat generation:', error);
+  }
+}
+
+async function stopGeneration() {
+  const run = activeRequest;
+  if (!run) return;
+  run.stopped = true;
+  activeRequest = null;
+  isLoading.value = false;
+  const version = ++viewVersion;
+  run.controller.abort();
+  await cancelRequest(run);
+  const stillStopped = () =>
+    !disposed &&
+    viewVersion === version &&
+    !activeRequest &&
+    boundArticle.value.id === run.articleId &&
+    draftVersion === run.draftVersion;
+  if (run.sessionId && stillStopped()) {
+    await loadSessions(stillStopped);
+    if (stillStopped()) await selectSession(run.sessionId, true, stillStopped);
+  }
+}
+
+function closePanel() {
+  disposed = true;
+  void stopGeneration();
+  emit('close');
+}
+
+onBeforeUnmount(() => {
+  disposed = true;
+  void stopGeneration();
+  stopResize();
+});
+
+async function ensureSession(
+  articleId: number,
+  title: string,
+  draft: number
+): Promise<ChatSession> {
+  if (
+    !creatingSession ||
+    creatingSession.articleId !== articleId ||
+    creatingSession.draftVersion !== draft
+  ) {
+    const promise = (async () => {
+      const response = await fetch('/api/ai/chat/session/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ article_id: articleId, title }),
+      });
+      if (!response.ok) throw new Error('Failed to create chat session');
+      const session = (await response.json()) as ChatSession;
+      if (
+        !Number.isSafeInteger(session.id) ||
+        session.id <= 0 ||
+        session.article_id !== articleId
+      ) {
+        throw new Error('Chat session ID is missing');
+      }
+      return session;
+    })();
+    creatingSession = { articleId, draftVersion: draft, promise };
+  }
+  const pending = creatingSession;
+  try {
+    return await pending.promise;
+  } catch (error) {
+    if (creatingSession === pending) creatingSession = null;
+    throw error;
+  }
+}
 
 const profileOptions = computed(() =>
   profiles.value.map((profile) => ({ value: String(profile.id), label: profile.name }))
@@ -93,7 +221,9 @@ const questionPrompts = computed(() => [
 const customPrompts = computed<string[]>(() => {
   try {
     const parsed = JSON.parse(props.settings.ai_chat_quick_prompts || '[]');
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : [];
   } catch {
     return [];
   }
@@ -106,42 +236,95 @@ const startY = ref(0);
 const startWidth = ref(0);
 const startHeight = ref(0);
 const panelElement = ref<HTMLElement | null>(null);
+const panelSizeStorageKey = 'mrrssChatPanelSize';
+let preferredPanelSize = { width: 500, height: 600 };
+
+function applyPanelSize() {
+  const panel = panelElement.value;
+  if (!panel) return;
+  const desktop = window.innerWidth >= 768;
+  const availableWidth = Math.max(1, window.innerWidth - (desktop ? 24 : 16) - 16);
+  const availableHeight = Math.max(1, window.innerHeight - (desktop ? 56 : 40) - 16);
+  panel.style.width = `${Math.min(preferredPanelSize.width, availableWidth)}px`;
+  panel.style.height = `${Math.min(preferredPanelSize.height, availableHeight)}px`;
+}
+
+onMounted(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(panelSizeStorageKey) || 'null');
+    if (
+      saved &&
+      Number.isFinite(saved.width) &&
+      Number.isFinite(saved.height) &&
+      saved.width >= 300 &&
+      saved.height >= 200
+    ) {
+      preferredPanelSize = { width: Math.max(420, saved.width), height: saved.height };
+    }
+  } catch {
+    // Invalid or unavailable local storage should not prevent opening chat.
+  }
+  applyPanelSize();
+  window.addEventListener('resize', applyPanelSize);
+});
+
+onBeforeUnmount(() => {
+  stopResize();
+  window.removeEventListener('resize', applyPanelSize);
+});
 
 // Initialize: load sessions for this article
 onMounted(async () => {
+  const version = viewVersion;
+  const isCurrentView = () => !disposed && version === viewVersion && !activeRequest;
   await fetchProfiles();
+  if (!isCurrentView()) return;
   if (!selectedProfileId.value && defaultProfile.value) {
     selectedProfileId.value = String(defaultProfile.value.id);
   }
-  await loadSessions();
+  await loadSessions(isCurrentView);
   // Auto-select the most recent session if available
-  if (sessions.value.length > 0) {
-    await selectSession(sessions.value[0].id);
+  if (isCurrentView() && sessions.value.length > 0) {
+    await selectSession(sessions.value[0].id, false, isCurrentView);
   }
 });
 
-async function loadSessions() {
+async function loadSessions(isCurrentView = () => !disposed) {
   try {
-    const response = await fetch(`/api/ai/chat/sessions?article_id=${props.article.id}`);
+    const articleId = boundArticle.value.id;
+    const response = await fetch(`/api/ai/chat/sessions?article_id=${articleId}`);
     if (response.ok) {
-      sessions.value = await response.json();
+      const loadedSessions: ChatSession[] = await response.json();
+      if (isCurrentView() && boundArticle.value.id === articleId) {
+        sessions.value = loadedSessions.filter((session) => session.article_id === articleId);
+      }
     }
   } catch (e) {
     console.error('Failed to load sessions:', e);
   }
 }
 
-async function selectSession(sessionId: number, force = false) {
+async function selectSession(sessionId: number, force = false, isCurrentView?: () => boolean) {
   if (isLoading.value && !force) return;
+  if (!isCurrentView) {
+    const version = ++viewVersion;
+    isCurrentView = () => !disposed && version === viewVersion && !activeRequest;
+  }
+  const session = sessions.value.find((item) => item.id === sessionId);
+  if (!session || session.article_id !== boundArticle.value.id) return;
   try {
     const response = await fetch(`/api/ai/chat/messages?session_id=${sessionId}`);
     if (response.ok) {
       const loadedMessages = await response.json();
+      if (!isCurrentView() || session.article_id !== boundArticle.value.id) return;
       messages.value = loadedMessages;
       currentSessionId.value = sessionId;
-      // Set isFirstMessage based on whether the session has any messages
-      // New sessions (no messages) should have isFirstMessage = true
-      isFirstMessage.value = loadedMessages.length === 0;
+      rebindSession.value = false;
+      // A cancelled first attempt may have saved only the user question.
+      // Keep article context until an assistant response has been saved.
+      isFirstMessage.value = !loadedMessages.some(
+        (message: ChatMessage) => message.role === 'assistant'
+      );
       showSessions.value = false;
       await nextTick();
       scrollToBottom();
@@ -151,29 +334,43 @@ async function selectSession(sessionId: number, force = false) {
   }
 }
 
-async function createNewSession() {
+function createNewSession() {
   if (isLoading.value) return;
-  try {
-    const response = await fetch('/api/ai/chat/session/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        article_id: props.article.id,
-        title: t('article.chat.newChat'),
-      }),
-    });
+  ++viewVersion;
+  ++draftVersion;
+  creatingSession = null;
+  const changedArticle = boundArticle.value.id !== props.article.id;
+  boundArticle.value = { ...props.article };
+  boundArticleContent.value = props.articleContent;
+  if (changedArticle) sessions.value = [];
+  currentSessionId.value = null;
+  rebindSession.value = false;
+  messages.value = [];
+  inputMessage.value = '';
+  isFirstMessage.value = true;
+  showSessions.value = false;
+  cancelEditSession();
+  if (changedArticle) void loadSessions();
+}
 
-    if (response.ok) {
-      const newSession = await response.json();
-      sessions.value.unshift(newSession);
-      // Select the new session and reset for first message
-      await selectSession(newSession.id);
-      // Ensure isFirstMessage is true for new sessions
-      isFirstMessage.value = true;
-    }
-  } catch (e) {
-    console.error('Failed to create session:', e);
+function continueWithCurrentArticle() {
+  if (isLoading.value || !articleMismatch.value) return;
+  ++viewVersion;
+  ++draftVersion;
+  creatingSession = null;
+  boundArticle.value = { ...props.article };
+  boundArticleContent.value = props.articleContent;
+  isFirstMessage.value = true;
+  rebindSession.value = true;
+  const currentSession = sessions.value.find((session) => session.id === currentSessionId.value);
+  if (currentSession) {
+    currentSession.article_id = props.article.id;
+    sessions.value = [currentSession];
+  } else {
+    sessions.value = [];
   }
+  showSessions.value = false;
+  cancelEditSession();
 }
 
 async function deleteSession(sessionId: number, e: Event) {
@@ -212,20 +409,26 @@ function startEditSession(session: ChatSession, e: Event) {
 }
 
 async function saveSessionTitle(sessionId: number) {
+  if (editingSessionId.value !== sessionId) return;
+  const title = editingSessionTitle.value;
   try {
-    await fetch(`/api/ai/chat/session?session_id=${sessionId}`, {
+    const response = await fetch(`/api/ai/chat/session?session_id=${sessionId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: editingSessionTitle.value }),
+      body: JSON.stringify({ title }),
     });
 
+    if (!response.ok) throw new Error(`Failed to update session title: ${response.status}`);
     const session = sessions.value.find((s) => s.id === sessionId);
     if (session) {
-      session.title = editingSessionTitle.value;
+      session.title = title;
     }
-    editingSessionId.value = null;
+    if (editingSessionId.value === sessionId && editingSessionTitle.value === title) {
+      cancelEditSession();
+    }
   } catch (e) {
     console.error('Failed to update session title:', e);
+    window.showToast(t('article.chat.titleSaveFailed'), 'error');
   }
 }
 
@@ -258,20 +461,24 @@ function resize(e: MouseEvent) {
   const deltaX = startX.value - e.clientX;
   const deltaY = startY.value - e.clientY;
 
-  const newWidth = Math.max(300, startWidth.value + deltaX);
+  const newWidth = Math.max(420, startWidth.value + deltaX);
   const newHeight = Math.max(200, startHeight.value + deltaY);
 
   const panel = panelElement.value;
   if (panel) {
-    panel.classList.remove('w-[500px]', 'h-[600px]', 'w-[calc(100%-2rem)]', 'md:w-96');
-    panel.style.width = `${newWidth}px`;
-    panel.style.height = `${newHeight}px`;
-    panel.style.maxWidth = 'none';
-    panel.style.maxHeight = 'none';
+    preferredPanelSize = { width: newWidth, height: newHeight };
+    applyPanelSize();
   }
 }
 
 function stopResize() {
+  if (isResizing.value) {
+    try {
+      localStorage.setItem(panelSizeStorageKey, JSON.stringify(preferredPanelSize));
+    } catch {
+      // Resizing remains available when local storage cannot be written.
+    }
+  }
   isResizing.value = false;
   document.removeEventListener('mousemove', resize);
   document.removeEventListener('mouseup', stopResize);
@@ -279,91 +486,122 @@ function stopResize() {
 
 async function sendMessage() {
   const message = inputMessage.value.trim();
-  if (!message || isLoading.value) return;
-
-  messages.value.push({
-    id: 0,
-    role: 'user',
-    content: message,
-    created_at: new Date().toISOString(),
-  });
-  inputMessage.value = '';
+  if (!message || disposed || isLoading.value || showSessions.value || articleMismatch.value)
+    return;
+  const run: ActiveChatRequest = {
+    id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    articleId: boundArticle.value.id,
+    draftVersion,
+    sessionId: currentSessionId.value,
+    controller: new AbortController(),
+    stopped: false,
+  };
+  activeRequest = run;
+  ++viewVersion;
+  const article = { ...boundArticle.value };
+  const articleContent = boundArticleContent.value.slice(0, 50000);
   isLoading.value = true;
 
-  await nextTick();
-  scrollToBottom();
-
   try {
-    // Prepare article content for AI context
-    // Use up to 50000 characters for better context while staying reasonable
-    const articleContent = props.articleContent ? props.articleContent.slice(0, 50000) : '';
-
-    const requestBody: any = {
-      session_id: currentSessionId.value,
-      article_id: props.article.id,
-      messages: messages.value.slice(-10),
-      is_first_message: isFirstMessage.value,
-      article_title: props.article.title,
-      article_url: props.article.url,
-      // Include article content to ensure AI has context
-      article_content: articleContent,
-      profile_id: Number(selectedProfileId.value) || undefined,
-    };
-
+    // A short, single-flight create gives Stop a stable session ID before the
+    // long provider request starts. Do not abort creation and lose its ID.
+    if (!run.sessionId) {
+      const session = await ensureSession(
+        run.articleId,
+        Array.from(message).slice(0, 60).join(''),
+        run.draftVersion
+      );
+      run.sessionId = session.id;
+      if (!isCurrentRequest(run)) return;
+      // Consume the cached ID only when a live request takes ownership. A
+      // stopped create can finish before the user retries without duplicating it.
+      creatingSession = null;
+      currentSessionId.value = session.id;
+      sessions.value.unshift(session);
+    }
+    if (!isCurrentRequest(run)) return;
+    // Preserve the input if session creation fails or is stopped before sending.
+    messages.value.push({
+      id: 0,
+      role: 'user',
+      content: message,
+      created_at: new Date().toISOString(),
+    });
+    inputMessage.value = '';
+    await nextTick();
+    if (!isCurrentRequest(run)) return;
+    scrollToBottom();
     const response = await fetch('/api/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
+      signal: run.controller.signal,
+      body: JSON.stringify({
+        request_id: run.id,
+        session_id: run.sessionId,
+        article_id: run.articleId,
+        messages: messages.value.slice(-10),
+        is_first_message: isFirstMessage.value,
+        article_title: article.title,
+        article_url: article.url,
+        article_content: articleContent,
+        profile_id: Number(selectedProfileId.value) || undefined,
+        rebind_session: rebindSession.value,
+      }),
     });
-
+    if (!isCurrentRequest(run)) return;
     if (response.ok) {
       const data = await response.json();
+      if (!isCurrentRequest(run)) return;
       messages.value.push({
         id: 0,
         role: 'assistant',
         content: data.response,
-        html: data.html, // Use pre-rendered HTML from backend
+        html: data.html,
         thinking: data.thinking,
         created_at: new Date().toISOString(),
       });
-
+      isFirstMessage.value = false;
+      rebindSession.value = false;
       if (data.session_id) {
         currentSessionId.value = data.session_id;
-        await loadSessions();
+        await loadSessions(() => isCurrentRequest(run));
       }
-
-      if (data.history_saved === false) {
+      if (isCurrentRequest(run) && data.history_saved === false) {
         window.showToast(t('article.chat.historySaveFailed'), 'warning');
       }
-
-      isFirstMessage.value = false;
     } else {
-      console.error('AI chat request failed:', response.status);
       const chatError = await readAIError(response);
+      if (!isCurrentRequest(run)) return;
       const errorPayload =
         chatError.payload !== null && typeof chatError.payload === 'object'
           ? (chatError.payload as Record<string, unknown>)
           : null;
       const persistedSessionID = Number(errorPayload?.session_id || 0);
-
       if (persistedSessionID > 0) {
         currentSessionId.value = persistedSessionID;
-        await loadSessions();
-        await selectSession(persistedSessionID, true);
+        await loadSessions(() => isCurrentRequest(run));
+        if (!isCurrentRequest(run)) return;
+        await selectSession(persistedSessionID, true, () => isCurrentRequest(run));
       }
-      window.showToast(chatError.message, 'error');
+      if (isCurrentRequest(run)) window.showToast(chatError.message, 'error');
     }
-  } catch (e) {
-    console.error('AI chat error:', e);
-    window.showToast(t('article.chat.aiChatError'), 'error');
+  } catch (error) {
+    if (isCurrentRequest(run)) {
+      console.error('AI chat error:', error);
+      window.showToast(t('article.chat.aiChatError'), 'error');
+    }
   } finally {
-    isLoading.value = false;
-    await nextTick();
-    scrollToBottom();
+    if (isCurrentRequest(run)) {
+      activeRequest = null;
+      isLoading.value = false;
+      await nextTick();
+      scrollToBottom();
+    }
   }
 }
 
 async function sendSuggestedPrompt(prompt: string) {
+  if (isLoading.value || showSessions.value || articleMismatch.value) return;
   inputMessage.value = prompt;
   await sendMessage();
 }
@@ -408,30 +646,31 @@ const currentSessionTitle = computed(() => {
       <div
         v-if="isOpen"
         ref="panelElement"
-        class="chat-panel fixed bottom-10 right-4 md:bottom-14 md:right-6 w-[500px] h-[600px] bg-bg-primary text-text-primary border border-border rounded-xl shadow-2xl flex flex-col z-50"
+        class="chat-panel fixed bottom-10 right-4 md:bottom-14 md:right-6 w-[500px] h-[600px] bg-bg-primary text-text-primary border border-border rounded-xl shadow-2xl grid grid-cols-1 grid-rows-[auto_minmax(0,auto)_minmax(0,1fr)_auto] z-50"
         :class="{ 'select-none': isResizing }"
       >
         <!-- Header -->
         <div
           class="flex items-center justify-between p-3 border-b border-border bg-bg-secondary rounded-t-xl relative"
         >
-          <div class="flex items-center gap-2 flex-1">
-            <PhChatCircleText :size="20" class="text-accent" />
+          <div class="flex min-w-0 items-center gap-2 flex-1">
+            <PhChatCircleText :size="20" class="shrink-0 text-accent" />
             <button
-              class="flex items-center gap-1 text-sm font-medium hover:text-accent transition-colors"
+              class="flex min-w-0 items-center gap-1 text-sm font-medium hover:text-accent transition-colors"
               :disabled="isLoading"
               :title="t('article.chat.switchSession')"
               data-testid="chat-session-switcher"
               @click.stop="showSessions = !showSessions"
             >
-              <span>{{ currentSessionTitle }}</span>
-              <PhClockCounterClockwise :size="16" />
+              <span class="truncate">{{ currentSessionTitle }}</span>
+              <PhClockCounterClockwise :size="16" class="shrink-0" />
             </button>
           </div>
-          <div class="flex items-center gap-1">
+          <div class="flex shrink-0 items-center gap-1">
             <BaseSelect
               v-if="profileOptions.length > 0"
               v-model="selectedProfileId"
+              class="chat-profile-selector"
               :options="profileOptions"
               width="w-28 sm:w-36"
               size="xs"
@@ -457,7 +696,8 @@ const currentSessionTitle = computed(() => {
             <button
               class="p-1 hover:bg-bg-tertiary rounded-lg transition-colors"
               :title="t('common.close')"
-              @click="emit('close')"
+              @click="closePanel"
+              data-testid="chat-close"
             >
               <PhX :size="18" class="text-text-secondary" />
             </button>
@@ -473,11 +713,50 @@ const currentSessionTitle = computed(() => {
           </div>
         </div>
 
+        <div
+          class="min-h-0 max-h-40 overflow-y-auto border-b border-border px-3 py-2"
+          data-testid="chat-context-article"
+          :data-context-article-id="boundArticle.id"
+        >
+          <p class="text-xs text-text-secondary">{{ t('article.chat.linkedArticle') }}</p>
+          <p class="line-clamp-2 text-sm font-medium" :title="boundArticle.title">
+            {{ boundArticle.title }}
+          </p>
+          <p class="truncate text-xs text-text-secondary">
+            {{ boundArticle.feed_title || boundArticle.feed_name || boundArticle.url }}
+          </p>
+          <div v-if="articleMismatch" class="mt-2 space-y-2" role="status">
+            <p class="text-xs text-text-secondary">
+              {{ t('article.chat.articleMismatch', { title: boundArticle.title }) }}
+            </p>
+            <div class="flex flex-wrap gap-x-3 gap-y-1">
+              <button
+                type="button"
+                class="text-xs text-accent hover:underline disabled:opacity-50"
+                data-testid="chat-continue-current-article"
+                :disabled="isLoading"
+                @click.stop="continueWithCurrentArticle"
+              >
+                {{ t('article.chat.continueWithCurrentArticle') }}
+              </button>
+              <button
+                type="button"
+                class="text-xs text-text-secondary hover:text-accent hover:underline disabled:opacity-50"
+                data-testid="chat-new-context"
+                :disabled="isLoading"
+                @click.stop="createNewSession"
+              >
+                {{ t('article.chat.newChatForCurrentArticle') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Session List Sidebar -->
         <Transition name="slide-in">
           <div
             v-if="showSessions"
-            class="absolute top-12 left-0 right-0 bottom-12 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
+            class="col-start-1 row-start-3 z-10 min-h-0 bg-bg-secondary border-b border-border rounded-b-xl overflow-y-auto scroll-smooth"
           >
             <div class="p-2 space-y-1">
               <div
@@ -492,19 +771,24 @@ const currentSessionTitle = computed(() => {
                 @click.stop="selectSession(session.id)"
               >
                 <PhChatCircleText :size="16" class="text-text-secondary" />
-                <div v-if="editingSessionId === session.id" class="flex-1 flex items-center gap-1">
+                <div
+                  v-if="editingSessionId === session.id"
+                  class="flex-1 min-w-0 flex items-center gap-1"
+                >
                   <input
                     v-model="editingSessionTitle"
-                    class="flex-1 px-2 py-1 text-sm bg-bg-primary border border-border rounded focus:outline-none focus:border-accent"
+                    class="flex-1 min-w-0 px-2 py-1 text-sm bg-bg-primary border border-border rounded focus:outline-none focus:border-accent"
                     @keyup.enter="saveSessionTitle(session.id)"
                     @keyup.esc="cancelEditSession"
                     @click.stop
                   />
                   <button
                     class="p-1 hover:bg-bg-primary rounded"
-                    @click="saveSessionTitle(session.id)"
+                    :title="t('common.save')"
+                    :aria-label="t('common.save')"
+                    @click.stop="saveSessionTitle(session.id)"
                   >
-                    <PhPaperPlaneRight :size="14" />
+                    <PhCheck :size="14" />
                   </button>
                 </div>
                 <span v-else class="flex-1 text-sm truncate">{{ session.title }}</span>
@@ -534,11 +818,12 @@ const currentSessionTitle = computed(() => {
         </Transition>
 
         <!-- Messages -->
-        <div ref="chatContainer" class="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth">
-          <div
-            v-if="messages.length === 0"
-            class="space-y-4 py-2 text-sm"
-          >
+        <div
+          ref="chatContainer"
+          class="col-start-1 row-start-3 min-h-0 overflow-y-auto p-3 space-y-3 scroll-smooth"
+          :class="{ invisible: showSessions }"
+        >
+          <div v-if="messages.length === 0" class="space-y-4 py-2 text-sm">
             <p class="text-center text-text-secondary">{{ t('article.chat.aiChatWelcome') }}</p>
 
             <section class="space-y-2">
@@ -551,6 +836,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || showSessions || articleMismatch"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -568,6 +854,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || showSessions || articleMismatch"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -585,6 +872,7 @@ const currentSessionTitle = computed(() => {
                   :key="prompt"
                   type="button"
                   class="cursor-pointer rounded-lg border border-border bg-bg-secondary px-3 py-2 text-left text-text-primary transition-colors hover:border-accent hover:bg-bg-tertiary"
+                  :disabled="isLoading || showSessions || articleMismatch"
                   @click="sendSuggestedPrompt(prompt)"
                 >
                   {{ prompt }}
@@ -598,13 +886,16 @@ const currentSessionTitle = computed(() => {
             class="flex group"
             :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
           >
-            <div class="flex items-start gap-1" :class="msg.role === 'user' ? 'flex-row-reverse' : ''">
+            <div
+              class="flex items-start gap-1"
+              :class="msg.role === 'user' ? 'flex-row-reverse' : 'w-full min-w-0'"
+            >
               <div
-                class="max-w-[80%] rounded-lg px-3 py-2 text-sm select-text cursor-text"
+                class="py-2 text-sm select-text cursor-text"
                 :class="
                   msg.role === 'user'
-                    ? 'bg-accent text-white'
-                    : 'bg-bg-secondary text-text-primary'
+                    ? 'max-w-[80%] rounded-lg px-3 bg-accent text-white'
+                    : 'min-w-0 flex-1 text-text-primary'
                 "
               >
                 <!-- Thinking section -->
@@ -627,7 +918,7 @@ const currentSessionTitle = computed(() => {
                 <div v-else class="whitespace-pre-wrap break-words">{{ msg.content }}</div>
               </div>
               <button
-                class="p-1 rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary transition-all"
+                class="shrink-0 p-1 rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary transition-all"
                 :title="t('article.chat.copyMessage')"
                 @click="copyMessage(msg.content)"
               >
@@ -643,18 +934,30 @@ const currentSessionTitle = computed(() => {
         </div>
 
         <!-- Input -->
-        <div class="p-3 border-t border-border bg-bg-secondary rounded-b-xl">
+        <div class="row-start-4 p-3 border-t border-border bg-bg-secondary rounded-b-xl">
           <div class="flex gap-2">
             <input
               v-model="inputMessage"
               type="text"
               :placeholder="t('article.chat.aiChatInputPlaceholder')"
               class="flex-1 px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-sm focus:outline-none focus:border-accent"
-              :disabled="isLoading"
+              :disabled="isLoading || showSessions || articleMismatch"
               @keydown="handleKeydown"
             />
             <button
-              :disabled="isLoading || !inputMessage.trim()"
+              v-if="isLoading"
+              :title="t('article.chat.stopGenerating')"
+              :aria-label="t('article.chat.stopGenerating')"
+              data-testid="chat-stop-generation"
+              class="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+              @click="stopGeneration"
+            >
+              <PhStop :size="18" weight="fill" />
+            </button>
+            <button
+              v-else
+              data-testid="chat-send-message"
+              :disabled="showSessions || articleMismatch || !inputMessage.trim()"
               class="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               @click="sendMessage"
             >
@@ -669,10 +972,21 @@ const currentSessionTitle = computed(() => {
 
 <style>
 .chat-panel {
+  min-width: min(420px, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 3.5rem);
   user-select: text !important;
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
+}
+
+@media (min-width: 768px) {
+  .chat-panel {
+    min-width: min(420px, calc(100vw - 2.5rem));
+    max-width: calc(100vw - 2.5rem);
+    max-height: calc(100vh - 4.5rem);
+  }
 }
 
 .chat-panel.select-none {
@@ -695,6 +1009,12 @@ const currentSessionTitle = computed(() => {
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
+}
+
+.chat-panel .chat-profile-selector,
+.chat-panel .chat-profile-selector * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .chat-panel-enter-active,

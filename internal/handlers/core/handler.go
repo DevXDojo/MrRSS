@@ -54,12 +54,14 @@ type Handler struct {
 	DB                *database.DB
 	Fetcher           *feed.Fetcher
 	Translator        translation.Translator
-	AIProfileProvider *ai.ProfileProvider // AI profile provider for feature-specific configurations
+	AIProfileProvider *ai.ProfileProvider    // AI profile provider for feature-specific configurations
+	ChatRequests      ai.ChatRequestRegistry // Cancels only the identified chat request
 	AITracker         *ai.UsageTracker
 	DiscoveryService  *discovery.Service
 	App               interface{}         // Wails app instance for browser integration (interface{} to avoid import in server mode)
 	ContentCache      *cache.ContentCache // Cache for article content
 	Stats             *statistics.Service // Statistics tracking service
+	SetStartupOnBoot  func(bool) error    // Optional desktop-only startup integration
 
 	// Discovery state tracking for polling-based progress
 	DiscoveryMu          sync.RWMutex

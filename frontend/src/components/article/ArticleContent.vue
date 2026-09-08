@@ -572,6 +572,15 @@ async function translateContentParagraphs(
   if (paragraph?.nextElementSibling?.classList.contains('translation-text'))
     paragraph.nextElementSibling.remove();
   existingTranslations.forEach((el) => el.remove());
+  if (paragraph?.classList.contains('translation-source')) {
+    paragraph.classList.remove('translation-source');
+  }
+  (paragraph || proseContainer)
+    .querySelectorAll<HTMLElement>('.translation-source')
+    .forEach((el) => el.classList.remove('translation-source'));
+  (paragraph || proseContainer)
+    .querySelectorAll<HTMLElement>('.translation-source-content')
+    .forEach((source) => source.replaceWith(...Array.from(source.childNodes)));
 
   wrapOrphanedTextNodes(proseContainer);
 
@@ -719,22 +728,30 @@ async function translateContentParagraphs(
       tagName === 'DD' ||
       tagName === 'DT'
     ) {
-      // For list items, table cells, definition list items: append translation inside the same element
+      // Keep structurally constrained content inside its parent, but wrap the
+      // original nodes so translation-only mode can hide them independently.
+      const sourceEl = document.createElement('div');
+      sourceEl.className = 'translation-source-content';
+      while (htmlEl.firstChild) sourceEl.appendChild(htmlEl.firstChild);
       const translationEl = document.createElement('div');
       translationEl.className = 'translation-text translation-inline';
       translationEl.innerHTML = translatedHTML;
+      htmlEl.appendChild(sourceEl);
       htmlEl.appendChild(translationEl);
     } else if (htmlEl.closest('blockquote')) {
-      // For elements inside blockquote: append translation inside, styled differently
+      // Insert blockquote translations as siblings so the original paragraph
+      // can be hidden without also hiding its translation.
       const translationEl = document.createElement('div');
       translationEl.className = 'translation-text translation-blockquote';
       translationEl.innerHTML = translatedHTML;
-      htmlEl.appendChild(translationEl);
+      htmlEl.classList.add('translation-source');
+      htmlEl.parentNode?.insertBefore(translationEl, htmlEl.nextSibling);
     } else {
       // For standalone paragraphs, headings, figcaption: insert after as sibling
       const translationEl = document.createElement('div');
       translationEl.className = 'translation-text';
       translationEl.innerHTML = translatedHTML;
+      htmlEl.classList.add('translation-source');
       htmlEl.parentNode?.insertBefore(translationEl, htmlEl.nextSibling);
     }
 
@@ -1187,6 +1204,7 @@ onBeforeUnmount(() => {
           :translated-title="translatedTitle"
           :is-translating-title="isTranslatingTitle"
           :translation-enabled="translationEnabled"
+          :translation-only-mode="translationSettings.translationOnlyMode"
           :manual-translation="manualTranslation"
           :translation-skipped="translationSkipped"
           :is-translating-content="isTranslatingContent"

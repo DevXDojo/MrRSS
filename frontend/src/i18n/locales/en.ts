@@ -65,9 +65,15 @@ const en: TranslationMessages = {
       volume: 'Volume',
     },
     chat: {
+      titleSaveFailed: 'Failed to save conversation title. Please try again.',
+      linkedArticle: 'Conversation article',
+      articleMismatch: 'This conversation is currently using “{title}” as its context.',
+      continueWithCurrentArticle: 'Continue this chat with the current article',
+      newChatForCurrentArticle: 'New chat for the current article',
       aiChat: 'AI Chat',
       aiChatError: 'Failed to get response from AI. Please try again.',
       historySaveFailed: 'The answer was generated but could not be saved to chat history.',
+      stopGenerating: 'Stop generating',
       aiChatInputPlaceholder: 'Type a message...',
       aiChatWelcome: 'Ask me anything about this article!',
       confirmDeleteSession: 'Are you sure you want to delete this chat session?',
@@ -88,7 +94,7 @@ const en: TranslationMessages = {
       promptMainViews: 'What are the main viewpoints?',
       promptKeyInformation: 'What important facts or data should I remember?',
       promptExplain: 'Explain the difficult ideas in simple terms.',
-      promptAnalyze: 'Analyze the article\'s reasoning and implications.',
+      promptAnalyze: "Analyze the article's reasoning and implications.",
       promptVerify: 'Which claims in this article should be verified?',
       showThinking: 'Show Thinking',
       switchSession: 'Switch chat session',
@@ -113,6 +119,8 @@ const en: TranslationMessages = {
       allArticlesLoaded: 'All articles loaded',
       allCaughtUp: "You're all caught up",
       noUnreadArticles: 'There are no unread articles left.',
+      noFavorites: 'No favorites yet',
+      noFavoritesHint: 'Favorite articles you want to revisit, and they will appear here.',
     },
     navigation: {
       goToAllArticles: 'Go to All Articles',
@@ -643,7 +651,7 @@ const en: TranslationMessages = {
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI Features',
       aiModel: 'Model Name',
-      aiModelDesc: 'AI model to use for translation and summarization',
+      aiModelDesc: 'AI model to use for chat, translation, and summarization',
       aiModelPlaceholder: 'gpt-4o-mini',
       // AI Profile Management
       aiProfiles: 'AI Profiles',
@@ -684,6 +692,11 @@ const en: TranslationMessages = {
       aiUsageResetSuccess: 'AI usage counter reset successfully',
       aiUsageTokens: 'Tokens Used',
       aiUsageLimitPlaceholder: '0',
+      responsePreferences: 'Chat response preferences',
+      responsePreferencesDesc:
+        'Apply to every AI chat model, including existing conversations. Leave blank to use the default behavior. Other AI features are unaffected.',
+      responsePreferencesPlaceholder:
+        'For example: answer in Chinese, keep it concise, and avoid repetition.',
       quickPrompts: 'Custom Chat Prompts',
       quickPromptsDesc: 'Add reusable questions to the AI chat suggestion cards',
       quickPromptPlaceholder: 'Enter a question or instruction',
@@ -813,8 +826,9 @@ const en: TranslationMessages = {
         'Translate automatically, or only when you request a title or paragraph.',
       translationAutomatic: 'Automatic',
       translationManual: 'On demand',
-      translationOnlyMode: 'Translation Only Mode',
-      translationOnlyModeDesc: 'Show only translated text, hide original content',
+      translationOnlyMode: 'Show translations only',
+      translationOnlyModeDesc:
+        'Hide source text after it is translated; on-demand mode hides only translated titles or paragraphs',
       translationProvider: 'Translation Provider',
       translationProviderDesc: 'Choose the translation service to use',
       translationSkippedAlreadyTarget: 'Translation skipped',
@@ -1254,6 +1268,8 @@ const en: TranslationMessages = {
   },
   sidebar: {
     categoryActions: {
+      collapse: 'Collapse category',
+      expand: 'Expand category',
       dissolve: 'Dissolve category',
       unsubscribe: 'Unsubscribe category',
       dissolveConfirm:

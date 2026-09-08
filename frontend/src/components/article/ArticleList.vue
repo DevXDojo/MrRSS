@@ -13,6 +13,7 @@ import {
   PhCircle,
   PhClock,
   PhLightning,
+  PhStar,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
 import ArticleItem from './ArticleItem.vue';
@@ -22,6 +23,7 @@ import AISearchBar from './AISearchBar.vue';
 import { useArticleTranslation } from '@/composables/article/useArticleTranslation';
 import { useArticleFilter } from '@/composables/article/useArticleFilter';
 import { useArticleActions } from '@/composables/article/useArticleActions';
+import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseSettingsData } from '@/composables/core/useSettings.generated';
@@ -227,15 +229,19 @@ const { showArticleContextMenu } = useArticleActions(
   },
   preserveRelativeReadPosition
 );
+const { onContextMenu: showSelectionContextMenu } = useArticleSelectionMenu(listRef);
+
+function handleArticleContextMenu(event: MouseEvent, article: Article): void {
+  showSelectionContextMenu(event);
+  if (!event.defaultPrevented) showArticleContextMenu(event, article);
+}
 
 async function preserveRelativeReadPosition(
   referenceArticle: Article,
   direction: 'above' | 'below'
 ): Promise<void> {
   const list = listRef.value;
-  const anchor = list?.querySelector<HTMLElement>(
-    `[data-article-id="${referenceArticle.id}"]`
-  );
+  const anchor = list?.querySelector<HTMLElement>(`[data-article-id="${referenceArticle.id}"]`);
   const anchorTop = anchor?.getBoundingClientRect().top;
   const referenceTime = new Date(referenceArticle.published_at).getTime();
 
@@ -281,7 +287,7 @@ const articleListTitle = computed(() => {
   if (store.tempSelection.feedId) {
     const feed = store.feeds?.find((f) => f.id === store.tempSelection.feedId);
     const feedName = feed?.title || '';
-    const filterText = getFilterText();
+    const filterText = store.currentFilter === 'all' ? '' : getFilterText();
 
     // Truncate feed name if it's too long (leave room for " - filterText")
     const maxFeedNameLength = filterText ? 40 : 50;
@@ -291,8 +297,11 @@ const articleListTitle = computed(() => {
   }
 
   if (store.tempSelection.category) {
-    const categoryName = store.tempSelection.category;
-    const filterText = getFilterText();
+    const categoryName =
+      store.tempSelection.category === 'uncategorized'
+        ? t('sidebar.feedList.uncategorized')
+        : store.tempSelection.category;
+    const filterText = store.currentFilter === 'all' ? '' : getFilterText();
 
     // Truncate category name if it's too long
     const maxCategoryLength = filterText ? 40 : 50;
@@ -920,8 +929,11 @@ const shouldShowBottomMarkAllRead = computed(() => {
 });
 
 const isUnreadEmptyState = computed(
-  () => store.currentFilter === 'unread' || store.showOnlyUnread
+  () =>
+    store.currentFilter !== 'favorites' &&
+    (store.currentFilter === 'unread' || store.showOnlyUnread)
 );
+const isFavoritesEmptyState = computed(() => store.currentFilter === 'favorites');
 
 // Mark all currently visible articles as read
 async function markAllVisibleAsRead(): Promise<void> {
@@ -1151,7 +1163,12 @@ async function markAllVisibleAsRead(): Promise<void> {
               </div>
             </Transition>
           </div>
-          <button class="md:hidden text-xl sm:text-2xl p-1" @click="emit('toggleSidebar')">
+          <button
+            class="md:hidden text-xl sm:text-2xl p-1"
+            :title="t('shortcut.toggle.sidebar')"
+            :aria-expanded="isSidebarOpen"
+            @click="emit('toggleSidebar')"
+          >
             <PhList :size="18" class="sm:w-5 sm:h-5" />
           </button>
         </div>
@@ -1170,9 +1187,17 @@ async function markAllVisibleAsRead(): Promise<void> {
         v-if="
           filteredArticles.length === 0 && !store.isLoading && !isFilterLoading && !isAISearchActive
         "
-        class="flex flex-col items-center p-6 sm:p-8 text-center text-text-secondary"
+        class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
+        data-testid="article-list-empty"
       >
-        <template v-if="isUnreadEmptyState">
+        <template v-if="isFavoritesEmptyState">
+          <PhStar :size="40" weight="duotone" class="mb-3 text-yellow-500" />
+          <div class="text-base font-medium text-text-primary">
+            {{ t('article.list.noFavorites') }}
+          </div>
+          <div class="mt-1 text-sm">{{ t('article.list.noFavoritesHint') }}</div>
+        </template>
+        <template v-else-if="isUnreadEmptyState">
           <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />
           <div class="text-base font-medium text-text-primary">
             {{ t('article.list.allCaughtUp') }}
@@ -1204,7 +1229,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             :article="article"
             :is-active="cardModalArticle?.id === article.id"
             @click="selectArticle(article)"
-            @contextmenu="(e) => showArticleContextMenu(e, article)"
+            @contextmenu="(e) => handleArticleContextMenu(e, article)"
           />
           <div
             v-if="isAISearchActive && article.excerpt"
@@ -1242,7 +1267,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             :article="article"
             :is-active="store.currentArticleId === article.id"
             @click="selectArticle(article)"
-            @contextmenu="(e) => showArticleContextMenu(e, article)"
+            @contextmenu="(e) => handleArticleContextMenu(e, article)"
             @observe-element="observeArticle"
             @hover-mark-as-read="handleHoverMarkAsRead"
           />

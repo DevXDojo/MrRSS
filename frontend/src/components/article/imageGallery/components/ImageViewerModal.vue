@@ -166,6 +166,9 @@ async function nextImage(): void {
  * Handle thumbnail selection
  */
 function handleThumbnailSelect(index: number): void {
+  // Clicking the active thumbnail does not change the image src, so no new
+  // load event would fire to clear a freshly enabled loading indicator.
+  if (index === localImageIndex.value) return;
   localImageIndex.value = index;
   viewer.currentImageLoading.value = true;
   viewer.resetView();
@@ -310,7 +313,8 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
       <!-- Right: Close button -->
       <div class="absolute right-0 top-0">
         <button
-          class="w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full text-white flex items-center justify-center transition-colors"
+          class="w-8 h-8 bg-black/50 rounded-full text-white flex items-center justify-center transition-colors hover:bg-white hover:text-black focus-visible:bg-white focus-visible:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black active:bg-white/80"
+          :aria-label="t('common.close')"
           @click="emit('close')"
         >
           <PhX :size="20" />
