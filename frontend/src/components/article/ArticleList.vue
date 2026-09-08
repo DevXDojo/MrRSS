@@ -281,7 +281,7 @@ const articleListTitle = computed(() => {
   if (store.tempSelection.feedId) {
     const feed = store.feeds?.find((f) => f.id === store.tempSelection.feedId);
     const feedName = feed?.title || '';
-    const filterText = getFilterText();
+    const filterText = store.currentFilter === 'all' ? '' : getFilterText();
 
     // Truncate feed name if it's too long (leave room for " - filterText")
     const maxFeedNameLength = filterText ? 40 : 50;
@@ -291,8 +291,11 @@ const articleListTitle = computed(() => {
   }
 
   if (store.tempSelection.category) {
-    const categoryName = store.tempSelection.category;
-    const filterText = getFilterText();
+    const categoryName =
+      store.tempSelection.category === 'uncategorized'
+        ? t('sidebar.feedList.uncategorized')
+        : store.tempSelection.category;
+    const filterText = store.currentFilter === 'all' ? '' : getFilterText();
 
     // Truncate category name if it's too long
     const maxCategoryLength = filterText ? 40 : 50;
@@ -1170,7 +1173,8 @@ async function markAllVisibleAsRead(): Promise<void> {
         v-if="
           filteredArticles.length === 0 && !store.isLoading && !isFilterLoading && !isAISearchActive
         "
-        class="flex flex-col items-center p-6 sm:p-8 text-center text-text-secondary"
+        class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
+        data-testid="article-list-empty"
       >
         <template v-if="isUnreadEmptyState">
           <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />

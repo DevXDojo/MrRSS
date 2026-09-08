@@ -62,6 +62,7 @@ const zh: TranslationMessages = {
       volume: '音量',
     },
     chat: {
+      titleSaveFailed: '保存对话标题失败，请重试。',
       linkedArticle: '对话关联文章',
       articleMismatch: '此对话关联的是“{title}”。请切回该文章，或为当前文章新建对话。',
       newChatForCurrentArticle: '为当前文章新建对话',
@@ -630,7 +631,7 @@ const zh: TranslationMessages = {
       aiEndpointPlaceholder: 'https://api.openai.com/v1/chat/completions',
       aiFeatures: 'AI 功能',
       aiModel: '模型名称',
-      aiModelDesc: '用于翻译和摘要的 AI 模型',
+      aiModelDesc: '用于聊天、翻译和摘要的 AI 模型',
       aiModelPlaceholder: 'gpt-4o-mini',
       // AI 配置管理
       aiProfiles: 'AI 配置',
@@ -670,6 +671,9 @@ const zh: TranslationMessages = {
       aiUsageResetSuccess: 'AI 使用量计数器已重置',
       aiUsageTokens: '已使用 Token',
       aiUsageLimitPlaceholder: '0',
+      responsePreferences: '聊天回答偏好',
+      responsePreferencesDesc: '应用于所有 AI 聊天模型和已有对话，留空使用默认行为。其他 AI 功能不受影响。',
+      responsePreferencesPlaceholder: '例如：用中文回答，保持简洁，避免重复。',
       quickPrompts: '自定义聊天问题',
       quickPromptsDesc: '添加可在 AI 聊天快捷卡片中重复使用的问题',
       quickPromptPlaceholder: '输入问题或指令',
