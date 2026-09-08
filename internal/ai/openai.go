@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -143,9 +144,26 @@ func (h *OpenAIHandler) ValidateResponse(statusCode int, body []byte) error {
 	}
 }
 
-// FormatEndpoint returns the endpoint as-is for OpenAI format
+// FormatEndpoint accepts either a full chat-completions URL or a versioned
+// OpenAI-compatible base URL. Providers such as OpenRouter document both forms.
 func (h *OpenAIHandler) FormatEndpoint(endpoint, model string) string {
-	return strings.TrimSuffix(endpoint, "/")
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return "https://api.openai.com/v1/chat/completions"
+	}
+
+	parsed, err := url.Parse(strings.TrimSuffix(endpoint, "/"))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return strings.TrimSuffix(endpoint, "/")
+	}
+
+	path := strings.TrimSuffix(parsed.Path, "/")
+	if path == "" {
+		parsed.Path = "/v1/chat/completions"
+	} else if strings.HasSuffix(path, "/v1") {
+		parsed.Path = path + "/chat/completions"
+	}
+	return parsed.String()
 }
 
 // IsOpenAIError checks if an error message indicates an OpenAI API format
