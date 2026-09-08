@@ -246,3 +246,55 @@ describe('App', () => {
     getContextSpy.mockRestore();
   });
 });
+
+describe('AI chat panel size', () => {
+  it('restores a saved size, fits a smaller viewport, and keeps the preferred size', async () => {
+    const ChatPanel = (await import('./components/article/ArticleChatPanel.vue')).default;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => [] }))
+    );
+    vi.stubGlobal('innerWidth', 1000);
+    vi.stubGlobal('innerHeight', 800);
+    localStorage.setItem('mrrssChatPanelSize', JSON.stringify({ width: 650, height: 680 }));
+    const wrapper = mount(ChatPanel, {
+      props: {
+        article: { id: 1, title: 'Article', url: 'https://example.com' } as any,
+        articleContent: 'Article body',
+        settings: { ai_chat_enabled: true, ai_chat_profile_id: '', ai_chat_quick_prompts: '' },
+      },
+      global: {
+        plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })],
+        stubs: { Teleport: true },
+      },
+    });
+    try {
+      await nextTick();
+      const panel = wrapper.get('.chat-panel').element as HTMLElement;
+      expect(panel.style.width).toBe('650px');
+      expect(panel.style.height).toBe('680px');
+      vi.stubGlobal('innerWidth', 500);
+      vi.stubGlobal('innerHeight', 400);
+      window.dispatchEvent(new Event('resize'));
+      expect(panel.style.width).toBe('468px');
+      expect(panel.style.height).toBe('344px');
+      vi.stubGlobal('innerWidth', 1000);
+      vi.stubGlobal('innerHeight', 800);
+      window.dispatchEvent(new Event('resize'));
+      expect(panel.style.width).toBe('650px');
+      expect(JSON.parse(localStorage.getItem('mrrssChatPanelSize')!).width).toBe(650);
+      vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({ width: 650, height: 680 } as DOMRect);
+      await wrapper.get('.cursor-nw-resize').trigger('mousedown', { clientX: 100, clientY: 100 });
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 60 }));
+      document.dispatchEvent(new MouseEvent('mouseup'));
+      expect(JSON.parse(localStorage.getItem('mrrssChatPanelSize')!)).toEqual({
+        width: 700,
+        height: 720,
+      });
+    } finally {
+      wrapper.unmount();
+      localStorage.removeItem('mrrssChatPanelSize');
+      vi.unstubAllGlobals();
+    }
+  });
+});
