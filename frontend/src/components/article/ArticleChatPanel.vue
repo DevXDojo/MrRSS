@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-v-html */
-import { ref, nextTick, computed, onMounted } from 'vue';
+import { ref, nextTick, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhChatCircleText,
@@ -93,7 +93,9 @@ const questionPrompts = computed(() => [
 const customPrompts = computed<string[]>(() => {
   try {
     const parsed = JSON.parse(props.settings.ai_chat_quick_prompts || '[]');
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : [];
   } catch {
     return [];
   }
@@ -106,6 +108,42 @@ const startY = ref(0);
 const startWidth = ref(0);
 const startHeight = ref(0);
 const panelElement = ref<HTMLElement | null>(null);
+const panelSizeStorageKey = 'mrrssChatPanelSize';
+let preferredPanelSize = { width: 500, height: 600 };
+
+function applyPanelSize() {
+  const panel = panelElement.value;
+  if (!panel) return;
+  const desktop = window.innerWidth >= 768;
+  const availableWidth = Math.max(1, window.innerWidth - (desktop ? 24 : 16) - 16);
+  const availableHeight = Math.max(1, window.innerHeight - (desktop ? 56 : 40) - 16);
+  panel.style.width = `${Math.min(preferredPanelSize.width, availableWidth)}px`;
+  panel.style.height = `${Math.min(preferredPanelSize.height, availableHeight)}px`;
+}
+
+onMounted(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(panelSizeStorageKey) || 'null');
+    if (
+      saved &&
+      Number.isFinite(saved.width) &&
+      Number.isFinite(saved.height) &&
+      saved.width >= 300 &&
+      saved.height >= 200
+    ) {
+      preferredPanelSize = { width: Math.max(420, saved.width), height: saved.height };
+    }
+  } catch {
+    // Invalid or unavailable local storage should not prevent opening chat.
+  }
+  applyPanelSize();
+  window.addEventListener('resize', applyPanelSize);
+});
+
+onBeforeUnmount(() => {
+  stopResize();
+  window.removeEventListener('resize', applyPanelSize);
+});
 
 // Initialize: load sessions for this article
 onMounted(async () => {
@@ -263,13 +301,19 @@ function resize(e: MouseEvent) {
 
   const panel = panelElement.value;
   if (panel) {
-    panel.classList.remove('w-[500px]', 'h-[600px]', 'w-[calc(100%-2rem)]', 'md:w-96');
-    panel.style.width = `${newWidth}px`;
-    panel.style.height = `${newHeight}px`;
+    preferredPanelSize = { width: newWidth, height: newHeight };
+    applyPanelSize();
   }
 }
 
 function stopResize() {
+  if (isResizing.value) {
+    try {
+      localStorage.setItem(panelSizeStorageKey, JSON.stringify(preferredPanelSize));
+    } catch {
+      // Resizing remains available when local storage cannot be written.
+    }
+  }
   isResizing.value = false;
   document.removeEventListener('mousemove', resize);
   document.removeEventListener('mouseup', stopResize);
@@ -533,10 +577,7 @@ const currentSessionTitle = computed(() => {
 
         <!-- Messages -->
         <div ref="chatContainer" class="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth">
-          <div
-            v-if="messages.length === 0"
-            class="space-y-4 py-2 text-sm"
-          >
+          <div v-if="messages.length === 0" class="space-y-4 py-2 text-sm">
             <p class="text-center text-text-secondary">{{ t('article.chat.aiChatWelcome') }}</p>
 
             <section class="space-y-2">
@@ -596,13 +637,14 @@ const currentSessionTitle = computed(() => {
             class="flex group"
             :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
           >
-            <div class="flex items-start gap-1" :class="msg.role === 'user' ? 'flex-row-reverse' : ''">
+            <div
+              class="flex items-start gap-1"
+              :class="msg.role === 'user' ? 'flex-row-reverse' : ''"
+            >
               <div
                 class="max-w-[80%] rounded-lg px-3 py-2 text-sm select-text cursor-text"
                 :class="
-                  msg.role === 'user'
-                    ? 'bg-accent text-white'
-                    : 'bg-bg-secondary text-text-primary'
+                  msg.role === 'user' ? 'bg-accent text-white' : 'bg-bg-secondary text-text-primary'
                 "
               >
                 <!-- Thinking section -->
