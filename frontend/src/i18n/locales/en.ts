@@ -94,7 +94,7 @@ const en: TranslationMessages = {
       promptMainViews: 'What are the main viewpoints?',
       promptKeyInformation: 'What important facts or data should I remember?',
       promptExplain: 'Explain the difficult ideas in simple terms.',
-      promptAnalyze: 'Analyze the article\'s reasoning and implications.',
+      promptAnalyze: "Analyze the article's reasoning and implications.",
       promptVerify: 'Which claims in this article should be verified?',
       showThinking: 'Show Thinking',
       switchSession: 'Switch chat session',
@@ -691,8 +691,10 @@ const en: TranslationMessages = {
       aiUsageTokens: 'Tokens Used',
       aiUsageLimitPlaceholder: '0',
       responsePreferences: 'Chat response preferences',
-      responsePreferencesDesc: 'Apply to every AI chat model, including existing conversations. Leave blank to use the default behavior. Other AI features are unaffected.',
-      responsePreferencesPlaceholder: 'For example: answer in Chinese, keep it concise, and avoid repetition.',
+      responsePreferencesDesc:
+        'Apply to every AI chat model, including existing conversations. Leave blank to use the default behavior. Other AI features are unaffected.',
+      responsePreferencesPlaceholder:
+        'For example: answer in Chinese, keep it concise, and avoid repetition.',
       quickPrompts: 'Custom Chat Prompts',
       quickPromptsDesc: 'Add reusable questions to the AI chat suggestion cards',
       quickPromptPlaceholder: 'Enter a question or instruction',
@@ -1265,6 +1267,7 @@ const en: TranslationMessages = {
   sidebar: {
     categoryActions: {
       collapse: 'Collapse category',
+      expand: 'Expand category',
       dissolve: 'Dissolve category',
       unsubscribe: 'Unsubscribe category',
       dissolveConfirm:
@@ -1366,4 +1369,3 @@ const en: TranslationMessages = {
 };
 
 export default en;
-      expand: 'Expand category',

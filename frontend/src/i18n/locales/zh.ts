@@ -674,7 +674,8 @@ const zh: TranslationMessages = {
       aiUsageTokens: '已使用 Token',
       aiUsageLimitPlaceholder: '0',
       responsePreferences: '聊天回答偏好',
-      responsePreferencesDesc: '应用于所有 AI 聊天模型和已有对话，留空使用默认行为。其他 AI 功能不受影响。',
+      responsePreferencesDesc:
+        '应用于所有 AI 聊天模型和已有对话，留空使用默认行为。其他 AI 功能不受影响。',
       responsePreferencesPlaceholder: '例如：用中文回答，保持简洁，避免重复。',
       quickPrompts: '自定义聊天问题',
       quickPromptsDesc: '添加可在 AI 聊天快捷卡片中重复使用的问题',
@@ -1229,6 +1230,7 @@ const zh: TranslationMessages = {
   sidebar: {
     categoryActions: {
       collapse: '折叠分类',
+      expand: '展开分类',
       dissolve: '解散分类',
       unsubscribe: '取消订阅整个分类',
       dissolveConfirm: '解散“{name}”及其子分类？保留全部 {count} 个订阅及文章，并移至未分类。',
@@ -1329,4 +1331,3 @@ const zh: TranslationMessages = {
 };
 
 export default zh;
-      expand: '展开分类',
