@@ -7,7 +7,6 @@ import {
   PhArrowUp,
   PhArrowRight,
   PhX,
-  PhBookOpen,
   PhStar,
   PhClockCountdown,
   PhArrowSquareOut,
@@ -17,8 +16,9 @@ import {
   PhGear,
   PhPlus,
   PhMagnifyingGlass,
-  PhListDashes,
   PhCircle,
+  PhSquaresFour,
+  PhTray,
   PhArrowCounterClockwise,
   PhFunnel,
 } from '@phosphor-icons/vue';
@@ -138,9 +138,9 @@ const shortcutGroups = computed<Array<{ label: string; items: ShortcutItemData[]
       {
         key: 'goToAllArticles',
         label: t('article.navigation.goToAllArticles'),
-        icon: PhListDashes,
+        icon: PhSquaresFour,
       },
-      { key: 'goToUnread', label: t('article.navigation.goToUnread'), icon: PhCircle },
+      { key: 'goToUnread', label: t('article.navigation.goToUnread'), icon: PhTray },
       { key: 'goToFavorites', label: t('article.navigation.goToFavorites'), icon: PhStar },
       {
         key: 'goToReadLater',
@@ -152,7 +152,7 @@ const shortcutGroups = computed<Array<{ label: string; items: ShortcutItemData[]
   {
     label: t('shortcut.category.articles'),
     items: [
-      { key: 'toggleReadStatus', label: t('shortcut.toggle.readStatus'), icon: PhBookOpen },
+      { key: 'toggleReadStatus', label: t('shortcut.toggle.readStatus'), icon: PhCircle },
       {
         key: 'toggleFavoriteStatus',
         label: t('article.action.toggleFavoriteStatus'),
