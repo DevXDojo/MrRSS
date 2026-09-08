@@ -66,6 +66,10 @@ const en: TranslationMessages = {
     },
     chat: {
       titleSaveFailed: 'Failed to save conversation title. Please try again.',
+      linkedArticle: 'Conversation article',
+      articleMismatch:
+        'This conversation is linked to “{title}”. Return to that article or start a new chat for the current article.',
+      newChatForCurrentArticle: 'New chat for the current article',
       aiChat: 'AI Chat',
       aiChatError: 'Failed to get response from AI. Please try again.',
       historySaveFailed: 'The answer was generated but could not be saved to chat history.',

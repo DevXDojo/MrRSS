@@ -326,6 +326,135 @@ describe('Reading interactions', () => {
     });
   });
 
+  it('shows the bound article and requires an explicit new chat before sending from another reader article', () => {
+    let sends = 0;
+    const firstArticle = {
+      ...article,
+      title: 'LongUnbrokenArticleTitle'.repeat(80),
+      feed_title: 'LongUnbrokenFeedSource'.repeat(80),
+    };
+    const secondArticle = {
+      ...article,
+      id: 2,
+      title: 'Second article',
+      feed_title: 'Second source',
+      url: 'https://example.com/second',
+    };
+    const sessions = [{ id: 11, article_id: 1, title: 'First article session', message_count: 1 }];
+    setup({ ai_chat_enabled: 'true', translation_enabled: 'false' });
+    cy.intercept({ method: 'GET', pathname: '/api/articles' }, [firstArticle, secondArticle]).as(
+      'contextArticles'
+    );
+    cy.intercept('GET', '/api/articles/content*', (req) => {
+      req.reply({
+        content:
+          Number(req.query.id) === 2
+            ? '<p>Second article body.</p><p>Second context.</p>'
+            : '<p>First article body.</p><p>First context.</p>',
+        cached: true,
+      });
+    }).as('contextContent');
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('GET', '/api/ai/chat/sessions*', (req) => {
+      req.reply(sessions.filter((session) => session.article_id === Number(req.query.article_id)));
+    });
+    cy.intercept('GET', '/api/ai/chat/messages*', (req) => {
+      req.reply(
+        Number(req.query.session_id) === 11
+          ? [{ id: 1, role: 'user', content: 'Question about first article', created_at: '' }]
+          : { statusCode: 500, body: {} }
+      );
+    }).as('contextMessages');
+    cy.intercept('POST', '/api/ai/chat/session/create', (req) => {
+      expect(req.body.article_id).to.equal(2);
+      const session = { id: 22, article_id: 2, title: req.body.title, message_count: 0 };
+      sessions.push(session);
+      req.reply({ delay: 300, body: session });
+    }).as('newContext');
+    cy.intercept('POST', '/api/ai-chat', (req) => {
+      sends++;
+      expect(req.body.session_id).to.equal(22);
+      expect(req.body.article_id).to.equal(2);
+      expect(req.body.article_title).to.equal(secondArticle.title);
+      expect(req.body.article_url).to.equal(secondArticle.url);
+      expect(req.body.article_content).to.contain('Second article body');
+      expect(req.body.article_content).not.to.contain('First article body');
+      expect(req.body.messages).to.have.length(1);
+      req.reply({ response: 'Answer for second article', session_id: 22 });
+    }).as('contextChat');
+    cy.reload();
+    cy.wait('@contextArticles');
+    cy.get('[data-article-id="1"]').click();
+    cy.wait('@contextContent');
+    cy.get('button[title="AI Chat"]').click();
+    cy.wait('@contextMessages');
+    cy.get('[data-testid="chat-context-article"]')
+      .should('contain', firstArticle.title)
+      .and('contain', firstArticle.feed_title);
+    cy.get('[data-testid="chat-session-switcher"]').click();
+    cy.get('[data-testid="chat-context-article"]').should('be.visible');
+    cy.get('[data-session-id="11"]').should('be.visible').click();
+    cy.wait('@contextMessages');
+    cy.get('input[placeholder="Type a message..."]').type('Draft for first article');
+    cy.get('[data-article-id="2"]').click();
+    cy.wait('@contextContent');
+    cy.get('[data-testid="chat-context-article"]').should(
+      'have.attr',
+      'data-context-article-id',
+      '1'
+    );
+    cy.contains('.chat-panel', 'Question about first article').should('be.visible');
+    cy.get('input[placeholder="Type a message..."]')
+      .should('be.disabled')
+      .trigger('keydown', { key: 'Enter', force: true });
+    cy.then(() => expect(sends).to.equal(0));
+    cy.get('.chat-panel').invoke('css', 'width', '420px');
+    cy.get('.chat-panel').should(($panel) => {
+      const panel = $panel[0];
+      const panelRect = panel.getBoundingClientRect();
+      const card = panel.querySelector('[data-testid="chat-context-article"]')!;
+      const input = panel.querySelector('input[placeholder="Type a message..."]')!;
+      const inputRow = input.parentElement!.parentElement!;
+      expect(panelRect.width).to.equal(420);
+      for (const element of [card, inputRow, input]) {
+        const rect = element.getBoundingClientRect();
+        expect(rect.width).to.be.greaterThan(0);
+        expect(rect.left).to.be.at.least(panelRect.left);
+        expect(rect.right).to.be.at.most(panelRect.right);
+      }
+    });
+    for (const height of [200, 174]) {
+      cy.get('.chat-panel').invoke('css', 'height', `${height}px`);
+      cy.get('input[placeholder="Type a message..."]').then(($input) => {
+        const panelRect = $input[0].closest('.chat-panel')!.getBoundingClientRect();
+        const inputRect = $input[0].getBoundingClientRect();
+        expect(inputRect.top).to.be.at.least(panelRect.top);
+        expect(inputRect.bottom).to.be.at.most(panelRect.bottom);
+      });
+    }
+    cy.get('.chat-panel').invoke('css', 'height', '600px');
+    cy.get('[data-article-id="1"]').click();
+    cy.wait('@contextContent');
+    cy.get('input[placeholder="Type a message..."]')
+      .should('be.enabled')
+      .and('have.value', 'Draft for first article');
+    cy.get('[data-article-id="2"]').click();
+    cy.wait('@contextContent');
+    cy.get('[data-testid="chat-new-context"]').click();
+    cy.get('@newContext.all').should('have.length', 0);
+    cy.get('[data-testid="chat-context-article"]')
+      .should('have.attr', 'data-context-article-id', '2')
+      .and('contain', secondArticle.title)
+      .and('contain', secondArticle.feed_title);
+    cy.get('input[placeholder="Type a message..."]')
+      .should('be.enabled')
+      .and('have.value', '')
+      .type('Question about second article{enter}');
+    cy.wait('@newContext');
+    cy.wait('@contextChat');
+    cy.contains('.chat-panel', 'Answer for second article').should('be.visible');
+  });
+
   it('translates only the requested title or paragraph in manual mode, and retries failures', () => {
     let calls = 0;
     let paragraphCalls = 0;
