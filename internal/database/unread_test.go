@@ -118,6 +118,17 @@ func TestUnreadCounts(t *testing.T) {
 	if totalCount != 0 {
 		t.Errorf("Expected 0 unread articles after marking all as read, got %d", totalCount)
 	}
+
+	if err := db.MarkAllAsUnreadForFeed(feedID); err != nil {
+		t.Fatalf("Failed to reset feed articles to unread: %v", err)
+	}
+	totalCount, err = db.GetTotalUnreadCount()
+	if err != nil {
+		t.Fatalf("Failed to get total unread count after resetting: %v", err)
+	}
+	if totalCount != 2 {
+		t.Errorf("Expected 2 unread articles after resetting feed, got %d", totalCount)
+	}
 }
 
 func TestMarkAllAsRead(t *testing.T) {

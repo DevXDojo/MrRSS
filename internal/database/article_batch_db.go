@@ -12,6 +12,13 @@ func (db *DB) MarkAllAsReadForFeed(feedID int64) error {
 	return err
 }
 
+// MarkAllAsUnreadForFeed restores visible articles in a feed to their initial unread state.
+func (db *DB) MarkAllAsUnreadForFeed(feedID int64) error {
+	db.WaitForReady()
+	_, err := db.Exec("UPDATE articles SET is_read = 0 WHERE feed_id = ? AND is_hidden = 0", feedID)
+	return err
+}
+
 // MarkAllAsRead marks all articles as read.
 func (db *DB) MarkAllAsRead() error {
 	db.WaitForReady()

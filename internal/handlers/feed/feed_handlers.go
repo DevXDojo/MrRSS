@@ -386,6 +386,7 @@ func HandleUpdateFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Param        id   query     int64   true  "Feed ID"
+// @Param        reset_read query bool false "Reset existing visible articles to unread before refreshing"
 // @Success      200  {string}  string  "Feed refresh started successfully"
 // @Failure      400  {object}  map[string]string  "Bad request (invalid feed ID)"
 // @Failure      404  {object}  map[string]string  "Feed not found"
@@ -407,6 +408,21 @@ func HandleRefreshFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		response.Error(w, err, http.StatusNotFound)
 		return
+	}
+
+	resetRead := false
+	if resetReadValue := r.URL.Query().Get("reset_read"); resetReadValue != "" {
+		resetRead, err = strconv.ParseBool(resetReadValue)
+		if err != nil {
+			response.Error(w, err, http.StatusBadRequest)
+			return
+		}
+	}
+	if resetRead {
+		if err := h.DB.MarkAllAsUnreadForFeed(id); err != nil {
+			response.Error(w, err, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Refresh the feed in background with progress tracking (manual = queue head)

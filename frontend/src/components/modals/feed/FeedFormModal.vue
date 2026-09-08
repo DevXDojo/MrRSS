@@ -106,7 +106,9 @@ async function reloadFeed() {
 
   isReloading.value = true;
   try {
-    const response = await fetch(`/api/feeds/refresh?id=${props.feed.id}`, { method: 'POST' });
+    const response = await fetch(`/api/feeds/refresh?id=${props.feed.id}&reset_read=true`, {
+      method: 'POST',
+    });
     if (!response.ok) throw new Error(`Feed refresh failed: ${response.status}`);
     window.showToast(t('modal.feed.feedRefreshStarted'), 'success');
     store.pollProgress();
