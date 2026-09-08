@@ -1173,7 +1173,8 @@ async function markAllVisibleAsRead(): Promise<void> {
         v-if="
           filteredArticles.length === 0 && !store.isLoading && !isFilterLoading && !isAISearchActive
         "
-        class="flex flex-col items-center p-6 sm:p-8 text-center text-text-secondary"
+        class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
+        data-testid="article-list-empty"
       >
         <template v-if="isUnreadEmptyState">
           <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />

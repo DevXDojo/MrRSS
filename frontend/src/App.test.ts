@@ -6,9 +6,12 @@ import { createPinia } from 'pinia';
 import { createI18n } from 'vue-i18n';
 import en from './i18n/locales/en';
 import zh from './i18n/locales/zh';
+import RuleLogicConnector from './components/modals/rules/RuleLogicConnector.vue';
 import ArticleList from './components/article/ArticleList.vue';
 import type { Feed } from './types/models';
 import App from './App.vue';
+import AIFeatureSettings from './components/modals/settings/ai/AIFeatureSettings.vue';
+import type { SettingsData } from './types/settings';
 import { setSettingsFromRawData } from './composables/core/useSettings';
 import { getRecommendedFonts } from './utils/fontDetector';
 import {
@@ -248,6 +251,107 @@ describe('App', () => {
     );
 
     getContextSpy.mockRestore();
+  });
+});
+
+describe('AI chat panel size', () => {
+  it('restores a saved size, fits a smaller viewport, and keeps the preferred size', async () => {
+    const ChatPanel = (await import('./components/article/ArticleChatPanel.vue')).default;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => [] }))
+    );
+    vi.stubGlobal('innerWidth', 1000);
+    vi.stubGlobal('innerHeight', 800);
+    localStorage.setItem('mrrssChatPanelSize', JSON.stringify({ width: 650, height: 680 }));
+    const wrapper = mount(ChatPanel, {
+      props: {
+        article: { id: 1, title: 'Article', url: 'https://example.com' } as any,
+        articleContent: 'Article body',
+        settings: { ai_chat_enabled: true, ai_chat_profile_id: '', ai_chat_quick_prompts: '' },
+      },
+      global: {
+        plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })],
+        stubs: { Teleport: true },
+      },
+    });
+    try {
+      await nextTick();
+      const panel = wrapper.get('.chat-panel').element as HTMLElement;
+      expect(panel.style.width).toBe('650px');
+      expect(panel.style.height).toBe('680px');
+      vi.stubGlobal('innerWidth', 500);
+      vi.stubGlobal('innerHeight', 400);
+      window.dispatchEvent(new Event('resize'));
+      expect(panel.style.width).toBe('468px');
+      expect(panel.style.height).toBe('344px');
+      vi.stubGlobal('innerWidth', 1000);
+      vi.stubGlobal('innerHeight', 800);
+      window.dispatchEvent(new Event('resize'));
+      expect(panel.style.width).toBe('650px');
+      expect(JSON.parse(localStorage.getItem('mrrssChatPanelSize')!).width).toBe(650);
+      vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({ width: 650, height: 680 } as DOMRect);
+      await wrapper.get('.cursor-nw-resize').trigger('mousedown', { clientX: 100, clientY: 100 });
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 60 }));
+      document.dispatchEvent(new MouseEvent('mouseup'));
+      expect(JSON.parse(localStorage.getItem('mrrssChatPanelSize')!)).toEqual({
+        width: 700,
+        height: 720,
+      });
+    } finally {
+      wrapper.unmount();
+      localStorage.removeItem('mrrssChatPanelSize');
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+
+describe('Rule logic localization', () => {
+  it('localizes AND/OR labels while preserving emitted rule operators', async () => {
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { en, zh } });
+    const wrapper = mount(RuleLogicConnector, {
+      props: { logic: 'and' },
+      global: { plugins: [i18n] },
+    });
+    const buttons = wrapper.findAll('button');
+    expect(buttons.map((button) => button.text())).toEqual(['且', '或']);
+    await buttons[1].trigger('click');
+    await buttons[0].trigger('click');
+    expect(wrapper.emitted('update')).toEqual([['or'], ['and']]);
+
+    i18n.global.locale.value = 'en';
+    await nextTick();
+    expect(buttons.map((button) => button.text())).toEqual(['AND', 'OR']);
+    wrapper.unmount();
+  });
+});
+
+describe('Chat response preferences', () => {
+  it('edits and clears the shared preference without changing model selection', async () => {
+    const settings = {
+      ai_chat_enabled: true,
+      ai_chat_profile_id: '7',
+      ai_chat_quick_prompts: '[]',
+      ai_chat_response_preferences: '',
+    } as SettingsData;
+    const wrapper = mount(AIFeatureSettings, {
+      props: { settings },
+      global: {
+        plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })],
+        stubs: { AIProfileSelector: true, AIChatQuickPromptsSettings: true },
+      },
+    });
+    const input = wrapper.get('textarea');
+    await input.setValue('用中文回答，保持简洁。');
+    const updated = wrapper.emitted('update:settings')?.[0]?.[0] as SettingsData;
+    expect(updated.ai_chat_response_preferences).toBe('用中文回答，保持简洁。');
+    expect(updated.ai_chat_profile_id).toBe('7');
+    await wrapper.setProps({ settings: updated });
+    await input.setValue('');
+    const cleared = wrapper.emitted('update:settings')?.[1]?.[0] as SettingsData;
+    expect(cleared.ai_chat_response_preferences).toBe('');
+    wrapper.unmount();
   });
 });
 

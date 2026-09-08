@@ -15,6 +15,7 @@ import {
   SettingWithToggle,
   NestedSettingsContainer,
   SubSettingItem,
+  TextAreaControl,
 } from '@/components/settings';
 import AIProfileSelector from './AIProfileSelector.vue';
 import AIChatQuickPromptsSettings from './AIChatQuickPromptsSettings.vue';
@@ -130,6 +131,22 @@ async function clearAllChatSessions() {
           @update:model-value="updateSetting('ai_chat_profile_id', $event)"
         />
       </SubSettingItem>
+
+      <div class="sub-setting-item-col">
+        <label for="ai-chat-response-preferences" class="font-medium text-xs sm:text-sm">
+          {{ t('setting.ai.responsePreferences') }}
+        </label>
+        <p class="text-text-secondary text-xs">
+          {{ t('setting.ai.responsePreferencesDesc') }}
+        </p>
+        <TextAreaControl
+          id="ai-chat-response-preferences"
+          :model-value="props.settings.ai_chat_response_preferences"
+          :placeholder="t('setting.ai.responsePreferencesPlaceholder')"
+          :rows="4"
+          @update:model-value="updateSetting('ai_chat_response_preferences', $event)"
+        />
+      </div>
 
       <SubSettingItem
         :icon="PhLightning"
