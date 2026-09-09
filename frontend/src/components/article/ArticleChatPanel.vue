@@ -981,6 +981,11 @@ const currentSessionTitle = computed(() => {
   -ms-user-select: text !important;
 }
 
+.chat-panel button:not(:disabled),
+.chat-panel [role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
 @media (min-width: 768px) {
   .chat-panel {
     min-width: min(420px, calc(100vw - 2.5rem));
