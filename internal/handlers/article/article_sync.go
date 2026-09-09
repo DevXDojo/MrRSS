@@ -85,14 +85,14 @@ func performImmediateSync(h *core.Handler, syncReq *database.SyncRequest) {
 		return
 	}
 
-	serverURL, username, password, err := h.DB.GetFreshRSSConfig()
+	serverURL, username, password, provider, err := h.DB.GetFreshRSSConfig()
 	if err != nil || serverURL == "" || username == "" || password == "" {
 		log.Printf("[Immediate Sync] FreshRSS not configured, skipping sync")
 		return
 	}
 
 	// Create sync service
-	syncService := freshrss.NewBidirectionalSyncService(serverURL, username, password, h.DB)
+	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
 
 	// Perform immediate sync
 	ctx := context.Background()

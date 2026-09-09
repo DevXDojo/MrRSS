@@ -52,6 +52,7 @@ func HandleSyncFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	serverURL, _ := h.DB.GetSetting("freshrss_server_url")
 	username, _ := h.DB.GetSetting("freshrss_username")
 	password, _ := h.DB.GetEncryptedSetting("freshrss_api_password")
+	provider, _ := h.DB.GetSetting("freshrss_provider")
 
 	if serverURL == "" || username == "" || password == "" {
 		response.Error(w, fmt.Errorf("FreshRSS settings incomplete"), http.StatusBadRequest)
@@ -59,7 +60,7 @@ func HandleSyncFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create bidirectional sync service
-	syncService := freshrss.NewBidirectionalSyncService(serverURL, username, password, h.DB)
+	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
 	log.Printf("[HandleSyncFeed] Syncing stream: %s", streamID)
 
 	// Perform sync in background
@@ -115,6 +116,7 @@ func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	serverURL, _ := h.DB.GetSetting("freshrss_server_url")
 	username, _ := h.DB.GetSetting("freshrss_username")
 	password, _ := h.DB.GetEncryptedSetting("freshrss_api_password")
+	provider, _ := h.DB.GetSetting("freshrss_provider")
 
 	if serverURL == "" || username == "" || password == "" {
 		response.Error(w, fmt.Errorf("FreshRSS settings incomplete"), http.StatusBadRequest)
@@ -122,7 +124,7 @@ func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create bidirectional sync service
-	syncService := freshrss.NewBidirectionalSyncService(serverURL, username, password, h.DB)
+	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
 	log.Printf("[HandleSync] Sync service created, starting sync")
 
 	// Perform sync in background
