@@ -1118,6 +1118,8 @@ const en: TranslationMessages = {
       },
     },
     reading: {
+      scrollMarkAsRead: 'Mark articles as read while scrolling',
+      scrollMarkAsReadDesc: 'Mark an unread article after it has been visible and then leaves the list viewport.',
       autoMarkRead: 'Automatically mark old articles as read',
       autoMarkReadAfter: 'Unread age limit',
       autoMarkReadCustom: 'Custom',

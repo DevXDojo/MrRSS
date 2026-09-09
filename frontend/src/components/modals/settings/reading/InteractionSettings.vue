@@ -60,6 +60,14 @@ const autoReadOptions = computed(() => [
     />
 
     <SettingWithToggle
+      :icon="PhCursorClick"
+      :title="t('setting.reading.scrollMarkAsRead')"
+      :description="t('setting.reading.scrollMarkAsReadDesc')"
+      :model-value="settings.scroll_mark_as_read"
+      @update:model-value="updateSetting('scroll_mark_as_read', $event)"
+    />
+
+    <SettingWithToggle
       :icon="PhCalendarCheck"
       :title="t('setting.reading.autoMarkRead')"
       :description="t('setting.reading.autoMarkReadDesc')"

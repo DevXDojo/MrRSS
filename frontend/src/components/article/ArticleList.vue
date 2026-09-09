@@ -46,6 +46,10 @@ const temporarilyKeepArticles = ref<Set<number>>(new Set());
 // Flag to control when scroll position should be restored
 const shouldRestoreScroll = ref(false);
 const pendingFeedArticleId = ref<number | null>(null);
+const scrollReadElements = new Map<number, Element>();
+const scrollReadSeen = new Set<number>();
+const scrollReadPending = new Set<number>();
+let scrollReadObserver: IntersectionObserver | null = null;
 
 // Card mode modal state
 const showCardModal = ref(false);
@@ -277,6 +281,69 @@ const visibleArticles = computed(() => {
   return filteredArticles.value;
 });
 
+async function markArticleAfterScroll(articleId: number): Promise<void> {
+  const article = filteredArticles.value.find((item) => item.id === articleId);
+  if (
+    !settings.value.scroll_mark_as_read ||
+    !article ||
+    article.is_read ||
+    article.is_read_later ||
+    scrollReadPending.has(articleId)
+  ) {
+    return;
+  }
+
+  scrollReadPending.add(articleId);
+  try {
+    const response = await fetch(`/api/articles/read?id=${articleId}&read=true`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error(`Mark as read failed: ${response.status}`);
+    temporarilyKeepArticles.value.add(articleId);
+    handleHoverMarkAsRead(articleId);
+    await store.fetchUnreadCounts();
+    await store.fetchFilterCounts();
+  } catch (error) {
+    console.error('Error marking article as read after scrolling:', error);
+  } finally {
+    scrollReadPending.delete(articleId);
+  }
+}
+
+function setupScrollReadObserver(): void {
+  scrollReadObserver?.disconnect();
+  if (!listRef.value || !('IntersectionObserver' in window)) return;
+
+  scrollReadObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        const articleId = Number((entry.target as HTMLElement).dataset.articleId);
+        if (!articleId) continue;
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+          scrollReadSeen.add(articleId);
+        } else if (!entry.isIntersecting && scrollReadSeen.delete(articleId)) {
+          void markArticleAfterScroll(articleId);
+        }
+      }
+    },
+    { root: listRef.value, threshold: [0, 0.6] }
+  );
+  scrollReadElements.forEach((element) => scrollReadObserver?.observe(element));
+}
+
+function observeListArticle(element: Element | null, articleId: number): void {
+  observeArticle(element);
+  const previous = scrollReadElements.get(articleId);
+  if (previous) scrollReadObserver?.unobserve(previous);
+  if (!element) {
+    scrollReadElements.delete(articleId);
+    scrollReadSeen.delete(articleId);
+    return;
+  }
+  scrollReadElements.set(articleId, element);
+  scrollReadObserver?.observe(element);
+}
+
 // Helper to truncate text to max length
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
@@ -355,6 +422,8 @@ onMounted(async () => {
     if (translationSettings.value.enabled && listRef.value) {
       setupIntersectionObserver(listRef.value, store.articles);
     }
+    await nextTick();
+    setupScrollReadObserver();
   } catch (e) {
     console.error('Error loading settings:', e);
   }
@@ -480,6 +549,10 @@ onBeforeUnmount(() => {
     clearTimeout(cardHighlightTimer);
     cardHighlightTimer = null;
   }
+  scrollReadObserver?.disconnect();
+  scrollReadObserver = null;
+  scrollReadElements.clear();
+  scrollReadSeen.clear();
   window.removeEventListener(
     'translation-settings-changed',
     onTranslationSettingsChanged as EventListener
@@ -1242,6 +1315,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             :is-active="cardModalArticle?.id === article.id || recentlyClosedCardId === article.id"
             @click="selectArticle(article)"
             @contextmenu="(e) => handleArticleContextMenu(e, article)"
+            @observe-element="(element) => observeListArticle(element, article.id)"
           />
           <div
             v-if="isAISearchActive && article.excerpt"
@@ -1280,7 +1354,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             :is-active="store.currentArticleId === article.id"
             @click="selectArticle(article)"
             @contextmenu="(e) => handleArticleContextMenu(e, article)"
-            @observe-element="observeArticle"
+            @observe-element="(element) => observeListArticle(element, article.id)"
             @hover-mark-as-read="handleHoverMarkAsRead"
           />
           <div

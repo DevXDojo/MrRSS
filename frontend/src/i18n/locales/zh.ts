@@ -1087,6 +1087,8 @@ const zh: TranslationMessages = {
       },
     },
     reading: {
+      scrollMarkAsRead: '滚动浏览时自动标记为已读',
+      scrollMarkAsReadDesc: '未读文章进入可视区域并随后离开时，将其自动标记为已读。',
       autoMarkRead: '自动将旧文章标记为已读',
       autoMarkReadAfter: '未读文章保留时间',
       autoMarkReadCustom: '自定义',

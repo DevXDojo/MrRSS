@@ -89,6 +89,7 @@
   "rsshub_enabled": false,
   "rsshub_endpoint": "https://rss.spriple.org",
   "rules": "",
+  "scroll_mark_as_read": false,
   "shortcuts": "",
   "shortcuts_enabled": true,
   "show_article_preview_images": true,

@@ -108,6 +108,7 @@ type Defaults struct {
 	RsshubEnabled bool                  `json:"rsshub_enabled"`
 	RsshubEndpoint string               `json:"rsshub_endpoint"`
 	Rules string                        `json:"rules"`
+	ScrollMarkAsRead bool               `json:"scroll_mark_as_read"`
 	Shortcuts string                    `json:"shortcuts"`
 	ShortcutsEnabled bool               `json:"shortcuts_enabled"`
 	ShowArticlePreviewImages bool       `json:"show_article_preview_images"`
@@ -340,6 +341,8 @@ func GetString(key string) string {
 		return defaults.RsshubEndpoint
 	case "rules":
 		return defaults.Rules
+	case "scroll_mark_as_read":
+		return strconv.FormatBool(defaults.ScrollMarkAsRead)
 	case "shortcuts":
 		return defaults.Shortcuts
 	case "shortcuts_enabled":

@@ -95,6 +95,7 @@ export interface SettingsData {
   rsshub_enabled: boolean;
   rsshub_endpoint: string;
   rules: string;
+  scroll_mark_as_read: boolean;
   shortcuts: string;
   shortcuts_enabled: boolean;
   show_article_preview_images: boolean;

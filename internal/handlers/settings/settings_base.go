@@ -107,6 +107,7 @@ var AllSettings = []SettingDef{
 	{Key: "rsshub_enabled", Encrypted: false},
 	{Key: "rsshub_endpoint", Encrypted: false},
 	{Key: "rules", Encrypted: false},
+	{Key: "scroll_mark_as_read", Encrypted: false},
 	{Key: "shortcuts", Encrypted: false},
 	{Key: "shortcuts_enabled", Encrypted: false},
 	{Key: "show_article_preview_images", Encrypted: false},
