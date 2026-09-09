@@ -1087,6 +1087,13 @@ const zh: TranslationMessages = {
       },
     },
     reading: {
+      autoMarkRead: '自动将旧文章标记为已读',
+      autoMarkReadAfter: '未读文章保留时间',
+      autoMarkReadCustom: '自定义',
+      autoMarkReadCustomDays: '自定义天数',
+      autoMarkReadCustomDaysDesc: '设置普通未读文章的保留时间。',
+      autoMarkReadDaysOption: '{count} 天',
+      autoMarkReadDesc: '超过所选天数后自动标记普通未读文章；收藏和稍后阅读文章不受影响。',
       autoShowAllContent: '自动展示所有内容',
       autoShowAllContentDesc:
         '作为渲染内容查看时，自动显示所有文章的完整内容（可能会增加加载时间）',

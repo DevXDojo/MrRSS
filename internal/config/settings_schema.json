@@ -88,6 +88,20 @@
       "encrypted": false,
       "frontend_key": "remember_article_position"
     },
+    "auto_mark_read_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "auto_mark_read_enabled"
+    },
+    "auto_mark_read_days": {
+      "type": "int",
+      "default": 7,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "auto_mark_read_days"
+    },
     "translation_enabled": {
       "type": "bool",
       "default": false,

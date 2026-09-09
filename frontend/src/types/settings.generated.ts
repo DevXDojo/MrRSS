@@ -22,6 +22,8 @@ export interface SettingsData {
   ai_usage_limit: string;
   ai_usage_tokens: string;
   auto_cleanup_enabled: boolean;
+  auto_mark_read_days: number;
+  auto_mark_read_enabled: boolean;
   auto_show_all_content: boolean;
   baidu_app_id: string;
   baidu_secret_key: string;

@@ -1118,6 +1118,13 @@ const en: TranslationMessages = {
       },
     },
     reading: {
+      autoMarkRead: 'Automatically mark old articles as read',
+      autoMarkReadAfter: 'Unread age limit',
+      autoMarkReadCustom: 'Custom',
+      autoMarkReadCustomDays: 'Custom number of days',
+      autoMarkReadCustomDaysDesc: 'Choose how long ordinary unread articles are kept.',
+      autoMarkReadDaysOption: '{count} day | {count} days',
+      autoMarkReadDesc: 'Mark ordinary unread articles as read after the selected age. Favorites and read-later articles are preserved.',
       autoShowAllContent: 'Auto Show All Content',
       autoShowAllContentDesc:
         'Automatically display the full content of all articles when viewed as rendered content (may increase loading time)',

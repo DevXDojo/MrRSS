@@ -26,6 +26,52 @@ func (db *DB) MarkAllAsRead() error {
 	return err
 }
 
+// MarkOldUnreadArticlesRead marks ordinary unread articles older than cutoff as read.
+// Favorites, hidden articles, and read-later articles are preserved as explicit user choices.
+func (db *DB) MarkOldUnreadArticlesRead(cutoff time.Time) (int, error) {
+	db.WaitForReady()
+	rows, err := db.Query(`
+		SELECT id
+		FROM articles
+		WHERE is_read = 0
+			AND is_hidden = 0
+			AND is_favorite = 0
+			AND is_read_later = 0
+			AND published_at IS NOT NULL
+			AND published_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	syncRequests, err := db.MarkArticlesReadWithSync(ids, true)
+	if err != nil {
+		return 0, err
+	}
+	for _, request := range syncRequests {
+		if err := db.EnqueueSyncChange(request.ArticleID, request.ArticleURL, request.Action); err != nil {
+			return 0, fmt.Errorf("enqueue automatic read sync: %w", err)
+		}
+	}
+
+	return len(ids), nil
+}
+
 // MarkAllAsReadForCategory marks all articles in a category as read.
 func (db *DB) MarkAllAsReadForCategory(category string) error {
 	db.WaitForReady()

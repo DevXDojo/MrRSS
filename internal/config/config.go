@@ -35,6 +35,8 @@ type Defaults struct {
 	AIUsageLimit string                 `json:"ai_usage_limit"`
 	AIUsageTokens string                `json:"ai_usage_tokens"`
 	AutoCleanupEnabled bool             `json:"auto_cleanup_enabled"`
+	AutoMarkReadDays int                `json:"auto_mark_read_days"`
+	AutoMarkReadEnabled bool            `json:"auto_mark_read_enabled"`
 	AutoShowAllContent bool             `json:"auto_show_all_content"`
 	BaiduAppId string                   `json:"baidu_app_id"`
 	BaiduSecretKey string               `json:"baidu_secret_key"`
@@ -192,6 +194,10 @@ func GetString(key string) string {
 		return defaults.AIUsageTokens
 	case "auto_cleanup_enabled":
 		return strconv.FormatBool(defaults.AutoCleanupEnabled)
+	case "auto_mark_read_days":
+		return strconv.Itoa(defaults.AutoMarkReadDays)
+	case "auto_mark_read_enabled":
+		return strconv.FormatBool(defaults.AutoMarkReadEnabled)
 	case "auto_show_all_content":
 		return strconv.FormatBool(defaults.AutoShowAllContent)
 	case "baidu_app_id":
