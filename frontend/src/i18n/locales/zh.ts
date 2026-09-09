@@ -366,6 +366,7 @@ const zh: TranslationMessages = {
       unsavedChangesTitle: '未保存的更改',
     },
     discovery: {
+      allFeedsDiscovered: '所有订阅源均已完成发现',
       detecting: '检测中...',
       checkingRssFeed: '正在检查 RSS 订阅源...',
       discoverAllFeeds: '发现所有订阅源',

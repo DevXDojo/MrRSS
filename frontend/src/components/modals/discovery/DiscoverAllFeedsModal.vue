@@ -26,6 +26,7 @@ const {
   discoveredFeeds,
   selectedFeeds,
   errorMessage,
+  infoMessage,
   progressMessage,
   progressDetail,
   progressCounts,
@@ -119,6 +120,14 @@ watch(
         class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4 text-red-600 dark:text-red-400 text-sm sm:text-base"
       >
         {{ errorMessage }}
+      </div>
+
+      <div
+        v-else-if="infoMessage"
+        class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300 sm:p-4 sm:text-base"
+        role="status"
+      >
+        {{ infoMessage }}
       </div>
 
       <!-- Results -->

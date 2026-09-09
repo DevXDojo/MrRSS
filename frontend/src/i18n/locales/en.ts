@@ -379,6 +379,7 @@ const en: TranslationMessages = {
       unsavedChangesTitle: 'Unsaved Changes',
     },
     discovery: {
+      allFeedsDiscovered: 'All feeds have already been discovered',
       detecting: 'Detecting...',
       checkingRssFeed: 'Checking RSS feed...',
       discoverAllFeeds: 'Discover All Feeds',

@@ -48,6 +48,7 @@ export function useDiscoverAllFeeds() {
   const discoveredFeeds: Ref<DiscoveredFeed[]> = ref([]);
   const selectedFeeds: Ref<Set<number>> = ref(new Set());
   const errorMessage = ref('');
+  const infoMessage = ref('');
   const progressMessage = ref('');
   const progressDetail = ref('');
   const progressCounts: Ref<ProgressCounts> = ref({ current: 0, total: 0, found: 0 });
@@ -65,6 +66,7 @@ export function useDiscoverAllFeeds() {
   async function startDiscovery() {
     isDiscovering.value = true;
     errorMessage.value = '';
+    infoMessage.value = '';
     discoveredFeeds.value = [];
     selectedFeeds.value.clear();
     progressMessage.value = t('modal.discovery.preparingDiscovery');
@@ -95,7 +97,7 @@ export function useDiscoverAllFeeds() {
 
       // Check if already complete (all feeds discovered)
       if (startResult.status === 'complete') {
-        errorMessage.value = startResult.message || t('modal.discovery.noFriendLinksFound');
+        infoMessage.value = t('modal.discovery.allFeedsDiscovered');
         isDiscovering.value = false;
         return;
       }
@@ -282,6 +284,7 @@ export function useDiscoverAllFeeds() {
     discoveredFeeds,
     selectedFeeds,
     errorMessage,
+    infoMessage,
     progressMessage,
     progressDetail,
     progressCounts,
