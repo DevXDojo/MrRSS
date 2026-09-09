@@ -1187,6 +1187,7 @@ onBeforeUnmount(() => {
     </div>
     <div
       ref="articleScrollContainer"
+      data-article-content
       class="h-full overflow-y-scroll p-3 sm:p-6 scroll-smooth"
       @click="handleContainerClick"
       @contextmenu="onTextContextMenu"
