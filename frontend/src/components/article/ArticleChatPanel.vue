@@ -981,6 +981,9 @@ const currentSessionTitle = computed(() => {
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.32),
+    0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .chat-panel button:not(:disabled),
