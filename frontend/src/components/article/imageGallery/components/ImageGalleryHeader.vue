@@ -42,15 +42,6 @@ const { t } = useI18n();
     </div>
 
     <div class="flex items-center gap-2">
-      <button
-        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-        :title="t('article.action.refresh')"
-        :disabled="isRefreshing"
-        @click="emit('refresh')"
-      >
-        <PhArrowClockwise :size="20" :class="isRefreshing ? 'animate-spin' : ''" />
-      </button>
-
       <!-- Show only unread toggle button -->
       <button
         class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer"
@@ -73,6 +64,15 @@ const { t } = useI18n();
       >
         <PhTextTSlash v-if="showTextOverlay" :size="20" />
         <PhTextT v-else :size="20" />
+      </button>
+
+      <button
+        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        :title="t('article.action.refresh')"
+        :disabled="isRefreshing"
+        @click="emit('refresh')"
+      >
+        <PhArrowClockwise :size="20" :class="isRefreshing ? 'animate-spin' : ''" />
       </button>
     </div>
   </div>
