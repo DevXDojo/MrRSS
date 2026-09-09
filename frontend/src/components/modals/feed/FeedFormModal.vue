@@ -287,7 +287,7 @@ const submitButtonText = computed(() => {
 </script>
 
 <template>
-  <BaseModal :title="modalTitle" size="md" :z-index="60" @close="close">
+  <BaseModal :title="modalTitle" size="md" :z-index="70" @close="close">
     <!-- Form Content -->
     <div class="p-4 sm:p-6 scroll-smooth">
       <div class="mb-3 sm:mb-4">
