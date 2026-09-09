@@ -84,6 +84,24 @@ func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 	if len(imgs) == 0 {
 		t.Fatalf("expected image articles, got 0")
 	}
+
+	videoArticle := &models.Article{FeedID: feedID, Title: "video", URL: "vu", ImageURL: "http://thumb", VideoURL: "https://video.example/watch", PublishedAt: time.Now()}
+	if err := h.DB.SaveArticles(context.Background(), []*models.Article{videoArticle}); err != nil {
+		t.Fatalf("SaveArticles video: %v", err)
+	}
+
+	for mediaType, wantTitle := range map[string]string{"images": "img", "videos": "video"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/images?media_type="+mediaType, nil)
+		w := httptest.NewRecorder()
+		article.HandleImageGalleryArticles(h, w, req)
+		var filtered []models.Article
+		if err := json.NewDecoder(w.Result().Body).Decode(&filtered); err != nil {
+			t.Fatalf("decode %s gallery: %v", mediaType, err)
+		}
+		if len(filtered) != 1 || filtered[0].Title != wantTitle {
+			t.Fatalf("%s gallery = %#v, want only %q", mediaType, filtered, wantTitle)
+		}
+	}
 }
 
 func TestHandleMarkAllAsRead_EmptyCategoryScopesUncategorized(t *testing.T) {

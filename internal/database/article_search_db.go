@@ -20,7 +20,7 @@ import (
 // If category is provided, it gets articles from all image mode feeds in that category.
 // Otherwise, it gets articles from all image mode feeds.
 // If onlyUnread is true, only returns unread articles.
-func (db *DB) GetImageGalleryArticles(feedID int64, category string, showHidden bool, onlyUnread bool, limit, offset int) ([]models.Article, error) {
+func (db *DB) GetImageGalleryArticles(feedID int64, category string, showHidden bool, onlyUnread bool, mediaType string, limit, offset int) ([]models.Article, error) {
 	db.WaitForReady()
 	baseQuery := `
 		SELECT a.id, a.feed_id, a.title, a.url, a.image_url, a.audio_url, a.video_url, a.published_at, a.is_read, a.is_favorite, a.is_hidden, a.is_read_later, a.translated_title, a.summary, f.title, a.author
@@ -41,6 +41,13 @@ func (db *DB) GetImageGalleryArticles(feedID int64, category string, showHidden 
 	// Filter for only unread articles if requested
 	if onlyUnread {
 		baseQuery += " AND a.is_read = 0"
+	}
+
+	switch mediaType {
+	case "images":
+		baseQuery += " AND (a.video_url IS NULL OR a.video_url = '')"
+	case "videos":
+		baseQuery += " AND a.video_url IS NOT NULL AND a.video_url != ''"
 	}
 
 	if feedID > 0 {

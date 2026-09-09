@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhArrowClockwise, PhCircle, PhList, PhTextT, PhTextTSlash } from '@phosphor-icons/vue';
+import { PhArrowClockwise, PhCheckCircle, PhCircle, PhList, PhTextT, PhTextTSlash } from '@phosphor-icons/vue';
+import type { MediaTypeFilter } from '../types';
 
 interface Props {
   title: string;
   isRefreshing: boolean;
   showTextOverlay: boolean;
   showOnlyUnread: boolean;
+  mediaType: MediaTypeFilter;
 }
 
 defineProps<Props>();
@@ -16,6 +18,8 @@ const emit = defineEmits<{
   refresh: [];
   toggleTextOverlay: [];
   toggleShowOnlyUnread: [];
+  updateMediaType: [mediaType: MediaTypeFilter];
+  markAllRead: [];
 }>();
 
 const { t } = useI18n();
@@ -42,6 +46,19 @@ const { t } = useI18n();
     </div>
 
     <div class="flex items-center gap-2">
+      <div class="flex items-center rounded-md bg-bg-secondary p-0.5" role="group" :aria-label="t('article.imageGallery.mediaFilter')">
+        <button
+          v-for="filter in (['all', 'images', 'videos'] as MediaTypeFilter[])"
+          :key="filter"
+          type="button"
+          class="cursor-pointer rounded px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          :class="mediaType === filter ? 'bg-bg-tertiary text-text-primary' : ''"
+          @click="emit('updateMediaType', filter)"
+        >
+          {{ t(`article.imageGallery.filter.${filter}`) }}
+        </button>
+      </div>
+
       <!-- Show only unread toggle button -->
       <button
         class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer"
@@ -64,6 +81,14 @@ const { t } = useI18n();
       >
         <PhTextTSlash v-if="showTextOverlay" :size="20" />
         <PhTextT v-else :size="20" />
+      </button>
+
+      <button
+        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer"
+        :title="t('article.imageGallery.markAllRead')"
+        @click="emit('markAllRead')"
+      >
+        <PhCheckCircle :size="20" />
       </button>
 
       <button

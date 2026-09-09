@@ -110,6 +110,13 @@ const zh: TranslationMessages = {
       actionFavorite: '添加到收藏',
       actionUnfavorite: '取消收藏',
       addToFavorite: '添加到收藏',
+      filter: {
+        all: '所有',
+        images: '仅图片',
+        videos: '仅视频',
+      },
+      markAllRead: '全部标记为已读',
+      mediaFilter: '筛选多媒体内容',
     },
     list: {
       markAllVisibleAsRead: '全部标记为已读',

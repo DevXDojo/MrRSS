@@ -20,6 +20,8 @@ interface ImageGalleryConfig {
   minColumns: number;
 }
 
+export type MediaTypeFilter = 'all' | 'images' | 'videos';
+
 /**
  * Image viewer state
  */
@@ -72,6 +74,7 @@ export interface ImageGalleryDataReturn {
   hasMore: import('vue').Ref<boolean>;
   imageCountCache: import('vue').Ref<Map<number, number>>;
   showOnlyUnread: import('vue').Ref<boolean>;
+  mediaType: import('vue').Ref<MediaTypeFilter>;
 
   // Methods
   fetchImages: (loadMore?: boolean) => Promise<void>;
@@ -79,6 +82,7 @@ export interface ImageGalleryDataReturn {
   getImageCount: (article: Article) => number;
   refresh: () => Promise<void>;
   toggleShowOnlyUnread: () => void;
+  setMediaType: (mediaType: MediaTypeFilter) => void;
 }
 
 /**

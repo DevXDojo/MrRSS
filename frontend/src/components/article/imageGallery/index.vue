@@ -417,6 +417,11 @@ async function refreshFeeds(): Promise<void> {
   }
 }
 
+async function markAllGalleryRead(): Promise<void> {
+  await store.markAllAsRead(feedId.value || undefined, feedId.value ? undefined : category.value ?? undefined);
+  await galleryData.refresh();
+}
+
 watch(
   () => store.refreshProgress.isRunning,
   async (isRunning, wasRunning) => {
@@ -498,6 +503,15 @@ watch(
   }
 );
 
+watch(
+  () => galleryData.mediaType.value,
+  async () => {
+    await galleryData.refresh();
+    await nextTick();
+    masonryLayout.calculateColumns();
+  }
+);
+
 onMounted(async () => {
   // Initial fetch and ensure container is filled
   await galleryData.fetchImages();
@@ -537,10 +551,13 @@ onUnmounted(() => {
       :is-refreshing="store.refreshProgress.isRunning"
       :show-text-overlay="showTextOverlay"
       :show-only-unread="galleryData.showOnlyUnread.value"
+      :media-type="galleryData.mediaType.value"
       @toggle-sidebar="emit('toggleSidebar')"
       @refresh="refreshFeeds"
       @toggle-text-overlay="showTextOverlay = !showTextOverlay"
       @toggle-show-only-unread="galleryData.toggleShowOnlyUnread()"
+      @update-media-type="galleryData.setMediaType"
+      @mark-all-read="markAllGalleryRead"
     />
 
     <!-- Grid View -->
@@ -551,10 +568,12 @@ onUnmounted(() => {
       :show-only-unread="galleryData.showOnlyUnread.value"
       :show-text-overlay="showTextOverlay"
       :image-count-cache="galleryData.imageCountCache.value"
+      :show-mark-all-read="!galleryData.hasMore.value && galleryData.articles.value.some((article) => !article.is_read)"
       @image-size="masonryLayout.setImageSize"
       @open-image="openImage"
       @context-menu="handleContextMenu"
       @toggle-favorite="imageActions.toggleFavorite"
+      @mark-all-read="markAllGalleryRead"
       @container-mounted="
         (el) => {
           masonryLayout.containerRef.value = el;

@@ -12,6 +12,7 @@ interface Props {
   showOnlyUnread: boolean;
   showTextOverlay: boolean;
   imageCountCache: Map<number, number>;
+  showMarkAllRead: boolean;
 }
 
 const props = defineProps<Props>();
@@ -22,6 +23,7 @@ const emit = defineEmits<{
   contextMenu: [event: MouseEvent, article: Article];
   toggleFavorite: [article: Article, event: Event];
   containerMounted: [element: HTMLElement];
+  markAllRead: [];
 }>();
 
 const { t } = useI18n();
@@ -74,6 +76,17 @@ function getImageCount(article: Article): number {
           @favorite="emit('toggleFavorite', article, $event)"
         />
       </div>
+    </div>
+
+    <div v-if="showMarkAllRead" class="px-4 pb-6 text-center">
+      <button
+        type="button"
+        class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+        @click="emit('markAllRead')"
+      >
+        <PhCheckCircle :size="18" />
+        {{ t('article.imageGallery.markAllRead') }}
+      </button>
     </div>
 
     <!-- Empty State -->

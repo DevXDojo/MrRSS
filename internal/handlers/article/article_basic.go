@@ -147,6 +147,7 @@ func HandleToggleReadLater(h *core.Handler, w http.ResponseWriter, r *http.Reque
 // @Param        feed_id     query     int64   false  "Filter by feed ID"
 // @Param        category    query     string  false  "Filter by category name"
 // @Param        only_unread query     bool    false  "Filter for only unread articles"
+// @Param        media_type  query     string  false  "Filter by media type: all, images, or videos"
 // @Param        page        query     int     false  "Page number (default: 1)"  minimum(1)
 // @Param        limit       query     int     false  "Items per page (default: 50)"  minimum(1)
 // @Success      200  {array}   models.Article  "List of image gallery articles"
@@ -157,6 +158,10 @@ func HandleImageGalleryArticles(h *core.Handler, w http.ResponseWriter, r *http.
 	limitStr := r.URL.Query().Get("limit")
 	feedIDStr := r.URL.Query().Get("feed_id")
 	onlyUnreadStr := r.URL.Query().Get("only_unread")
+	mediaType := r.URL.Query().Get("media_type")
+	if mediaType != "images" && mediaType != "videos" {
+		mediaType = "all"
+	}
 
 	// Check if category parameter exists (even if empty string)
 	// We need to distinguish between "no category parameter" and "category='' for uncategorized"
@@ -194,7 +199,7 @@ func HandleImageGalleryArticles(h *core.Handler, w http.ResponseWriter, r *http.
 	// Parse only_unread parameter
 	onlyUnread := onlyUnreadStr == "true"
 
-	articles, err := h.DB.GetImageGalleryArticles(feedID, category, showHidden, onlyUnread, limit, offset)
+	articles, err := h.DB.GetImageGalleryArticles(feedID, category, showHidden, onlyUnread, mediaType, limit, offset)
 	if err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return

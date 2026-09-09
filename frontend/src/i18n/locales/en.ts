@@ -113,6 +113,13 @@ const en: TranslationMessages = {
       actionFavorite: 'Add to Favorites',
       actionUnfavorite: 'Remove from Favorites',
       addToFavorite: 'Add to Favorites',
+      filter: {
+        all: 'All',
+        images: 'Images',
+        videos: 'Videos',
+      },
+      markAllRead: 'Mark all as read',
+      mediaFilter: 'Filter multimedia content',
     },
     list: {
       markAllVisibleAsRead: 'Mark All Visible as Read',
