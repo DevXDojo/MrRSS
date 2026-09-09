@@ -400,11 +400,15 @@ function handleDiscoverAll() {
             </p>
           </div>
         </div>
-        <span
-          class="justify-self-end text-2xl cursor-pointer text-text-secondary hover:text-text-primary"
+        <button
+          type="button"
+          class="flex h-10 w-10 cursor-pointer items-center justify-center justify-self-end rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          :aria-label="t('common.close')"
+          :title="t('common.close')"
           @click="emit('close')"
-          >&times;</span
         >
+          <PhX :size="22" />
+        </button>
       </div>
 
       <div class="flex flex-1 min-h-0 overflow-hidden">
