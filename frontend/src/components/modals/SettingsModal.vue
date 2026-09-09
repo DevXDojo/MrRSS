@@ -242,11 +242,16 @@ async function selectSettingsSearchResult(result: SettingsSearchResult) {
     ) || [];
   const target = result.label.toLocaleLowerCase();
   const query = settingsSearchQuery.value.trim().toLocaleLowerCase();
-  const match = Array.from(candidates)
-    .filter((element) => {
-      const text = element.textContent?.toLocaleLowerCase() || '';
-      return text.includes(target) || text.includes(query);
-    })
+  const candidateList = Array.from(candidates);
+  const exactMatches = candidateList.filter((element) =>
+    (element.textContent?.toLocaleLowerCase() || '').includes(target)
+  );
+  const matches = exactMatches.length
+    ? exactMatches
+    : candidateList.filter((element) =>
+        (element.textContent?.toLocaleLowerCase() || '').includes(query)
+      );
+  const match = matches
     .sort((left, right) => (left.textContent?.length || 0) - (right.textContent?.length || 0))[0];
   if (!match) return;
 
