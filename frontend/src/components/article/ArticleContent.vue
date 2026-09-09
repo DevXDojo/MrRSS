@@ -1187,6 +1187,7 @@ onBeforeUnmount(() => {
     </div>
     <div
       ref="articleScrollContainer"
+      data-article-content
       class="h-full overflow-y-scroll p-3 sm:p-6 scroll-smooth"
       @click="handleContainerClick"
       @contextmenu="onTextContextMenu"
@@ -1308,6 +1309,7 @@ onBeforeUnmount(() => {
         ai_chat_enabled: appSettings.ai_chat_enabled,
         ai_chat_profile_id: appSettings.ai_chat_profile_id,
         ai_chat_quick_prompts: appSettings.ai_chat_quick_prompts,
+        ai_chat_save_history: appSettings.ai_chat_save_history,
       }"
       @close="isChatPanelOpen = false"
     />

@@ -206,11 +206,16 @@ func isRetryableSQLiteWriteError(err error) bool {
 // GetArticles retrieves articles with filtering, pagination, and sorting.
 // Optimized to filter feeds first for category queries, reducing JOIN overhead.
 func (db *DB) GetArticles(filter string, feedID int64, category string, showHidden bool, limit, offset int) ([]models.Article, error) {
-	return db.GetArticlesWithUnreadFilter(filter, feedID, category, showHidden, false, limit, offset)
+	return db.GetArticlesWithUnreadFilterSorted(filter, feedID, category, showHidden, false, "newest", limit, offset)
 }
 
 // GetArticlesWithUnreadFilter returns articles with optional read-state filtering.
 func (db *DB) GetArticlesWithUnreadFilter(filter string, feedID int64, category string, showHidden bool, onlyUnread bool, limit, offset int) ([]models.Article, error) {
+	return db.GetArticlesWithUnreadFilterSorted(filter, feedID, category, showHidden, onlyUnread, "newest", limit, offset)
+}
+
+// GetArticlesWithUnreadFilterSorted returns articles in a validated publication-time order.
+func (db *DB) GetArticlesWithUnreadFilterSorted(filter string, feedID int64, category string, showHidden bool, onlyUnread bool, sortOrder string, limit, offset int) ([]models.Article, error) {
 	db.WaitForReady()
 
 	// Optimization: For category queries, first get the feed IDs, then query articles
@@ -311,7 +316,11 @@ func (db *DB) GetArticlesWithUnreadFilter(filter string, feedID int64, category 
 			query += " AND " + whereClauses[i]
 		}
 	}
-	query += " ORDER BY a.published_at DESC LIMIT ? OFFSET ?"
+	direction := "DESC"
+	if sortOrder == "oldest" {
+		direction = "ASC"
+	}
+	query += " ORDER BY a.published_at " + direction + ", a.id " + direction + " LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
 	rows, err := db.Query(query, args...)

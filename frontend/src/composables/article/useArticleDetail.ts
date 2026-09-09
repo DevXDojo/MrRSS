@@ -421,13 +421,15 @@ export function useArticleDetail() {
     unwrapImagesFromLinks();
 
     // Get all images in prose content (use more specific selector)
-    const proseContainers = document.querySelectorAll('.prose-content, .prose');
+    const proseContainers = document.querySelectorAll('[data-article-content] .prose-content');
 
     if (proseContainers.length === 0) {
       return;
     }
 
-    const images = document.querySelectorAll<HTMLImageElement>('.prose-content img, .prose img');
+    const images = document.querySelectorAll<HTMLImageElement>(
+      '[data-article-content] .prose-content img'
+    );
 
     // Process images if there are any
     if (images.length > 0) {
@@ -470,7 +472,9 @@ export function useArticleDetail() {
 
               // Collect all images from the article content
               const allImages = Array.from(
-                document.querySelectorAll<HTMLImageElement>('.prose-content img, .prose img')
+                document.querySelectorAll<HTMLImageElement>(
+                  '[data-article-content] .prose-content img'
+                )
               )
                 .filter((img) => {
                   // Filter out small icons

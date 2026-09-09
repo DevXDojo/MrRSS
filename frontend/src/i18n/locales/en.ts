@@ -5,6 +5,8 @@ const en: TranslationMessages = {
     action: {
       goToFeed: 'Go to Feed',
       searchWith: 'Search with {engine}',
+      sortNewestFirst: 'Sort newest first',
+      sortOldestFirst: 'Sort oldest first',
       addToFavorite: 'Add to Favorites',
       addToReadLater: 'Add to Read Later',
       backToUrl: 'Back to URL',
@@ -113,6 +115,13 @@ const en: TranslationMessages = {
       actionFavorite: 'Add to Favorites',
       actionUnfavorite: 'Remove from Favorites',
       addToFavorite: 'Add to Favorites',
+      filter: {
+        all: 'All',
+        images: 'Images',
+        videos: 'Videos',
+      },
+      markAllRead: 'Mark all as read',
+      mediaFilter: 'Filter multimedia content',
     },
     list: {
       markAllVisibleAsRead: 'Mark All Visible as Read',
@@ -288,6 +297,7 @@ const en: TranslationMessages = {
       title: 'Title',
     },
     imageViewer: {
+      resetZoom: 'Reset zoom',
       zoomIn: 'Zoom In',
       zoomOut: 'Zoom Out',
     },
@@ -371,6 +381,7 @@ const en: TranslationMessages = {
       unsavedChangesTitle: 'Unsaved Changes',
     },
     discovery: {
+      allFeedsDiscovered: 'All feeds have already been discovered',
       detecting: 'Detecting...',
       checkingRssFeed: 'Checking RSS feed...',
       discoverAllFeeds: 'Discover All Feeds',
@@ -629,6 +640,8 @@ const en: TranslationMessages = {
       viewOnGitHub: 'View on GitHub',
     },
     ai: {
+      saveChatHistory: 'Save chat history',
+      saveChatHistoryDesc: 'Keep article chat sessions and messages in the local database.',
       aiApiKey: 'API Key',
       aiApiKeyDesc: 'API key for AI services',
       aiApiKeyPlaceholder: 'Enter your API key',
@@ -1023,33 +1036,37 @@ const en: TranslationMessages = {
       reDetectNetwork: 'Re-detect',
     },
     freshrss: {
-      apiPassword: 'API Password',
-      apiPasswordDesc: 'FreshRSS API password (different from login password)',
-      apiPasswordPlaceholder: 'Enter your API password',
+      apiPassword: 'Google Reader Password',
+      apiPasswordDesc:
+        'Google Reader API password configured on the server (different from your normal login password)',
+      apiPasswordPlaceholder: 'Enter your Google Reader password',
       daysAgo: '{count} days ago',
       disableConfirm:
-        'Disabling FreshRSS will delete local FreshRSS feeds and articles. This action cannot be undone. Are you sure you want to continue?',
-      enabled: 'FreshRSS Integration',
-      enabledDesc: 'Sync feeds and articles with a FreshRSS server',
+        'Disabling sync will delete locally synced feeds and articles. This action cannot be undone. Are you sure you want to continue?',
+      enabled: 'FreshRSS / Miniflux Integration',
+      enabledDesc: 'Sync feeds and articles using a Google Reader-compatible server',
       hoursAgo: '{count} hours ago',
       minsAgo: '{count} minutes ago',
       syncFailed: 'Sync failed',
-      feedLocked: 'FreshRSS feed cannot be edited, moved, or modified',
+      feedLocked: 'Synced feed cannot be edited, moved, or modified',
       justNow: 'Just now',
       lastSync: 'Last Sync',
       never: 'Never',
       serverUrl: 'Server URL',
-      serverUrlDesc: 'FreshRSS server endpoint (without /api path)',
+      provider: 'Provider',
+      providerDesc:
+        'FreshRSS and Miniflux both use the Google Reader sync protocol. Disable sync before changing provider.',
+      serverUrlDesc: 'Server root URL. Include any configured base path, but no API path.',
       serverUrlPlaceholder: 'https://freshrss.example.com',
       sync: 'Sync Now',
-      syncedFeed: 'Synced from FreshRSS',
+      syncedFeed: 'Synced from server',
       syncing: 'Syncing...',
       syncNow: 'Sync Subscription Status',
       syncNowDesc: 'Synchronize feed and article statuses bidirectionally',
       syncStarted: 'Sync started',
       username: 'Username',
-      usernameDesc: 'The FreshRSS username',
-      usernamePlaceholder: 'Enter your username',
+      usernameDesc: 'The Google Reader API username configured on the server',
+      usernamePlaceholder: 'Enter your Google Reader username',
     },
     plugins: {
       notion: {
@@ -1106,6 +1123,17 @@ const en: TranslationMessages = {
       },
     },
     reading: {
+      scrollMarkAsRead: 'Mark articles as read while scrolling',
+      scrollMarkAsReadDesc:
+        'Mark an unread article after it has been visible and then leaves the list viewport.',
+      autoMarkRead: 'Automatically mark old articles as read',
+      autoMarkReadAfter: 'Unread age limit',
+      autoMarkReadCustom: 'Custom',
+      autoMarkReadCustomDays: 'Custom number of days',
+      autoMarkReadCustomDaysDesc: 'Choose how long ordinary unread articles are kept.',
+      autoMarkReadDaysOption: '{count} day | {count} days',
+      autoMarkReadDesc:
+        'Mark ordinary unread articles as read after the selected age. Favorites and read-later articles are preserved.',
       autoShowAllContent: 'Auto Show All Content',
       autoShowAllContentDesc:
         'Automatically display the full content of all articles when viewed as rendered content (may increase loading time)',
@@ -1132,6 +1160,9 @@ const en: TranslationMessages = {
       showArticlePreviewImagesDesc: 'Display preview images in the article list',
       showFloatingToc: 'Show Floating TOC',
       showFloatingTocDesc: 'Show a desktop floating table of contents in article reading view',
+      showUnreadCounts: 'Show Unread Counts',
+      showUnreadCountsDesc:
+        'Display unread article counts in the activity bar, categories, and feeds',
       showHiddenArticles: 'Show Hidden Articles',
       showHiddenArticlesDesc: 'Show articles hidden in the All Articles list',
       showOnlyUnread: 'Show only unread articles',

@@ -242,11 +242,16 @@ async function selectSettingsSearchResult(result: SettingsSearchResult) {
     ) || [];
   const target = result.label.toLocaleLowerCase();
   const query = settingsSearchQuery.value.trim().toLocaleLowerCase();
-  const match = Array.from(candidates)
-    .filter((element) => {
-      const text = element.textContent?.toLocaleLowerCase() || '';
-      return text.includes(target) || text.includes(query);
-    })
+  const candidateList = Array.from(candidates);
+  const exactMatches = candidateList.filter((element) =>
+    (element.textContent?.toLocaleLowerCase() || '').includes(target)
+  );
+  const matches = exactMatches.length
+    ? exactMatches
+    : candidateList.filter((element) =>
+        (element.textContent?.toLocaleLowerCase() || '').includes(query)
+      );
+  const match = matches
     .sort((left, right) => (left.textContent?.length || 0) - (right.textContent?.length || 0))[0];
   if (!match) return;
 
@@ -400,11 +405,15 @@ function handleDiscoverAll() {
             </p>
           </div>
         </div>
-        <span
-          class="justify-self-end text-2xl cursor-pointer text-text-secondary hover:text-text-primary"
+        <button
+          type="button"
+          class="flex h-10 w-10 cursor-pointer items-center justify-center justify-self-end rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          :aria-label="t('common.close')"
+          :title="t('common.close')"
           @click="emit('close')"
-          >&times;</span
         >
+          <PhX :size="22" />
+        </button>
       </div>
 
       <div class="flex flex-1 min-h-0 overflow-hidden">

@@ -19,6 +19,7 @@ import (
 // @Param        feed_id   query     int64   false  "Filter by feed ID"
 // @Param        category  query     string  false  "Filter by category name"
 // @Param        only_unread query   bool    false  "Filter for only unread articles"
+// @Param        sort_order query    string  false  "Publication order: newest or oldest" Enums(newest, oldest)
 // @Param        page      query     int     false  "Page number (default: 1)"  minimum(1)
 // @Param        limit     query     int     false  "Items per page (default: 50, max: 500)"  minimum(1)  maximum(500)
 // @Success      200  {array}   models.Article  "List of articles"
@@ -30,6 +31,10 @@ func HandleArticles(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
 	onlyUnread := r.URL.Query().Get("only_unread") == "true"
+	sortOrder := r.URL.Query().Get("sort_order")
+	if sortOrder != "oldest" {
+		sortOrder = "newest"
+	}
 
 	// Check if category parameter exists (even if empty string)
 	// We need to distinguish between "no category parameter" and "category='' for uncategorized"
@@ -64,7 +69,7 @@ func HandleArticles(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	showHiddenStr, _ := h.DB.GetSetting("show_hidden_articles")
 	showHidden := showHiddenStr == "true"
 
-	articles, err := h.DB.GetArticlesWithUnreadFilter(filter, feedID, category, showHidden, onlyUnread, limit, offset)
+	articles, err := h.DB.GetArticlesWithUnreadFilterSorted(filter, feedID, category, showHidden, onlyUnread, sortOrder, limit, offset)
 	if err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return
@@ -147,6 +152,8 @@ func HandleToggleReadLater(h *core.Handler, w http.ResponseWriter, r *http.Reque
 // @Param        feed_id     query     int64   false  "Filter by feed ID"
 // @Param        category    query     string  false  "Filter by category name"
 // @Param        only_unread query     bool    false  "Filter for only unread articles"
+// @Param        media_type  query     string  false  "Filter by media type: all, images, or videos"
+// @Param        sort_order  query     string  false  "Publication order: newest or oldest" Enums(newest, oldest)
 // @Param        page        query     int     false  "Page number (default: 1)"  minimum(1)
 // @Param        limit       query     int     false  "Items per page (default: 50)"  minimum(1)
 // @Success      200  {array}   models.Article  "List of image gallery articles"
@@ -157,6 +164,14 @@ func HandleImageGalleryArticles(h *core.Handler, w http.ResponseWriter, r *http.
 	limitStr := r.URL.Query().Get("limit")
 	feedIDStr := r.URL.Query().Get("feed_id")
 	onlyUnreadStr := r.URL.Query().Get("only_unread")
+	mediaType := r.URL.Query().Get("media_type")
+	if mediaType != "images" && mediaType != "videos" {
+		mediaType = "all"
+	}
+	sortOrder := r.URL.Query().Get("sort_order")
+	if sortOrder != "oldest" {
+		sortOrder = "newest"
+	}
 
 	// Check if category parameter exists (even if empty string)
 	// We need to distinguish between "no category parameter" and "category='' for uncategorized"
@@ -194,7 +209,7 @@ func HandleImageGalleryArticles(h *core.Handler, w http.ResponseWriter, r *http.
 	// Parse only_unread parameter
 	onlyUnread := onlyUnreadStr == "true"
 
-	articles, err := h.DB.GetImageGalleryArticles(feedID, category, showHidden, onlyUnread, limit, offset)
+	articles, err := h.DB.GetImageGalleryArticlesSorted(feedID, category, showHidden, onlyUnread, mediaType, sortOrder, limit, offset)
 	if err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return

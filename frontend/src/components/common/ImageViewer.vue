@@ -322,7 +322,13 @@ const imageStyle = computed<CSSProperties>(() => ({
       >
         <PhMagnifyingGlassMinus :size="20" />
       </button>
-      <span class="control-btn scale-display">{{ Math.round(scale * 100) }}%</span>
+      <button
+        class="control-btn scale-display"
+        :title="t('common.imageViewer.resetZoom')"
+        @click="resetView"
+      >
+        {{ Math.round(scale * 100) }}%
+      </button>
       <button
         class="control-btn"
         :disabled="scale >= MAX_SCALE"
@@ -375,7 +381,7 @@ const imageStyle = computed<CSSProperties>(() => ({
 .close-btn {
   @apply absolute top-4 right-4 w-8 h-8 bg-black/50 hover:bg-black/70;
   @apply rounded-full text-white flex items-center justify-center;
-  @apply transition-colors duration-200 z-10 shrink-0;
+  @apply cursor-pointer transition-colors duration-200 z-10 shrink-0;
 }
 
 /* Image counter */
@@ -392,7 +398,7 @@ const imageStyle = computed<CSSProperties>(() => ({
 .nav-btn {
   @apply absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded;
   @apply text-white text-4xl;
-  @apply flex items-center justify-center transition-all duration-200;
+  @apply cursor-pointer flex items-center justify-center transition-all duration-200;
   @apply z-10;
   text-shadow:
     0 1px 3px rgba(0, 0, 0, 0.8),
@@ -408,7 +414,7 @@ const imageStyle = computed<CSSProperties>(() => ({
 }
 
 .nav-btn:hover {
-  @apply scale-110;
+  @apply scale-110 bg-white/10;
 }
 
 .nav-btn:active {
@@ -429,7 +435,7 @@ const imageStyle = computed<CSSProperties>(() => ({
 }
 
 .control-btn {
-  @apply px-2 py-1.5 rounded transition-colors flex items-center justify-center min-w-[40px];
+  @apply cursor-pointer px-2 py-1.5 rounded transition-colors flex items-center justify-center min-w-[40px];
   @apply text-white hover:bg-white/10 active:bg-white/20;
   background-color: transparent;
 }
@@ -439,7 +445,7 @@ const imageStyle = computed<CSSProperties>(() => ({
 }
 
 .scale-display {
-  @apply text-sm font-medium w-[60px] text-center pointer-events-none;
+  @apply text-sm font-medium w-[60px] text-center;
 }
 
 /* Image container cursor */

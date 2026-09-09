@@ -5,6 +5,31 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.33] - 2026-09-10
+
+### Added
+
+- Add Miniflux synchronization through its Google Reader API compatibility layer. (#1187) (@HernandoR)
+- Add image/video filtering and top and bottom mark-all-read actions to the multimedia gallery. (#1165)
+- Add configurable automatic read marking for stale unread articles and articles scrolled out of view. (#1176, #1180)
+- Add options to keep AI chats transient and hide unread counters. (#1181, #1182)
+- Sort normal, card, filtered, and multimedia article views from newest or oldest. (#1185)
+
+### Changed
+
+- Unify pointer feedback for AI chat actions and improve the panel shadow. (#1163, #1177)
+- Keep multimedia refresh at the end of the toolbar and improve image viewer navigation, zoom reset, and cursor feedback. (#1164, #1169)
+- Show an explicit spinner while adding feeds. (#1166)
+- Simplify discovery and settings modal actions, including close targets and chat rename cancellation. (#1172, #1174, #1175)
+- Keep activity-bar icons sharp and remove the duplicate network-test loading indicator. (#1178, #1184)
+
+### Fixed
+
+- Keep selected-text context menus above card articles and exclude AI chat icons from the article image viewer. (#1167, #1168)
+- Highlight the card returned from reading and target exact settings search results. (#1170, #1179)
+- Localize completed feed discovery as an informational state and keep feed editing above Settings. (#1171, #1173)
+- Distinguish the configured AI token limit from provider request-rate limits. (#1183)
+
 ## [1.3.32] - 2026-09-09
 
 ### Added

@@ -1,12 +1,25 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhArrowClockwise, PhCircle, PhList, PhTextT, PhTextTSlash } from '@phosphor-icons/vue';
+import {
+  PhArrowClockwise,
+  PhCheckCircle,
+  PhCircle,
+  PhList,
+  PhSortAscending,
+  PhSortDescending,
+  PhTextT,
+  PhTextTSlash,
+} from '@phosphor-icons/vue';
+import type { MediaTypeFilter } from '../types';
+import type { ArticleSortOrder } from '@/stores/app';
 
 interface Props {
   title: string;
   isRefreshing: boolean;
   showTextOverlay: boolean;
   showOnlyUnread: boolean;
+  mediaType: MediaTypeFilter;
+  sortOrder: ArticleSortOrder;
 }
 
 defineProps<Props>();
@@ -16,6 +29,9 @@ const emit = defineEmits<{
   refresh: [];
   toggleTextOverlay: [];
   toggleShowOnlyUnread: [];
+  updateMediaType: [mediaType: MediaTypeFilter];
+  markAllRead: [];
+  toggleSortOrder: [];
 }>();
 
 const { t } = useI18n();
@@ -42,13 +58,35 @@ const { t } = useI18n();
     </div>
 
     <div class="flex items-center gap-2">
-      <button
-        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-        :title="t('article.action.refresh')"
-        :disabled="isRefreshing"
-        @click="emit('refresh')"
+      <div
+        class="flex items-center rounded-md bg-bg-secondary p-0.5"
+        role="group"
+        :aria-label="t('article.imageGallery.mediaFilter')"
       >
-        <PhArrowClockwise :size="20" :class="isRefreshing ? 'animate-spin' : ''" />
+        <button
+          v-for="filter in ['all', 'images', 'videos'] as MediaTypeFilter[]"
+          :key="filter"
+          type="button"
+          class="cursor-pointer rounded px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          :class="mediaType === filter ? 'bg-bg-tertiary text-text-primary' : ''"
+          @click="emit('updateMediaType', filter)"
+        >
+          {{ t(`article.imageGallery.filter.${filter}`) }}
+        </button>
+      </div>
+
+      <!-- Publication date sort order -->
+      <button
+        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer"
+        :title="
+          sortOrder === 'newest'
+            ? t('article.action.sortOldestFirst')
+            : t('article.action.sortNewestFirst')
+        "
+        @click="emit('toggleSortOrder')"
+      >
+        <PhSortDescending v-if="sortOrder === 'newest'" :size="20" />
+        <PhSortAscending v-else :size="20" />
       </button>
 
       <!-- Show only unread toggle button -->
@@ -73,6 +111,23 @@ const { t } = useI18n();
       >
         <PhTextTSlash v-if="showTextOverlay" :size="20" />
         <PhTextT v-else :size="20" />
+      </button>
+
+      <button
+        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer"
+        :title="t('article.imageGallery.markAllRead')"
+        @click="emit('markAllRead')"
+      >
+        <PhCheckCircle :size="20" />
+      </button>
+
+      <button
+        class="p-1 sm:p-1.5 rounded hover:bg-bg-tertiary text-text-secondary transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        :title="t('article.action.refresh')"
+        :disabled="isRefreshing"
+        @click="emit('refresh')"
+      >
+        <PhArrowClockwise :size="20" :class="isRefreshing ? 'animate-spin' : ''" />
       </button>
     </div>
   </div>

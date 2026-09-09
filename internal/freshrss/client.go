@@ -24,6 +24,14 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// Provider identifies a Google Reader-compatible server implementation.
+type Provider string
+
+const (
+	ProviderFreshRSS Provider = "freshrss"
+	ProviderMiniflux Provider = "miniflux"
+)
+
 // NewClient creates a new FreshRSS API client
 func NewClient(serverURL, username, password string) *Client {
 	// Ensure URL ends with /api/greader.php
@@ -33,6 +41,27 @@ func NewClient(serverURL, username, password string) *Client {
 
 	return &Client{
 		baseURL:  serverURL,
+		username: username,
+		password: password,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+			},
+		},
+	}
+}
+
+// NewClientForProvider creates a Google Reader API client for the selected
+// server. FreshRSS exposes the API below /api/greader.php, whereas Miniflux
+// exposes it directly below its configured base URL.
+func NewClientForProvider(serverURL, username, password, provider string) *Client {
+	if Provider(provider) != ProviderMiniflux {
+		return NewClient(serverURL, username, password)
+	}
+
+	return &Client{
+		baseURL:  strings.TrimSuffix(serverURL, "/"),
 		username: username,
 		password: password,
 		httpClient: &http.Client{
@@ -170,9 +199,10 @@ func (c *Client) GetCategories(ctx context.Context) ([]Category, error) {
 	// Convert tags to categories
 	categories := make([]Category, 0, len(result.Tags))
 	for _, tag := range result.Tags {
-		// Extract label from ID (FreshRSS uses "user/-/label/LabelName" format)
-		if strings.HasPrefix(tag.ID, "user/-/label/") {
-			label := strings.TrimPrefix(tag.ID, "user/-/label/")
+		// FreshRSS uses user/-/label/... while Miniflux uses
+		// user/<numeric-id>/label/.... The suffix is the portable part.
+		if labelIndex := strings.Index(tag.ID, "/label/"); labelIndex >= 0 {
+			label := tag.ID[labelIndex+len("/label/"):]
 			categories = append(categories, Category{
 				ID:    tag.ID,
 				Label: label,
@@ -391,7 +421,7 @@ func (c *Client) GetStreamContents(ctx context.Context, streamID string, exclude
 			URL:            articleURL,
 			Content:        item.Summary.Content,
 			Published:      time.Unix(item.Published, 0),
-			Updated:        time.Unix(item.Updated/1000, 0), // Convert milliseconds to seconds
+			Updated:        googleReaderUpdatedTime(item.Updated),
 			Author:         item.Author,
 			Categories:     item.Categories,
 			OriginStreamID: item.Origin.StreamID,
@@ -403,6 +433,14 @@ func (c *Client) GetStreamContents(ctx context.Context, streamID string, exclude
 		Continuation: result.Continuation,
 		Updated:      result.Updated,
 	}, nil
+}
+
+func googleReaderUpdatedTime(value int64) time.Time {
+	// FreshRSS reports crawlTimeMsec, while Miniflux reports Unix seconds.
+	if value > 100_000_000_000 {
+		value /= 1000
+	}
+	return time.Unix(value, 0)
 }
 
 // System tags for Google Reader API

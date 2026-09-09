@@ -11,9 +11,11 @@ import {
 import type { Feed } from '@/types/models';
 import { useSidebarSort } from '@/composables/ui/useSidebarSort';
 import { useI18n } from 'vue-i18n';
+import { useSettings } from '@/composables/core/useSettings';
 
 const { t } = useI18n();
 const { isPinned: isItemPinned } = useSidebarSort();
+const { settings } = useSettings();
 
 interface Props {
   feed: Feed;
@@ -197,7 +199,9 @@ function handleDragEnd() {
       </Transition>
     </div>
 
-    <span v-if="unreadCount > 0" class="unread-badge">{{ unreadCount }}</span>
+    <span v-if="settings.show_unread_counts && unreadCount > 0" class="unread-badge">
+      {{ unreadCount }}
+    </span>
   </div>
 </template>
 

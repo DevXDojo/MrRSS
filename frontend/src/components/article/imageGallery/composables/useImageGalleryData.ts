@@ -1,6 +1,7 @@
 import { ref, watch, onBeforeUnmount } from 'vue';
 import type { Article } from '@/types/models';
 import type { ImageGalleryDataReturn } from '../types';
+import type { MediaTypeFilter } from '../types';
 
 const ITEMS_PER_PAGE = 30;
 
@@ -25,10 +26,17 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
   const showOnlyUnread = ref<boolean>(
     localStorage.getItem('imageGalleryShowOnlyUnread') === 'true'
   );
+  const savedMediaType = localStorage.getItem('imageGalleryMediaType');
+  const mediaType = ref<MediaTypeFilter>(
+    savedMediaType === 'images' || savedMediaType === 'videos' ? savedMediaType : 'all'
+  );
 
   // Watch for changes and save to localStorage
   watch(showOnlyUnread, (newValue) => {
     localStorage.setItem('imageGalleryShowOnlyUnread', String(newValue));
+  });
+  watch(mediaType, (newValue) => {
+    localStorage.setItem('imageGalleryMediaType', newValue);
   });
 
   /**
@@ -45,6 +53,8 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
     try {
       // Build URL with query parameters
       let url = `/api/articles/images?page=${page.value}&limit=${ITEMS_PER_PAGE}`;
+      url += `&media_type=${mediaType.value}`;
+      url += `&sort_order=${(window as any).store?.articleSortOrder || 'newest'}`;
 
       // Add only_unread filter if enabled
       if (showOnlyUnread.value) {
@@ -146,6 +156,10 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
     showOnlyUnread.value = !showOnlyUnread.value;
   }
 
+  function setMediaType(value: MediaTypeFilter): void {
+    mediaType.value = value;
+  }
+
   return {
     articles,
     isLoading,
@@ -153,10 +167,12 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
     hasMore,
     imageCountCache,
     showOnlyUnread,
+    mediaType,
     fetchImages,
     fetchImageCount,
     getImageCount,
     refresh,
     toggleShowOnlyUnread,
+    setMediaType,
   };
 }

@@ -10,6 +10,7 @@ export interface SettingsData {
   ai_chat_profile_id: string;
   ai_chat_quick_prompts: string;
   ai_chat_response_preferences: string;
+  ai_chat_save_history: boolean;
   ai_custom_headers: string;
   ai_endpoint: string;
   ai_model: string;
@@ -22,6 +23,8 @@ export interface SettingsData {
   ai_usage_limit: string;
   ai_usage_tokens: string;
   auto_cleanup_enabled: boolean;
+  auto_mark_read_days: number;
+  auto_mark_read_enabled: boolean;
   auto_show_all_content: boolean;
   baidu_app_id: string;
   baidu_secret_key: string;
@@ -49,6 +52,7 @@ export interface SettingsData {
   freshrss_auto_sync_interval: number;
   freshrss_enabled: boolean;
   freshrss_last_sync_time: string;
+  freshrss_provider: string;
   freshrss_server_url: string;
   freshrss_sync_on_startup: boolean;
   freshrss_username: string;
@@ -92,11 +96,13 @@ export interface SettingsData {
   rsshub_enabled: boolean;
   rsshub_endpoint: string;
   rules: string;
+  scroll_mark_as_read: boolean;
   shortcuts: string;
   shortcuts_enabled: boolean;
   show_article_preview_images: boolean;
   show_floating_toc: boolean;
   show_hidden_articles: boolean;
+  show_unread_counts: boolean;
   sidebar_category_order: string;
   sidebar_pinned_items: string;
   sidebar_sort_mode: string;

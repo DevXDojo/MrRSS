@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { PhSpinnerGap } from '@phosphor-icons/vue';
 
 interface ButtonAction {
   label: string;
@@ -61,6 +62,9 @@ function getButtonClasses(type: 'primary' | 'secondary' | 'danger' | 'ghost' = '
     'cursor-pointer',
     'font-semibold',
     'transition-colors',
+    'inline-flex',
+    'items-center',
+    'justify-center',
     'disabled:opacity-70',
     'disabled:cursor-not-allowed',
   ];
@@ -118,7 +122,8 @@ function handleDangerClick() {
       :disabled="secondaryButton.disabled || secondaryButton.loading"
       @click="handleSecondaryClick"
     >
-      {{ secondaryButton.loading ? '...' : secondaryButton.label }}
+      <PhSpinnerGap v-if="secondaryButton.loading" :size="18" class="animate-spin" aria-hidden="true" />
+      <span :class="secondaryButton.loading ? 'sr-only' : ''">{{ secondaryButton.label }}</span>
     </button>
 
     <!-- Danger button -->
@@ -128,7 +133,8 @@ function handleDangerClick() {
       :disabled="dangerButton.disabled || dangerButton.loading"
       @click="handleDangerClick"
     >
-      {{ dangerButton.loading ? '...' : dangerButton.label }}
+      <PhSpinnerGap v-if="dangerButton.loading" :size="18" class="animate-spin" aria-hidden="true" />
+      <span :class="dangerButton.loading ? 'sr-only' : ''">{{ dangerButton.label }}</span>
     </button>
 
     <!-- Primary button (shown last on mobile, right on desktop) -->
@@ -138,7 +144,8 @@ function handleDangerClick() {
       :disabled="primaryButton.disabled || primaryButton.loading"
       @click="handlePrimaryClick"
     >
-      {{ primaryButton.loading ? '...' : primaryButton.label }}
+      <PhSpinnerGap v-if="primaryButton.loading" :size="18" class="animate-spin" aria-hidden="true" />
+      <span :class="primaryButton.loading ? 'sr-only' : ''">{{ primaryButton.label }}</span>
     </button>
 
     <!-- Right side buttons (custom content) -->

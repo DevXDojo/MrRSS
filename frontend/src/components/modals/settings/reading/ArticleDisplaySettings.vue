@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { PhArticle, PhImage, PhListNumbers, PhSquaresFour } from '@phosphor-icons/vue';
+import { PhArticle, PhEyeSlash, PhImage, PhListNumbers, PhSquaresFour } from '@phosphor-icons/vue';
 import { SettingGroup, SettingWithToggle, SettingWithSelect } from '@/components/settings';
 import '@/components/settings/styles.css';
 import type { SettingsData } from '@/types/settings';
@@ -55,6 +55,14 @@ function updateSetting(key: keyof SettingsData, value: any) {
       :description="t('setting.reading.showFloatingTocDesc')"
       :model-value="settings.show_floating_toc"
       @update:model-value="updateSetting('show_floating_toc', $event)"
+    />
+
+    <SettingWithToggle
+      :icon="PhEyeSlash"
+      :title="t('setting.reading.showUnreadCounts')"
+      :description="t('setting.reading.showUnreadCountsDesc')"
+      :model-value="settings.show_unread_counts"
+      @update:model-value="updateSetting('show_unread_counts', $event)"
     />
 
     <SettingWithSelect

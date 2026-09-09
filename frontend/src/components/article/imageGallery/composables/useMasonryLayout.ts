@@ -20,12 +20,7 @@ export function useMasonryLayout(articles: { value: Article[] }): MasonryLayoutR
     );
     const cols: Article[][] = Array.from({ length: columnCount.value }, () => []);
     const heights = Array(columnCount.value).fill(0);
-    const sorted = [
-      ...new Map(articles.value.map((article) => [article.id, article])).values(),
-    ].sort(
-      (a, b) =>
-        new Date(b.published_at).getTime() - new Date(a.published_at).getTime() || b.id - a.id
-    );
+    const sorted = [...new Map(articles.value.map((article) => [article.id, article])).values()];
     for (const article of sorted) {
       const index = heights.indexOf(Math.min(...heights));
       cols[index].push(article);

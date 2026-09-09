@@ -19,6 +19,7 @@ export function preserveSelectedArticle<T extends { id: number }>(
 export type Filter = 'all' | 'unread' | 'favorites' | 'readLater' | 'imageGallery' | '';
 export type ThemePreference = 'light' | 'dark' | 'auto';
 export type Theme = 'light' | 'dark';
+export type ArticleSortOrder = 'newest' | 'oldest';
 
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
 const MINUTE_MS = 60_000;
@@ -132,6 +133,7 @@ export interface AppState {
   theme: Ref<Theme>;
   refreshProgress: Ref<RefreshProgress>;
   showOnlyUnread: Ref<boolean>;
+  articleSortOrder: Ref<ArticleSortOrder>;
   activeFilters: Ref<FilterCondition[]>;
   filteredArticlesFromServer: Ref<Article[]>;
   articleNavigationContext: Ref<Article[] | null>;
@@ -158,6 +160,7 @@ export interface AppActions {
   checkForAppUpdates: () => Promise<void>;
   startAutoRefresh: (minutes: number) => void;
   toggleShowOnlyUnread: () => void;
+  setArticleSortOrder: (order: ArticleSortOrder) => void;
   setActiveFilters: (filters: FilterCondition[]) => void;
   setArticleNavigationContext: (articles: Article[] | null) => void;
 }
@@ -202,6 +205,10 @@ export const useAppStore = defineStore('app', () => {
   );
   const theme = ref<Theme>('light');
   const showOnlyUnread = ref<boolean>(localStorage.getItem('showOnlyUnread') === 'true');
+  const savedArticleSortOrder = localStorage.getItem('articleSortOrder');
+  const articleSortOrder = ref<ArticleSortOrder>(
+    savedArticleSortOrder === 'oldest' ? 'oldest' : 'newest'
+  );
   const activeFilters = ref<FilterCondition[]>([]);
   const filteredArticlesFromServer = ref<Article[]>([]);
   // A temporary ordered list used by result views (for example AI search).
@@ -327,6 +334,7 @@ export const useAppStore = defineStore('app', () => {
     const limit = 50;
 
     let url = `/api/articles?page=${page.value}&limit=${limit}`;
+    url += `&sort_order=${articleSortOrder.value}`;
     if (currentFilter.value) url += `&filter=${currentFilter.value}`;
     if (
       showOnlyUnread.value &&
@@ -371,6 +379,11 @@ export const useAppStore = defineStore('app', () => {
       page.value++;
       await fetchArticles(true);
     }
+  }
+
+  function setArticleSortOrder(order: ArticleSortOrder): void {
+    articleSortOrder.value = order;
+    localStorage.setItem('articleSortOrder', order);
   }
 
   async function fetchFeeds(): Promise<void> {
@@ -999,6 +1012,7 @@ export const useAppStore = defineStore('app', () => {
     theme,
     refreshProgress,
     showOnlyUnread,
+    articleSortOrder,
     activeFilters,
     filteredArticlesFromServer,
     articleNavigationContext,
@@ -1030,6 +1044,7 @@ export const useAppStore = defineStore('app', () => {
     checkForAppUpdates,
     startAutoRefresh,
     toggleShowOnlyUnread,
+    setArticleSortOrder,
     setActiveFilters,
     setFilteredArticlesFromServer,
     setArticleNavigationContext,

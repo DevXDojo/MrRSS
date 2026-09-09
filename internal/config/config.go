@@ -23,6 +23,7 @@ type Defaults struct {
 	AIChatProfileId string              `json:"ai_chat_profile_id"`
 	AIChatQuickPrompts string           `json:"ai_chat_quick_prompts"`
 	AIChatResponsePreferences string    `json:"ai_chat_response_preferences"`
+	AIChatSaveHistory bool              `json:"ai_chat_save_history"`
 	AICustomHeaders string              `json:"ai_custom_headers"`
 	AIEndpoint string                   `json:"ai_endpoint"`
 	AIModel string                      `json:"ai_model"`
@@ -35,6 +36,8 @@ type Defaults struct {
 	AIUsageLimit string                 `json:"ai_usage_limit"`
 	AIUsageTokens string                `json:"ai_usage_tokens"`
 	AutoCleanupEnabled bool             `json:"auto_cleanup_enabled"`
+	AutoMarkReadDays int                `json:"auto_mark_read_days"`
+	AutoMarkReadEnabled bool            `json:"auto_mark_read_enabled"`
 	AutoShowAllContent bool             `json:"auto_show_all_content"`
 	BaiduAppId string                   `json:"baidu_app_id"`
 	BaiduSecretKey string               `json:"baidu_secret_key"`
@@ -62,6 +65,7 @@ type Defaults struct {
 	FreshRSSAutoSyncInterval int        `json:"freshrss_auto_sync_interval"`
 	FreshRSSEnabled bool                `json:"freshrss_enabled"`
 	FreshRSSLastSyncTime string         `json:"freshrss_last_sync_time"`
+	FreshRSSProvider string             `json:"freshrss_provider"`
 	FreshRSSServerUrl string            `json:"freshrss_server_url"`
 	FreshRSSSyncOnStartup bool          `json:"freshrss_sync_on_startup"`
 	FreshRSSUsername string             `json:"freshrss_username"`
@@ -105,11 +109,13 @@ type Defaults struct {
 	RsshubEnabled bool                  `json:"rsshub_enabled"`
 	RsshubEndpoint string               `json:"rsshub_endpoint"`
 	Rules string                        `json:"rules"`
+	ScrollMarkAsRead bool               `json:"scroll_mark_as_read"`
 	Shortcuts string                    `json:"shortcuts"`
 	ShortcutsEnabled bool               `json:"shortcuts_enabled"`
 	ShowArticlePreviewImages bool       `json:"show_article_preview_images"`
 	ShowFloatingToc bool                `json:"show_floating_toc"`
 	ShowHiddenArticles bool             `json:"show_hidden_articles"`
+	ShowUnreadCounts bool               `json:"show_unread_counts"`
 	SidebarCategoryOrder string         `json:"sidebar_category_order"`
 	SidebarPinnedItems string           `json:"sidebar_pinned_items"`
 	SidebarSortMode string              `json:"sidebar_sort_mode"`
@@ -167,6 +173,8 @@ func GetString(key string) string {
 		return defaults.AIChatQuickPrompts
 	case "ai_chat_response_preferences":
 		return defaults.AIChatResponsePreferences
+	case "ai_chat_save_history":
+		return strconv.FormatBool(defaults.AIChatSaveHistory)
 	case "ai_custom_headers":
 		return defaults.AICustomHeaders
 	case "ai_endpoint":
@@ -191,6 +199,10 @@ func GetString(key string) string {
 		return defaults.AIUsageTokens
 	case "auto_cleanup_enabled":
 		return strconv.FormatBool(defaults.AutoCleanupEnabled)
+	case "auto_mark_read_days":
+		return strconv.Itoa(defaults.AutoMarkReadDays)
+	case "auto_mark_read_enabled":
+		return strconv.FormatBool(defaults.AutoMarkReadEnabled)
 	case "auto_show_all_content":
 		return strconv.FormatBool(defaults.AutoShowAllContent)
 	case "baidu_app_id":
@@ -245,6 +257,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.FreshRSSEnabled)
 	case "freshrss_last_sync_time":
 		return defaults.FreshRSSLastSyncTime
+	case "freshrss_provider":
+		return defaults.FreshRSSProvider
 	case "freshrss_server_url":
 		return defaults.FreshRSSServerUrl
 	case "freshrss_sync_on_startup":
@@ -331,6 +345,8 @@ func GetString(key string) string {
 		return defaults.RsshubEndpoint
 	case "rules":
 		return defaults.Rules
+	case "scroll_mark_as_read":
+		return strconv.FormatBool(defaults.ScrollMarkAsRead)
 	case "shortcuts":
 		return defaults.Shortcuts
 	case "shortcuts_enabled":
@@ -341,6 +357,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.ShowFloatingToc)
 	case "show_hidden_articles":
 		return strconv.FormatBool(defaults.ShowHiddenArticles)
+	case "show_unread_counts":
+		return strconv.FormatBool(defaults.ShowUnreadCounts)
 	case "sidebar_category_order":
 		return defaults.SidebarCategoryOrder
 	case "sidebar_pinned_items":

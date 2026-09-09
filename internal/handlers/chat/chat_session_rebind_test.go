@@ -1,12 +1,28 @@
 package chat
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/models"
 )
+
+func TestWriteChatCodedErrorIncludesUsageLimitCode(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	writeChatCodedError(recorder, "limit reached", "usage_limit_reached", http.StatusTooManyRequests, 42)
+
+	var payload chatErrorResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.Code != http.StatusTooManyRequests || payload.ErrorCode != "usage_limit_reached" || payload.SessionID != 42 {
+		t.Fatalf("status=%d payload=%+v", recorder.Code, payload)
+	}
+}
 
 func TestPersistUserChatMessageRebindsSessionToCurrentArticle(t *testing.T) {
 	db, err := database.NewDB(":memory:")
@@ -77,5 +93,28 @@ func TestPersistUserChatMessageRebindsSessionToCurrentArticle(t *testing.T) {
 	}
 	if session == nil || session.ArticleID != secondID {
 		t.Fatalf("session article=%v, want %d", session, secondID)
+	}
+}
+
+func TestPersistUserChatMessageSkipsStorageWhenHistoryDisabled(t *testing.T) {
+	db, err := database.NewDB(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := db.Init(); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetSetting("ai_chat_save_history", "false"); err != nil {
+		t.Fatal(err)
+	}
+
+	h := core.NewHandler(db, nil, nil, nil)
+	sessionID, enabled, err := persistUserChatMessage(h, &ChatRequest{
+		ArticleID: 1,
+		Messages:  []ChatMessage{{Role: "user", Content: "Do not save this."}},
+	})
+	if err != nil || enabled || sessionID != 0 {
+		t.Fatalf("session=%d enabled=%v err=%v, want disabled transient chat", sessionID, enabled, err)
 	}
 }

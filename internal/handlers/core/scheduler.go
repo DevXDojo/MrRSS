@@ -13,6 +13,8 @@ import (
 
 // StartBackgroundScheduler starts the background scheduler for auto-updates and cleanup.
 func (h *Handler) StartBackgroundScheduler(ctx context.Context) {
+	go h.startAutoMarkReadScheduler(ctx)
+
 	// Trigger initial cleanup on startup
 	go func() {
 		log.Println("Triggering initial cleanup on startup")
@@ -49,6 +51,40 @@ func (h *Handler) StartBackgroundScheduler(ctx context.Context) {
 	default:
 		// Use fixed interval mode (default)
 		h.startScheduler(ctx, false)
+	}
+}
+
+func (h *Handler) startAutoMarkReadScheduler(ctx context.Context) {
+	run := func() {
+		enabled, _ := h.DB.GetSetting("auto_mark_read_enabled")
+		if enabled != "true" {
+			return
+		}
+		daysText, _ := h.DB.GetSetting("auto_mark_read_days")
+		days, err := strconv.Atoi(daysText)
+		if err != nil || days < 1 {
+			return
+		}
+		count, err := h.DB.MarkOldUnreadArticlesRead(time.Now().AddDate(0, 0, -days))
+		if err != nil {
+			log.Printf("Automatic mark-as-read failed: %v", err)
+			return
+		}
+		if count > 0 {
+			log.Printf("Automatically marked %d old unread articles as read", count)
+		}
+	}
+
+	run()
+	ticker := time.NewTicker(6 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			run()
+		}
 	}
 }
 
