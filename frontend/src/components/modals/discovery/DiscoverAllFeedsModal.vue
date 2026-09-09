@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PhX, PhCircleNotch } from '@phosphor-icons/vue';
+import { PhCircleNotch } from '@phosphor-icons/vue';
 import { useDiscoverAllFeeds } from '@/composables/discovery/useDiscoverAllFeeds';
 import DiscoveryProgress from './DiscoveryProgress.vue';
 import DiscoveryResults from './DiscoveryResults.vue';
@@ -82,25 +82,15 @@ watch(
 
 <template>
   <BaseModal v-if="show" size="4xl" :z-index="70" @close="close">
-    <!-- Custom Header with gradient background -->
+    <!-- Header -->
     <template #header>
-      <div
-        class="flex justify-between items-center bg-gradient-to-r from-accent/5 to-transparent -m-3 sm:-m-5 p-3 sm:p-5 mb-3 sm:mb-0"
-      >
-        <div class="min-w-0 flex-1">
-          <h2 class="text-base sm:text-xl font-bold text-text-primary">
-            {{ t('modal.discovery.discoverAllFeeds') }}
-          </h2>
-          <p class="text-xs sm:text-sm text-text-secondary mt-1">
-            {{ t('modal.discovery.discoverAllFeedsDesc') }}
-          </p>
-        </div>
-        <button
-          class="p-1.5 sm:p-2 hover:bg-bg-tertiary rounded-lg transition-colors shrink-0 ml-2"
-          @click="close"
-        >
-          <PhX :size="20" class="sm:w-6 sm:h-6 text-text-secondary" />
-        </button>
+      <div class="min-w-0">
+        <h2 class="text-base sm:text-xl font-bold text-text-primary">
+          {{ t('modal.discovery.discoverAllFeeds') }}
+        </h2>
+        <p class="text-xs sm:text-sm text-text-secondary mt-1">
+          {{ t('modal.discovery.discoverAllFeedsDesc') }}
+        </p>
       </div>
     </template>
 
