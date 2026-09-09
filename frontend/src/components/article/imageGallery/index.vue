@@ -82,8 +82,10 @@ const category = computed(() => store.currentCategory);
 
 const galleryTitle = computed(() => {
   if (feedId.value) {
-    return store.feeds.find((feed) => feed.id === feedId.value)?.title ||
-      t('sidebar.activity.imageGallery');
+    return (
+      store.feeds.find((feed) => feed.id === feedId.value)?.title ||
+      t('sidebar.activity.imageGallery')
+    );
   }
   if (category.value !== null) {
     return category.value || t('sidebar.feedList.uncategorized');
@@ -418,7 +420,10 @@ async function refreshFeeds(): Promise<void> {
 }
 
 async function markAllGalleryRead(): Promise<void> {
-  await store.markAllAsRead(feedId.value || undefined, feedId.value ? undefined : category.value ?? undefined);
+  await store.markAllAsRead(
+    feedId.value || undefined,
+    feedId.value ? undefined : (category.value ?? undefined)
+  );
   await galleryData.refresh();
 }
 
@@ -512,6 +517,17 @@ watch(
   }
 );
 
+watch(
+  () => store.articleSortOrder,
+  async () => {
+    closeImageViewer();
+    await galleryData.refresh();
+    if (masonryLayout.containerRef.value) masonryLayout.containerRef.value.scrollTop = 0;
+    await nextTick();
+    masonryLayout.calculateColumns();
+  }
+);
+
 onMounted(async () => {
   // Initial fetch and ensure container is filled
   await galleryData.fetchImages();
@@ -552,12 +568,16 @@ onUnmounted(() => {
       :show-text-overlay="showTextOverlay"
       :show-only-unread="galleryData.showOnlyUnread.value"
       :media-type="galleryData.mediaType.value"
+      :sort-order="store.articleSortOrder"
       @toggle-sidebar="emit('toggleSidebar')"
       @refresh="refreshFeeds"
       @toggle-text-overlay="showTextOverlay = !showTextOverlay"
       @toggle-show-only-unread="galleryData.toggleShowOnlyUnread()"
       @update-media-type="galleryData.setMediaType"
       @mark-all-read="markAllGalleryRead"
+      @toggle-sort-order="
+        store.setArticleSortOrder(store.articleSortOrder === 'newest' ? 'oldest' : 'newest')
+      "
     />
 
     <!-- Grid View -->
@@ -568,7 +588,9 @@ onUnmounted(() => {
       :show-only-unread="galleryData.showOnlyUnread.value"
       :show-text-overlay="showTextOverlay"
       :image-count-cache="galleryData.imageCountCache.value"
-      :show-mark-all-read="!galleryData.hasMore.value && galleryData.articles.value.some((article) => !article.is_read)"
+      :show-mark-all-read="
+        !galleryData.hasMore.value && galleryData.articles.value.some((article) => !article.is_read)
+      "
       @image-size="masonryLayout.setImageSize"
       @open-image="openImage"
       @context-menu="handleContextMenu"

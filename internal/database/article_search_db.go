@@ -21,6 +21,11 @@ import (
 // Otherwise, it gets articles from all image mode feeds.
 // If onlyUnread is true, only returns unread articles.
 func (db *DB) GetImageGalleryArticles(feedID int64, category string, showHidden bool, onlyUnread bool, mediaType string, limit, offset int) ([]models.Article, error) {
+	return db.GetImageGalleryArticlesSorted(feedID, category, showHidden, onlyUnread, mediaType, "newest", limit, offset)
+}
+
+// GetImageGalleryArticlesSorted retrieves gallery articles in a validated publication-time order.
+func (db *DB) GetImageGalleryArticlesSorted(feedID int64, category string, showHidden bool, onlyUnread bool, mediaType, sortOrder string, limit, offset int) ([]models.Article, error) {
 	db.WaitForReady()
 	baseQuery := `
 		SELECT a.id, a.feed_id, a.title, a.url, a.image_url, a.audio_url, a.video_url, a.published_at, a.is_read, a.is_favorite, a.is_hidden, a.is_read_later, a.translated_title, a.summary, f.title, a.author
@@ -64,7 +69,11 @@ func (db *DB) GetImageGalleryArticles(feedID int64, category string, showHidden 
 	// Note: When category is empty string, it means no category filter was provided,
 	// so we should not filter by category at all (show all image mode articles from all categories).
 
-	baseQuery += " ORDER BY a.published_at DESC LIMIT ? OFFSET ?"
+	direction := "DESC"
+	if sortOrder == "oldest" {
+		direction = "ASC"
+	}
+	baseQuery += " ORDER BY a.published_at " + direction + ", a.id " + direction + " LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
 	rows, err := db.Query(baseQuery, args...)

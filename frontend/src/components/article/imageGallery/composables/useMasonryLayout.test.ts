@@ -46,4 +46,19 @@ describe('image masonry', () => {
     layout.cleanupResizeObserver();
     expect(disconnect).toHaveBeenCalled();
   });
+  it('preserves the requested API order', () => {
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 1)
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const articles = ref(
+      [3, 2, 1].map((id) => ({ id, published_at: `2026-09-0${id}` }) as Article)
+    );
+    const layout = useMasonryLayout(articles);
+    layout.columnCount.value = 1;
+    layout.arrangeColumns();
+    expect(layout.columns.value[0].map((article) => article.id)).toEqual([3, 2, 1]);
+    layout.cleanupResizeObserver();
+  });
 });

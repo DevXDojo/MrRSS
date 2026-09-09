@@ -39,9 +39,10 @@ func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 		t.Fatalf("AddFeed: %v", err)
 	}
 
+	now := time.Now()
 	articles := []*models.Article{
-		{FeedID: feedID, Title: "a1", URL: "u1", PublishedAt: time.Now()},
-		{FeedID: feedID, Title: "a2", URL: "u2", PublishedAt: time.Now()},
+		{FeedID: feedID, Title: "a1", URL: "u1", PublishedAt: now.Add(-time.Hour)},
+		{FeedID: feedID, Title: "a2", URL: "u2", PublishedAt: now},
 	}
 	if err := h.DB.SaveArticles(context.Background(), articles); err != nil {
 		t.Fatalf("SaveArticles: %v", err)
@@ -60,6 +61,16 @@ func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 	}
 	if len(got) < 2 {
 		t.Fatalf("expected >=2 articles, got %d", len(got))
+	}
+	oldestReq := httptest.NewRequest(http.MethodGet, "/api/articles?sort_order=oldest", nil)
+	oldestRecorder := httptest.NewRecorder()
+	article.HandleArticles(h, oldestRecorder, oldestReq)
+	var oldestFirst []models.Article
+	if err := json.NewDecoder(oldestRecorder.Result().Body).Decode(&oldestFirst); err != nil {
+		t.Fatalf("decode oldest articles: %v", err)
+	}
+	if len(oldestFirst) < 2 || oldestFirst[0].Title != "a1" {
+		t.Fatalf("oldest articles = %#v, want a1 first", oldestFirst)
 	}
 
 	// Image gallery: mark feed as image mode and add image article
@@ -101,6 +112,17 @@ func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 		if len(filtered) != 1 || filtered[0].Title != wantTitle {
 			t.Fatalf("%s gallery = %#v, want only %q", mediaType, filtered, wantTitle)
 		}
+	}
+
+	oldestGalleryReq := httptest.NewRequest(http.MethodGet, "/api/articles/images?sort_order=oldest", nil)
+	oldestGalleryRecorder := httptest.NewRecorder()
+	article.HandleImageGalleryArticles(h, oldestGalleryRecorder, oldestGalleryReq)
+	var oldestGallery []models.Article
+	if err := json.NewDecoder(oldestGalleryRecorder.Result().Body).Decode(&oldestGallery); err != nil {
+		t.Fatalf("decode oldest gallery: %v", err)
+	}
+	if len(oldestGallery) != 2 || oldestGallery[0].Title != "img" {
+		t.Fatalf("oldest gallery = %#v, want img first", oldestGallery)
 	}
 }
 

@@ -26,6 +26,7 @@ type FilterRequest struct {
 	Conditions []FilterCondition `json:"conditions"`
 	Page       int               `json:"page"`
 	Limit      int               `json:"limit"`
+	SortOrder  string            `json:"sort_order"`
 }
 
 // FilterResponse represents the response for filtered articles with pagination info

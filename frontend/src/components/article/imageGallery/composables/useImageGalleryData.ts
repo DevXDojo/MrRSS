@@ -54,6 +54,7 @@ export function useImageGalleryData(): ImageGalleryDataReturn {
       // Build URL with query parameters
       let url = `/api/articles/images?page=${page.value}&limit=${ITEMS_PER_PAGE}`;
       url += `&media_type=${mediaType.value}`;
+      url += `&sort_order=${(window as any).store?.articleSortOrder || 'newest'}`;
 
       // Add only_unread filter if enabled
       if (showOnlyUnread.value) {

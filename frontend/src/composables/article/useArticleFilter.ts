@@ -55,6 +55,7 @@ export function useArticleFilter() {
           conditions: filters,
           page: page,
           limit: 50,
+          sort_order: store.articleSortOrder,
         }),
       });
 

@@ -5,6 +5,8 @@ const zh: TranslationMessages = {
     action: {
       goToFeed: '返回所属订阅源',
       searchWith: '使用 {engine} 搜索',
+      sortNewestFirst: '按最新优先排序',
+      sortOldestFirst: '按最旧优先排序',
       addToFavorite: '添加到收藏',
       addToReadLater: '添加到稍后阅读',
       backToUrl: '返回 URL',
@@ -1009,8 +1011,7 @@ const zh: TranslationMessages = {
       apiPasswordDesc: '在服务器中配置的 Google Reader API 密码（不同于正常登录密码）',
       apiPasswordPlaceholder: '输入 Google Reader 密码',
       daysAgo: '{count} 天前',
-      disableConfirm:
-        '禁用同步将删除本地已同步的订阅源和文章。此操作不可撤销。确定要继续吗？',
+      disableConfirm: '禁用同步将删除本地已同步的订阅源和文章。此操作不可撤销。确定要继续吗？',
       enabled: 'FreshRSS / Miniflux 集成',
       enabledDesc: '通过兼容 Google Reader 的服务器同步订阅源和文章',
       hoursAgo: '{count} 小时前',
@@ -1022,7 +1023,8 @@ const zh: TranslationMessages = {
       never: '从未',
       serverUrl: '服务器地址',
       provider: '服务提供方',
-      providerDesc: 'FreshRSS 和 Miniflux 均使用 Google Reader 同步协议。切换服务提供方前请先禁用同步。',
+      providerDesc:
+        'FreshRSS 和 Miniflux 均使用 Google Reader 同步协议。切换服务提供方前请先禁用同步。',
       serverUrlDesc: '服务器根地址。包含已配置的基础路径，但不要包含 API 路径。',
       serverUrlPlaceholder: 'https://freshrss.example.com',
       sync: '立即同步',

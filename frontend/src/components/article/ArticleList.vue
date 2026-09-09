@@ -14,6 +14,8 @@ import {
   PhClock,
   PhLightning,
   PhStar,
+  PhSortAscending,
+  PhSortDescending,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
 import ArticleItem from './ArticleItem.vue';
@@ -129,7 +131,12 @@ const filteredArticles = computed(() => {
 
   // If AI search is active, use AI search results
   if (isAISearchActive.value) {
-    let articles = aiSearchResults.value;
+    let articles = [...aiSearchResults.value].sort((left, right) => {
+      const delta = new Date(left.published_at).getTime() - new Date(right.published_at).getTime();
+      return store.articleSortOrder === 'oldest'
+        ? delta || left.id - right.id
+        : -delta || right.id - left.id;
+    });
     if (applyUnreadFilter.value) {
       articles = articles.filter(
         (article) =>
@@ -1020,6 +1027,17 @@ const isUnreadEmptyState = computed(
 );
 const isFavoritesEmptyState = computed(() => store.currentFilter === 'favorites');
 
+async function toggleArticleSortOrder(): Promise<void> {
+  const nextOrder = store.articleSortOrder === 'newest' ? 'oldest' : 'newest';
+  store.setArticleSortOrder(nextOrder);
+  if (activeFilters.value.length > 0) {
+    await fetchFilteredArticles(activeFilters.value);
+  } else if (!isAISearchActive.value) {
+    await store.fetchArticles();
+  }
+  if (listRef.value) listRef.value.scrollTop = 0;
+}
+
 // Mark all currently visible articles as read
 async function markAllVisibleAsRead(): Promise<void> {
   const articleIds = filteredArticles.value.map((a) => a.id);
@@ -1100,6 +1118,22 @@ async function markAllVisibleAsRead(): Promise<void> {
               class="sm:w-5 sm:h-5"
               :weight="store.showOnlyUnread ? 'fill' : 'regular'"
             />
+          </button>
+          <button
+            class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
+            :title="
+              store.articleSortOrder === 'newest'
+                ? t('article.action.sortOldestFirst')
+                : t('article.action.sortNewestFirst')
+            "
+            @click="toggleArticleSortOrder"
+          >
+            <PhSortDescending
+              v-if="store.articleSortOrder === 'newest'"
+              :size="18"
+              class="sm:w-5 sm:h-5"
+            />
+            <PhSortAscending v-else :size="18" class="sm:w-5 sm:h-5" />
           </button>
           <div class="relative">
             <button

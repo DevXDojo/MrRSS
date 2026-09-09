@@ -5,6 +5,8 @@ const en: TranslationMessages = {
     action: {
       goToFeed: 'Go to Feed',
       searchWith: 'Search with {engine}',
+      sortNewestFirst: 'Sort newest first',
+      sortOldestFirst: 'Sort oldest first',
       addToFavorite: 'Add to Favorites',
       addToReadLater: 'Add to Read Later',
       backToUrl: 'Back to URL',
@@ -1052,7 +1054,8 @@ const en: TranslationMessages = {
       never: 'Never',
       serverUrl: 'Server URL',
       provider: 'Provider',
-      providerDesc: 'FreshRSS and Miniflux both use the Google Reader sync protocol. Disable sync before changing provider.',
+      providerDesc:
+        'FreshRSS and Miniflux both use the Google Reader sync protocol. Disable sync before changing provider.',
       serverUrlDesc: 'Server root URL. Include any configured base path, but no API path.',
       serverUrlPlaceholder: 'https://freshrss.example.com',
       sync: 'Sync Now',
@@ -1121,14 +1124,16 @@ const en: TranslationMessages = {
     },
     reading: {
       scrollMarkAsRead: 'Mark articles as read while scrolling',
-      scrollMarkAsReadDesc: 'Mark an unread article after it has been visible and then leaves the list viewport.',
+      scrollMarkAsReadDesc:
+        'Mark an unread article after it has been visible and then leaves the list viewport.',
       autoMarkRead: 'Automatically mark old articles as read',
       autoMarkReadAfter: 'Unread age limit',
       autoMarkReadCustom: 'Custom',
       autoMarkReadCustomDays: 'Custom number of days',
       autoMarkReadCustomDaysDesc: 'Choose how long ordinary unread articles are kept.',
       autoMarkReadDaysOption: '{count} day | {count} days',
-      autoMarkReadDesc: 'Mark ordinary unread articles as read after the selected age. Favorites and read-later articles are preserved.',
+      autoMarkReadDesc:
+        'Mark ordinary unread articles as read after the selected age. Favorites and read-later articles are preserved.',
       autoShowAllContent: 'Auto Show All Content',
       autoShowAllContentDesc:
         'Automatically display the full content of all articles when viewed as rendered content (may increase loading time)',
@@ -1156,7 +1161,8 @@ const en: TranslationMessages = {
       showFloatingToc: 'Show Floating TOC',
       showFloatingTocDesc: 'Show a desktop floating table of contents in article reading view',
       showUnreadCounts: 'Show Unread Counts',
-      showUnreadCountsDesc: 'Display unread article counts in the activity bar, categories, and feeds',
+      showUnreadCountsDesc:
+        'Display unread article counts in the activity bar, categories, and feeds',
       showHiddenArticles: 'Show Hidden Articles',
       showHiddenArticlesDesc: 'Show articles hidden in the All Articles list',
       showOnlyUnread: 'Show only unread articles',
