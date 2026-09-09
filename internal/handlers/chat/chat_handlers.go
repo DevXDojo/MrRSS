@@ -254,6 +254,11 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 }
 
 func persistUserChatMessage(h *core.Handler, req *ChatRequest) (int64, bool, error) {
+	saveHistory, _ := h.DB.GetSetting("ai_chat_save_history")
+	if saveHistory == "false" {
+		return 0, false, nil
+	}
+
 	if req.ArticleID <= 0 {
 		// Backward compatibility for callers that do not send article_id.
 		return req.SessionID, false, nil

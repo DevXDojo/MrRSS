@@ -4,6 +4,7 @@
   "ai_chat_profile_id": "",
   "ai_chat_quick_prompts": "[]",
   "ai_chat_response_preferences": "",
+  "ai_chat_save_history": true,
   "ai_custom_headers": "",
   "ai_endpoint": "https://api.openai.com/v1/chat/completions",
   "ai_model": "gpt-4o-mini",

@@ -638,6 +638,8 @@ const en: TranslationMessages = {
       viewOnGitHub: 'View on GitHub',
     },
     ai: {
+      saveChatHistory: 'Save chat history',
+      saveChatHistoryDesc: 'Keep article chat sessions and messages in the local database.',
       aiApiKey: 'API Key',
       aiApiKeyDesc: 'API key for AI services',
       aiApiKeyPlaceholder: 'Enter your API key',

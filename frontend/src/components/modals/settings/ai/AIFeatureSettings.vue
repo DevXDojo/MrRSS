@@ -121,6 +121,14 @@ async function clearAllChatSessions() {
     />
 
     <NestedSettingsContainer v-if="props.settings.ai_chat_enabled">
+      <SettingWithToggle
+        :icon="PhChatCircleText"
+        :title="t('setting.ai.saveChatHistory')"
+        :description="t('setting.ai.saveChatHistoryDesc')"
+        :model-value="props.settings.ai_chat_save_history"
+        @update:model-value="updateSetting('ai_chat_save_history', $event)"
+      />
+
       <SubSettingItem
         :icon="PhRobot"
         :title="t('setting.ai.selectProfile')"
@@ -160,6 +168,7 @@ async function clearAllChatSessions() {
       </SubSettingItem>
 
       <SubSettingItem
+        v-if="props.settings.ai_chat_save_history"
         :icon="PhTrash"
         :title="t('setting.ai.clearAllChats')"
         :description="t('setting.ai.clearAllChatsDesc')"

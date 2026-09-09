@@ -622,6 +622,8 @@ const zh: TranslationMessages = {
       viewOnGitHub: '在 GitHub 上查看',
     },
     ai: {
+      saveChatHistory: '保存对话记录',
+      saveChatHistoryDesc: '将文章 AI 对话与消息保存在本地数据库中。',
       aiApiKey: 'API 密钥',
       aiApiKeyDesc: 'AI 服务的 API 密钥',
       aiApiKeyPlaceholder: '输入您的 API 密钥',

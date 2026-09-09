@@ -10,6 +10,7 @@ export interface SettingsData {
   ai_chat_profile_id: string;
   ai_chat_quick_prompts: string;
   ai_chat_response_preferences: string;
+  ai_chat_save_history: boolean;
   ai_custom_headers: string;
   ai_endpoint: string;
   ai_model: string;

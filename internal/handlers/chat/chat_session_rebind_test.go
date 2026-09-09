@@ -79,3 +79,26 @@ func TestPersistUserChatMessageRebindsSessionToCurrentArticle(t *testing.T) {
 		t.Fatalf("session article=%v, want %d", session, secondID)
 	}
 }
+
+func TestPersistUserChatMessageSkipsStorageWhenHistoryDisabled(t *testing.T) {
+	db, err := database.NewDB(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := db.Init(); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetSetting("ai_chat_save_history", "false"); err != nil {
+		t.Fatal(err)
+	}
+
+	h := core.NewHandler(db, nil, nil, nil)
+	sessionID, enabled, err := persistUserChatMessage(h, &ChatRequest{
+		ArticleID: 1,
+		Messages:  []ChatMessage{{Role: "user", Content: "Do not save this."}},
+	})
+	if err != nil || enabled || sessionID != 0 {
+		t.Fatalf("session=%d enabled=%v err=%v, want disabled transient chat", sessionID, enabled, err)
+	}
+}

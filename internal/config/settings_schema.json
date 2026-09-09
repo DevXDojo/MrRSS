@@ -340,6 +340,13 @@
       "encrypted": false,
       "frontend_key": "aiChatEnabled"
     },
+    "ai_chat_save_history": {
+      "type": "bool",
+      "default": true,
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "aiChatSaveHistory"
+    },
     "ai_chat_response_preferences": {
       "type": "string",
       "default": "",
