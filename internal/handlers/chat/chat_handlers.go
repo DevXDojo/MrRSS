@@ -46,6 +46,7 @@ type ChatResponse struct {
 
 type chatErrorResponse struct {
 	Error     string `json:"error"`
+	ErrorCode string `json:"error_code,omitempty"`
 	SessionID int64  `json:"session_id,omitempty"`
 }
 
@@ -118,7 +119,8 @@ func HandleAIChat(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	// Check if AI usage limit is reached
 	if h.AITracker.IsLimitReached() {
 		log.Printf("AI usage limit reached for chat")
-		writeChatError(w, "AI usage limit reached", http.StatusTooManyRequests, sessionID)
+		usageError := ai.UserFacingErrorForCode(ai.ErrorCodeUsageLimitReached)
+		writeChatCodedError(w, usageError.Message, usageError.Code, usageError.HTTPStatus, sessionID)
 		return
 	}
 
@@ -311,9 +313,15 @@ func persistUserChatMessage(h *core.Handler, req *ChatRequest) (int64, bool, err
 }
 
 func writeChatError(w http.ResponseWriter, message string, status int, sessionID int64) {
+	writeChatCodedError(w, message, "", status, sessionID)
+}
+
+func writeChatCodedError(w http.ResponseWriter, message, code string, status int, sessionID int64) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(chatErrorResponse{Error: message, SessionID: sessionID})
+	_ = json.NewEncoder(w).Encode(chatErrorResponse{
+		Error: message, ErrorCode: code, SessionID: sessionID,
+	})
 }
 
 // optimizeChatContext reduces the chat context to save tokens while preserving important information

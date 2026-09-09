@@ -1,12 +1,28 @@
 package chat
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/models"
 )
+
+func TestWriteChatCodedErrorIncludesUsageLimitCode(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	writeChatCodedError(recorder, "limit reached", "usage_limit_reached", http.StatusTooManyRequests, 42)
+
+	var payload chatErrorResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.Code != http.StatusTooManyRequests || payload.ErrorCode != "usage_limit_reached" || payload.SessionID != 42 {
+		t.Fatalf("status=%d payload=%+v", recorder.Code, payload)
+	}
+}
 
 func TestPersistUserChatMessageRebindsSessionToCurrentArticle(t *testing.T) {
 	db, err := database.NewDB(":memory:")
