@@ -795,9 +795,11 @@ const currentSessionTitle = computed(() => {
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100">
                   <button
                     class="p-1 hover:bg-bg-primary rounded"
-                    @click="startEditSession(session, $event)"
+                    :title="editingSessionId === session.id ? t('common.cancel') : t('common.edit')"
+                    @click.stop="editingSessionId === session.id ? cancelEditSession() : startEditSession(session, $event)"
                   >
-                    <PhPencil :size="14" />
+                    <PhX v-if="editingSessionId === session.id" :size="14" />
+                    <PhPencil v-else :size="14" />
                   </button>
                   <button
                     class="p-1 hover:bg-bg-primary rounded text-red-500"
