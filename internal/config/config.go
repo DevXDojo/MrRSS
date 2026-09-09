@@ -115,6 +115,7 @@ type Defaults struct {
 	ShowArticlePreviewImages bool       `json:"show_article_preview_images"`
 	ShowFloatingToc bool                `json:"show_floating_toc"`
 	ShowHiddenArticles bool             `json:"show_hidden_articles"`
+	ShowUnreadCounts bool               `json:"show_unread_counts"`
 	SidebarCategoryOrder string         `json:"sidebar_category_order"`
 	SidebarPinnedItems string           `json:"sidebar_pinned_items"`
 	SidebarSortMode string              `json:"sidebar_sort_mode"`
@@ -356,6 +357,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.ShowFloatingToc)
 	case "show_hidden_articles":
 		return strconv.FormatBool(defaults.ShowHiddenArticles)
+	case "show_unread_counts":
+		return strconv.FormatBool(defaults.ShowUnreadCounts)
 	case "sidebar_category_order":
 		return defaults.SidebarCategoryOrder
 	case "sidebar_pinned_items":

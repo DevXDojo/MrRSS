@@ -1122,6 +1122,8 @@ const zh: TranslationMessages = {
       showArticlePreviewImagesDesc: '在文章列表中显示预览图片',
       showFloatingToc: '显示浮动目录',
       showFloatingTocDesc: '在桌面端阅读视图中显示右侧浮动目录',
+      showUnreadCounts: '显示未读计数',
+      showUnreadCountsDesc: '在活动栏、分类和订阅源中显示未读文章数量',
       showHiddenArticles: '显示隐藏文章',
       showHiddenArticlesDesc: '在全部文章列表中显示隐藏的文章',
       showOnlyUnread: '仅显示未读文章',

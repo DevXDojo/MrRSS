@@ -13,10 +13,12 @@ import { useI18n } from 'vue-i18n';
 import type { Feed } from '@/types/models';
 import type { DropPreview } from '@/composables/ui/useDragDrop';
 import SidebarFeed from './SidebarFeed.vue';
+import { useSettings } from '@/composables/core/useSettings';
 
 const { t } = useI18n();
 const { isPinned: isItemPinned } = useSidebarSort();
 const categoryDrag = inject(categoryDragKey, null);
+const { settings } = useSettings();
 
 // Track click timeout to distinguish single click from double click
 const clickTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -258,7 +260,9 @@ onUnmounted(() => {
           alt="FreshRSS"
         />
       </span>
-      <span v-if="unreadCount > 0" class="unread-badge mr-1">{{ unreadCount }}</span>
+      <span v-if="settings.show_unread_counts && unreadCount > 0" class="unread-badge mr-1">
+        {{ unreadCount }}
+      </span>
       <button
         type="button"
         class="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"

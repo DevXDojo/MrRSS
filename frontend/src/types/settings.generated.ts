@@ -102,6 +102,7 @@ export interface SettingsData {
   show_article_preview_images: boolean;
   show_floating_toc: boolean;
   show_hidden_articles: boolean;
+  show_unread_counts: boolean;
   sidebar_category_order: string;
   sidebar_pinned_items: string;
   sidebar_sort_mode: string;

@@ -114,6 +114,7 @@ var AllSettings = []SettingDef{
 	{Key: "show_article_preview_images", Encrypted: false},
 	{Key: "show_floating_toc", Encrypted: false},
 	{Key: "show_hidden_articles", Encrypted: false},
+	{Key: "show_unread_counts", Encrypted: false},
 	{Key: "sidebar_category_order", Encrypted: false},
 	{Key: "sidebar_pinned_items", Encrypted: false},
 	{Key: "sidebar_sort_mode", Encrypted: false},

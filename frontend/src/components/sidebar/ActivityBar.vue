@@ -15,10 +15,12 @@ import { ref, onMounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { useArticleFilter } from '@/composables/article/useArticleFilter';
+import { useSettings } from '@/composables/core/useSettings';
 
 const store = useAppStore();
 const { t } = useI18n();
 const { clearAllFilters } = useArticleFilter();
+const { settings } = useSettings();
 
 interface Props {
   isFeedListExpanded: boolean;
@@ -150,7 +152,7 @@ function handleNavClick(item: NavItem) {
 
           <!-- Unread Badge (only for 'all' button) -->
           <span
-            v-if="item.id === 'all' && store.unreadCounts?.total > 0"
+            v-if="settings.show_unread_counts && item.id === 'all' && store.unreadCounts?.total > 0"
             class="absolute bottom-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 text-[9px] font-semibold flex items-center justify-center rounded-full bg-accent text-white ring-1 ring-bg-primary"
           >
             {{ store.unreadCounts?.total > 99 ? '99+' : store.unreadCounts?.total }}

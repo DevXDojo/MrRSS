@@ -1155,6 +1155,8 @@ const en: TranslationMessages = {
       showArticlePreviewImagesDesc: 'Display preview images in the article list',
       showFloatingToc: 'Show Floating TOC',
       showFloatingTocDesc: 'Show a desktop floating table of contents in article reading view',
+      showUnreadCounts: 'Show Unread Counts',
+      showUnreadCountsDesc: 'Display unread article counts in the activity bar, categories, and feeds',
       showHiddenArticles: 'Show Hidden Articles',
       showHiddenArticlesDesc: 'Show articles hidden in the All Articles list',
       showOnlyUnread: 'Show only unread articles',

@@ -542,6 +542,13 @@
       "encrypted": false,
       "frontend_key": "showFloatingToc"
     },
+    "show_unread_counts": {
+      "type": "bool",
+      "default": true,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "showUnreadCounts"
+    },
     "obsidian_enabled": {
       "type": "bool",
       "default": false,

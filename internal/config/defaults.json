@@ -96,6 +96,7 @@
   "show_article_preview_images": true,
   "show_floating_toc": false,
   "show_hidden_articles": false,
+  "show_unread_counts": true,
   "sidebar_category_order": "[]",
   "sidebar_pinned_items": "[]",
   "sidebar_sort_mode": "manual",
