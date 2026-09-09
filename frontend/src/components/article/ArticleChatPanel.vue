@@ -76,7 +76,7 @@ const boundArticle = ref<Article>({ ...props.article });
 const boundArticleContent = ref(props.articleContent);
 const rebindSession = ref(false);
 const articleMismatch = computed(() => props.article.id !== boundArticle.value.id);
-const saveHistory = computed(() => props.settings.ai_chat_save_history);
+const saveHistory = computed(() => props.settings.ai_chat_save_history !== false);
 
 watch(
   () => props.articleContent,
@@ -800,7 +800,11 @@ const currentSessionTitle = computed(() => {
                   <button
                     class="p-1 hover:bg-bg-primary rounded"
                     :title="editingSessionId === session.id ? t('common.cancel') : t('common.edit')"
-                    @click.stop="editingSessionId === session.id ? cancelEditSession() : startEditSession(session, $event)"
+                    @click.stop="
+                      editingSessionId === session.id
+                        ? cancelEditSession()
+                        : startEditSession(session, $event)
+                    "
                   >
                     <PhX v-if="editingSessionId === session.id" :size="14" />
                     <PhPencil v-else :size="14" />
