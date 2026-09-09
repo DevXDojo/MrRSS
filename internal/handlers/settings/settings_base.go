@@ -61,6 +61,7 @@ var AllSettings = []SettingDef{
 	{Key: "freshrss_auto_sync_interval", Encrypted: false},
 	{Key: "freshrss_enabled", Encrypted: false},
 	{Key: "freshrss_last_sync_time", Encrypted: false},
+	{Key: "freshrss_provider", Encrypted: false},
 	{Key: "freshrss_server_url", Encrypted: false},
 	{Key: "freshrss_sync_on_startup", Encrypted: false},
 	{Key: "freshrss_username", Encrypted: false},

@@ -175,12 +175,29 @@ function formatSyncTime(timeStr: string | null): string {
 </script>
 
 <template>
-  <!-- Enable FreshRSS Sync -->
+  <SubSettingItem
+    :icon="PhCloudCheck"
+    :title="t('setting.freshrss.provider')"
+    :description="t('setting.freshrss.providerDesc')"
+    required
+  >
+    <select
+      :value="props.settings.freshrss_provider"
+      :disabled="props.settings.freshrss_enabled"
+      class="bg-bg-tertiary border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+      @change="updateSetting('freshrss_provider', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="freshrss">FreshRSS</option>
+      <option value="miniflux">Miniflux</option>
+    </select>
+  </SubSettingItem>
+
+  <!-- Enable Google Reader-compatible sync -->
   <div class="setting-item">
     <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
       <img
         src="/assets/plugin_icons/freshrss.svg"
-        alt="FreshRSS"
+        alt="Google Reader"
         class="w-5 h-5 sm:w-6 sm:h-6 mt-0.5 shrink-0"
       />
       <div class="flex-1 min-w-0">
@@ -210,7 +227,7 @@ function formatSyncTime(timeStr: string | null): string {
       <InputControl
         type="url"
         :model-value="props.settings.freshrss_server_url"
-        :placeholder="t('setting.freshrss.serverUrlPlaceholder')"
+        :placeholder="props.settings.freshrss_provider === 'miniflux' ? 'https://miniflux.example.com' : t('setting.freshrss.serverUrlPlaceholder')"
         width="md"
         @update:model-value="updateSetting('freshrss_server_url', $event)"
       />

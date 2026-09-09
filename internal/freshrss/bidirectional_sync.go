@@ -31,8 +31,14 @@ type BidirectionalSyncService struct {
 
 // NewBidirectionalSyncService creates a new bidirectional sync service
 func NewBidirectionalSyncService(serverURL, username, password string, db *database.DB) *BidirectionalSyncService {
+	return NewBidirectionalSyncServiceForProvider(serverURL, username, password, string(ProviderFreshRSS), db)
+}
+
+// NewBidirectionalSyncServiceForProvider creates a sync service for a
+// Google Reader-compatible server such as FreshRSS or Miniflux.
+func NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider string, db *database.DB) *BidirectionalSyncService {
 	return &BidirectionalSyncService{
-		client: NewClient(serverURL, username, password),
+		client: NewClientForProvider(serverURL, username, password, provider),
 		db:     db,
 	}
 }

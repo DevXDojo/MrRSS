@@ -637,14 +637,14 @@ func (e *Engine) performImmediateSync(syncReq *database.SyncRequest) {
 		return
 	}
 
-	serverURL, username, password, err := e.db.GetFreshRSSConfig()
+	serverURL, username, password, provider, err := e.db.GetFreshRSSConfig()
 	if err != nil || serverURL == "" || username == "" || password == "" {
 		log.Printf("[Rule Sync] FreshRSS not configured, skipping sync")
 		return
 	}
 
 	// Create sync service
-	syncService := freshrss.NewBidirectionalSyncService(serverURL, username, password, e.db)
+	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, e.db)
 
 	// Perform immediate sync
 	ctx := context.Background()
