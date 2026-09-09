@@ -143,8 +143,8 @@ function handleNavClick(item: NavItem) {
             :size="24"
             :weight="store.currentFilter === item.filterType ? 'fill' : 'regular'"
             :class="[
-              store.currentFilter === item.filterType ? 'text-accent scale-105' : '',
-              'transition-all',
+              store.currentFilter === item.filterType ? 'text-accent' : '',
+              'transition-colors',
             ]"
           />
 
@@ -249,10 +249,9 @@ function handleNavClick(item: NavItem) {
 /* Ensure smooth transitions for icon scale changes */
 .smart-activity-bar button .ph,
 .smart-activity-bar button svg {
-  transition:
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.2s ease;
-  will-change: transform;
+  display: block;
+  shape-rendering: geometricPrecision;
+  transition: color 0.2s ease;
 }
 
 /* Improve button hover transition */
