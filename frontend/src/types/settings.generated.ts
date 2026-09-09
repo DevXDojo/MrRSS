@@ -49,6 +49,7 @@ export interface SettingsData {
   freshrss_auto_sync_interval: number;
   freshrss_enabled: boolean;
   freshrss_last_sync_time: string;
+  freshrss_provider: string;
   freshrss_server_url: string;
   freshrss_sync_on_startup: boolean;
   freshrss_username: string;

@@ -62,6 +62,7 @@ type Defaults struct {
 	FreshRSSAutoSyncInterval int        `json:"freshrss_auto_sync_interval"`
 	FreshRSSEnabled bool                `json:"freshrss_enabled"`
 	FreshRSSLastSyncTime string         `json:"freshrss_last_sync_time"`
+	FreshRSSProvider string             `json:"freshrss_provider"`
 	FreshRSSServerUrl string            `json:"freshrss_server_url"`
 	FreshRSSSyncOnStartup bool          `json:"freshrss_sync_on_startup"`
 	FreshRSSUsername string             `json:"freshrss_username"`
@@ -245,6 +246,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.FreshRSSEnabled)
 	case "freshrss_last_sync_time":
 		return defaults.FreshRSSLastSyncTime
+	case "freshrss_provider":
+		return defaults.FreshRSSProvider
 	case "freshrss_server_url":
 		return defaults.FreshRSSServerUrl
 	case "freshrss_sync_on_startup":

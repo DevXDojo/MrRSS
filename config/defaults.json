@@ -43,6 +43,7 @@
   "freshrss_auto_sync_interval": 0,
   "freshrss_enabled": false,
   "freshrss_last_sync_time": "",
+  "freshrss_provider": "freshrss",
   "freshrss_server_url": "",
   "freshrss_sync_on_startup": false,
   "freshrss_username": "",

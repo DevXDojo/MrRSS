@@ -401,14 +401,14 @@ func performImmediateBulkSync(h *core.Handler, syncReqs []database.SyncRequest) 
 		return
 	}
 
-	serverURL, username, password, err := h.DB.GetFreshRSSConfig()
+	serverURL, username, password, provider, err := h.DB.GetFreshRSSConfig()
 	if err != nil || serverURL == "" || username == "" || password == "" {
 		log.Printf("[Bulk Sync] FreshRSS not configured, skipping sync")
 		return
 	}
 
 	// Create sync service
-	syncService := freshrss.NewBidirectionalSyncService(serverURL, username, password, h.DB)
+	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
 
 	// Perform immediate sync for each article
 	ctx := context.Background()

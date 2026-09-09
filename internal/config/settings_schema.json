@@ -668,6 +668,13 @@
       "encrypted": false,
       "frontend_key": "freshRSSSyncEnabled"
     },
+    "freshrss_provider": {
+      "type": "string",
+      "default": "freshrss",
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "freshRSSProvider"
+    },
     "freshrss_server_url": {
       "type": "string",
       "default": "",

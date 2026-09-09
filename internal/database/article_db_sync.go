@@ -298,9 +298,13 @@ func (db *DB) ShouldSyncWithFreshRSS() bool {
 }
 
 // GetFreshRSSConfig retrieves FreshRSS configuration
-func (db *DB) GetFreshRSSConfig() (serverURL, username, password string, err error) {
+func (db *DB) GetFreshRSSConfig() (serverURL, username, password, provider string, err error) {
 	serverURL, _ = db.GetSetting("freshrss_server_url")
 	username, _ = db.GetSetting("freshrss_username")
+	provider, _ = db.GetSetting("freshrss_provider")
+	if provider == "" {
+		provider = "freshrss"
+	}
 	password, err = db.GetEncryptedSetting("freshrss_api_password")
 	return
 }
