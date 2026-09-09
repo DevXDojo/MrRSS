@@ -52,6 +52,8 @@ const showCardModal = ref(false);
 const cardModalArticle = ref<Article | null>(null);
 const cardModalContent = ref('');
 const isCardModalLoading = ref(false);
+const recentlyClosedCardId = ref<number | null>(null);
+let cardHighlightTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Track if user has scrolled to bottom
 const hasScrolledToBottom = ref(false);
@@ -474,6 +476,10 @@ onBeforeUnmount(() => {
     clearTimeout(scrollThrottleTimer);
     scrollThrottleTimer = null;
   }
+  if (cardHighlightTimer) {
+    clearTimeout(cardHighlightTimer);
+    cardHighlightTimer = null;
+  }
   window.removeEventListener(
     'translation-settings-changed',
     onTranslationSettingsChanged as EventListener
@@ -823,6 +829,12 @@ async function closeCardModal(): Promise<void> {
   cardModalContent.value = '';
 
   if (!articleId || !listRef.value) return;
+  recentlyClosedCardId.value = articleId;
+  if (cardHighlightTimer) clearTimeout(cardHighlightTimer);
+  cardHighlightTimer = setTimeout(() => {
+    if (recentlyClosedCardId.value === articleId) recentlyClosedCardId.value = null;
+    cardHighlightTimer = null;
+  }, 1600);
   await nextTick();
   listRef.value
     .querySelector<HTMLElement>(`[data-article-id="${articleId}"]`)
@@ -1227,7 +1239,7 @@ async function markAllVisibleAsRead(): Promise<void> {
         >
           <ArticleCardItem
             :article="article"
-            :is-active="cardModalArticle?.id === article.id"
+            :is-active="cardModalArticle?.id === article.id || recentlyClosedCardId === article.id"
             @click="selectArticle(article)"
             @contextmenu="(e) => handleArticleContextMenu(e, article)"
           />
