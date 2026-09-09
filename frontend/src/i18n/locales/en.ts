@@ -295,6 +295,7 @@ const en: TranslationMessages = {
       title: 'Title',
     },
     imageViewer: {
+      resetZoom: 'Reset zoom',
       zoomIn: 'Zoom In',
       zoomOut: 'Zoom Out',
     },

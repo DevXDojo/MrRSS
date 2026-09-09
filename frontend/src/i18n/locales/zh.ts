@@ -283,6 +283,7 @@ const zh: TranslationMessages = {
       title: '标题',
     },
     imageViewer: {
+      resetZoom: '恢复默认大小',
       zoomIn: '放大',
       zoomOut: '缩小',
     },
