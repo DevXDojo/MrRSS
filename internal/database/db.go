@@ -27,6 +27,9 @@ func NewDB(dataSourceName string) (*DB, error) {
 	} else {
 		dataSourceName += "&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=cache_size(-32000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)"
 	}
+	// Suppress stale SQLite error messages (for example "out of memory" for
+	// SQLITE_CANTOPEN), while preserving the actual code and useful SQL details.
+	dataSourceName += "&_error_rc=1"
 
 	db, err := sql.Open("sqlite", dataSourceName)
 	if err != nil {
