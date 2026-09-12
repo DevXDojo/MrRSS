@@ -56,38 +56,21 @@ func evaluateArticleConditions(
 		return true
 	}
 
-	// Step 1: Evaluate all individual conditions (NOT is applied at this level)
-	conditionResults := make([]bool, len(conditions))
+	// Fold AND groups without modifying the request's shared condition slice.
+	// The same conditions must be used for every article in this result set.
+	result, groupResult := false, false
 	for i, condition := range conditions {
-		conditionResults[i] = evaluateSingleCondition(article, condition, feedCategories, feedTypes, feedIsImageMode, feedTags, feedArticlesPerMonth, feedLastUpdateStatus, articleContents)
-	}
-
-	// Step 2: Process all AND connections first (higher precedence)
-	// We merge conditions connected by AND into a single result
-	i := 0
-	for i < len(conditionResults) {
-		if i > 0 && conditions[i].Logic == "and" {
-			// Merge with previous result using AND
-			conditionResults[i-1] = conditionResults[i-1] && conditionResults[i]
-			// Remove current element
-			conditionResults = append(conditionResults[:i], conditionResults[i+1:]...)
-			conditions = append(conditions[:i], conditions[i+1:]...)
+		matched := evaluateSingleCondition(article, condition, feedCategories, feedTypes, feedIsImageMode, feedTags, feedArticlesPerMonth, feedLastUpdateStatus, articleContents)
+		if i == 0 {
+			groupResult = matched
+		} else if condition.Logic == "and" {
+			groupResult = groupResult && matched
 		} else {
-			i++
+			result = result || groupResult
+			groupResult = matched
 		}
 	}
-
-	// Step 3: Process all OR connections (lower precedence)
-	if len(conditionResults) == 0 {
-		return true
-	}
-
-	result := conditionResults[0]
-	for i := 1; i < len(conditionResults); i++ {
-		result = result || conditionResults[i]
-	}
-
-	return result
+	return result || groupResult
 }
 
 // matchMultiSelectContains checks if fieldValue matches any of the selected values using contains logic

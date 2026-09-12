@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve multi-condition automation rules and article filters across articles instead of mutating their condition arrays while evaluating AND groups. Keep NOT/AND/OR precedence consistent for multi-keyword rules. (#335)
+- Recover feed icons after URL changes, feed refreshes, or restored connectivity; use website favicons and a local placeholder when images fail, rather than leaving sidebar icons permanently hidden. (#335)
 - Keep the previous article list visible and inert while switching feeds, replacing it atomically when the current request completes. Prevent snapshot rows from triggering hover-read actions or entering keyboard navigation, and delay the loading indicator for fast requests. (#435)
 - Preserve reading state when toggling read-later with keyboard shortcuts, refresh its counts, and roll back failed requests. Ignore repeated toggles while the shortcut request is pending. (#580)
 - Remove misleading SQLite "out of memory" text from file-open failures and explain storage access, read-only, full-disk, and invalid-database startup errors without attempting destructive repair. (Related to #800; the reported environment-specific open failure remains under investigation.)

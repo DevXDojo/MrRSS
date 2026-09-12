@@ -24,6 +24,7 @@ import { useAppStore } from '@/stores/app';
 import { useFeedManagement } from '@/composables/feed/useFeedManagement';
 import { formatRelativeTime } from '@/utils/date';
 import BaseSelect from '@/components/common/BaseSelect.vue';
+import FeedIcon from '@/components/common/FeedIcon.vue';
 import { ButtonControl, SettingGroup } from '@/components/settings';
 import BatchActionsDropdown from './BatchActionsDropdown.vue';
 import BatchTagSelectorModal from './BatchTagSelectorModal.vue';
@@ -47,13 +48,11 @@ const emit = defineEmits<{
 type SortField =
   'original' | 'name' | 'category' | 'latest_article' | 'articles_per_month' | 'update_status';
 type SortDirection = 'asc' | 'desc';
-type FeedIconStage = 'primary' | 'favicon' | 'fallback';
 
 const selectedFeeds: Ref<number[]> = ref([]);
 const searchQuery = ref('');
 const sortField = ref<SortField>('original');
 const sortDirection = ref<SortDirection>('asc');
-const feedIconStages = ref<Record<number, FeedIconStage>>({});
 const showBatchTagSelector = ref(false);
 const pendingFeedIdsForTags = ref<number[]>([]);
 
@@ -151,32 +150,6 @@ function getFriendlyErrorMessage(error: string): string {
   if (/500|502|503/.test(error)) return t('modal.feed.errorServer');
   if (/xml|parse|invalid/i.test(error)) return t('modal.feed.errorInvalidFormat');
   return error;
-}
-
-function getFavicon(url: string): string {
-  try {
-    const parsedUrl = new URL(url);
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) return '';
-    return `https://www.google.com/s2/favicons?domain=${parsedUrl.hostname}`;
-  } catch {
-    return '';
-  }
-}
-
-function getFeedIconSource(feed: Feed): string {
-  const stage = feedIconStages.value[feed.id] || 'primary';
-  if (stage === 'fallback') return '';
-  if (stage === 'primary' && feed.image_url) return feed.image_url;
-  return getFavicon(feed.website_url || feed.url);
-}
-
-function handleFeedIconError(feed: Feed) {
-  const stage = feedIconStages.value[feed.id] || 'primary';
-  const favicon = getFavicon(feed.website_url || feed.url);
-  feedIconStages.value = {
-    ...feedIconStages.value,
-    [feed.id]: stage === 'primary' && !!feed.image_url && !!favicon ? 'favicon' : 'fallback',
-  };
 }
 
 function getFeedSource(feed: Feed): string {
@@ -497,15 +470,7 @@ onUnmounted(() =>
               <div
                 class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-bg-tertiary text-text-tertiary"
               >
-                <img
-                  v-if="getFeedIconSource(feed)"
-                  :src="getFeedIconSource(feed)"
-                  :alt="feed.title"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                  @error="handleFeedIconError(feed)"
-                />
-                <PhRss v-else :size="18" data-testid="feed-icon-fallback" />
+                <FeedIcon :feed="feed" lazy class="h-full w-full" />
               </div>
 
               <div class="min-w-0">

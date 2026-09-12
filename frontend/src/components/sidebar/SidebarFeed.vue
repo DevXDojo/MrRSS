@@ -12,6 +12,7 @@ import type { Feed } from '@/types/models';
 import { useSidebarSort } from '@/composables/ui/useSidebarSort';
 import { useI18n } from 'vue-i18n';
 import { useSettings } from '@/composables/core/useSettings';
+import FeedIcon from '@/components/common/FeedIcon.vue';
 
 const { t } = useI18n();
 const { isPinned: isItemPinned } = useSidebarSort();
@@ -78,14 +79,6 @@ function getFriendlyErrorMessage(error: string): string {
   return error;
 }
 
-function getFavicon(url: string): string {
-  try {
-    return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}`;
-  } catch {
-    return '';
-  }
-}
-
 function isRSSHubFeed(feed: Feed): boolean {
   return feed.url.startsWith('rsshub://');
 }
@@ -130,13 +123,7 @@ function handleDragEnd() {
       <PhLock :size="14" />
     </div>
 
-    <div class="w-4 h-4 flex items-center justify-center shrink-0">
-      <img
-        :src="feed.image_url || getFavicon(feed.url)"
-        class="w-full h-full object-contain"
-        @error="($event.target as HTMLElement).style.display = 'none'"
-      />
-    </div>
+    <FeedIcon :feed="feed" class="w-4 h-4" />
     <span class="truncate flex-1">{{ feed.title }}</span>
 
     <!-- RSSHub indicator -->

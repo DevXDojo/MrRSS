@@ -40,6 +40,7 @@ export interface Feed {
   title: string;
   category: string;
   last_fetched_at: string;
+  last_updated?: string; // Current API refresh timestamp; last_fetched_at is legacy.
   position?: number; // Position within category for custom ordering
   is_discovered?: boolean;
   link?: string; // Website homepage returned by the feed parser
