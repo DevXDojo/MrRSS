@@ -2,6 +2,7 @@
 package cache
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -72,7 +73,7 @@ func (mc *MediaCache) Exists(url string) bool {
 }
 
 // Get retrieves cached media or downloads it if not cached
-func (mc *MediaCache) Get(url, referer string) ([]byte, string, error) {
+func (mc *MediaCache) Get(ctx context.Context, client *http.Client, url, referer string) ([]byte, string, error) {
 	// Check if already cached
 	cachedPath, found := mc.findCachedFile(url)
 	if found {
@@ -85,7 +86,7 @@ func (mc *MediaCache) Get(url, referer string) ([]byte, string, error) {
 	}
 
 	// Download and cache
-	data, contentType, err := mc.download(url, referer)
+	data, contentType, err := mc.download(ctx, client, url, referer)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to download media: %w", err)
 	}
@@ -108,12 +109,8 @@ func (mc *MediaCache) Get(url, referer string) ([]byte, string, error) {
 }
 
 // download fetches media from the given URL with proper headers
-func (mc *MediaCache) download(url, referer string) ([]byte, string, error) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
+func (mc *MediaCache) download(ctx context.Context, client *http.Client, url, referer string) ([]byte, string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create request: %w", err)
 	}

@@ -40,3 +40,21 @@ func TestArticleHTMLPreservesInlineRasterAndMath(t *testing.T) {
 		}
 	}
 }
+
+func TestArticleHTMLPreservesImageNoReferrer(t *testing.T) {
+	for _, policy := range []string{"no-referrer", "NO-REFERRER", " no-referrer "} {
+		got := PrepareArticleContent(`<img data-src="/photo.jpg" referrerpolicy="`+policy+`" onerror="alert(1)">`, "https://example.org/article")
+		if !strings.Contains(got, `referrerpolicy="no-referrer"`) || !strings.Contains(got, `src="https://example.org/photo.jpg"`) || strings.Contains(got, "onerror") {
+			t.Errorf("unexpected sanitized image: %s", got)
+		}
+	}
+	for _, content := range []string{
+		`<img src="/photo.jpg" referrerpolicy="unsafe-url">`,
+		`<img src="/photo.jpg" referrerpolicy="invalid">`,
+		`<a href="/link" referrerpolicy="no-referrer">link</a>`,
+	} {
+		if got := PrepareArticleContent(content, "https://example.org"); strings.Contains(got, "referrerpolicy") {
+			t.Errorf("unexpected policy retained: %s", got)
+		}
+	}
+}

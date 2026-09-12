@@ -2,6 +2,7 @@ package media
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -224,6 +225,13 @@ func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	client, err := httputil.CreateHTTPClientWithProxySettings(h.DB, 30*time.Second)
+	if err != nil {
+		response.Error(w, fmt.Errorf("failed to configure media HTTP client"), http.StatusInternalServerError)
+		return
+	}
+	defer client.CloseIdleConnections()
+
 	// Try cache first if enabled
 	if mediaCacheEnabled == "true" {
 		// Get media cache directory
@@ -239,7 +247,7 @@ func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 				// Continue to fallback if enabled
 			} else {
 				// Get media (from cache or download)
-				data, contentType, err := mediaCache.Get(mediaURL, referer)
+				data, contentType, err := mediaCache.Get(r.Context(), client, mediaURL, referer)
 				if err == nil {
 					// Success! Serve from cache
 					w.Header().Set("Content-Type", contentType)
@@ -256,7 +264,7 @@ func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 	// Fallback: Direct proxy if enabled
 	if mediaProxyFallback == "true" {
-		err := proxyMediaDirectly(mediaURL, referer, w)
+		err := proxyMediaDirectly(r.Context(), client, mediaURL, referer, w)
 		if err == nil {
 			return // Success
 		}
@@ -1750,12 +1758,8 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 }
 
 // proxyMediaDirectly proxies media directly without caching
-func proxyMediaDirectly(mediaURL, referer string, w http.ResponseWriter) error {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	req, err := http.NewRequest("GET", mediaURL, nil)
+func proxyMediaDirectly(ctx context.Context, client *http.Client, mediaURL, referer string, w http.ResponseWriter) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
