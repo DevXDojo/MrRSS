@@ -462,7 +462,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 		category := ""
 		if len(sub.Categories) > 0 {
 			for _, cat := range sub.Categories {
-				if strings.HasPrefix(cat.ID, "user/-/label/") {
+				if strings.Contains(cat.ID, "/label/") {
 					originalCategory := cat.Label
 					// Check if this category would conflict with local feeds
 					category = generateFreshRSSCategoryName(originalCategory)
@@ -679,10 +679,10 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 		isRead := false
 		isStarred := false
 		for _, cat := range article.Categories {
-			if cat == "user/-/state/com.google/read" {
+			if isGoogleReaderState(cat, "read") {
 				isRead = true
 			}
-			if cat == "user/-/state/com.google/starred" {
+			if isGoogleReaderState(cat, "starred") {
 				isStarred = true
 			}
 		}
@@ -826,6 +826,10 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 	}
 
 	return len(mrssArticles), nil
+}
+
+func isGoogleReaderState(category, state string) bool {
+	return strings.HasSuffix(category, "/state/com.google/"+state)
 }
 
 // pushToServer pushes local changes to FreshRSS server
