@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Preview the latest feed articles before subscribing, including RSSHub URLs, without saving subscriptions or reading state. Use the selected proxy for both preview and initial subscription requests. (#564)
 - Clip articles to a configured SiYuan notebook as Markdown with source metadata, encrypted API-token storage, and a customizable toolbar action. (#688)
 - Configure article date formats, 12/24-hour time, and relative timestamps across lists, details, and the media gallery. (#563)
 - Customize article toolbar button visibility and order, with a restore-defaults action. (#1150)

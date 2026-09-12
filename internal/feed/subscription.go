@@ -225,6 +225,24 @@ func (f *Fetcher) fetchAndSanitizeFeed(ctx context.Context, feedURL string, sour
 	return cleanedXML, nil
 }
 
+// AddSubscriptionWithOptions uses the same parser and per-feed network settings
+// as preview and subsequent refreshes.
+func (f *Fetcher) AddSubscriptionWithOptions(ctx context.Context, source models.Feed) (int64, error) {
+	parsed, err := f.ParseFeedWithFeed(ctx, &source, false)
+	if err != nil {
+		return 0, err
+	}
+	if source.Title == "" {
+		source.Title = parsed.Title
+	}
+	source.Link = parsed.Link
+	source.Description = parsed.Description
+	if parsed.Image != nil {
+		source.ImageURL = parsed.Image.URL
+	}
+	return f.db.AddFeed(&source)
+}
+
 // AddSubscription adds a new feed subscription and returns the feed ID.
 func (f *Fetcher) AddSubscription(url string, category string, customTitle string) (int64, error) {
 	utils.DebugLog("AddSubscription: Starting to add feed from URL: %s", url)

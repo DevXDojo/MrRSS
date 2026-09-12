@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhArrowClockwise, PhCaretDown, PhCaretRight } from '@phosphor-icons/vue';
 import type { Feed } from '@/types/models';
 import { useFeedForm } from '@/composables/feed/useFeedForm';
+import { useFeedPreview } from '@/composables/feed/useFeedPreview';
+import FeedPreview from './FeedPreview.vue';
 import { useSettings } from '@/composables/core/useSettings';
 import BaseModal from '@/components/common/BaseModal.vue';
 import ModalFooter from '@/components/common/ModalFooter.vue';
@@ -90,6 +92,41 @@ const {
   emailFolder,
   selectedTags,
 } = useFeedForm(props.feed);
+
+const showPreview = ref(false);
+const {
+  preview,
+  isLoading: isPreviewLoading,
+  failed: previewFailed,
+  load: loadPreview,
+  reset: resetPreview,
+} = useFeedPreview();
+const canPreview = computed(
+  () =>
+    props.mode === 'add' && feedType.value === 'url' && !!url.value.trim() && !isUrlInvalid.value
+);
+
+watch(
+  [url, feedType, proxyMode, proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword],
+  () => {
+    resetPreview();
+    showPreview.value = false;
+  }
+);
+
+function startPreview() {
+  if (!canPreview.value || isSubmitting.value) return;
+  showPreview.value = true;
+  void loadPreview({
+    url: url.value.trim(),
+    proxy_enabled: proxyMode.value !== 'none',
+    proxy_url: proxyMode.value === 'custom' ? buildProxyUrl() : '',
+  });
+}
+function backFromPreview() {
+  resetPreview();
+  showPreview.value = false;
+}
 
 const emit = defineEmits<{
   close: [];
@@ -274,6 +311,7 @@ async function submit() {
 
 // Computed modal title
 const modalTitle = computed(() => {
+  if (showPreview.value) return t('modal.feed.previewTitle');
   return props.mode === 'add' ? t('modal.feed.addNewFeed') : t('modal.feed.editFeed');
 });
 
@@ -287,9 +325,16 @@ const submitButtonText = computed(() => {
 </script>
 
 <template>
-  <BaseModal :title="modalTitle" size="md" :z-index="70" @close="close">
+  <BaseModal :title="modalTitle" :size="showPreview ? 'lg' : 'md'" :z-index="70" @close="close">
+    <FeedPreview
+      v-if="showPreview"
+      :preview="preview"
+      :loading="isPreviewLoading"
+      :failed="previewFailed"
+      @retry="startPreview"
+    />
     <!-- Form Content -->
-    <div class="p-4 sm:p-6 scroll-smooth">
+    <div v-else class="p-4 sm:p-6 scroll-smooth">
       <div class="mb-3 sm:mb-4">
         <label class="block mb-1 sm:mb-1.5 font-semibold text-xs sm:text-sm text-text-secondary">
           {{ t('common.form.title') }}
@@ -648,19 +693,29 @@ const submitButtonText = computed(() => {
         align="right"
         class="sm:w-full"
         :secondary-button="{
-          label: t('common.cancel'),
+          label: showPreview ? t('common.back') : t('common.cancel'),
           disabled: isSubmitting,
-          onClick: close,
+          onClick: showPreview ? backFromPreview : close,
         }"
         :primary-button="{
           label: submitButtonText,
-          disabled: isSubmitting || !isFormValid,
+          disabled: isSubmitting || !isFormValid || isPreviewLoading,
           loading: isSubmitting,
           onClick: submit,
         }"
       >
-        <template v-if="mode === 'edit' && feed" #left>
+        <template #left>
           <button
+            v-if="mode === 'add' && feedType === 'url' && !showPreview"
+            type="button"
+            class="text-accent text-sm font-semibold disabled:opacity-50"
+            :disabled="!canPreview || isSubmitting"
+            @click="startPreview"
+          >
+            {{ t('modal.feed.previewTitle') }}
+          </button>
+          <button
+            v-if="mode === 'edit' && feed"
             type="button"
             class="sm:mr-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg border border-border text-sm sm:text-base font-semibold text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             :disabled="isSubmitting || isReloading"

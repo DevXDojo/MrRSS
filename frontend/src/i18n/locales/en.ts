@@ -410,6 +410,19 @@ const en: TranslationMessages = {
       startDiscovery: 'Start discovery',
     },
     feed: {
+      previewTitle: 'Preview feed',
+      previewHint:
+        'Browse the latest articles before subscribing. Previewing does not save a subscription or change reading state.',
+      previewLoading: 'Loading feed preview…',
+      previewFailed: 'Could not load this feed. Check the URL and proxy settings, then retry.',
+      previewRetry: 'Retry preview',
+      previewCount: 'Showing {count} of {total} available articles, newest first.',
+      previewEmpty:
+        'This feed currently contains no articles. You can still subscribe to receive future updates.',
+      previewUntitled: 'Untitled article',
+      previewNoContent: 'This feed provides no article body. Open the original page to read it.',
+      previewTruncated:
+        'This long article was shortened for preview. Open the original page to continue reading.',
       cookieOrigin: 'Cookie website',
       cookie: 'Cookie',
       cookieSaved: 'Saved; leave blank to keep it',
