@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -188,7 +189,7 @@ func (f *Fetcher) getHTTPClient(feed models.Feed) (*http.Client, error) {
 	// This is critical for RSSHub feeds and other services with anti-bot protection
 	client, err := httputil.CreateHTTPClientWithUserAgent(
 		proxyURL,
-		30*time.Second,
+		max(60*time.Second, f.retryTimeout()),
 		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	)
 	if err != nil {
@@ -204,6 +205,22 @@ func (f *Fetcher) getHTTPClient(feed models.Feed) (*http.Client, error) {
 		}
 	}
 	return client, nil
+}
+
+// retryTimeout is shared by the task deadline and HTTP client. A shorter fixed
+// HTTP timeout would otherwise defeat the user's longer retry budget, including
+// while downloading the body of a large feed.
+func (f *Fetcher) retryTimeout() time.Duration {
+	value, err := f.db.GetSetting("retry_timeout_seconds")
+	if err != nil {
+		return 60 * time.Second
+	}
+	seconds, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+	const maxSeconds = int64((1<<63 - 1) / time.Second)
+	if err != nil || seconds <= 0 || seconds > maxSeconds {
+		return 60 * time.Second
+	}
+	return time.Duration(seconds) * time.Second
 }
 
 func (f *Fetcher) FetchAll(ctx context.Context) {

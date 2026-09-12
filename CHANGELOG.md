@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Let slow and large feed downloads use the configured retry budget instead of being cut off by a fixed 30-second HTTP timeout. (#603)
 - Use the selected AI profile's headers for summaries, preserve legacy AI configuration when no profile exists, and keep temporary local fallbacks retryable. Cancel abandoned summary requests without overwriting newer results. (#772)
 - Honor application proxy settings across Google, DeepL, Baidu, Microsoft, and Tencent translation; apply changed credentials and proxy settings without restarting. (#767, #918)
 - Use the configured Google translation endpoint and decode the alternative endpoint's response format; preserve both the Microsoft endpoint and region. (#767)
