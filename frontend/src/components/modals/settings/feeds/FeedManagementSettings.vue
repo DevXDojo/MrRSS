@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReaderProviderIcon from '@/components/common/ReaderProviderIcon.vue';
 import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
@@ -482,12 +483,11 @@ onUnmounted(() =>
                   >
                     {{ feed.title }}
                   </span>
-                  <img
+                  <ReaderProviderIcon
                     v-if="feed.is_freshrss_source"
-                    src="/assets/plugin_icons/freshrss.svg"
+                    :provider="feed.sync_provider"
                     class="h-4 w-4 shrink-0"
                     :title="t('setting.freshrss.syncedFeed')"
-                    alt="FreshRSS"
                   />
                   <img
                     v-if="isRSSHubFeed(feed)"

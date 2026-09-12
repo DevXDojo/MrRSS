@@ -250,9 +250,17 @@ export function useSidebar() {
       store.pollProgress();
     } else if (action === 'syncFeed') {
       // Sync individual FreshRSS feed
-      await fetch(`/api/freshrss/sync-feed?stream_id=${feed.freshrss_stream_id}`, {
-        method: 'POST',
-      });
+      const syncResponse = await fetch(
+        `/api/${feed.sync_provider === 'miniflux' ? 'miniflux' : 'freshrss'}/sync-feed?stream_id=${encodeURIComponent(feed.freshrss_stream_id || '')}`,
+        {
+          method: 'POST',
+        }
+      );
+      if (!syncResponse.ok) {
+        window.showToast(t('setting.freshrss.syncFailed'), 'error');
+        return;
+      }
+      await store.startFreshRSSStatusPolling();
       window.showToast(t('modal.feed.syncFeedStarted'), 'success');
       // Start polling for progress
       store.pollProgress();

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onBeforeUnmount } from 'vue';
+import { useAppStore } from '@/stores/app';
 import type { SettingsData } from '@/types/settings';
 import { useSettingsAutoSave } from '@/composables/core/useSettingsAutoSave';
 import { useI18n } from 'vue-i18n';
@@ -8,7 +9,7 @@ import ObsidianSettings from './ObsidianSettings.vue';
 import NotionSettings from './NotionSettings.vue';
 import SiYuanSettings from './SiYuanSettings.vue';
 import ZoteroSettings from './ZoteroSettings.vue';
-import FreshRSSSettings from './FreshRSSSettings.vue';
+import ReaderIntegrationSettings from './ReaderIntegrationSettings.vue';
 import RSSHubSettings from './RSSHubSettings.vue';
 
 interface Props {
@@ -34,6 +35,24 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
   // Emit the updated settings to parent
   emit('update:settings', updatedSettings);
 }
+const store = useAppStore();
+function readerState() {
+  return JSON.stringify(
+    ['freshrss', 'miniflux'].map((provider) =>
+      Object.entries(props.settings).filter(([key]) => key.startsWith(`${provider}_`))
+    )
+  );
+}
+let previousReaderState = readerState();
+async function handleSavedSettings() {
+  const current = readerState();
+  if (current === previousReaderState) return;
+  previousReaderState = current;
+  await store.startFreshRSSStatusPolling();
+  await Promise.all([store.fetchFeeds(), store.fetchArticles(), store.fetchUnreadCounts()]);
+}
+onMounted(() => window.addEventListener('settings-updated', handleSavedSettings));
+onBeforeUnmount(() => window.removeEventListener('settings-updated', handleSavedSettings));
 </script>
 
 <template>
@@ -48,7 +67,17 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
 
     <ZoteroSettings :settings="settings" @update:settings="handleUpdateSettings" />
 
-    <FreshRSSSettings :settings="settings" @update:settings="handleUpdateSettings" />
+    <ReaderIntegrationSettings
+      provider="freshrss"
+      :settings="settings"
+      @update:settings="handleUpdateSettings"
+    />
+
+    <ReaderIntegrationSettings
+      provider="miniflux"
+      :settings="settings"
+      @update:settings="handleUpdateSettings"
+    />
 
     <RSSHubSettings :settings="settings" @update:settings="handleUpdateSettings" />
   </div>

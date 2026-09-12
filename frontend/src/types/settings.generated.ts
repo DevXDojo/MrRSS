@@ -77,6 +77,13 @@ export interface SettingsData {
   microsoft_api_key: string;
   microsoft_endpoint: string;
   microsoft_region: string;
+  miniflux_api_password: string;
+  miniflux_auto_sync_interval: number;
+  miniflux_enabled: boolean;
+  miniflux_last_sync_time: string;
+  miniflux_server_url: string;
+  miniflux_sync_on_startup: boolean;
+  miniflux_username: string;
   network_bandwidth_mbps: string;
   network_latency_ms: string;
   network_speed: string;

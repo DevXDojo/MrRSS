@@ -724,6 +724,23 @@ Proxy webpage content
 Parameters:
   - `url` (query, required): Webpage URL to proxy
 
+## Miniflux
+
+### `GET /miniflux/status`
+
+Get Miniflux sync status
+
+### `POST /miniflux/sync`
+
+Sync with Miniflux
+
+### `POST /miniflux/sync-feed`
+
+Sync single Miniflux feed
+
+Parameters:
+  - `stream_id` (query, required): Miniflux stream ID
+
 ## Network
 
 ### `POST /network/detect`

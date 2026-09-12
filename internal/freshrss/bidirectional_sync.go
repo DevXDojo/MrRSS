@@ -25,8 +25,9 @@ type SyncResult struct {
 
 // BidirectionalSyncService handles bidirectional synchronization
 type BidirectionalSyncService struct {
-	client *Client
-	db     *database.DB
+	client   *Client
+	db       *database.DB
+	provider string
 }
 
 // NewBidirectionalSyncService creates a new bidirectional sync service
@@ -37,9 +38,11 @@ func NewBidirectionalSyncService(serverURL, username, password string, db *datab
 // NewBidirectionalSyncServiceForProvider creates a sync service for a
 // Google Reader-compatible server such as FreshRSS or Miniflux.
 func NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider string, db *database.DB) *BidirectionalSyncService {
+	client := NewClientForProvider(serverURL, username, password, provider)
 	return &BidirectionalSyncService{
-		client: NewClientForProvider(serverURL, username, password, provider),
-		db:     db,
+		client:   client,
+		db:       db,
+		provider: string(client.provider),
 	}
 }
 
@@ -125,6 +128,10 @@ func (s *BidirectionalSyncService) SyncFeed(ctx context.Context, streamID string
 // Logic: Immediately push local status to server, overwriting remote
 // If sync fails, the change is added to the queue for later retry
 func (s *BidirectionalSyncService) SyncArticleStatus(ctx context.Context, articleID int64, articleURL string, action database.SyncAction) error {
+	var owner string
+	if err := s.db.QueryRow("SELECT f.sync_provider FROM feeds f JOIN articles a ON a.feed_id = f.id WHERE a.id = ? AND f.is_freshrss_source = 1", articleID).Scan(&owner); err != nil || owner != s.provider {
+		return fmt.Errorf("article does not belong to reader")
+	}
 	// Login to FreshRSS
 	if err := s.client.Login(ctx); err != nil {
 		return fmt.Errorf("login failed: %w", err)
@@ -339,7 +346,7 @@ func (s *BidirectionalSyncService) fetchAllArticles(ctx context.Context, streamI
 // If local has a pending sync for the same action type, clear it to avoid conflicts
 func (s *BidirectionalSyncService) applyServerStatus(articleURL string, status bool, column string) (int, error) {
 	// Check if article exists locally
-	localArticle, err := s.db.GetArticleByURL(articleURL)
+	localArticle, err := s.db.GetArticleByURL(articleURL, s.provider)
 	if err != nil {
 		// Article doesn't exist locally, skip
 		return 0, nil
@@ -347,7 +354,7 @@ func (s *BidirectionalSyncService) applyServerStatus(articleURL string, status b
 
 	// Check if there's a pending sync change for the SAME action type
 	// Only clear conflicting pending syncs
-	pendingItems, err := s.db.GetPendingSyncChanges(1000)
+	pendingItems, err := s.db.GetPendingSyncChanges(1000, s.provider)
 	hasConflictingSync := false
 	for _, item := range pendingItems {
 		if item.ArticleURL == articleURL {
@@ -396,7 +403,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 	// Get all existing feeds to check for duplicates
 	existingFeeds, err := s.db.GetFeeds()
 	if err != nil {
-		log.Printf("Warning: Failed to get existing feeds: %v", err)
+		return 0, fmt.Errorf("get existing feeds: %w", err)
 	}
 
 	// Create a map of feed URLs to existing feeds
@@ -404,6 +411,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 	type feedKey struct {
 		URL              string
 		IsFreshRSSSource bool
+		Provider         string
 	}
 	feedMap := make(map[feedKey]*models.Feed)
 	titleMap := make(map[string]int64)
@@ -413,6 +421,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 		key := feedKey{
 			URL:              existingFeeds[i].URL,
 			IsFreshRSSSource: existingFeeds[i].IsFreshRSSSource,
+			Provider:         existingFeeds[i].SyncProvider,
 		}
 		feedMap[key] = &existingFeeds[i]
 		titleMap[existingFeeds[i].Title] = existingFeeds[i].ID
@@ -431,7 +440,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 		}
 		allFreshRSS := true
 		for _, feed := range feeds {
-			if !feed.IsFreshRSSSource {
+			if !feed.IsFreshRSSSource || feed.SyncProvider != s.provider {
 				allFreshRSS = false
 				break
 			}
@@ -441,13 +450,24 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 		}
 
 		// Category has mixed or non-FreshRSS feeds, need to rename
-		newCategory := originalCategory + " (FreshRSS)"
+		providerName := "FreshRSS"
+		if s.provider == "miniflux" {
+			providerName = "Miniflux"
+		}
+		newCategory := originalCategory + " (" + providerName + ")"
 		counter := 1
 		for {
-			if _, exists := categoryMap[newCategory]; !exists {
+			available := true
+			for _, feed := range categoryMap[newCategory] {
+				if !feed.IsFreshRSSSource || feed.SyncProvider != s.provider {
+					available = false
+					break
+				}
+			}
+			if available {
 				break
 			}
-			newCategory = fmt.Sprintf("%s (FreshRSS %d)", originalCategory, counter)
+			newCategory = fmt.Sprintf("%s (%s %d)", originalCategory, providerName, counter)
 			counter++
 		}
 		log.Printf("[Category Conflict] Renaming FreshRSS category '%s' to '%s' to avoid mixing with local feeds",
@@ -492,7 +512,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 		// Check if feed already exists (by URL + FreshRSS source combination)
 		key := feedKey{
 			URL:              feedURL,
-			IsFreshRSSSource: true, // We're syncing FreshRSS feeds
+			IsFreshRSSSource: true, Provider: s.provider, // We're syncing FreshRSS feeds
 		}
 
 		if existingFeed, exists := feedMap[key]; exists {
@@ -557,7 +577,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 		// Check if there's a local feed with the same URL
 		localKey := feedKey{
 			URL:              feedURL,
-			IsFreshRSSSource: false,
+			IsFreshRSSSource: false, Provider: "freshrss",
 		}
 		if _, exists := feedMap[localKey]; exists {
 			log.Printf("[URL Conflict] Local feed with URL '%s' already exists, creating separate FreshRSS feed with title '%s'", feedURL, feedTitle)
@@ -574,6 +594,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 			Category:         category,
 			IsFreshRSSSource: true,
 			FreshRSSStreamID: sub.ID,
+			SyncProvider:     s.provider,
 		}
 
 		_, err = s.db.AddFeed(newFeed)
@@ -596,7 +617,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 	}
 
 	for _, feed := range existingFeeds {
-		if feed.IsFreshRSSSource {
+		if feed.IsFreshRSSSource && feed.SyncProvider == s.provider {
 			if !remoteFeedURLs[feed.URL] {
 				log.Printf("Deleting local FreshRSS feed '%s' (removed from server)", feed.Title)
 				err := s.db.DeleteFeed(feed.ID)
@@ -627,6 +648,9 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 	feedStreamIDMap := make(map[string]int64)
 	feedURLMap := make(map[string]int64)
 	for i := range existingFeeds {
+		if !existingFeeds[i].IsFreshRSSSource || existingFeeds[i].SyncProvider != s.provider {
+			continue
+		}
 		var streamID string
 		if existingFeeds[i].IsFreshRSSSource && existingFeeds[i].FreshRSSStreamID != "" {
 			streamID = existingFeeds[i].FreshRSSStreamID
@@ -688,7 +712,7 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 		}
 
 		// Check if article already exists (by URL)
-		existingArticle, err := s.db.GetArticleByURL(article.URL)
+		existingArticle, err := s.db.GetArticleByURL(article.URL, s.provider)
 
 		if err == nil && existingArticle != nil {
 			// Article already exists - this is the deduplication logic
@@ -805,10 +829,21 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 		return 0, fmt.Errorf("save articles: %w", err)
 	}
 
+	// SaveArticles preserves local state; retain the remote identifier for immediate status updates.
+	for _, article := range mrssArticles {
+		saved, err := s.db.GetArticleByURL(article.URL, s.provider)
+		if err != nil {
+			return 0, err
+		}
+		if err := s.db.UpdateFreshRSSItemID(saved.ID, article.FreshRSSItemID); err != nil {
+			return 0, err
+		}
+	}
+
 	// Save article contents
 	contentSavedCount := 0
 	for url, content := range articleContentMap {
-		savedArticle, err := s.db.GetArticleByURL(url)
+		savedArticle, err := s.db.GetArticleByURL(url, s.provider)
 		if err != nil {
 			log.Printf("Warning: Could not find saved article with URL %s to set content", url)
 			continue
@@ -838,7 +873,7 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 	totalChanges := 0
 
 	// First, process any failed items from the queue (retry mechanism)
-	pendingChanges, err := s.db.GetPendingSyncChanges(500)
+	pendingChanges, err := s.db.GetPendingSyncChanges(500, s.provider)
 	if err != nil {
 		log.Printf("Warning: Failed to get pending changes: %v", err)
 	} else if len(pendingChanges) > 0 {
@@ -864,7 +899,7 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 	// Filter to only FreshRSS feeds
 	freshRSSFeeds := make([]models.Feed, 0)
 	for _, feed := range feeds {
-		if feed.IsFreshRSSSource {
+		if feed.IsFreshRSSSource && feed.SyncProvider == s.provider {
 			freshRSSFeeds = append(freshRSSFeeds, feed)
 		}
 	}

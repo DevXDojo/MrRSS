@@ -77,6 +77,7 @@ export interface Feed {
   email_folder?: string;
   // FreshRSS integration
   is_freshrss_source?: boolean; // Whether this feed is from FreshRSS sync
+  sync_provider?: 'freshrss' | 'miniflux';
   freshrss_stream_id?: string; // FreshRSS stream ID (e.g., "feed/http://...")
   // Statistics
   latest_article_time?: string; // Latest article publish time

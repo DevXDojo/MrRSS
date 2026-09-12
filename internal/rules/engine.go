@@ -615,13 +615,7 @@ func (e *Engine) applyAction(articleID int64, action string) error {
 
 // performImmediateSync performs an immediate sync to FreshRSS in a background goroutine
 func (e *Engine) performImmediateSync(syncReq *database.SyncRequest) {
-	// Check if FreshRSS is enabled and configured
-	enabled, _ := e.db.GetSetting("freshrss_enabled")
-	if enabled != "true" {
-		return
-	}
-
-	serverURL, username, password, provider, err := e.db.GetFreshRSSConfig()
+	serverURL, username, password, provider, err := e.db.GetArticleSyncConfig(syncReq.ArticleID)
 	if err != nil || serverURL == "" || username == "" || password == "" {
 		log.Printf("[Rule Sync] FreshRSS not configured, skipping sync")
 		return
@@ -631,7 +625,8 @@ func (e *Engine) performImmediateSync(syncReq *database.SyncRequest) {
 	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, e.db)
 
 	// Perform immediate sync
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	err = syncService.SyncArticleStatus(ctx, syncReq.ArticleID, syncReq.ArticleURL, syncReq.Action)
 	if err != nil {
 		log.Printf("[Rule Sync] Failed for article %d: %v", syncReq.ArticleID, err)

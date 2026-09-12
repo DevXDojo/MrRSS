@@ -52,8 +52,7 @@ func (db *DB) MarkArticleReadWithSync(id int64, read bool) (*SyncRequest, error)
 	}
 
 	// Return sync request only if FreshRSS is enabled and this is a FreshRSS feed
-	enabled, _ := db.GetSetting("freshrss_enabled")
-	if enabled == "true" && isFreshRSSFeed {
+	if db.FeedSyncEnabled(feedID) && isFreshRSSFeed {
 		action := SyncActionMarkRead
 		if !read {
 			action = SyncActionMarkUnread
@@ -93,8 +92,7 @@ func (db *DB) SetArticleFavoriteWithSync(id int64, favorite bool) (*SyncRequest,
 	}
 
 	// Return sync request only if FreshRSS is enabled and this is a FreshRSS feed
-	enabled, _ := db.GetSetting("freshrss_enabled")
-	if enabled == "true" && isFreshRSSFeed {
+	if db.FeedSyncEnabled(feedID) && isFreshRSSFeed {
 		action := SyncActionStar
 		if !favorite {
 			action = SyncActionUnstar
@@ -140,8 +138,7 @@ func (db *DB) ToggleFavoriteWithSync(id int64) (*SyncRequest, error) {
 	}
 
 	// Return sync request only if FreshRSS is enabled and this is a FreshRSS feed
-	enabled, _ := db.GetSetting("freshrss_enabled")
-	if enabled == "true" && isFreshRSSFeed {
+	if db.FeedSyncEnabled(feedID) && isFreshRSSFeed {
 		action := SyncActionStar
 		if isFav {
 			// Was favorited, now unfavorited
@@ -159,20 +156,25 @@ func (db *DB) ToggleFavoriteWithSync(id int64) (*SyncRequest, error) {
 }
 
 // GetArticleByURL retrieves an article by its URL for sync purposes
-func (db *DB) GetArticleByURL(url string) (*Article, error) {
+func (db *DB) GetArticleByURL(url string, providers ...string) (*Article, error) {
 	db.WaitForReady()
 
 	query := `
 		SELECT id, feed_id, title, url, is_read, is_favorite, published_at, freshrss_item_id
 		FROM articles
 		WHERE url = ?
+		AND (? = '' OR feed_id IN (SELECT id FROM feeds WHERE is_freshrss_source = 1 AND sync_provider = ?))
 		LIMIT 1
 	`
 
 	var article Article
 	var publishedAt interface{}
 	var freshRSSItemID sql.NullString
-	err := db.QueryRow(query, url).Scan(
+	provider := ""
+	if len(providers) > 0 {
+		provider = providers[0]
+	}
+	err := db.QueryRow(query, url, provider, provider).Scan(
 		&article.ID,
 		&article.FeedID,
 		&article.Title,
@@ -238,9 +240,8 @@ func (db *DB) MarkArticlesReadWithSync(ids []int64, read bool) ([]SyncRequest, e
 	}
 
 	// Check if FreshRSS is enabled
-	enabled, _ := db.GetSetting("freshrss_enabled")
 	var syncRequests []SyncRequest
-	if enabled == "true" {
+	if db.ReaderSyncEnabled() {
 		action := SyncActionMarkRead
 		if !read {
 			action = SyncActionMarkUnread
@@ -251,7 +252,7 @@ func (db *DB) MarkArticlesReadWithSync(ids []int64, read bool) ([]SyncRequest, e
 			// Check if this article belongs to a FreshRSS feed
 			var isFreshRSSFeed bool
 			err := db.QueryRow("SELECT COALESCE(is_freshrss_source, 0) FROM feeds WHERE id = ?", info.feedID).Scan(&isFreshRSSFeed)
-			if err == nil && isFreshRSSFeed {
+			if err == nil && isFreshRSSFeed && db.FeedSyncEnabled(info.feedID) {
 				syncRequests = append(syncRequests, SyncRequest{
 					ArticleID:  id,
 					ArticleURL: info.url,
@@ -527,8 +528,7 @@ func (db *DB) MarkArticlesRelativeToPublishedTimeWithSync(referencePublishedAt t
 
 // collectSyncRequests collects sync requests for articles that belong to FreshRSS feeds
 func (db *DB) collectSyncRequests(articles []articleInfo) []SyncRequest {
-	enabled, _ := db.GetSetting("freshrss_enabled")
-	if enabled != "true" {
+	if !db.ReaderSyncEnabled() {
 		return nil
 	}
 
@@ -539,7 +539,7 @@ func (db *DB) collectSyncRequests(articles []articleInfo) []SyncRequest {
 		// Check if this article belongs to a FreshRSS feed
 		var isFreshRSSFeed bool
 		err := db.QueryRow("SELECT COALESCE(is_freshrss_source, 0) FROM feeds WHERE id = ?", article.feedID).Scan(&isFreshRSSFeed)
-		if err == nil && isFreshRSSFeed {
+		if err == nil && isFreshRSSFeed && db.FeedSyncEnabled(article.feedID) {
 			syncRequests = append(syncRequests, SyncRequest{
 				ArticleID:  article.id,
 				ArticleURL: article.url,

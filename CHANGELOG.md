@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Configure FreshRSS and Miniflux independently, including simultaneous sync, separate credentials and status, provider-scoped feeds/articles/queues, and migration of existing Miniflux settings. Use theme-aware Miniflux icons.
 - Add Microsoft Edge translation without an API key alongside Azure Translator, using the configured proxy, in-memory token reuse, bounded requests, and long-text splitting. Propagate cancelled or failed non-AI Markdown translation requests instead of reporting partial success. (#1190)
 - Add a Linux desktop `--software-rendering` launch option for GBM/graphics-related blank windows, with instructions for portable and AppImage launches. Preserve normal rendering when the option is absent. (Related to #852; the reported hardware-specific failure remains unverified.)
 - Add an optional desktop table layout above the reader, with selectable feed, author, date, and status columns and a resizable split. Preserve filtering, grouping, translation, and article actions. (#945)
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Use the SiYuan plugin icon in settings and the article toolbar. Move article grouping and filters into a compact More menu, place sidebar sorting between pin and close, remove sidebar scrollbar arrows, and use shared modal footer buttons for toolbar customization.
 - Fix release regression-test setup for read-later and AI summaries, remove an unused dropdown assignment, and run frontend CI tests explicitly in single-run mode.
 - Extract video poster covers and lazy-loaded or single-quoted HTML images from feed entries; skip empty image metadata and fall back to description covers when full content has none. Resolve embedded covers against the article link. (Related to #546; Xiaohongshu-specific compatibility and the requested video view still need a concrete feed example and scope.)
 - Preserve multi-condition automation rules and article filters across articles instead of mutating their condition arrays while evaluating AND groups. Keep NOT/AND/OR precedence consistent for multi-keyword rules. (#335)

@@ -77,18 +77,22 @@ func (db *DB) EnqueueSyncChange(articleID int64, articleURL string, action SyncA
 }
 
 // GetPendingSyncChanges retrieves all pending sync changes that haven't been synced yet
-func (db *DB) GetPendingSyncChanges(limit int) ([]SyncQueueItem, error) {
+func (db *DB) GetPendingSyncChanges(limit int, providers ...string) ([]SyncQueueItem, error) {
 	db.WaitForReady()
+	provider := ""
+	if len(providers) > 0 {
+		provider = providers[0]
+	}
 
 	query := `
 	SELECT id, article_id, article_url, sync_action, created_at, synced_at, sync_error
 	FROM freshrss_sync_queue
-	WHERE synced_at IS NULL
+	WHERE synced_at IS NULL AND (? = '' OR article_id IN (SELECT a.id FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE f.is_freshrss_source = 1 AND f.sync_provider = ?))
 	ORDER BY created_at ASC
 	LIMIT ?
 	`
 
-	rows, err := db.Query(query, limit)
+	rows, err := db.Query(query, provider, provider, limit)
 	if err != nil {
 		return nil, fmt.Errorf("get pending sync changes: %w", err)
 	}
@@ -256,13 +260,17 @@ func (db *DB) ClearPendingSyncForArticle(articleID int64) error {
 }
 
 // GetPendingSyncCount returns the count of pending sync changes
-func (db *DB) GetPendingSyncCount() (int, error) {
+func (db *DB) GetPendingSyncCount(providers ...string) (int, error) {
 	db.WaitForReady()
+	provider := ""
+	if len(providers) > 0 {
+		provider = providers[0]
+	}
 
 	var count int
-	query := `SELECT COUNT(*) FROM freshrss_sync_queue WHERE synced_at IS NULL`
+	query := `SELECT COUNT(*) FROM freshrss_sync_queue WHERE synced_at IS NULL AND (? = '' OR article_id IN (SELECT a.id FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE f.is_freshrss_source = 1 AND f.sync_provider = ?))`
 
-	err := db.QueryRow(query).Scan(&count)
+	err := db.QueryRow(query, provider, provider).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("get pending sync count: %w", err)
 	}
@@ -286,18 +294,22 @@ func (db *DB) DeleteOldSyncedItems(olderThan time.Duration) error {
 }
 
 // GetFailedSyncItems returns sync items that failed to sync
-func (db *DB) GetFailedSyncItems(limit int) ([]SyncQueueItem, error) {
+func (db *DB) GetFailedSyncItems(limit int, providers ...string) ([]SyncQueueItem, error) {
 	db.WaitForReady()
+	provider := ""
+	if len(providers) > 0 {
+		provider = providers[0]
+	}
 
 	query := `
 	SELECT id, article_id, article_url, sync_action, created_at, synced_at, sync_error
 	FROM freshrss_sync_queue
-	WHERE sync_error IS NOT NULL
+	WHERE sync_error IS NOT NULL AND (? = '' OR article_id IN (SELECT a.id FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE f.is_freshrss_source = 1 AND f.sync_provider = ?))
 	ORDER BY created_at DESC
 	LIMIT ?
 	`
 
-	rows, err := db.Query(query, limit)
+	rows, err := db.Query(query, provider, provider, limit)
 	if err != nil {
 		return nil, fmt.Errorf("get failed sync items: %w", err)
 	}
