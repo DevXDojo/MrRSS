@@ -93,6 +93,16 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			response.Error(w, err, http.StatusInternalServerError)
 			return
 		}
+		// Providers retain clients and credentials. Rebuild them after relevant
+		// settings change so fixing a proxy or key takes effect without a restart.
+		if translator, ok := h.Translator.(interface{ InvalidateCache() }); ok {
+			for key := range req {
+				if isTranslationSetting(key) {
+					translator.InvalidateCache()
+					break
+				}
+			}
+		}
 
 		if shouldCleanupFreshRSSData(wasFreshRSSEnabled, req["freshrss_enabled"]) {
 			if err := h.DB.CleanupFreshRSSData(); err != nil {
@@ -109,6 +119,15 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func isTranslationSetting(key string) bool {
+	for _, prefix := range []string{"translation_", "google_translate_", "deepl_", "baidu_", "microsoft_", "tencent_", "custom_translation_", "ai_", "proxy_"} {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func shouldCleanupFreshRSSData(wasEnabled bool, newValue string) bool {

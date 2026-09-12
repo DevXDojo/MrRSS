@@ -16,7 +16,7 @@ func (p *googleProvider) Name() string {
 
 // Translate 执行翻译
 func (p *googleProvider) Translate(ctx context.Context, text, targetLang string) (*TranslationResult, error) {
-	translated, err := p.translator.Translate(text, targetLang)
+	translated, err := p.translator.TranslateContext(ctx, text, targetLang)
 	if err != nil {
 		return nil, err
 	}

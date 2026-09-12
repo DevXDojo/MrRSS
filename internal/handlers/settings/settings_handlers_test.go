@@ -24,6 +24,40 @@ func setupHandlerWithDB(t *testing.T) *core.Handler {
 	return core.NewHandler(db, nil, nil, nil)
 }
 
+type invalidatingTranslator struct{ invalidations int }
+
+func (t *invalidatingTranslator) Translate(text, targetLang string) (string, error) {
+	return text, nil
+}
+
+func (t *invalidatingTranslator) InvalidateCache() { t.invalidations++ }
+
+func TestTranslationSettingsInvalidateProvider(t *testing.T) {
+	for _, tc := range []struct {
+		key, value string
+		want       int
+	}{
+		{"proxy_enabled", "true", 1},
+		{"google_translate_endpoint", "clients5.google.com", 1},
+		{"microsoft_api_key", "test-key", 1},
+		{"ai_translation_prompt", "Translate clearly", 1},
+		{"theme", "dark", 0},
+	} {
+		t.Run(tc.key, func(t *testing.T) {
+			h := setupHandlerWithDB(t)
+			defer h.DB.Close()
+			translator := &invalidatingTranslator{}
+			h.Translator = translator
+			body, _ := json.Marshal(map[string]string{tc.key: tc.value})
+			w := httptest.NewRecorder()
+			HandleSettings(h, w, httptest.NewRequest(http.MethodPost, "/api/settings", bytes.NewReader(body)))
+			if w.Code != http.StatusOK || translator.invalidations != tc.want {
+				t.Fatalf("status = %d, invalidations = %d, want %d", w.Code, translator.invalidations, tc.want)
+			}
+		})
+	}
+}
+
 func TestHandleSettings_GET(t *testing.T) {
 	h := setupHandlerWithDB(t)
 
