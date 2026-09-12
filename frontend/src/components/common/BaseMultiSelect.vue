@@ -101,6 +101,7 @@ const {
   widthClass,
   maxWidthStyle,
   shouldTeleport,
+  teleportTarget,
   resetIndex,
   registerAsOpen,
   unregisterAsOpen,
@@ -161,14 +162,15 @@ function toggleDropdown() {
     registerAsOpen();
     resetIndex();
     setupScrollListener();
+    updateDropdownPosition();
     nextTick(updateDropdownPosition);
     if (props.allowAdd) {
       nextTick(() => {
-        addInputRef.value?.focus();
+        addInputRef.value?.focus({ preventScroll: true });
       });
     } else if (props.searchable) {
       nextTick(() => {
-        searchInputRef.value?.focus();
+        searchInputRef.value?.focus({ preventScroll: true });
       });
     }
   } else {
@@ -184,7 +186,7 @@ function handleAddOption() {
     addInputValue.value = '';
     // Keep dropdown open for adding more options
     nextTick(() => {
-      addInputRef.value?.focus();
+      addInputRef.value?.focus({ preventScroll: true });
     });
   }
 }
@@ -279,7 +281,7 @@ onUnmounted(() => {
     </button>
 
     <!-- Dropdown menu -->
-    <Teleport to="body" :disabled="!shouldTeleport">
+    <Teleport :to="teleportTarget" :disabled="!shouldTeleport">
       <div
         v-if="isOpen"
         ref="dropdownRef"
