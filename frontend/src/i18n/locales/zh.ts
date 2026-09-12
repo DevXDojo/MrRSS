@@ -1044,6 +1044,27 @@ const zh: TranslationMessages = {
       usernamePlaceholder: '输入 Google Reader 用户名',
     },
     plugins: {
+      siyuan: {
+        integration: '思源笔记集成',
+        description: '将文章以 Markdown 文档剪藏到思源笔记本。',
+        setup: '配置思源笔记',
+        instructions:
+          '保持思源和目标笔记本打开，在思源“设置 → 鉴权”中复制 API token。图片保留原始链接。',
+        endpoint: '思源地址',
+        endpointDesc:
+          '默认连接运行 MrRSS 的电脑上的思源。服务器模式下，请填写服务器能够访问的思源地址。',
+        token: 'API token',
+        notebook: '笔记本 ID',
+        notebookDesc: '从思源复制目标笔记本的 ID，请勿填写显示名称。',
+        folder: '文档目录',
+        folderDesc: '以 / 开头，例如 /MrRSS。文章编号用于区分同名标题，重复剪藏不会覆盖已有文档。',
+        exportTo: '剪藏到思源笔记',
+        exporting: '正在剪藏到思源笔记…',
+        exported: '文章已保存到思源笔记。',
+        configurationError: '请在“设置 → 插件”中检查思源地址、笔记本 ID 和文档目录。',
+        contentError: '请先加载文章正文，再剪藏到思源笔记。',
+        exportFailed: '剪藏失败，请确认思源正在运行、目标笔记本已打开，且 API token 正确。',
+      },
       notion: {
         apiKey: 'API 密钥',
         apiKeyDesc: '来自 Notion 的内部集成令牌',

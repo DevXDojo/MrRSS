@@ -116,6 +116,13 @@ func (h *Handler) Statistics() *statistics.Service {
 // GetArticleContent fetches article content with caching
 // Returns (content, wasCached, error)
 func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
+	return h.GetArticleContentContext(context.Background(), articleID)
+}
+
+func (h *Handler) GetArticleContentContext(ctx context.Context, articleID int64) (string, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return "", false, err
+	}
 	// First, check database cache (persistent cache)
 	content, found, err := h.DB.GetArticleContent(articleID)
 	if err == nil && found && strings.TrimSpace(content) != "" {
@@ -147,13 +154,13 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 
 	// Read the source once; reading an article must not refresh the entire feed
 	// or trigger unrelated saves and cleanup.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	fetchCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// Parse the feed to get fresh content
-	parsedFeed, err := h.Fetcher.ParseFeedWithFeed(ctx, targetFeed, true) // High priority for content fetching
+	parsedFeed, err := h.Fetcher.ParseFeedWithFeed(fetchCtx, targetFeed, true) // High priority for content fetching
 	if err != nil {
-		return h.recoverArchivedContent(article, targetFeed, err)
+		return h.recoverArchivedContent(ctx, article, targetFeed, err)
 	}
 
 	// Cache the feed for future use
@@ -166,7 +173,7 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 		cleanContent := textutil.CleanHTML(content)
 
 		if strings.TrimSpace(cleanContent) == "" {
-			return h.recoverArchivedContent(article, targetFeed, nil)
+			return h.recoverArchivedContent(ctx, article, targetFeed, nil)
 		}
 
 		// Cache the content in both memory and database
@@ -178,14 +185,17 @@ func (h *Handler) GetArticleContent(articleID int64) (string, bool, error) {
 		return cleanContent, false, nil
 	}
 
-	return h.recoverArchivedContent(article, targetFeed, nil)
+	return h.recoverArchivedContent(ctx, article, targetFeed, nil)
 }
 
 // recoverArchivedContent handles items which have rolled out of the source's RSS window.
-func (h *Handler) recoverArchivedContent(article *models.Article, source *models.Feed, sourceErr error) (string, bool, error) {
+func (h *Handler) recoverArchivedContent(ctx context.Context, article *models.Article, source *models.Feed, sourceErr error) (string, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return "", false, err
+	}
 	enabled, _ := h.DB.GetSetting("full_text_fetch_enabled")
 	if enabled == "true" && article.URL != "" {
-		content, err := h.FetchFullArticleContentWithFeed(article.URL, source)
+		content, err := h.FetchFullArticleContentContext(ctx, article.URL, source)
 		if err == nil && strings.TrimSpace(content) != "" {
 			h.ContentCache.Set(article.ID, content)
 			if err := h.DB.SetArticleContent(article.ID, content); err != nil {

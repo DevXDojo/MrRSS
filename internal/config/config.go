@@ -122,6 +122,11 @@ type Defaults struct {
 	SidebarCategoryOrder string         `json:"sidebar_category_order"`
 	SidebarPinnedItems string           `json:"sidebar_pinned_items"`
 	SidebarSortMode string              `json:"sidebar_sort_mode"`
+	SiyuanAPIToken string               `json:"siyuan_api_token"`
+	SiyuanEnabled bool                  `json:"siyuan_enabled"`
+	SiyuanEndpoint string               `json:"siyuan_endpoint"`
+	SiyuanFolder string                 `json:"siyuan_folder"`
+	SiyuanNotebookId string             `json:"siyuan_notebook_id"`
 	StartupOnBoot bool                  `json:"startup_on_boot"`
 	SummaryEnabled bool                 `json:"summary_enabled"`
 	SummaryLength string                `json:"summary_length"`
@@ -375,6 +380,16 @@ func GetString(key string) string {
 		return defaults.SidebarPinnedItems
 	case "sidebar_sort_mode":
 		return defaults.SidebarSortMode
+	case "siyuan_api_token":
+		return defaults.SiyuanAPIToken
+	case "siyuan_enabled":
+		return strconv.FormatBool(defaults.SiyuanEnabled)
+	case "siyuan_endpoint":
+		return defaults.SiyuanEndpoint
+	case "siyuan_folder":
+		return defaults.SiyuanFolder
+	case "siyuan_notebook_id":
+		return defaults.SiyuanNotebookId
 	case "startup_on_boot":
 		return strconv.FormatBool(defaults.StartupOnBoot)
 	case "summary_enabled":

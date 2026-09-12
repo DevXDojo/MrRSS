@@ -109,6 +109,11 @@ export interface SettingsData {
   sidebar_category_order: string;
   sidebar_pinned_items: string;
   sidebar_sort_mode: string;
+  siyuan_api_token: string;
+  siyuan_enabled: boolean;
+  siyuan_endpoint: string;
+  siyuan_folder: string;
+  siyuan_notebook_id: string;
   startup_on_boot: boolean;
   summary_enabled: boolean;
   summary_length: string;

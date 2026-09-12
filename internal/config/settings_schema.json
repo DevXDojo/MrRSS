@@ -598,6 +598,41 @@
       "encrypted": false,
       "frontend_key": "obsidianVaultPath"
     },
+    "siyuan_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_enabled"
+    },
+    "siyuan_endpoint": {
+      "type": "string",
+      "default": "http://127.0.0.1:6806",
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_endpoint"
+    },
+    "siyuan_api_token": {
+      "type": "string",
+      "default": "",
+      "category": "plugins",
+      "encrypted": true,
+      "frontend_key": "siyuan_api_token"
+    },
+    "siyuan_notebook_id": {
+      "type": "string",
+      "default": "",
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_notebook_id"
+    },
+    "siyuan_folder": {
+      "type": "string",
+      "default": "/MrRSS",
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_folder"
+    },
     "notion_enabled": {
       "type": "bool",
       "default": false,

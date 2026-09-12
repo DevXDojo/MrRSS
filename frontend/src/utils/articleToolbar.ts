@@ -11,6 +11,7 @@ export const toolbarActions = [
   { id: 'obsidian', label: 'setting.plugins.obsidian.exportTo' },
   { id: 'notion', label: 'setting.plugins.notion.exportTo' },
   { id: 'zotero', label: 'setting.plugins.zotero.exportTo' },
+  { id: 'siyuan', label: 'setting.plugins.siyuan.exportTo' },
 ] as const;
 
 export type ToolbarActionID = (typeof toolbarActions)[number]['id'];

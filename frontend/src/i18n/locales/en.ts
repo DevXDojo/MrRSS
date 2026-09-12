@@ -1075,6 +1075,30 @@ const en: TranslationMessages = {
       usernamePlaceholder: 'Enter your Google Reader username',
     },
     plugins: {
+      siyuan: {
+        integration: 'SiYuan integration',
+        description: 'Clip articles as Markdown documents to a SiYuan notebook.',
+        setup: 'Set up SiYuan',
+        instructions:
+          'Keep SiYuan running and its destination notebook open. Copy the API token from SiYuan Settings → Authentication. Images remain links to their original hosts.',
+        endpoint: 'SiYuan address',
+        endpointDesc:
+          'The default connects to SiYuan on the machine running MrRSS. In server mode, use an address reachable from the server.',
+        token: 'API token',
+        notebook: 'Notebook ID',
+        notebookDesc: 'Copy the destination notebook ID from SiYuan, not its display name.',
+        folder: 'Document folder',
+        folderDesc:
+          'Start with /, for example /MrRSS. Article IDs distinguish titles. Re-exporting does not overwrite an existing document.',
+        exportTo: 'Export to SiYuan',
+        exporting: 'Exporting to SiYuan…',
+        exported: 'Article saved to SiYuan.',
+        configurationError:
+          'Check the SiYuan integration address, notebook ID, and folder in Settings → Plugins.',
+        contentError: 'Load the article content before exporting to SiYuan.',
+        exportFailed:
+          'SiYuan export failed. Check that SiYuan is running, the notebook is open, and the API token is correct.',
+      },
       notion: {
         apiKey: 'API Key',
         apiKeyDesc: 'Internal Integration Token from Notion',

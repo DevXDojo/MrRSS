@@ -53,6 +53,7 @@ func registerArticleRoutes(mux *http.ServeMux, h *core.Handler) {
 	mux.HandleFunc("/api/articles/clear-summaries", func(w http.ResponseWriter, r *http.Request) { summary.HandleClearSummaries(h, w, r) })
 
 	// Export
+	mux.HandleFunc("/api/articles/export/siyuan", func(w http.ResponseWriter, r *http.Request) { article.HandleExportToSiYuan(h, w, r) })
 	mux.HandleFunc("/api/articles/export/obsidian", func(w http.ResponseWriter, r *http.Request) { article.HandleExportToObsidian(h, w, r) })
 	mux.HandleFunc("/api/articles/export/notion", func(w http.ResponseWriter, r *http.Request) { article.HandleExportToNotion(h, w, r) })
 	mux.HandleFunc("/api/articles/export/zotero", func(w http.ResponseWriter, r *http.Request) { article.HandleExportToZotero(h, w, r) })

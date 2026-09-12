@@ -5,6 +5,7 @@ import { useSettings } from '@/composables/core/useSettings';
 import { computed, onMounted, ref } from 'vue';
 import ArticleToolbarSettings from './ArticleToolbarSettings.vue';
 import { parseToolbarLayout } from '@/utils/articleToolbar';
+import { useSiYuanExport } from '@/composables/article/useSiYuanExport';
 import {
   PhArrowLeft,
   PhX,
@@ -19,6 +20,7 @@ import {
   PhTranslate,
   PhArrowClockwise,
   PhSlidersHorizontal,
+  PhNotebook,
 } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import { copyArticleLink, copyArticleTitle } from '@/utils/clipboard';
@@ -26,6 +28,7 @@ import { copyArticleLink, copyArticleTitle } from '@/utils/clipboard';
 const { t } = useI18n();
 const { settings, fetchSettings } = useSettings();
 const showToolbarSettings = ref(false);
+const { isExporting: isExportingToSiYuan, exportToSiYuan } = useSiYuanExport();
 const visibleActions = computed(() =>
   parseToolbarLayout(settings.value.article_toolbar_layout).filter((item) => item.visible)
 );
@@ -275,6 +278,16 @@ async function copyTitle(article: Article) {
             class="w-[18px] h-[18px] sm:w-5 sm:h-5"
             alt="Zotero"
           />
+        </button>
+        <button
+          v-if="action.id === 'siyuan' && settings.siyuan_enabled"
+          class="action-btn disabled:opacity-50 disabled:cursor-wait"
+          :title="t('setting.plugins.siyuan.exportTo')"
+          :disabled="isExportingToSiYuan"
+          :aria-busy="isExportingToSiYuan"
+          @click="exportToSiYuan(article.id)"
+        >
+          <PhNotebook :size="18" class="sm:w-5 sm:h-5" />
         </button>
       </template>
       <button
