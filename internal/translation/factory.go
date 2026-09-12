@@ -192,7 +192,7 @@ func (f *Factory) loadAIConfig() (*aiConfig, error) {
 	f.mu.RUnlock()
 
 	if profileProvider != nil {
-		cfg, err := profileProvider.GetConfigForFeature(ai.FeatureTranslation)
+		cfg, err := profileProvider.GetProfileForFeature(ai.FeatureTranslation)
 		if err == nil && cfg != nil {
 			// Get system prompt from settings if not in profile
 			systemPrompt, _ := f.settingsProvider.GetSetting("ai_translation_prompt")

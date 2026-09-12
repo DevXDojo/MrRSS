@@ -177,6 +177,7 @@ func HandleCreateAIProfile(h *core.Handler, w http.ResponseWriter, r *http.Reque
 	}
 
 	profile.ID = id
+	invalidateTranslationProfile(h)
 	profile.APIKey = "" // Don't return API key in response
 
 	w.WriteHeader(http.StatusCreated)
@@ -264,6 +265,7 @@ func HandleUpdateAIProfile(h *core.Handler, w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	invalidateTranslationProfile(h)
 	profile.APIKey = "" // Don't return API key in response
 	response.JSON(w, profile)
 }
@@ -297,6 +299,7 @@ func HandleDeleteAIProfile(h *core.Handler, w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	invalidateTranslationProfile(h)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -331,7 +334,14 @@ func HandleSetDefaultAIProfile(h *core.Handler, w http.ResponseWriter, r *http.R
 		return
 	}
 
+	invalidateTranslationProfile(h)
 	response.JSON(w, map[string]string{"message": "default profile set"})
+}
+
+func invalidateTranslationProfile(h *core.Handler) {
+	if translator, ok := h.Translator.(interface{ InvalidateCache() }); ok {
+		translator.InvalidateCache()
+	}
 }
 
 // HandleTestAIProfile handles POST /api/ai/profiles/:id/test

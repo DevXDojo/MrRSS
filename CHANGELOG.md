@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve legacy AI translation credentials when no profile exists, and apply created, edited, deleted, or newly selected default AI profiles without restarting. (#767)
 - Keep read-later articles until explicitly removed, independently of reading state, and preserve read state when adding them to the list. (#580)
 - Keep settings dropdowns outside the scrolling form, fit them to available space, and prevent search-field focus from shifting the form. (#447)
 - Let slow and large feed downloads use the configured retry budget instead of being cut off by a fixed 30-second HTTP timeout. (#603)

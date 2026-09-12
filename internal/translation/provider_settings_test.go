@@ -1,12 +1,45 @@
 package translation
 
 import (
+	"MrRSS/internal/ai"
+	"MrRSS/internal/models"
 	"context"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 )
+
+type translationProfileSettings struct {
+	*mockSettingsProvider
+	profile *models.AIProfile
+}
+
+func (s *translationProfileSettings) GetAIProfile(int64) (*models.AIProfile, error) {
+	return s.profile, nil
+}
+
+func (s *translationProfileSettings) GetDefaultAIProfile() (*models.AIProfile, error) {
+	return s.profile, nil
+}
+
+func TestAITranslationUsesLegacySettingsOnlyWithoutProfile(t *testing.T) {
+	settings := &translationProfileSettings{mockSettingsProvider: &mockSettingsProvider{settings: map[string]string{
+		"ai_api_key": "legacy-key", "ai_endpoint": "https://legacy.example/v1",
+		"ai_model": "legacy-model", "ai_custom_headers": `{"X-Project":"legacy"}`,
+	}}}
+	factory := NewFactory(settings)
+	factory.SetProfileProvider(ai.NewProfileProvider(settings))
+	config, err := factory.loadAIConfig()
+	if err != nil || config.APIKey != "legacy-key" || config.Endpoint != "https://legacy.example/v1" || config.Model != "legacy-model" || config.CustomHeaders != `{"X-Project":"legacy"}` {
+		t.Fatalf("legacy configuration not retained: %+v, %v", config, err)
+	}
+	settings.profile = &models.AIProfile{APIKey: "profile-key", Endpoint: "https://profile.example/v1", Model: "profile-model", CustomHeaders: `{"X-Project":"profile"}`}
+	config, err = factory.loadAIConfig()
+	if err != nil || config.APIKey != "profile-key" || config.Endpoint != settings.profile.Endpoint || config.Model != settings.profile.Model || config.CustomHeaders != settings.profile.CustomHeaders {
+		t.Fatalf("profile configuration not used: %+v, %v", config, err)
+	}
+}
 
 func TestFactoryUsesProxySettingsForTraditionalProviders(t *testing.T) {
 	settings := &mockSettingsProvider{settings: map[string]string{
