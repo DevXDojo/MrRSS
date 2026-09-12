@@ -20,6 +20,7 @@ type Client struct {
 	baseURL    string
 	username   string
 	password   string
+	provider   Provider
 	authToken  string
 	httpClient *http.Client
 }
@@ -43,6 +44,7 @@ func NewClient(serverURL, username, password string) *Client {
 		baseURL:  serverURL,
 		username: username,
 		password: password,
+		provider: ProviderFreshRSS,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -64,6 +66,7 @@ func NewClientForProvider(serverURL, username, password, provider string) *Clien
 		baseURL:  strings.TrimSuffix(serverURL, "/"),
 		username: username,
 		password: password,
+		provider: ProviderMiniflux,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -342,6 +345,9 @@ func (c *Client) GetStreamContents(ctx context.Context, streamID string, exclude
 	if c.authToken == "" {
 		return nil, fmt.Errorf("not authenticated")
 	}
+	if c.provider == ProviderMiniflux {
+		return c.getMinifluxStreamContents(ctx, streamID, excludeTypes, maxItems, continuationToken)
+	}
 
 	// Build URL with parameters
 	params := url.Values{}
@@ -378,34 +384,111 @@ func (c *Client) GetStreamContents(ctx context.Context, streamID string, exclude
 		return nil, fmt.Errorf("stream contents request failed with status %d", resp.StatusCode)
 	}
 
-	var result struct {
-		ID           string `json:"id"`
-		Updated      int64  `json:"updated"`
-		Continuation string `json:"continuation,omitempty"`
-		Items        []struct {
-			ID        string `json:"id"`
-			Title     string `json:"title"`
-			Canonical []struct {
-				Href string `json:"href"`
-			} `json:"canonical"`
-			Summary struct {
-				Content   string `json:"content"`
-				Direction string `json:"direction,omitempty"`
-			} `json:"summary"`
-			Published  int64    `json:"published"`
-			Updated    int64    `json:"updated"` // crawlTimeMsec
-			Author     string   `json:"author,omitempty"`
-			Categories []string `json:"categories"`
-			Origin     struct {
-				StreamID string `json:"streamId"`
-				Title    string `json:"title"`
-				HtmlURL  string `json:"htmlUrl,omitempty"`
-			} `json:"origin,omitempty"`
-		} `json:"items"`
+	return decodeGoogleReaderStreamContents(resp.Body)
+}
+
+// getMinifluxStreamContents fetches entry IDs first because Miniflux exposes
+// Google Reader item content through stream/items/contents rather than the
+// stream/contents endpoint used by FreshRSS.
+func (c *Client) getMinifluxStreamContents(ctx context.Context, streamID string, excludeTypes []string, maxItems int, continuationToken string) (*StreamContentsResult, error) {
+	params := url.Values{}
+	params.Set("output", "json")
+	params.Set("s", streamID)
+	params.Set("n", fmt.Sprintf("%d", maxItems))
+	if continuationToken != "" {
+		params.Set("c", continuationToken)
+	}
+	for _, exclude := range excludeTypes {
+		params.Add("xt", exclude)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	requestURL := c.baseURL + "/reader/api/0/stream/items/ids?" + params.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create Miniflux item IDs request: %w", err)
+	}
+	req.Header.Set("Authorization", "GoogleLogin auth="+c.authToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Miniflux item IDs request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Miniflux item IDs request failed with status %d", resp.StatusCode)
+	}
+
+	var ids struct {
+		ItemRefs []struct {
+			ID string `json:"id"`
+		} `json:"itemRefs"`
+		Continuation string `json:"continuation,omitempty"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&ids); err != nil {
+		return nil, fmt.Errorf("decode Miniflux item IDs response: %w", err)
+	}
+	if len(ids.ItemRefs) == 0 {
+		return &StreamContentsResult{Continuation: ids.Continuation}, nil
+	}
+
+	token, err := c.GetToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get Miniflux write token: %w", err)
+	}
+	data := url.Values{"T": {token}, "output": {"json"}}
+	for _, item := range ids.ItemRefs {
+		data.Add("i", item.ID)
+	}
+
+	req, err = http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/reader/api/0/stream/items/contents", strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("create Miniflux item contents request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err = c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Miniflux item contents request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Miniflux item contents request failed with status %d", resp.StatusCode)
+	}
+
+	result, err := decodeGoogleReaderStreamContents(resp.Body)
+	if err != nil {
 		return nil, fmt.Errorf("decode stream contents response: %w", err)
+	}
+	result.Continuation = ids.Continuation
+	return result, nil
+}
+
+type googleReaderStreamContents struct {
+	Updated      int64  `json:"updated"`
+	Continuation string `json:"continuation,omitempty"`
+	Items        []struct {
+		ID        string `json:"id"`
+		Title     string `json:"title"`
+		Canonical []struct {
+			Href string `json:"href"`
+		} `json:"canonical"`
+		Summary struct {
+			Content string `json:"content"`
+		} `json:"summary"`
+		Published  int64    `json:"published"`
+		Updated    int64    `json:"updated"`
+		Author     string   `json:"author,omitempty"`
+		Categories []string `json:"categories"`
+		Origin     struct {
+			StreamID string `json:"streamId"`
+		} `json:"origin,omitempty"`
+	} `json:"items"`
+}
+
+func decodeGoogleReaderStreamContents(body io.Reader) (*StreamContentsResult, error) {
+	var result googleReaderStreamContents
+	if err := json.NewDecoder(body).Decode(&result); err != nil {
+		return nil, err
 	}
 
 	articles := make([]Article, 0, len(result.Items))
