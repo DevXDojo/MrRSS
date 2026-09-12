@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve image `referrerpolicy="no-referrer"` in article content so feeds can load images from hosts that reject the desktop WebView referrer. (#1189)
 - Apply the configured application proxy and encrypted proxy credentials to media cache downloads and direct media forwarding, and cancel downloads with their requests. (#1189)
 
+## [Unreleased]
+
 ## [1.3.33] - 2026-09-10
 
 ### Added
