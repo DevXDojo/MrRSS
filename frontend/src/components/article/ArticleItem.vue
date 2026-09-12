@@ -15,6 +15,7 @@ import { imageCache } from '@/utils/imageCache';
 interface Props {
   article: Article;
   isActive: boolean;
+  disabled?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -38,7 +39,8 @@ const compactMode = computed(() => {
 
 const { enter: handleMouseEnter, leave: handleMouseLeave } = useArticleHoverRead(
   () => props.article,
-  (id) => emit('hoverMarkAsRead', id)
+  (id) => emit('hoverMarkAsRead', id),
+  () => props.disabled === true
 );
 
 // Check if article is from RSSHub feed - O(1) lookup using feedMap

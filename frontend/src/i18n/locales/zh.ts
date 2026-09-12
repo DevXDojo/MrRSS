@@ -124,6 +124,7 @@ const zh: TranslationMessages = {
       mediaFilter: '筛选多媒体内容',
     },
     list: {
+      loadingArticles: '正在加载文章…',
       grouping: {
         label: '分组方式',
         none: '不分组',

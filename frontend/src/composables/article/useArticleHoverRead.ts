@@ -1,9 +1,13 @@
-import { onBeforeUnmount } from 'vue';
+import { onBeforeUnmount, watch } from 'vue';
 import { useSettings } from '@/composables/core/useSettings';
 import { useAppStore } from '@/stores/app';
 import type { Article } from '@/types/models';
 
-export function useArticleHoverRead(getArticle: () => Article, onRead: (id: number) => void) {
+export function useArticleHoverRead(
+  getArticle: () => Article,
+  onRead: (id: number) => void,
+  isDisabled: () => boolean = () => false
+) {
   const { settings } = useSettings();
   const store = useAppStore();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -17,11 +21,18 @@ export function useArticleHoverRead(getArticle: () => Article, onRead: (id: numb
   function enter(): void {
     leave();
     const article = getArticle();
-    if (!settings.value.hover_mark_as_read || article.is_read || article.is_read_later || pending)
+    if (
+      isDisabled() ||
+      !settings.value.hover_mark_as_read ||
+      article.is_read ||
+      article.is_read_later ||
+      pending
+    )
       return;
     timer = setTimeout(async () => {
       timer = undefined;
       if (
+        isDisabled() ||
         !settings.value.hover_mark_as_read ||
         article.is_read ||
         article.is_read_later ||
@@ -45,5 +56,8 @@ export function useArticleHoverRead(getArticle: () => Article, onRead: (id: numb
   }
 
   onBeforeUnmount(leave);
+  watch(isDisabled, (disabled) => {
+    if (disabled) leave();
+  });
   return { enter, leave };
 }

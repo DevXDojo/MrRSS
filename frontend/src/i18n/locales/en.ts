@@ -128,6 +128,7 @@ const en: TranslationMessages = {
       mediaFilter: 'Filter multimedia content',
     },
     list: {
+      loadingArticles: 'Loading articles…',
       grouping: {
         label: 'Group by',
         none: 'No grouping',

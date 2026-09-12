@@ -35,6 +35,7 @@ import { useArticleTranslation } from '@/composables/article/useArticleTranslati
 import { useArticleFilter } from '@/composables/article/useArticleFilter';
 import { useArticleActions } from '@/composables/article/useArticleActions';
 import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
+import { useArticleListTransition } from '@/composables/article/useArticleListTransition';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseSettingsData } from '@/composables/core/useSettings.generated';
@@ -256,6 +257,10 @@ const { showArticleContextMenu } = useArticleActions(
 const { onContextMenu: showSelectionContextMenu } = useArticleSelectionMenu(listRef);
 
 function handleArticleContextMenu(event: MouseEvent, article: Article): void {
+  if (showingPrevious.value) {
+    event.preventDefault();
+    return;
+  }
   showSelectionContextMenu(event);
   if (!event.defaultPrevented) showArticleContextMenu(event, article);
 }
@@ -297,7 +302,13 @@ async function preserveRelativeReadPosition(
 const visibleArticles = computed(() =>
   orderGroupedArticles(filteredArticles.value, store.articleGroupBy, store.articleSortOrder)
 );
-const groupStarts = computed(() => articleGroupStarts(visibleArticles.value, store.articleGroupBy));
+const { displayedArticles, showingPrevious, showLoadingIndicator } = useArticleListTransition(
+  visibleArticles,
+  computed(() => store.isLoading)
+);
+const groupStarts = computed(() =>
+  articleGroupStarts(displayedArticles.value, store.articleGroupBy)
+);
 const groupingOptions = computed(() =>
   ['none', 'date', 'feed'].map((value) => ({
     value,
@@ -683,6 +694,7 @@ function onRefreshTooltipHide(): void {
 
 // Article selection and interaction
 function selectArticle(article: Article): void {
+  if (showingPrevious.value) return;
   // Check if we should open in browser based on feed or global settings
   const feed = store.feeds.find((f) => f.id === article.feed_id);
   let openInBrowserMode = false;
@@ -1107,6 +1119,7 @@ async function markAllVisibleAsRead(): Promise<void> {
 
 <template>
   <section
+    :aria-busy="store.isLoading || isFilterLoading"
     :class="[
       'article-list flex flex-col w-full border-r border-border bg-bg-primary shrink-0 h-full',
       { 'card-mode': isCardMode, 'table-mode': isTableMode },
@@ -1348,232 +1361,259 @@ async function markAllVisibleAsRead(): Promise<void> {
       @clear="handleAISearchClear"
     />
 
-    <div ref="listRef" class="flex-1 overflow-y-scroll article-list-scroll" @scroll="handleScroll">
+    <div class="relative flex-1 min-h-0 min-w-0" :class="{ 'cursor-wait': showingPrevious }">
       <div
-        v-if="
-          filteredArticles.length === 0 && !store.isLoading && !isFilterLoading && !isAISearchActive
-        "
-        class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
-        data-testid="article-list-empty"
+        v-if="showLoadingIndicator"
+        class="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-2 bg-bg-primary/95 px-3 py-2 text-sm text-text-secondary"
+        role="status"
       >
-        <template v-if="isFavoritesEmptyState">
-          <PhStar :size="40" weight="duotone" class="mb-3 text-yellow-500" />
-          <div class="text-base font-medium text-text-primary">
-            {{ t('article.list.noFavorites') }}
-          </div>
-          <div class="mt-1 text-sm">{{ t('article.list.noFavoritesHint') }}</div>
-        </template>
-        <template v-else-if="isUnreadEmptyState">
-          <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />
-          <div class="text-base font-medium text-text-primary">
-            {{ t('article.list.allCaughtUp') }}
-          </div>
-          <div class="mt-1 text-sm">{{ t('article.list.noUnreadArticles') }}</div>
-        </template>
-        <template v-else>
-          {{ t('article.content.noArticles') }}
-        </template>
+        <PhSpinner :size="16" class="animate-spin" />
+        {{ t('article.list.loadingArticles') }}
       </div>
-
-      <!-- AI Search no results message -->
       <div
-        v-if="isAISearchActive && filteredArticles.length === 0 && !store.isLoading"
-        class="p-4 sm:p-5 text-center text-text-secondary text-sm sm:text-base"
+        ref="listRef"
+        class="h-full overflow-y-scroll article-list-scroll"
+        :class="{ 'pointer-events-none': showingPrevious }"
+        :inert="showingPrevious || undefined"
+        @scroll="handleScroll"
       >
-        {{ t('aiSearch.noResults') }}
-      </div>
+        <div
+          v-if="
+            filteredArticles.length === 0 &&
+            !store.isLoading &&
+            !isFilterLoading &&
+            !isAISearchActive
+          "
+          class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
+          data-testid="article-list-empty"
+        >
+          <template v-if="isFavoritesEmptyState">
+            <PhStar :size="40" weight="duotone" class="mb-3 text-yellow-500" />
+            <div class="text-base font-medium text-text-primary">
+              {{ t('article.list.noFavorites') }}
+            </div>
+            <div class="mt-1 text-sm">{{ t('article.list.noFavoritesHint') }}</div>
+          </template>
+          <template v-else-if="isUnreadEmptyState">
+            <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />
+            <div class="text-base font-medium text-text-primary">
+              {{ t('article.list.allCaughtUp') }}
+            </div>
+            <div class="mt-1 text-sm">{{ t('article.list.noUnreadArticles') }}</div>
+          </template>
+          <template v-else>
+            {{ t('article.content.noArticles') }}
+          </template>
+        </div>
 
-      <table
-        v-if="isTableMode"
-        class="article-table w-full table-fixed border-collapse"
-        :aria-label="articleListTitle"
-      >
-        <colgroup>
-          <col v-for="column in tableColumns" :key="column" :class="`table-column-${column}`" />
-        </colgroup>
-        <thead class="sticky top-0 z-10 bg-bg-secondary text-xs text-text-secondary">
-          <tr>
-            <th
-              v-for="column in tableColumns"
-              :key="column"
-              scope="col"
-              class="px-3 py-2 text-left font-medium border-b border-border"
-            >
-              {{ t(`article.table.${column}`) }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <template v-for="article in visibleArticles" :key="article.id">
-            <tr v-if="groupStarts.has(article.id)" class="bg-bg-secondary text-text-secondary">
+        <!-- AI Search no results message -->
+        <div
+          v-if="isAISearchActive && filteredArticles.length === 0 && !store.isLoading"
+          class="p-4 sm:p-5 text-center text-text-secondary text-sm sm:text-base"
+        >
+          {{ t('aiSearch.noResults') }}
+        </div>
+
+        <table
+          v-if="isTableMode"
+          class="article-table w-full table-fixed border-collapse"
+          :aria-label="articleListTitle"
+        >
+          <colgroup>
+            <col v-for="column in tableColumns" :key="column" :class="`table-column-${column}`" />
+          </colgroup>
+          <thead class="sticky top-0 z-10 bg-bg-secondary text-xs text-text-secondary">
+            <tr>
               <th
-                :colspan="tableColumns.length"
-                scope="rowgroup"
-                class="px-3 py-2 text-left text-sm font-medium"
+                v-for="column in tableColumns"
+                :key="column"
+                scope="col"
+                class="px-3 py-2 text-left font-medium border-b border-border"
               >
-                {{ groupLabel(article) }}
+                {{ t(`article.table.${column}`) }}
               </th>
             </tr>
-            <ArticleTableRow
-              :article="article"
-              :columns="tableColumns"
-              :is-active="store.currentArticleId === article.id"
-              @click="selectArticle(article)"
-              @contextmenu="(event) => handleArticleContextMenu(event, article)"
-              @observe-element="(element) => observeListArticle(element, article.id)"
-              @hover-mark-as-read="handleHoverMarkAsRead"
-            />
-            <tr
-              v-if="isAISearchActive && article.excerpt"
-              class="border-b border-border text-xs text-text-secondary"
+          </thead>
+          <tbody>
+            <template v-for="article in displayedArticles" :key="article.id">
+              <tr v-if="groupStarts.has(article.id)" class="bg-bg-secondary text-text-secondary">
+                <th
+                  :colspan="tableColumns.length"
+                  scope="rowgroup"
+                  class="px-3 py-2 text-left text-sm font-medium"
+                >
+                  {{ groupLabel(article) }}
+                </th>
+              </tr>
+              <ArticleTableRow
+                :disabled="showingPrevious"
+                :article="article"
+                :columns="tableColumns"
+                :is-active="store.currentArticleId === article.id"
+                @click="selectArticle(article)"
+                @contextmenu="(event) => handleArticleContextMenu(event, article)"
+                @observe-element="(element) => observeListArticle(element, article.id)"
+                @hover-mark-as-read="handleHoverMarkAsRead"
+              />
+              <tr
+                v-if="isAISearchActive && article.excerpt"
+                class="border-b border-border text-xs text-text-secondary"
+              >
+                <td :colspan="tableColumns.length" class="px-3 pb-2">
+                  <span class="text-accent mr-2">{{
+                    t('aiSearch.relevanceScore', {
+                      score: Math.round(article.relevance_score || 0),
+                    })
+                  }}</span>
+                  <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                    <mark v-if="part.matched" class="bg-accent/20 text-text-primary">{{
+                      part.text
+                    }}</mark>
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+
+        <!-- Article list with content-visibility for performance -->
+        <!-- Card mode: grid layout -->
+        <div v-else-if="isCardMode" class="card-grid-container">
+          <template v-for="article in displayedArticles" :key="article.id">
+            <h4
+              v-if="groupStarts.has(article.id)"
+              class="col-span-full px-1 py-2 text-sm font-medium text-text-secondary"
             >
-              <td :colspan="tableColumns.length" class="px-3 pb-2">
-                <span class="text-accent mr-2">{{
-                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
-                }}</span>
-                <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
-                  <mark v-if="part.matched" class="bg-accent/20 text-text-primary">{{
-                    part.text
-                  }}</mark>
-                  <span v-else>{{ part.text }}</span>
-                </template>
-              </td>
-            </tr>
+              {{ groupLabel(article) }}
+            </h4>
+            <div class="min-w-0 overflow-hidden rounded-lg">
+              <ArticleCardItem
+                :article="article"
+                :is-active="
+                  cardModalArticle?.id === article.id || recentlyClosedCardId === article.id
+                "
+                @click="selectArticle(article)"
+                @contextmenu="(e) => handleArticleContextMenu(e, article)"
+                @observe-element="(element) => observeListArticle(element, article.id)"
+              />
+              <div
+                v-if="isAISearchActive && article.excerpt"
+                class="border-t border-border/50 bg-bg-secondary/70 px-3 py-2 text-xs text-text-secondary"
+              >
+                <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span class="font-medium text-accent">
+                    {{
+                      t('aiSearch.relevanceScore', {
+                        score: Math.round(article.relevance_score || 0),
+                      })
+                    }}
+                  </span>
+                  <span
+                    v-for="field in article.matched_fields || []"
+                    :key="field"
+                    class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+                  >
+                    {{ searchFieldLabel(field) }}
+                  </span>
+                </div>
+                <p class="line-clamp-3 leading-5">
+                  <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                    <mark
+                      v-if="part.matched"
+                      class="rounded bg-accent/20 px-0.5 text-text-primary"
+                      >{{ part.text }}</mark
+                    >
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </p>
+              </div>
+            </div>
           </template>
-        </tbody>
-      </table>
-
-      <!-- Article list with content-visibility for performance -->
-      <!-- Card mode: grid layout -->
-      <div v-else-if="isCardMode" class="card-grid-container">
-        <template v-for="article in visibleArticles" :key="article.id">
-          <h4
-            v-if="groupStarts.has(article.id)"
-            class="col-span-full px-1 py-2 text-sm font-medium text-text-secondary"
-          >
-            {{ groupLabel(article) }}
-          </h4>
-          <div class="min-w-0 overflow-hidden rounded-lg">
-            <ArticleCardItem
-              :article="article"
-              :is-active="
-                cardModalArticle?.id === article.id || recentlyClosedCardId === article.id
-              "
-              @click="selectArticle(article)"
-              @contextmenu="(e) => handleArticleContextMenu(e, article)"
-              @observe-element="(element) => observeListArticle(element, article.id)"
-            />
-            <div
-              v-if="isAISearchActive && article.excerpt"
-              class="border-t border-border/50 bg-bg-secondary/70 px-3 py-2 text-xs text-text-secondary"
-            >
-              <div class="mb-1 flex flex-wrap items-center gap-1.5">
-                <span class="font-medium text-accent">
-                  {{
-                    t('aiSearch.relevanceScore', {
-                      score: Math.round(article.relevance_score || 0),
-                    })
-                  }}
-                </span>
-                <span
-                  v-for="field in article.matched_fields || []"
-                  :key="field"
-                  class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
-                >
-                  {{ searchFieldLabel(field) }}
-                </span>
-              </div>
-              <p class="line-clamp-3 leading-5">
-                <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
-                  <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
-                    part.text
-                  }}</mark>
-                  <span v-else>{{ part.text }}</span>
-                </template>
-              </p>
-            </div>
-          </div>
-        </template>
-      </div>
-      <!-- Normal/Compact mode: list layout -->
-      <div v-else class="article-list-container">
-        <template v-for="article in visibleArticles" :key="article.id">
-          <h4
-            v-if="groupStarts.has(article.id)"
-            class="border-b border-border bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary"
-          >
-            {{ groupLabel(article) }}
-          </h4>
-          <div class="min-w-0">
-            <ArticleItem
-              :article="article"
-              :is-active="store.currentArticleId === article.id"
-              @click="selectArticle(article)"
-              @contextmenu="(e) => handleArticleContextMenu(e, article)"
-              @observe-element="(element) => observeListArticle(element, article.id)"
-              @hover-mark-as-read="handleHoverMarkAsRead"
-            />
-            <div
-              v-if="isAISearchActive && article.excerpt"
-              class="border-b border-border bg-bg-secondary/60 px-3 pb-2 pt-1.5 text-xs text-text-secondary"
-            >
-              <div class="mb-1 flex flex-wrap items-center gap-1.5">
-                <span class="font-medium text-accent">
-                  {{
-                    t('aiSearch.relevanceScore', {
-                      score: Math.round(article.relevance_score || 0),
-                    })
-                  }}
-                </span>
-                <span
-                  v-for="field in article.matched_fields || []"
-                  :key="field"
-                  class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
-                >
-                  {{ searchFieldLabel(field) }}
-                </span>
-              </div>
-              <p class="line-clamp-2 leading-5">
-                <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
-                  <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
-                    part.text
-                  }}</mark>
-                  <span v-else>{{ part.text }}</span>
-                </template>
-              </p>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Bottom: Mark All Visible as Read button (inserted at end of list) -->
-      <Transition
-        enter-active-class="transition ease-out duration-200"
-        enter-from-class="opacity-0 translate-y-2"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition ease-in duration-150"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-2"
-      >
-        <div v-if="shouldShowBottomMarkAllRead" class="mx-3 mb-3 pt-6 pb-3 text-center">
-          <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium"
-            @click="markAllVisibleAsRead"
-          >
-            <PhCheckCircle :size="18" />
-            <span>{{ t('article.list.markAllVisibleAsRead') }}</span>
-          </button>
-          <div class="text-xs text-text-secondary mt-2">
-            {{ t('article.list.allArticlesLoaded') }}
-          </div>
         </div>
-      </Transition>
+        <!-- Normal/Compact mode: list layout -->
+        <div v-else class="article-list-container">
+          <template v-for="article in displayedArticles" :key="article.id">
+            <h4
+              v-if="groupStarts.has(article.id)"
+              class="border-b border-border bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary"
+            >
+              {{ groupLabel(article) }}
+            </h4>
+            <div class="min-w-0">
+              <ArticleItem
+                :disabled="showingPrevious"
+                :article="article"
+                :is-active="store.currentArticleId === article.id"
+                @click="selectArticle(article)"
+                @contextmenu="(e) => handleArticleContextMenu(e, article)"
+                @observe-element="(element) => observeListArticle(element, article.id)"
+                @hover-mark-as-read="handleHoverMarkAsRead"
+              />
+              <div
+                v-if="isAISearchActive && article.excerpt"
+                class="border-b border-border bg-bg-secondary/60 px-3 pb-2 pt-1.5 text-xs text-text-secondary"
+              >
+                <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span class="font-medium text-accent">
+                    {{
+                      t('aiSearch.relevanceScore', {
+                        score: Math.round(article.relevance_score || 0),
+                      })
+                    }}
+                  </span>
+                  <span
+                    v-for="field in article.matched_fields || []"
+                    :key="field"
+                    class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+                  >
+                    {{ searchFieldLabel(field) }}
+                  </span>
+                </div>
+                <p class="line-clamp-2 leading-5">
+                  <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                    <mark
+                      v-if="part.matched"
+                      class="rounded bg-accent/20 px-0.5 text-text-primary"
+                      >{{ part.text }}</mark
+                    >
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </p>
+              </div>
+            </div>
+          </template>
+        </div>
 
-      <div
-        v-if="store.isLoading || isFilterLoading"
-        class="p-3 sm:p-4 text-center text-text-secondary"
-      >
-        <PhSpinner :size="20" class="animate-spin sm:w-6 sm:h-6" />
+        <!-- Bottom: Mark All Visible as Read button (inserted at end of list) -->
+        <Transition
+          enter-active-class="transition ease-out duration-200"
+          enter-from-class="opacity-0 translate-y-2"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition ease-in duration-150"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-2"
+        >
+          <div v-if="shouldShowBottomMarkAllRead" class="mx-3 mb-3 pt-6 pb-3 text-center">
+            <button
+              class="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium"
+              @click="markAllVisibleAsRead"
+            >
+              <PhCheckCircle :size="18" />
+              <span>{{ t('article.list.markAllVisibleAsRead') }}</span>
+            </button>
+            <div class="text-xs text-text-secondary mt-2">
+              {{ t('article.list.allArticlesLoaded') }}
+            </div>
+          </div>
+        </Transition>
+
+        <div
+          v-if="(store.isLoading && !showingPrevious) || isFilterLoading"
+          class="p-3 sm:p-4 text-center text-text-secondary"
+        >
+          <PhSpinner :size="20" class="animate-spin sm:w-6 sm:h-6" />
+        </div>
       </div>
     </div>
   </section>

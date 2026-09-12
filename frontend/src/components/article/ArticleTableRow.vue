@@ -8,7 +8,12 @@ import { useSettings } from '@/composables/core/useSettings';
 import type { Article } from '@/types/models';
 import type { ArticleTableColumn } from '@/utils/articleTable';
 
-const props = defineProps<{ article: Article; columns: ArticleTableColumn[]; isActive: boolean }>();
+const props = defineProps<{
+  article: Article;
+  columns: ArticleTableColumn[];
+  isActive: boolean;
+  disabled?: boolean;
+}>();
 const emit = defineEmits<{
   click: [];
   contextmenu: [event: MouseEvent];
@@ -20,7 +25,8 @@ const { settings } = useSettings();
 const { formatArticleDate, formatArticleDateTime } = useArticleDateFormat();
 const hover = useArticleHoverRead(
   () => props.article,
-  (id) => emit('hoverMarkAsRead', id)
+  (id) => emit('hoverMarkAsRead', id),
+  () => props.disabled === true
 );
 const hasTranslation = computed(
   () => props.article.translated_title && props.article.translated_title !== props.article.title

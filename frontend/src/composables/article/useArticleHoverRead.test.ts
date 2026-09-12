@@ -19,12 +19,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup(article: Article) {
+function setup(article: Article, isDisabled = () => false) {
   let hover!: ReturnType<typeof useArticleHoverRead>;
   const onRead = vi.fn();
   const wrapper = mount({
     setup() {
-      hover = useArticleHoverRead(() => article, onRead);
+      hover = useArticleHoverRead(() => article, onRead, isDisabled);
       return {};
     },
     template: '<div />',
@@ -33,6 +33,20 @@ function setup(article: Article) {
 }
 
 describe('shared article hover reading', () => {
+  it('cancels an already queued hover when the row becomes a navigation snapshot', async () => {
+    const disabled = ref(false);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const { hover, wrapper } = setup(
+      { id: 1, is_read: false, is_read_later: false } as Article,
+      () => disabled.value
+    );
+    hover.enter();
+    disabled.value = true;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(fetchMock).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
   it('preserves read-later articles', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
