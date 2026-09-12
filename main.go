@@ -123,6 +123,14 @@ func main() {
 
 	log.Printf("Log file: %s", logPath)
 
+	linuxWindowOptions, err := configureLinuxRendering(runtime.GOOS, os.Args[1:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	if linuxWindowOptions.WebviewGpuPolicy == application.WebviewGpuPolicyNever {
+		log.Println("Linux software rendering enabled (--software-rendering)")
+	}
+
 	// Get database path
 	dbPath, err := fileutil.GetDBPath()
 	if err != nil {
@@ -343,7 +351,7 @@ func main() {
 		URL:              "/",
 		Mac:              application.MacWindow{},
 		Windows:          application.WindowsWindow{},
-		Linux:            application.LinuxWindow{},
+		Linux:            linuxWindowOptions,
 		BackgroundColour: backgroundColour,
 	}
 
