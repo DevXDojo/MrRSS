@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { PhSpinnerGap, PhTranslate, PhArrowsClockwise } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
-import { formatDate, formatExactDateTime } from '@/utils/date';
+import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import { useI18n } from 'vue-i18n';
 import { useAppStore } from '@/stores/app';
 
@@ -30,13 +30,9 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { locale } = useI18n();
 const store = useAppStore();
 
-// Translation function wrapper for formatDate
-const formatDateWithI18n = (dateStr: string): string => {
-  return formatDate(dateStr, locale.value, t);
-};
+const { formatArticleDate: formatDateWithI18n, formatArticleDateTime } = useArticleDateFormat();
 
 // Computed: check if we should show bilingual title
 const showBilingualTitle = computed(() => {
@@ -121,11 +117,9 @@ function selectArticleFeed() {
       </template>
     </div>
     <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-      <span
-        class="text-text-secondary"
-        :title="formatExactDateTime(article.published_at, locale)"
-        >{{ formatDateWithI18n(article.published_at) }}</span
-      >
+      <span class="text-text-secondary" :title="formatArticleDateTime(article.published_at)">{{
+        formatDateWithI18n(article.published_at)
+      }}</span>
       <span
         v-if="translationEnabled"
         class="flex items-center gap-1.5 sm:gap-2"

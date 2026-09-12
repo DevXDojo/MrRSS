@@ -1129,6 +1129,17 @@ const en: TranslationMessages = {
       },
     },
     reading: {
+      dateFormat: 'Date format',
+      dateFormatDesc:
+        'Choose how article publication dates appear in lists, details, and the media gallery.',
+      timeFormat: 'Time format',
+      localeFormat: 'Follow language',
+      timeFormat12: '12-hour clock',
+      timeFormat24: '24-hour clock',
+      dateTimePreview: 'Preview: {value}',
+      relativeTime: 'Relative article times',
+      relativeTimeDesc:
+        'Show recent dates as “2 hours ago”. Turn off to always show the full date and time. Hover over a date to see its exact time.',
       scrollMarkAsRead: 'Mark articles as read while scrolling',
       scrollMarkAsReadDesc:
         'Mark an unread article after it has been visible and then leaves the list viewport.',

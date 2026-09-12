@@ -57,6 +57,7 @@ type Defaults struct {
 	CustomTranslationName string        `json:"custom_translation_name"`
 	CustomTranslationResponsePath string`json:"custom_translation_response_path"`
 	CustomTranslationTimeout int        `json:"custom_translation_timeout"`
+	DateFormat string                   `json:"date_format"`
 	DeeplAPIKey string                  `json:"deepl_api_key"`
 	DeeplEndpoint string                `json:"deepl_endpoint"`
 	DefaultViewMode string              `json:"default_view_mode"`
@@ -104,6 +105,7 @@ type Defaults struct {
 	ProxyType string                    `json:"proxy_type"`
 	ProxyUsername string                `json:"proxy_username"`
 	RefreshMode string                  `json:"refresh_mode"`
+	RelativeTime bool                   `json:"relative_time"`
 	RememberArticlePosition bool        `json:"remember_article_position"`
 	RetryTimeoutSeconds int             `json:"retry_timeout_seconds"`
 	RsshubAPIKey string                 `json:"rsshub_api_key"`
@@ -130,6 +132,7 @@ type Defaults struct {
 	TencentSecretId string              `json:"tencent_secret_id"`
 	TencentSecretKey string             `json:"tencent_secret_key"`
 	Theme string                        `json:"theme"`
+	TimeFormat string                   `json:"time_format"`
 	TranslationEnabled bool             `json:"translation_enabled"`
 	TranslationOnlyMode bool            `json:"translation_only_mode"`
 	TranslationProvider string          `json:"translation_provider"`
@@ -242,6 +245,8 @@ func GetString(key string) string {
 		return defaults.CustomTranslationResponsePath
 	case "custom_translation_timeout":
 		return strconv.Itoa(defaults.CustomTranslationTimeout)
+	case "date_format":
+		return defaults.DateFormat
 	case "deepl_api_key":
 		return defaults.DeeplAPIKey
 	case "deepl_endpoint":
@@ -336,6 +341,8 @@ func GetString(key string) string {
 		return defaults.ProxyUsername
 	case "refresh_mode":
 		return defaults.RefreshMode
+	case "relative_time":
+		return strconv.FormatBool(defaults.RelativeTime)
 	case "remember_article_position":
 		return strconv.FormatBool(defaults.RememberArticlePosition)
 	case "retry_timeout_seconds":
@@ -388,6 +395,8 @@ func GetString(key string) string {
 		return defaults.TencentSecretKey
 	case "theme":
 		return defaults.Theme
+	case "time_format":
+		return defaults.TimeFormat
 	case "translation_enabled":
 		return strconv.FormatBool(defaults.TranslationEnabled)
 	case "translation_only_mode":

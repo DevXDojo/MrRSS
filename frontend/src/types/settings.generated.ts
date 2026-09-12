@@ -44,6 +44,7 @@ export interface SettingsData {
   custom_translation_name: string;
   custom_translation_response_path: string;
   custom_translation_timeout: number;
+  date_format: string;
   deepl_api_key: string;
   deepl_endpoint: string;
   default_view_mode: string;
@@ -91,6 +92,7 @@ export interface SettingsData {
   proxy_type: string;
   proxy_username: string;
   refresh_mode: string;
+  relative_time: boolean;
   remember_article_position: boolean;
   retry_timeout_seconds: number;
   rsshub_api_key: string;
@@ -117,6 +119,7 @@ export interface SettingsData {
   tencent_secret_id: string;
   tencent_secret_key: string;
   theme: string;
+  time_format: string;
   translation_enabled: boolean;
   translation_only_mode: boolean;
   translation_provider: string;

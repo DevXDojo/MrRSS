@@ -1097,6 +1097,16 @@ const zh: TranslationMessages = {
       },
     },
     reading: {
+      dateFormat: '日期格式',
+      dateFormatDesc: '选择文章列表、详情和媒体画廊中的发布日期格式。',
+      timeFormat: '时间格式',
+      localeFormat: '跟随语言',
+      timeFormat12: '12 小时制',
+      timeFormat24: '24 小时制',
+      dateTimePreview: '预览：{value}',
+      relativeTime: '文章相对时间',
+      relativeTimeDesc:
+        '将近期日期显示为“2 小时前”。关闭后始终显示完整日期和时间，悬停在日期上可查看准确时间。',
       scrollMarkAsRead: '滚动浏览时自动标记为已读',
       scrollMarkAsReadDesc: '未读文章进入可视区域并随后离开时，将其自动标记为已读。',
       autoMarkRead: '自动将旧文章标记为已读',

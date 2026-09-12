@@ -1,23 +1,28 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
+import { computed } from 'vue';
+import { formatExactDateTime } from '@/utils/date';
 import { PhArticle, PhEyeSlash, PhImage, PhListNumbers, PhSquaresFour } from '@phosphor-icons/vue';
 import { SettingGroup, SettingWithToggle, SettingWithSelect } from '@/components/settings';
 import '@/components/settings/styles.css';
 import type { SettingsData } from '@/types/settings';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 interface Props {
   settings: SettingsData;
 }
 
 const props = defineProps<Props>();
+const datePreview = computed(() =>
+  formatExactDateTime('2026-12-31T15:04:00', locale.value, props.settings)
+);
 
 const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
 }>();
 
-function updateSetting(key: keyof SettingsData, value: any) {
+function updateSetting(key: keyof SettingsData, value: string | number | boolean) {
   emit('update:settings', {
     ...props.settings,
     [key]: value,
@@ -27,6 +32,41 @@ function updateSetting(key: keyof SettingsData, value: any) {
 
 <template>
   <SettingGroup :icon="PhArticle" :title="t('setting.tab.articleDisplay')">
+    <SettingWithSelect
+      :icon="PhArticle"
+      :title="t('setting.reading.dateFormat')"
+      :description="t('setting.reading.dateFormatDesc')"
+      :model-value="settings.date_format"
+      :options="[
+        { value: 'locale', label: t('setting.reading.localeFormat') },
+        { value: 'yyyy-mm-dd', label: '2026-12-31' },
+        { value: 'mm/dd/yyyy', label: '12/31/2026' },
+        { value: 'dd/mm/yyyy', label: '31/12/2026' },
+        { value: 'dd.mm.yyyy', label: '31.12.2026' },
+      ]"
+      width="md"
+      @update:model-value="updateSetting('date_format', $event)"
+    />
+    <SettingWithSelect
+      :icon="PhArticle"
+      :title="t('setting.reading.timeFormat')"
+      :description="t('setting.reading.dateTimePreview', { value: datePreview })"
+      :model-value="settings.time_format"
+      :options="[
+        { value: 'locale', label: t('setting.reading.localeFormat') },
+        { value: '12h', label: t('setting.reading.timeFormat12') },
+        { value: '24h', label: t('setting.reading.timeFormat24') },
+      ]"
+      width="md"
+      @update:model-value="updateSetting('time_format', $event)"
+    />
+    <SettingWithToggle
+      :icon="PhArticle"
+      :title="t('setting.reading.relativeTime')"
+      :description="t('setting.reading.relativeTimeDesc')"
+      :model-value="settings.relative_time"
+      @update:model-value="updateSetting('relative_time', $event)"
+    />
     <SettingWithSelect
       :icon="PhArticle"
       :title="t('setting.reading.defaultViewMode')"

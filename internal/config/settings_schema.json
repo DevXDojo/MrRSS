@@ -374,6 +374,27 @@
     "sidebar_pinned_items": {
       "type": "string", "default": "[]", "category": "reading", "encrypted": false, "frontend_key": "sidebar_pinned_items"
     },
+    "date_format": {
+      "type": "string",
+      "default": "locale",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "date_format"
+    },
+    "time_format": {
+      "type": "string",
+      "default": "locale",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "time_format"
+    },
+    "relative_time": {
+      "type": "bool",
+      "default": true,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "relative_time"
+    },
     "article_toolbar_layout": {
       "type": "string",
       "default": "[]",

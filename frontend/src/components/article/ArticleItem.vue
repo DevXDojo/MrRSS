@@ -4,7 +4,7 @@ import { ref, computed, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhEyeSlash, PhStar, PhClockCountdown } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
-import { formatDate as formatDateUtil, formatExactDateTime } from '@/utils/date';
+import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import { getProxiedMediaUrl, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useAppStore } from '@/stores/app';
@@ -25,7 +25,7 @@ const emit = defineEmits<{
   hoverMarkAsRead: [articleId: number];
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const { showPreviewImages } = useShowPreviewImages();
 const { settings } = useSettings();
 const store = useAppStore();
@@ -49,10 +49,7 @@ const isRSSHubArticle = computed(() => {
   return feed?.url.startsWith('rsshub://') || false;
 });
 
-// Translation function wrapper for formatDate
-const formatDateWithI18n = (dateStr: string): string => {
-  return formatDateUtil(dateStr, locale.value, t);
-};
+const { formatArticleDate: formatDateWithI18n, formatArticleDateTime } = useArticleDateFormat();
 
 const mediaCacheEnabled = ref(false);
 let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -381,11 +378,9 @@ onUnmounted(() => {
               alt="RSSHub"
             />
           </template>
-          <span
-            class="whitespace-nowrap"
-            :title="formatExactDateTime(article.published_at, locale)"
-            >{{ formatDateWithI18n(article.published_at) }}</span
-          >
+          <span class="whitespace-nowrap" :title="formatArticleDateTime(article.published_at)">{{
+            formatDateWithI18n(article.published_at)
+          }}</span>
         </div>
       </div>
     </div>

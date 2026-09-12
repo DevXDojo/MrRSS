@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Configure article date formats, 12/24-hour time, and relative timestamps across lists, details, and the media gallery. (#563)
 - Customize article toolbar button visibility and order, with a restore-defaults action. (#1150)
 
 ### Fixed
