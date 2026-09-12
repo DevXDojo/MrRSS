@@ -130,6 +130,9 @@ const en: TranslationMessages = {
     list: {
       loadingArticles: 'Loading articles…',
       more: 'More',
+      options: 'List options',
+      appliesImmediately: 'Applies immediately',
+      sorting: { label: 'Sort by date', newest: 'Newest first', oldest: 'Oldest first' },
       grouping: {
         label: 'Group by',
         none: 'No grouping',

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { withShortcut } from '@/composables/ui/shortcutBindings';
-import { useAppStore } from '@/stores/app';
+import { useAppStore, type ArticleSortOrder } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, type Ref } from 'vue';
 import {
@@ -13,8 +13,6 @@ import {
   PhClock,
   PhLightning,
   PhStar,
-  PhSortAscending,
-  PhSortDescending,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
 import ArticleListMoreMenu from './ArticleListMoreMenu.vue';
@@ -1058,14 +1056,16 @@ const isUnreadEmptyState = computed(
 );
 const isFavoritesEmptyState = computed(() => store.currentFilter === 'favorites');
 
-async function toggleArticleSortOrder(): Promise<void> {
-  const nextOrder = store.articleSortOrder === 'newest' ? 'oldest' : 'newest';
-  store.setArticleSortOrder(nextOrder);
+async function changeArticleSortOrder(order: ArticleSortOrder): Promise<void> {
+  if (order === store.articleSortOrder) return;
+  store.setArticleSortOrder(order);
   await reloadArticleOrder();
 }
 
 async function changeArticleGrouping(value: string | number): Promise<void> {
-  store.setArticleGroupBy(parseArticleGroupBy(String(value)));
+  const groupBy = parseArticleGroupBy(String(value));
+  if (groupBy === store.articleGroupBy) return;
+  store.setArticleGroupBy(groupBy);
   await reloadArticleOrder();
 }
 
@@ -1160,25 +1160,11 @@ async function markAllVisibleAsRead(): Promise<void> {
               :weight="store.showOnlyUnread ? 'fill' : 'regular'"
             />
           </button>
-          <button
-            class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-            :title="
-              store.articleSortOrder === 'newest'
-                ? t('article.action.sortOldestFirst')
-                : t('article.action.sortNewestFirst')
-            "
-            @click="toggleArticleSortOrder"
-          >
-            <PhSortDescending
-              v-if="store.articleSortOrder === 'newest'"
-              :size="18"
-              class="sm:w-5 sm:h-5"
-            />
-            <PhSortAscending v-else :size="18" class="sm:w-5 sm:h-5" />
-          </button>
           <ArticleListMoreMenu
+            :sort-order="store.articleSortOrder"
             :group-by="store.articleGroupBy"
             :filter-count="activeFilters.length"
+            @sort="changeArticleSortOrder"
             @group="changeArticleGrouping"
             @filter="showFilterModal = true"
           />

@@ -126,6 +126,9 @@ const zh: TranslationMessages = {
     list: {
       loadingArticles: '正在加载文章…',
       more: '更多',
+      options: '列表选项',
+      appliesImmediately: '立即生效',
+      sorting: { label: '时间排序', newest: '最新优先', oldest: '最旧优先' },
       grouping: {
         label: '分组方式',
         none: '不分组',
