@@ -2,15 +2,25 @@ package database
 
 import (
 	"MrRSS/internal/crypto"
+	"context"
 	"fmt"
 	"log"
 )
 
 // GetSetting retrieves a setting value by key.
 func (db *DB) GetSetting(key string) (string, error) {
-	db.WaitForReady()
+	return db.GetSettingContext(context.Background(), key)
+}
+
+// GetSettingContext reads a setting with cancellation support.
+func (db *DB) GetSettingContext(ctx context.Context, key string) (string, error) {
+	select {
+	case <-db.ready:
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 	var value string
-	err := db.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&value)
+	err := db.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = ?", key).Scan(&value)
 	if err != nil {
 		return "", err
 	}

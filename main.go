@@ -29,6 +29,7 @@ import (
 	"MrRSS/internal/network"
 	"MrRSS/internal/routes"
 	"MrRSS/internal/translation"
+	"MrRSS/internal/tray"
 	"MrRSS/internal/utils"
 	"MrRSS/internal/utils/fileutil"
 	"MrRSS/internal/utils/httputil"
@@ -474,9 +475,21 @@ func main() {
 		storeWindowState()
 	})
 
-	// Setup tray on startup if close_to_tray is enabled
-	if shouldCloseToTray() {
+	// macOS also uses the status item for its unread indicator.
+	if shouldCloseToTray() || runtime.GOOS == "darwin" {
 		setupSystemTray()
+	}
+	if runtime.GOOS == "darwin" {
+		app.OnShutdown(bgCancel)
+		app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(event *application.ApplicationEvent) {
+			go tray.WatchUnread(bgCtx, db, func(label string) {
+				application.InvokeAsync(func() {
+					if bgCtx.Err() == nil {
+						systemTray.SetLabel(label)
+					}
+				})
+			})
+		})
 	}
 
 	// On macOS, handle dock icon click to show the window

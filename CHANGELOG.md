@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Show the macOS menu-bar unread count, update it while the reader is hidden, and respect the unread-count visibility setting. (#544)
 - Fetch Miniflux articles through its supported Google Reader item endpoints and preserve folders, read state, and starred state during synchronization. (#1191) (@HernandoR)
 - Preserve image `referrerpolicy="no-referrer"` in article content so feeds can load images from hosts that reject the desktop WebView referrer. (#1189)
 - Apply the configured application proxy and encrypted proxy credentials to media cache downloads and direct media forwarding, and cancel downloads with their requests. (#1189)
