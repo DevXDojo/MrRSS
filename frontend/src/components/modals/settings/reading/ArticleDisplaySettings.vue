@@ -6,6 +6,11 @@ import { PhArticle, PhEyeSlash, PhImage, PhListNumbers, PhSquaresFour } from '@p
 import { SettingGroup, SettingWithToggle, SettingWithSelect } from '@/components/settings';
 import '@/components/settings/styles.css';
 import type { SettingsData } from '@/types/settings';
+import {
+  articleTableColumns,
+  parseArticleTableColumns,
+  type ArticleTableColumn,
+} from '@/utils/articleTable';
 
 const { t, locale } = useI18n();
 
@@ -17,6 +22,18 @@ const props = defineProps<Props>();
 const datePreview = computed(() =>
   formatExactDateTime('2026-12-31T15:04:00', locale.value, props.settings)
 );
+const visibleTableColumns = computed(() =>
+  parseArticleTableColumns(props.settings.article_table_columns)
+);
+function toggleTableColumn(column: ArticleTableColumn, enabled: boolean): void {
+  const columns = new Set(visibleTableColumns.value);
+  if (enabled) columns.add(column);
+  else columns.delete(column);
+  updateSetting(
+    'article_table_columns',
+    JSON.stringify(articleTableColumns.filter((item) => item === 'title' || columns.has(item)))
+  );
+}
 
 const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
@@ -114,10 +131,21 @@ function updateSetting(key: keyof SettingsData, value: string | number | boolean
         { value: 'normal', label: t('setting.typography.layoutModeNormal') },
         { value: 'compact', label: t('setting.typography.layoutModeCompact') },
         { value: 'card', label: t('setting.typography.layoutModeCard') },
+        { value: 'table', label: t('setting.typography.layoutModeTable') },
       ]"
       width="md"
       @update:model-value="updateSetting('layout_mode', $event)"
     />
+    <template v-if="settings.layout_mode === 'table'">
+      <SettingWithToggle
+        v-for="column in articleTableColumns.filter((item) => item !== 'title')"
+        :key="column"
+        :icon="PhListNumbers"
+        :title="t('article.table.showColumn', { name: t(`article.table.${column}`) })"
+        :model-value="visibleTableColumns.includes(column)"
+        @update:model-value="toggleTableColumn(column, $event)"
+      />
+    </template>
   </SettingGroup>
 </template>
 

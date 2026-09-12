@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add an optional desktop table layout above the reader, with selectable feed, author, date, and status columns and a resizable split. Preserve filtering, grouping, translation, and article actions. (#945)
 - Group article lists and cards by local calendar date or feed, with stable pagination and matching reading order. Limit relative mark-as-read actions to the current feed when grouped by feed. (#565)
 - Preview the latest feed articles before subscribing, including RSSHub URLs, without saving subscriptions or reading state. Use the selected proxy for both preview and initial subscription requests. (#564)
 - Clip articles to a configured SiYuan notebook as Markdown with source metadata, encrypted API-token storage, and a customizable toolbar action. (#688)

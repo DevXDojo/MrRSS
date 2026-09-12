@@ -27,6 +27,8 @@ import {
 import { formatCalendarDate } from '@/utils/date';
 import ArticleItem from './ArticleItem.vue';
 import ArticleCardItem from './ArticleCardItem.vue';
+import ArticleTableRow from './ArticleTableRow.vue';
+import { parseArticleTableColumns } from '@/utils/articleTable';
 import ArticleDetailModal from './ArticleDetailModal.vue';
 import AISearchBar from './AISearchBar.vue';
 import { useArticleTranslation } from '@/composables/article/useArticleTranslation';
@@ -74,6 +76,8 @@ const hasScrolledToBottom = ref(false);
 // Layout mode computed
 const layoutMode = computed(() => settings.value.layout_mode || 'normal');
 const isCardMode = computed(() => layoutMode.value === 'card');
+const isTableMode = computed(() => layoutMode.value === 'table');
+const tableColumns = computed(() => parseArticleTableColumns(settings.value.article_table_columns));
 
 async function scrollPendingFeedArticleIntoView(): Promise<void> {
   const articleId = pendingFeedArticleId.value;
@@ -1105,7 +1109,7 @@ async function markAllVisibleAsRead(): Promise<void> {
   <section
     :class="[
       'article-list flex flex-col w-full border-r border-border bg-bg-primary shrink-0 h-full',
-      { 'card-mode': isCardMode },
+      { 'card-mode': isCardMode, 'table-mode': isTableMode },
     ]"
   >
     <div class="p-2 sm:p-4 border-b border-border bg-bg-primary">
@@ -1379,9 +1383,69 @@ async function markAllVisibleAsRead(): Promise<void> {
         {{ t('aiSearch.noResults') }}
       </div>
 
+      <table
+        v-if="isTableMode"
+        class="article-table w-full table-fixed border-collapse"
+        :aria-label="articleListTitle"
+      >
+        <colgroup>
+          <col v-for="column in tableColumns" :key="column" :class="`table-column-${column}`" />
+        </colgroup>
+        <thead class="sticky top-0 z-10 bg-bg-secondary text-xs text-text-secondary">
+          <tr>
+            <th
+              v-for="column in tableColumns"
+              :key="column"
+              scope="col"
+              class="px-3 py-2 text-left font-medium border-b border-border"
+            >
+              {{ t(`article.table.${column}`) }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <template v-for="article in visibleArticles" :key="article.id">
+            <tr v-if="groupStarts.has(article.id)" class="bg-bg-secondary text-text-secondary">
+              <th
+                :colspan="tableColumns.length"
+                scope="rowgroup"
+                class="px-3 py-2 text-left text-sm font-medium"
+              >
+                {{ groupLabel(article) }}
+              </th>
+            </tr>
+            <ArticleTableRow
+              :article="article"
+              :columns="tableColumns"
+              :is-active="store.currentArticleId === article.id"
+              @click="selectArticle(article)"
+              @contextmenu="(event) => handleArticleContextMenu(event, article)"
+              @observe-element="(element) => observeListArticle(element, article.id)"
+              @hover-mark-as-read="handleHoverMarkAsRead"
+            />
+            <tr
+              v-if="isAISearchActive && article.excerpt"
+              class="border-b border-border text-xs text-text-secondary"
+            >
+              <td :colspan="tableColumns.length" class="px-3 pb-2">
+                <span class="text-accent mr-2">{{
+                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
+                }}</span>
+                <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                  <mark v-if="part.matched" class="bg-accent/20 text-text-primary">{{
+                    part.text
+                  }}</mark>
+                  <span v-else>{{ part.text }}</span>
+                </template>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
       <!-- Article list with content-visibility for performance -->
       <!-- Card mode: grid layout -->
-      <div v-if="isCardMode" class="card-grid-container">
+      <div v-else-if="isCardMode" class="card-grid-container">
         <template v-for="article in visibleArticles" :key="article.id">
           <h4
             v-if="groupStarts.has(article.id)"
@@ -1543,6 +1607,31 @@ async function markAllVisibleAsRead(): Promise<void> {
 
 <style scoped>
 @reference "../../style.css";
+.article-table {
+  min-width: 600px;
+}
+.table-column-title {
+  width: auto;
+}
+.table-column-feed,
+.table-column-author {
+  width: 18%;
+}
+.table-column-date {
+  width: 22%;
+}
+.table-column-status {
+  width: 90px;
+}
+
+@media (min-width: 768px) {
+  .article-list.table-mode {
+    width: 100% !important;
+    min-height: 0;
+    height: clamp(160px, var(--table-list-height, 40%), calc(100% - 160px));
+    border-right: none;
+  }
+}
 @media (min-width: 768px) {
   .article-list {
     width: var(--article-list-width, 400px);

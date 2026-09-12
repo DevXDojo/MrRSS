@@ -35,6 +35,7 @@ type Defaults struct {
 	AITranslationPrompt string          `json:"ai_translation_prompt"`
 	AIUsageLimit string                 `json:"ai_usage_limit"`
 	AIUsageTokens string                `json:"ai_usage_tokens"`
+	ArticleTableColumns string          `json:"article_table_columns"`
 	ArticleToolbarLayout string         `json:"article_toolbar_layout"`
 	AutoCleanupEnabled bool             `json:"auto_cleanup_enabled"`
 	AutoMarkReadDays int                `json:"auto_mark_read_days"`
@@ -206,6 +207,8 @@ func GetString(key string) string {
 		return defaults.AIUsageLimit
 	case "ai_usage_tokens":
 		return defaults.AIUsageTokens
+	case "article_table_columns":
+		return defaults.ArticleTableColumns
 	case "article_toolbar_layout":
 		return defaults.ArticleToolbarLayout
 	case "auto_cleanup_enabled":

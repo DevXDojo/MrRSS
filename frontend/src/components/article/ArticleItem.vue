@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { withShortcut } from '@/composables/ui/shortcutBindings';
-import { ref, computed, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhEyeSlash, PhStar, PhClockCountdown } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
+import { useArticleHoverRead } from '@/composables/article/useArticleHoverRead';
 import { getProxiedMediaUrl, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useAppStore } from '@/stores/app';
@@ -35,9 +36,10 @@ const compactMode = computed(() => {
   return settings.value.layout_mode === 'compact';
 });
 
-const hoverMarkAsRead = computed(() => {
-  return settings.value.hover_mark_as_read;
-});
+const { enter: handleMouseEnter, leave: handleMouseLeave } = useArticleHoverRead(
+  () => props.article,
+  (id) => emit('hoverMarkAsRead', id)
+);
 
 // Check if article is from RSSHub feed - O(1) lookup using feedMap
 const isRSSHubArticle = computed(() => {
@@ -52,7 +54,6 @@ const isRSSHubArticle = computed(() => {
 const { formatArticleDate: formatDateWithI18n, formatArticleDateTime } = useArticleDateFormat();
 
 const mediaCacheEnabled = ref(false);
-let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const imageUrl = computed(() => {
   if (!props.article.image_url) return '';
@@ -158,51 +159,6 @@ function handleImageError(event: Event) {
   // Update cache to mark as permanently failed
   imageCache.handleLoadError(url);
 }
-
-// Hover mark as read functionality
-function handleMouseEnter() {
-  // Don't mark as read if:
-  // - Setting is disabled
-  // - Article is already read
-  // - Article is in "Read Later" list (user explicitly wants to read it later)
-  if (!hoverMarkAsRead.value || props.article.is_read || props.article.is_read_later) {
-    return;
-  }
-
-  // Use a small delay to avoid marking as read when quickly scrolling through the list
-  hoverTimeout = setTimeout(() => {
-    markAsRead();
-  }, 300);
-}
-
-function handleMouseLeave() {
-  if (hoverTimeout) {
-    clearTimeout(hoverTimeout);
-    hoverTimeout = null;
-  }
-}
-
-async function markAsRead() {
-  if (props.article.is_read) return;
-
-  try {
-    await fetch(`/api/articles/read?id=${props.article.id}&read=true`, {
-      method: 'POST',
-    });
-    // Emit event to parent to update article state
-    emit('hoverMarkAsRead', props.article.id);
-    await store.fetchUnreadCounts();
-    await store.fetchFilterCounts();
-  } catch (e) {
-    console.error('Error marking as read on hover:', e);
-  }
-}
-
-onUnmounted(() => {
-  if (hoverTimeout) {
-    clearTimeout(hoverTimeout);
-  }
-});
 </script>
 
 <template>

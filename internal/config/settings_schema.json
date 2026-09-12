@@ -871,6 +871,13 @@
       "encrypted": false,
       "frontend_key": "layoutMode"
     },
+    "article_table_columns": {
+      "type": "string",
+      "default": "[\"title\",\"feed\",\"date\",\"status\"]",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "article_table_columns"
+    },
     "feed_drawer_pinned": {
       "type": "bool",
       "default": true,

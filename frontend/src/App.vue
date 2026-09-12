@@ -20,6 +20,7 @@ import { useNotifications } from './composables/ui/useNotifications';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
 import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
+import { useArticleTableSplit } from './composables/ui/useArticleTableSplit';
 import { useWindowState } from './composables/core/useWindowState';
 import { useAppUpdates } from './composables/core/useAppUpdates';
 import { useSettings } from './composables/core/useSettings';
@@ -70,6 +71,10 @@ const isImageGalleryMode = computed(() => store.currentFilter === 'imageGallery'
 
 // Check if we're in card mode
 const isCardMode = ref(false);
+const isTableMode = ref(false);
+const readerPanes = ref<HTMLElement | null>(null);
+const tableSplit = useArticleTableSplit(readerPanes);
+watch([isTableMode, isImageGalleryMode], () => tableSplit.stop());
 
 // Use composables
 const {
@@ -148,6 +153,7 @@ onMounted(async () => {
     const layoutMode = data.layout_mode || 'normal';
     const isCompactModeLayout = layoutMode === 'compact';
     isCardMode.value = layoutMode === 'card';
+    isTableMode.value = layoutMode === 'table';
     // First set the compact mode, then set the width (order matters)
     setCompactMode(isCompactModeLayout);
     setArticleListWidth(isCompactModeLayout ? 500 : 350);
@@ -284,6 +290,7 @@ window.addEventListener('layout-mode-changed', (e) => {
   const mode = customEvent.detail.mode;
   const isCompactModeLayout = mode === 'compact';
   isCardMode.value = mode === 'card';
+  isTableMode.value = mode === 'table';
   setCompactMode(isCompactModeLayout);
   if (!isCardMode.value) {
     setArticleListWidth(isCompactModeLayout ? 600 : 400);
@@ -352,16 +359,40 @@ function onFeedUpdated(): void {
     </template>
 
     <!-- Show ArticleList and ArticleDetail when not in image gallery mode -->
-    <template v-else>
+    <div
+      v-else
+      ref="readerPanes"
+      class="reader-panes"
+      :class="{ 'table-mode': isTableMode }"
+      :style="{ '--table-list-height': tableSplit.split.value + '%' }"
+    >
       <ArticleList :is-sidebar-open="isSidebarOpen" @toggle-sidebar="toggleSidebar" />
 
       <!-- Hide resizer and ArticleDetail when in card mode -->
       <template v-if="!isCardMode">
-        <div class="resizer hidden md:block" @mousedown="startResizeArticleList"></div>
+        <div
+          v-if="isTableMode"
+          class="table-resizer hidden md:block focus-visible:outline-2 focus-visible:outline-accent"
+          role="separator"
+          tabindex="0"
+          aria-orientation="horizontal"
+          :aria-label="t('article.table.resize')"
+          :aria-valuenow="tableSplit.split.value"
+          :aria-valuemin="25"
+          :aria-valuemax="75"
+          @pointerdown="tableSplit.start"
+          @keydown="tableSplit.keydown"
+        ></div>
+        <div v-else class="resizer hidden md:block" @mousedown="startResizeArticleList"></div>
 
         <ArticleDetail />
       </template>
-    </template>
+    </div>
+    <div
+      v-if="tableSplit.resizing.value"
+      class="fixed inset-0 z-50 cursor-row-resize"
+      aria-hidden="true"
+    ></div>
 
     <AddFeedModal v-if="showAddFeed" @close="showAddFeed = false" @added="onFeedAdded" />
     <EditFeedModal
@@ -496,6 +527,34 @@ function onFeedUpdated(): void {
   z-index: 10;
   margin-left: -2px;
   margin-right: -2px;
+}
+.reader-panes {
+  display: contents;
+}
+@media (min-width: 768px) {
+  .reader-panes.table-mode {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .reader-panes.table-mode > :deep(main) {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0;
+  }
+  .table-resizer {
+    height: 4px;
+    flex-shrink: 0;
+    cursor: row-resize;
+    background-color: var(--color-border);
+    touch-action: none;
+  }
+  .table-resizer:hover,
+  .table-resizer:focus-visible {
+    background-color: var(--color-accent);
+  }
 }
 .resizer:hover,
 .resizer:active {
