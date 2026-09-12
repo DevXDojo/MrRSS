@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ModalFooter from '@/components/common/ModalFooter.vue';
 import { onBeforeUnmount, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhArrowUp, PhArrowDown } from '@phosphor-icons/vue';
@@ -87,29 +88,20 @@ async function save() {
       </div>
     </div>
     <template #footer>
-      <div class="flex flex-wrap justify-end gap-2 text-sm">
-        <button
-          class="mr-auto px-3 py-2 rounded hover:bg-bg-tertiary"
-          :disabled="saving"
-          @click="items = parseToolbarLayout('[]')"
-        >
-          {{ t('article.toolbar.reset') }}
-        </button>
-        <button
-          class="px-3 py-2 rounded hover:bg-bg-tertiary"
-          :disabled="saving"
-          @click="emit('close')"
-        >
-          {{ t('common.cancel') }}
-        </button>
-        <button
-          class="px-3 py-2 rounded bg-accent text-white disabled:opacity-50"
-          :disabled="saving"
-          @click="save"
-        >
-          {{ t('common.save') }}
-        </button>
-      </div>
+      <ModalFooter
+        :primary-button="{ label: t('common.save'), disabled: saving, loading: saving }"
+        :secondary-button="{ label: t('common.cancel'), disabled: saving }"
+        @primary-click="save"
+        @secondary-click="emit('close')"
+      >
+        <template #left>
+          <ModalFooter
+            class="sm:mr-auto"
+            :secondary-button="{ label: t('article.toolbar.reset'), disabled: saving }"
+            @secondary-click="items = parseToolbarLayout('[]')"
+          />
+        </template>
+      </ModalFooter>
     </template>
   </BaseModal>
 </template>

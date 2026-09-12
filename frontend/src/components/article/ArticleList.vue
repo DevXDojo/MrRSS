@@ -7,7 +7,6 @@ import {
   PhArrowClockwise,
   PhList,
   PhSpinner,
-  PhFunnel,
   PhTrash,
   PhCheckCircle,
   PhCircle,
@@ -18,7 +17,7 @@ import {
   PhSortDescending,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
-import BaseSelect from '../common/BaseSelect.vue';
+import ArticleListMoreMenu from './ArticleListMoreMenu.vue';
 import {
   articleGroupStarts,
   orderGroupedArticles,
@@ -308,12 +307,6 @@ const { displayedArticles, showingPrevious, showLoadingIndicator } = useArticleL
 );
 const groupStarts = computed(() =>
   articleGroupStarts(displayedArticles.value, store.articleGroupBy)
-);
-const groupingOptions = computed(() =>
-  ['none', 'date', 'feed'].map((value) => ({
-    value,
-    label: t(`article.list.grouping.${value}`),
-  }))
 );
 
 function groupLabel(article: Article): string {
@@ -1183,22 +1176,12 @@ async function markAllVisibleAsRead(): Promise<void> {
             />
             <PhSortAscending v-else :size="18" class="sm:w-5 sm:h-5" />
           </button>
-          <div class="relative">
-            <button
-              class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-              :class="activeFilters.length > 0 ? 'filter-active' : ''"
-              :title="t('modal.filter.filter')"
-              @click="showFilterModal = true"
-            >
-              <PhFunnel :size="18" class="sm:w-5 sm:h-5" />
-            </button>
-            <div
-              v-if="activeFilters.length > 0"
-              class="absolute -top-1 -right-1 bg-accent text-white text-[9px] sm:text-[10px] font-bold rounded-full min-w-[14px] sm:min-w-[16px] h-3.5 sm:h-4 px-0.5 sm:px-1 flex items-center justify-center"
-            >
-              {{ activeFilters.length }}
-            </div>
-          </div>
+          <ArticleListMoreMenu
+            :group-by="store.articleGroupBy"
+            :filter-count="activeFilters.length"
+            @group="changeArticleGrouping"
+            @filter="showFilterModal = true"
+          />
           <div
             class="relative"
             @mouseenter="onRefreshTooltipShow"
@@ -1340,18 +1323,6 @@ async function markAllVisibleAsRead(): Promise<void> {
           </button>
         </div>
       </div>
-    </div>
-
-    <div
-      class="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-text-secondary"
-    >
-      <span>{{ t('article.list.grouping.label') }}</span>
-      <BaseSelect
-        :model-value="store.articleGroupBy"
-        :options="groupingOptions"
-        size="xs"
-        @update:model-value="changeArticleGrouping"
-      />
     </div>
 
     <!-- AI Search Bar -->

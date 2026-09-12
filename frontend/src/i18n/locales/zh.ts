@@ -125,6 +125,7 @@ const zh: TranslationMessages = {
     },
     list: {
       loadingArticles: '正在加载文章…',
+      more: '更多',
       grouping: {
         label: '分组方式',
         none: '不分组',
@@ -1050,6 +1051,8 @@ const zh: TranslationMessages = {
       reDetectNetwork: '重新检测',
     },
     freshrss: {
+      integration: '{name} 集成',
+      integrationDesc: '通过 Google Reader API 单独配置并同步 {name}。',
       apiPassword: 'Google Reader 密码',
       apiPasswordDesc: '在服务器中配置的 Google Reader API 密码（不同于正常登录密码）',
       apiPasswordPlaceholder: '输入 Google Reader 密码',

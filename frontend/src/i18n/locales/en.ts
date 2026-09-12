@@ -129,6 +129,7 @@ const en: TranslationMessages = {
     },
     list: {
       loadingArticles: 'Loading articles…',
+      more: 'More',
       grouping: {
         label: 'Group by',
         none: 'No grouping',
@@ -181,7 +182,8 @@ const en: TranslationMessages = {
     },
     toolbar: {
       customize: 'Customize Toolbar',
-      customizeHint: 'Choose visible buttons and their order. Translation and export buttons appear when their features are enabled.',
+      customizeHint:
+        'Choose visible buttons and their order. Translation and export buttons appear when their features are enabled.',
       reset: 'Restore Defaults',
       moveUp: 'Move {name} up',
       moveDown: 'Move {name} down',
@@ -1083,6 +1085,8 @@ const en: TranslationMessages = {
       reDetectNetwork: 'Re-detect',
     },
     freshrss: {
+      integration: '{name} Integration',
+      integrationDesc: 'Configure and sync {name} independently using its Google Reader API.',
       apiPassword: 'Google Reader Password',
       apiPasswordDesc:
         'Google Reader API password configured on the server (different from your normal login password)',

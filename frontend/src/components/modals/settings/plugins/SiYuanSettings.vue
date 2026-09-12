@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SiYuanIcon from '@/components/common/SiYuanIcon.vue';
 import { useI18n } from 'vue-i18n';
 import { PhNotebook, PhKey, PhGlobe, PhFolder } from '@phosphor-icons/vue';
 import type { SettingsData } from '@/types/settings';
@@ -21,7 +22,7 @@ function updateSetting(key: keyof SettingsData, value: string | boolean) {
 <template>
   <div>
     <SettingWithToggle
-      :icon="PhNotebook"
+      :icon="SiYuanIcon"
       :title="t('setting.plugins.siyuan.integration')"
       :description="t('setting.plugins.siyuan.description')"
       :model-value="settings.siyuan_enabled"

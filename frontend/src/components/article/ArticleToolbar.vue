@@ -5,6 +5,7 @@ import { useSettings } from '@/composables/core/useSettings';
 import { computed, onMounted, ref } from 'vue';
 import ArticleToolbarSettings from './ArticleToolbarSettings.vue';
 import { parseToolbarLayout } from '@/utils/articleToolbar';
+import SiYuanIcon from '@/components/common/SiYuanIcon.vue';
 import { useSiYuanExport } from '@/composables/article/useSiYuanExport';
 import {
   PhArrowLeft,
@@ -20,7 +21,6 @@ import {
   PhTranslate,
   PhArrowClockwise,
   PhSlidersHorizontal,
-  PhNotebook,
 } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import { copyArticleLink, copyArticleTitle } from '@/utils/clipboard';
@@ -287,7 +287,7 @@ async function copyTitle(article: Article) {
           :aria-busy="isExportingToSiYuan"
           @click="exportToSiYuan(article.id)"
         >
-          <PhNotebook :size="18" class="sm:w-5 sm:h-5" />
+          <SiYuanIcon class="w-[18px] h-[18px] sm:w-5 sm:h-5" />
         </button>
       </template>
       <button
