@@ -1,4 +1,4 @@
-package database
+package database_test
 
 import (
 	"testing"
@@ -7,6 +7,7 @@ import (
 
 func TestReadLaterMembershipIsIndependentOfReading(t *testing.T) {
 	db := setupDBWithFeed(t)
+	t.Cleanup(func() { _ = db.Close() })
 	var feedID int64
 	if err := db.QueryRow(`SELECT id FROM feeds LIMIT 1`).Scan(&feedID); err != nil {
 		t.Fatal(err)

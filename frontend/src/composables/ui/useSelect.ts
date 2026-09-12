@@ -162,7 +162,6 @@ export function useSelect(options: UseSelectOptions) {
     let element: HTMLElement | null = triggerRef.value;
     let scrollableContainer: HTMLElement | null = null;
     let modalContent: HTMLElement | null = null;
-    let useTeleport = false;
 
     // Walk up the DOM tree to find relevant containers
     while (element && element !== document.body) {
@@ -207,7 +206,7 @@ export function useSelect(options: UseSelectOptions) {
     // Render outside the scrolling body, but inside the modal backdrop so
     // nested modals keep their own stacking order. Absolute descendants inside
     // the scroll body can change its scrollHeight merely by opening a menu.
-    useTeleport = scrollableContainer !== null || modalContent !== null;
+    const useTeleport = scrollableContainer !== null || modalContent !== null;
     return { scrollableContainer, modalContent, useTeleport };
   }
 
