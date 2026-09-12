@@ -211,6 +211,9 @@ func (f *Fetcher) getHTTPClient(feed models.Feed) (*http.Client, error) {
 // HTTP timeout would otherwise defeat the user's longer retry budget, including
 // while downloading the body of a large feed.
 func (f *Fetcher) retryTimeout() time.Duration {
+	if f.db == nil {
+		return 60 * time.Second
+	}
 	value, err := f.db.GetSetting("retry_timeout_seconds")
 	if err != nil {
 		return 60 * time.Second
