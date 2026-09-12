@@ -49,7 +49,7 @@ func TestFactoryUsesProxySettingsForTraditionalProviders(t *testing.T) {
 		"microsoft_api_key": "test-key", "microsoft_region": "eastasia", "microsoft_endpoint": "https://translator.example",
 		"tencent_secret_id": "test-id", "tencent_secret_key": "test-secret", "tencent_region": "ap-shanghai",
 	}}
-	for _, providerType := range []ProviderType{ProviderGoogle, ProviderDeepL, ProviderBaidu, ProviderMicrosoft, ProviderTencent} {
+	for _, providerType := range []ProviderType{ProviderGoogle, ProviderDeepL, ProviderBaidu, ProviderMicrosoft, ProviderMicrosoftEdge, ProviderTencent} {
 		t.Run(providerType.String(), func(t *testing.T) {
 			provider, err := NewFactory(settings).Create(providerType)
 			if err != nil {
@@ -57,6 +57,8 @@ func TestFactoryUsesProxySettingsForTraditionalProviders(t *testing.T) {
 			}
 			var client *http.Client
 			switch p := provider.(type) {
+			case *edgeProvider:
+				client = p.client
 			case *googleProvider:
 				client = p.translator.client
 				if p.translator.db != settings {

@@ -60,6 +60,8 @@ func (f *Factory) SetProfileProvider(profileProvider *ai.ProfileProvider) {
 // Create 创建翻译提供商实例
 func (f *Factory) Create(providerType ProviderType) (Provider, error) {
 	switch providerType {
+	case ProviderMicrosoftEdge:
+		return newEdgeProvider(f.settingsProvider)
 	case ProviderGoogle:
 		return f.createGoogleProvider(ProviderConfig{}), nil
 

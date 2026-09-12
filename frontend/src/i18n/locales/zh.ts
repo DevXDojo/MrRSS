@@ -785,6 +785,9 @@ const zh: TranslationMessages = {
       microsoftEndpointDesc: '自定义 API 端点（留空使用官方端点）',
       microsoftEndpointPlaceholder: 'https://api.cognitive.microsofttranslator.com',
       microsoftTranslate: 'Microsoft 翻译',
+      microsoftEdgeTranslate: 'Microsoft Edge（免 API Key）',
+      microsoftEdgeTranslateDesc:
+        '无需填写密钥，通过 Microsoft Edge 翻译。使用当前代理设置；可用性和请求限制取决于微软的消费者服务。',
       tencentSecretId: '腾讯云 Secret ID',
       tencentSecretIdDesc: '输入腾讯云的 Secret ID',
       tencentSecretIdPlaceholder: '输入您的 Secret ID',

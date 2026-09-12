@@ -178,6 +178,7 @@ async function clearTranslationCache() {
             { value: 'deepl', label: t('setting.content.deeplApi') },
             { value: 'baidu', label: t('setting.content.baiduTranslate') },
             { value: 'microsoft', label: t('setting.content.microsoftTranslate') },
+            { value: 'microsoft_edge', label: t('setting.content.microsoftEdgeTranslate') },
             { value: 'tencent', label: t('setting.content.tencentTranslate') },
             { value: 'ai', label: t('setting.content.aiTranslation') },
             { value: 'custom', label: t('setting.translation.custom.title') },
@@ -187,6 +188,13 @@ async function clearTranslationCache() {
           @update:model-value="updateSetting('translation_provider', $event)"
         />
       </SubSettingItem>
+
+      <p
+        v-if="settings.translation_provider === 'microsoft_edge'"
+        class="text-xs text-text-secondary"
+      >
+        {{ t('setting.content.microsoftEdgeTranslateDesc') }}
+      </p>
 
       <!-- Google Translate Endpoint -->
       <SubSettingItem

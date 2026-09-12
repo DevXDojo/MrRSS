@@ -809,6 +809,9 @@ const en: TranslationMessages = {
       microsoftEndpointDesc: 'Custom API endpoint (leave empty to use official endpoint)',
       microsoftEndpointPlaceholder: 'https://api.cognitive.microsofttranslator.com',
       microsoftTranslate: 'Microsoft Translator',
+      microsoftEdgeTranslate: 'Microsoft Edge (no API key)',
+      microsoftEdgeTranslateDesc:
+        'Translate through Microsoft Edge without an API key. Uses your proxy settings; availability and rate limits depend on Microsoft’s consumer service.',
       tencentSecretId: 'Tencent Cloud Secret ID',
       tencentSecretIdDesc: 'Enter your Tencent Cloud Secret ID',
       tencentSecretIdPlaceholder: 'Enter your Secret ID',

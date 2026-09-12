@@ -46,6 +46,13 @@ func NewDynamicTranslatorWithCache(settings SettingsProvider, cache CacheProvide
 
 // Translate translates text using the currently configured translation provider.
 func (t *DynamicTranslator) Translate(text, targetLang string) (string, error) {
+	return t.TranslateContext(context.Background(), text, targetLang)
+}
+
+func (t *DynamicTranslator) TranslateContext(ctx context.Context, text, targetLang string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if text == "" {
 		return "", nil
 	}
@@ -54,8 +61,6 @@ func (t *DynamicTranslator) Translate(text, targetLang string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	ctx := context.Background()
 
 	// Wrap with caching if cache is available
 	if t.cache != nil {
@@ -111,6 +116,11 @@ func (t *DynamicTranslator) getProvider() (Provider, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	// Another request may have created the provider while this one waited.
+	if t.cachedProvider != nil && t.cachedProviderName == providerType.String() {
+		return t.cachedProvider, nil
+	}
+
 	provider, err := t.factory.Create(providerType)
 	if err != nil {
 		return nil, err
@@ -143,6 +153,8 @@ func (t *DynamicTranslator) getProviderType() (ProviderType, error) {
 		return ProviderCustom, nil
 	case "microsoft":
 		return ProviderMicrosoft, nil
+	case "microsoft_edge":
+		return ProviderMicrosoftEdge, nil
 	case "tencent":
 		return ProviderTencent, nil
 	default:
