@@ -1,4 +1,5 @@
 import { onMounted, onBeforeUnmount } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { shortcuts, shortcutsEnabled } from './shortcutBindings';
 import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
@@ -11,6 +12,8 @@ interface KeyboardShortcutCallbacks {
 
 export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
   const store = useAppStore();
+  const { t } = useI18n();
+  const pendingReadLater = new Set<number>();
 
   // Helper functions
   function buildKeyCombo(e: KeyboardEvent): string {
@@ -97,22 +100,26 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
     });
   }
 
-  function toggleCurrentArticleReadLater(): void {
+  async function toggleCurrentArticleReadLater(): Promise<void> {
     const article = store.navigableArticles.find((a) => a.id === store.currentArticleId);
-    if (!article) return;
+    if (!article || pendingReadLater.has(article.id)) return;
 
     const newState = !article.is_read_later;
     article.is_read_later = newState;
-    // When adding to read later, also mark as unread
-    if (newState) {
-      article.is_read = false;
-    }
-    fetch(`/api/articles/toggle-read-later?id=${article.id}`, { method: 'POST' })
-      .then(() => store.fetchUnreadCounts())
-      .catch((e) => {
-        console.error('Error toggling read later:', e);
-        article.is_read_later = !newState;
+    pendingReadLater.add(article.id);
+    try {
+      const response = await fetch(`/api/articles/toggle-read-later?id=${article.id}`, {
+        method: 'POST',
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      await store.fetchFilterCounts();
+    } catch (e) {
+      console.error('Error toggling read later:', e);
+      article.is_read_later = !newState;
+      window.showToast(t('common.errors.savingSettings'), 'error');
+    } finally {
+      pendingReadLater.delete(article.id);
+    }
   }
 
   function openCurrentArticleInBrowser(): void {

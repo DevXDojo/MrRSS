@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve reading state when toggling read-later with keyboard shortcuts, refresh its counts, and roll back failed requests. Ignore repeated toggles while the shortcut request is pending. (#580)
 - Remove misleading SQLite "out of memory" text from file-open failures and explain storage access, read-only, full-disk, and invalid-database startup errors without attempting destructive repair. (Related to #800; the reported environment-specific open failure remains under investigation.)
 - Preserve legacy AI translation credentials when no profile exists, and apply created, edited, deleted, or newly selected default AI profiles without restarting. (#767)
 - Keep read-later articles until explicitly removed, independently of reading state, and preserve read state when adding them to the list. (#580)
