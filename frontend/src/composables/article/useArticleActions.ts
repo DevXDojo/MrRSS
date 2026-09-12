@@ -315,13 +315,12 @@ export function useArticleActions(
     } else if (action === 'toggleReadLater') {
       const newState = !article.is_read_later;
       article.is_read_later = newState;
-      // When adding to read later, also mark as unread
-      if (newState) {
-        article.is_read = false;
-      }
       try {
-        await fetch(`/api/articles/toggle-read-later?id=${article.id}`, { method: 'POST' });
-        // Update unread counts after toggling read later status
+        const response = await fetch(`/api/articles/toggle-read-later?id=${article.id}`, {
+          method: 'POST',
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        void store.fetchFilterCounts();
         if (onReadStatusChange) {
           onReadStatusChange();
         }

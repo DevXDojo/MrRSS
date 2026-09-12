@@ -973,13 +973,15 @@ async function cardModalToggleReadLater(): Promise<void> {
   const article = cardModalArticle.value;
 
   try {
-    await fetch(`/api/articles/toggle-read-later?id=${article.id}`, {
+    const response = await fetch(`/api/articles/toggle-read-later?id=${article.id}`, {
       method: 'POST',
     });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     article.is_read_later = !article.is_read_later;
     await store.fetchFilterCounts();
   } catch (e) {
     console.error('Error toggling read later:', e);
+    window.showToast(t('common.errors.savingSettings'), 'error');
   }
 }
 
