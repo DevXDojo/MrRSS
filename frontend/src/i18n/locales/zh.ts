@@ -153,6 +153,12 @@ const zh: TranslationMessages = {
       translatingSummary: '正在翻译摘要...',
     },
     toolbar: {
+      customize: '自定义工具栏',
+      customizeHint: '选择显示的按钮并调整顺序。翻译和导出按钮会在对应功能启用后显示。',
+      reset: '恢复默认',
+      moveUp: '上移{name}',
+      moveDown: '下移{name}',
+      saveFailed: '工具栏布局保存失败，请重试。',
       addToFavorite: '添加到收藏',
       addToReadLater: '添加到稍后阅读',
     },

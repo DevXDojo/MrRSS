@@ -34,6 +34,7 @@ var AllSettings = []SettingDef{
 	{Key: "ai_translation_prompt", Encrypted: false},
 	{Key: "ai_usage_limit", Encrypted: false},
 	{Key: "ai_usage_tokens", Encrypted: false},
+	{Key: "article_toolbar_layout", Encrypted: false},
 	{Key: "auto_cleanup_enabled", Encrypted: false},
 	{Key: "auto_mark_read_days", Encrypted: false},
 	{Key: "auto_mark_read_enabled", Encrypted: false},

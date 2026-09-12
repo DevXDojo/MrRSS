@@ -16,6 +16,7 @@
   "ai_translation_prompt": "You are a translator. Translate the given text accurately. Output ONLY the translated text, nothing else.",
   "ai_usage_limit": "20000",
   "ai_usage_tokens": "0",
+  "article_toolbar_layout": "[]",
   "auto_cleanup_enabled": true,
   "auto_mark_read_days": 7,
   "auto_mark_read_enabled": false,

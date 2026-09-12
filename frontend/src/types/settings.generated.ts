@@ -22,6 +22,7 @@ export interface SettingsData {
   ai_translation_prompt: string;
   ai_usage_limit: string;
   ai_usage_tokens: string;
+  article_toolbar_layout: string;
   auto_cleanup_enabled: boolean;
   auto_mark_read_days: number;
   auto_mark_read_enabled: boolean;

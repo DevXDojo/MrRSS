@@ -156,6 +156,12 @@ const en: TranslationMessages = {
       translatingSummary: 'Translating summary...',
     },
     toolbar: {
+      customize: 'Customize Toolbar',
+      customizeHint: 'Choose visible buttons and their order. Translation and export buttons appear when their features are enabled.',
+      reset: 'Restore Defaults',
+      moveUp: 'Move {name} up',
+      moveDown: 'Move {name} down',
+      saveFailed: 'Could not save the toolbar layout. Please try again.',
       addToFavorite: 'Add to Favorites',
       addToReadLater: 'Add to Read Later',
     },

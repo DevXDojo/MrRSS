@@ -374,6 +374,13 @@
     "sidebar_pinned_items": {
       "type": "string", "default": "[]", "category": "reading", "encrypted": false, "frontend_key": "sidebar_pinned_items"
     },
+    "article_toolbar_layout": {
+      "type": "string",
+      "default": "[]",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "article_toolbar_layout"
+    },
     "sidebar_category_order": {
       "type": "string",
       "default": "[]",
