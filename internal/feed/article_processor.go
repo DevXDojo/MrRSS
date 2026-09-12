@@ -11,6 +11,7 @@ import (
 	"MrRSS/internal/utils/textutil"
 
 	"github.com/mmcdole/gofeed"
+	nethtml "golang.org/x/net/html"
 )
 
 // ExtractContent extracts content from an RSS item with the correct priority order.
@@ -123,8 +124,8 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 // extractImageURL extracts the image URL from a feed item and resolves relative URLs
 func extractImageURL(item *gofeed.Item, feedURL string) string {
 	// Try item.Image first
-	if item.Image != nil {
-		return resolveRelativeURL(item.Image.URL, feedURL)
+	if item.Image != nil && strings.TrimSpace(item.Image.URL) != "" {
+		return resolveRelativeURL(strings.TrimSpace(item.Image.URL), feedURL)
 	}
 
 	// Try Media RSS thumbnail (YouTube feeds use this)
@@ -134,24 +135,56 @@ func extractImageURL(item *gofeed.Item, feedURL string) string {
 
 	// Try enclosures for images (check various image MIME types)
 	for _, enc := range item.Enclosures {
-		if strings.HasPrefix(enc.Type, "image/") {
-			return resolveRelativeURL(enc.URL, feedURL)
+		if enc != nil && strings.HasPrefix(strings.ToLower(enc.Type), "image/") && strings.TrimSpace(enc.URL) != "" {
+			return resolveRelativeURL(strings.TrimSpace(enc.URL), feedURL)
 		}
 	}
 
-	// Fallback: Try to find image in description/content
-	content := item.Content
-	if content == "" {
-		content = item.Description
+	// Embedded HTML URLs are relative to the article when it has a usable link.
+	contentBase := feedURL
+	if link := resolveRelativeURL(strings.TrimSpace(item.Link), feedURL); link != "" {
+		if parsed, err := url.Parse(link); err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" {
+			contentBase = link
+		}
 	}
 
-	re := regexp.MustCompile(`<img[^>]+src="([^">]+)"`)
-	matches := re.FindStringSubmatch(content)
-	if len(matches) > 1 {
-		return resolveRelativeURL(matches[1], feedURL)
+	// A video-only entry may expose its cover solely through a poster attribute.
+	// Continue to the summary if full content exists but has no usable cover.
+	for _, content := range []string{item.Content, item.Description} {
+		if posterURL := extractVideoPosterURL(content, contentBase); posterURL != "" {
+			return posterURL
+		}
+		if imageURL := ExtractFirstImageURLFromHTML(content); imageURL != "" {
+			return resolveRelativeURL(imageURL, contentBase)
+		}
 	}
 
 	return ""
+}
+
+func extractVideoPosterURL(content, baseURL string) string {
+	tokens := nethtml.NewTokenizer(strings.NewReader(content))
+	for {
+		switch tokens.Next() {
+		case nethtml.ErrorToken:
+			return ""
+		case nethtml.StartTagToken, nethtml.SelfClosingTagToken:
+			token := tokens.Token()
+			if token.Data != "video" {
+				continue
+			}
+			for _, attr := range token.Attr {
+				if attr.Key != "poster" || strings.TrimSpace(attr.Val) == "" {
+					continue
+				}
+				poster := resolveRelativeURL(strings.TrimSpace(attr.Val), baseURL)
+				parsed, err := url.Parse(poster)
+				if err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" {
+					return poster
+				}
+			}
+		}
+	}
 }
 
 // ResolveRelativeURL converts a relative URL to an absolute URL based on the feed URL
@@ -412,26 +445,18 @@ func extractMediaThumbnail(item *gofeed.Item) string {
 
 	// Check for media:group extension (YouTube uses this structure)
 	if mediaExt, ok := item.Extensions["media"]; ok {
-		if groupExts, ok := mediaExt["group"]; ok && len(groupExts) > 0 {
-			// Navigate to media:group's children
-			if groupExts[0].Children != nil {
-				if thumbnailExts, ok := groupExts[0].Children["thumbnail"]; ok && len(thumbnailExts) > 0 {
-					// Get the URL from the thumbnail's attributes
-					if thumbnailExts[0].Attrs != nil {
-						if url, ok := thumbnailExts[0].Attrs["url"]; ok {
-							return url
-						}
-					}
+		for _, group := range mediaExt["group"] {
+			for _, thumbnail := range group.Children["thumbnail"] {
+				if thumbnailURL := strings.TrimSpace(thumbnail.Attrs["url"]); thumbnailURL != "" {
+					return thumbnailURL
 				}
 			}
 		}
 
 		// Also check for direct media:thumbnail (some feeds use this)
-		if thumbnailExts, ok := mediaExt["thumbnail"]; ok && len(thumbnailExts) > 0 {
-			if thumbnailExts[0].Attrs != nil {
-				if url, ok := thumbnailExts[0].Attrs["url"]; ok {
-					return url
-				}
+		for _, thumbnail := range mediaExt["thumbnail"] {
+			if thumbnailURL := strings.TrimSpace(thumbnail.Attrs["url"]); thumbnailURL != "" {
+				return thumbnailURL
 			}
 		}
 	}
