@@ -374,6 +374,34 @@
     "sidebar_pinned_items": {
       "type": "string", "default": "[]", "category": "reading", "encrypted": false, "frontend_key": "sidebar_pinned_items"
     },
+    "date_format": {
+      "type": "string",
+      "default": "locale",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "date_format"
+    },
+    "time_format": {
+      "type": "string",
+      "default": "locale",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "time_format"
+    },
+    "relative_time": {
+      "type": "bool",
+      "default": true,
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "relative_time"
+    },
+    "article_toolbar_layout": {
+      "type": "string",
+      "default": "[]",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "article_toolbar_layout"
+    },
     "sidebar_category_order": {
       "type": "string",
       "default": "[]",
@@ -570,6 +598,41 @@
       "encrypted": false,
       "frontend_key": "obsidianVaultPath"
     },
+    "siyuan_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_enabled"
+    },
+    "siyuan_endpoint": {
+      "type": "string",
+      "default": "http://127.0.0.1:6806",
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_endpoint"
+    },
+    "siyuan_api_token": {
+      "type": "string",
+      "default": "",
+      "category": "plugins",
+      "encrypted": true,
+      "frontend_key": "siyuan_api_token"
+    },
+    "siyuan_notebook_id": {
+      "type": "string",
+      "default": "",
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_notebook_id"
+    },
+    "siyuan_folder": {
+      "type": "string",
+      "default": "/MrRSS",
+      "category": "plugins",
+      "encrypted": false,
+      "frontend_key": "siyuan_folder"
+    },
     "notion_enabled": {
       "type": "bool",
       "default": false,
@@ -752,6 +815,55 @@
       "encrypted": false,
       "frontend_key": "freshRSSLastSyncTime"
     },
+    "miniflux_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "miniflux_enabled"
+    },
+    "miniflux_server_url": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "miniflux_server_url"
+    },
+    "miniflux_username": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "miniflux_username"
+    },
+    "miniflux_api_password": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": true,
+      "frontend_key": "miniflux_api_password"
+    },
+    "miniflux_auto_sync_interval": {
+      "type": "int",
+      "default": 0,
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "miniflux_auto_sync_interval"
+    },
+    "miniflux_sync_on_startup": {
+      "type": "bool",
+      "default": false,
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "miniflux_sync_on_startup"
+    },
+    "miniflux_last_sync_time": {
+      "type": "string",
+      "default": "",
+      "category": "integrations",
+      "encrypted": false,
+      "frontend_key": "miniflux_last_sync_time"
+    },
     "rsshub_enabled": {
       "type": "bool",
       "default": false,
@@ -807,6 +919,13 @@
       "category": "reading",
       "encrypted": false,
       "frontend_key": "layoutMode"
+    },
+    "article_table_columns": {
+      "type": "string",
+      "default": "[\"title\",\"feed\",\"date\",\"status\"]",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "article_table_columns"
     },
     "feed_drawer_pinned": {
       "type": "bool",

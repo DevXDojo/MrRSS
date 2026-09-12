@@ -1,9 +1,48 @@
 package translation
 
 import (
+	"context"
 	"regexp"
 	"strings"
 )
+
+// TranslateMarkdownPreservingStructureContext binds every line to the request
+// context and propagates failures instead of returning a partial success.
+func TranslateMarkdownPreservingStructureContext(ctx context.Context, markdown string, translator Translator, targetLang string) (string, error) {
+	bound := &contextTranslator{ctx: ctx, translator: translator}
+	result, err := TranslateMarkdownPreservingStructure(markdown, bound, targetLang)
+	if bound.err != nil {
+		return "", bound.err
+	}
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+	return result, err
+}
+
+type contextTranslator struct {
+	ctx        context.Context
+	translator Translator
+	err        error
+}
+
+func (t *contextTranslator) Translate(text, targetLang string) (string, error) {
+	if t.err != nil {
+		return "", t.err
+	}
+	if t.err = t.ctx.Err(); t.err != nil {
+		return "", t.err
+	}
+	var translated string
+	if contextual, ok := t.translator.(interface {
+		TranslateContext(context.Context, string, string) (string, error)
+	}); ok {
+		translated, t.err = contextual.TranslateContext(t.ctx, text, targetLang)
+	} else {
+		translated, t.err = t.translator.Translate(text, targetLang)
+	}
+	return translated, t.err
+}
 
 // TranslateMarkdownPreservingStructure translates markdown while preserving list structure
 // This approach:

@@ -1,12 +1,24 @@
 package database
 
-import "log"
+import (
+	"context"
+	"log"
+)
 
 // GetTotalUnreadCount returns the total number of unread articles.
 func (db *DB) GetTotalUnreadCount() (int, error) {
-	db.WaitForReady()
+	return db.GetTotalUnreadCountContext(context.Background())
+}
+
+// GetTotalUnreadCountContext allows background indicators to stop during shutdown.
+func (db *DB) GetTotalUnreadCountContext(ctx context.Context) (int, error) {
+	select {
+	case <-db.ready:
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM articles WHERE is_read = 0 AND is_hidden = 0").Scan(&count)
+	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM articles WHERE is_read = 0 AND is_hidden = 0").Scan(&count)
 	if err != nil {
 		return 0, err
 	}

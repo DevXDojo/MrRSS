@@ -60,6 +60,8 @@ func (f *Factory) SetProfileProvider(profileProvider *ai.ProfileProvider) {
 // Create 创建翻译提供商实例
 func (f *Factory) Create(providerType ProviderType) (Provider, error) {
 	switch providerType {
+	case ProviderMicrosoftEdge:
+		return newEdgeProvider(f.settingsProvider)
 	case ProviderGoogle:
 		return f.createGoogleProvider(ProviderConfig{}), nil
 
@@ -114,7 +116,7 @@ func (f *Factory) Create(providerType ProviderType) (Provider, error) {
 // createGoogleProvider 创建 Google 翻译提供商
 func (f *Factory) createGoogleProvider(config ProviderConfig) Provider {
 	return &googleProvider{
-		translator: NewGoogleFreeTranslator(),
+		translator: NewGoogleFreeTranslatorWithDB(f.settingsProvider),
 	}
 }
 
@@ -122,16 +124,16 @@ func (f *Factory) createGoogleProvider(config ProviderConfig) Provider {
 func (f *Factory) createDeepLProvider(config *deepLConfig) Provider {
 	var translator *DeepLTranslator
 	if config.Endpoint != "" {
-		translator = NewDeepLTranslatorWithEndpoint(config.APIKey, config.Endpoint)
+		translator = NewDeepLTranslatorWithEndpointAndDB(config.APIKey, config.Endpoint, f.settingsProvider)
 	} else {
-		translator = NewDeepLTranslator(config.APIKey)
+		translator = NewDeepLTranslatorWithDB(config.APIKey, f.settingsProvider)
 	}
 	return &deepLProvider{translator: translator}
 }
 
 // createBaiduProvider 创建百度翻译提供商
 func (f *Factory) createBaiduProvider(config *baiduConfig) Provider {
-	translator := NewBaiduTranslator(config.AppID, config.SecretKey)
+	translator := NewBaiduTranslatorWithDB(config.AppID, config.SecretKey, f.settingsProvider)
 	return &baiduProvider{translator: translator}
 }
 
@@ -192,7 +194,7 @@ func (f *Factory) loadAIConfig() (*aiConfig, error) {
 	f.mu.RUnlock()
 
 	if profileProvider != nil {
-		cfg, err := profileProvider.GetConfigForFeature(ai.FeatureTranslation)
+		cfg, err := profileProvider.GetProfileForFeature(ai.FeatureTranslation)
 		if err == nil && cfg != nil {
 			// Get system prompt from settings if not in profile
 			systemPrompt, _ := f.settingsProvider.GetSetting("ai_translation_prompt")
@@ -352,30 +354,14 @@ func (f *Factory) loadTencentConfig() (*tencentConfig, error) {
 
 // createMicrosoftProvider 创建 Microsoft 翻译提供商
 func (f *Factory) createMicrosoftProvider(config *microsoftConfig) Provider {
-	var translator *MicrosoftTranslator
-
-	// Create translator based on configuration
-	if config.Endpoint != "" {
-		translator = NewMicrosoftTranslatorWithEndpoint(config.APIKey, config.Endpoint)
-	} else if config.Region != "" {
-		translator = NewMicrosoftTranslatorWithRegion(config.APIKey, config.Region)
-	} else {
-		translator = NewMicrosoftTranslator(config.APIKey)
-	}
+	translator := NewMicrosoftTranslatorWithAll(config.APIKey, config.Region, config.Endpoint, f.settingsProvider)
 
 	return &microsoftProvider{translator: translator}
 }
 
 // createTencentProvider 创建腾讯云翻译提供商
 func (f *Factory) createTencentProvider(config *tencentConfig) Provider {
-	var translator *TencentTranslator
-
-	// Create translator based on configuration
-	if config.Region != "" && config.Region != "ap-guangzhou" {
-		translator = NewTencentTranslatorWithRegion(config.SecretID, config.SecretKey, config.Region)
-	} else {
-		translator = NewTencentTranslator(config.SecretID, config.SecretKey)
-	}
+	translator := NewTencentTranslatorWithAll(config.SecretID, config.SecretKey, config.Region, f.settingsProvider)
 
 	return &tencentProvider{translator: translator}
 }

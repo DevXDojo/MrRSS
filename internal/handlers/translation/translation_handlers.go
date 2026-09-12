@@ -131,7 +131,7 @@ func HandleTranslateArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		}
 	} else {
 		// Non-AI provider, use markdown-preserving translation
-		translatedTitle, translateErr = translation.TranslateMarkdownPreservingStructure(req.Title, h.Translator, req.TargetLang)
+		translatedTitle, translateErr = translation.TranslateMarkdownPreservingStructureContext(r.Context(), req.Title, h.Translator, req.TargetLang)
 	}
 
 	if translateErr != nil {
@@ -284,7 +284,7 @@ func HandleTranslateText(h *core.Handler, w http.ResponseWriter, r *http.Request
 		}
 	} else {
 		// Non-AI provider, use markdown-preserving translation
-		translatedText, err = translation.TranslateMarkdownPreservingStructure(req.Text, h.Translator, req.TargetLang)
+		translatedText, err = translation.TranslateMarkdownPreservingStructureContext(r.Context(), req.Text, h.Translator, req.TargetLang)
 	}
 
 	if err != nil {

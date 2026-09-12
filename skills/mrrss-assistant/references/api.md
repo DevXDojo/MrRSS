@@ -6,7 +6,7 @@ Generated from `docs/SERVER_MODE/swagger.json`. Regenerate with:
 python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
 ```
 
-- API version: `1.3.33`
+- API version: `1.3.34`
 - API root: `{base_url}/api`
 - Endpoint paths below are relative to the API root unless they already start with `/api/`.
 
@@ -723,6 +723,23 @@ Proxy webpage content
 
 Parameters:
   - `url` (query, required): Webpage URL to proxy
+
+## Miniflux
+
+### `GET /miniflux/status`
+
+Get Miniflux sync status
+
+### `POST /miniflux/sync`
+
+Sync with Miniflux
+
+### `POST /miniflux/sync-feed`
+
+Sync single Miniflux feed
+
+Parameters:
+  - `stream_id` (query, required): Miniflux stream ID
 
 ## Network
 

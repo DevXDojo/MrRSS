@@ -307,38 +307,22 @@ func matchesConditions(article models.Article, conditions []Condition, feedCateg
 		return true
 	}
 
-	// Step 1: Evaluate all individual conditions (NOT is applied at this level)
-	conditionResults := make([]bool, len(conditions))
+	// Fold each AND group before combining groups with OR. Do not splice the
+	// conditions slice: its backing array belongs to the rule and is reused for
+	// every subsequent article. Negation is handled by evaluateCondition.
+	result, groupResult := false, false
 	for i, condition := range conditions {
-		conditionResults[i] = evaluateCondition(article, condition, feedCategories, feedTitles, feedTypes, feedIsImageMode, feedIsFreshRSS, feedTags, articleContents)
-	}
-
-	// Step 2: Process all AND connections first (higher precedence)
-	// We merge conditions connected by AND into a single result
-	i := 0
-	for i < len(conditionResults) {
-		if i > 0 && conditions[i].Logic == "and" {
-			// Merge with previous result using AND
-			conditionResults[i-1] = conditionResults[i-1] && conditionResults[i]
-			// Remove current element
-			conditionResults = append(conditionResults[:i], conditionResults[i+1:]...)
-			conditions = append(conditions[:i], conditions[i+1:]...)
+		matched := evaluateCondition(article, condition, feedCategories, feedTitles, feedTypes, feedIsImageMode, feedIsFreshRSS, feedTags, articleContents)
+		if i == 0 {
+			groupResult = matched
+		} else if condition.Logic == "and" {
+			groupResult = groupResult && matched
 		} else {
-			i++
+			result = result || groupResult
+			groupResult = matched
 		}
 	}
-
-	// Step 3: Process all OR connections (lower precedence)
-	if len(conditionResults) == 0 {
-		return true
-	}
-
-	result := conditionResults[0]
-	for i := 1; i < len(conditionResults); i++ {
-		result = result || conditionResults[i]
-	}
-
-	return result
+	return result || groupResult
 }
 
 // evaluateCondition evaluates a single rule condition
@@ -631,13 +615,7 @@ func (e *Engine) applyAction(articleID int64, action string) error {
 
 // performImmediateSync performs an immediate sync to FreshRSS in a background goroutine
 func (e *Engine) performImmediateSync(syncReq *database.SyncRequest) {
-	// Check if FreshRSS is enabled and configured
-	enabled, _ := e.db.GetSetting("freshrss_enabled")
-	if enabled != "true" {
-		return
-	}
-
-	serverURL, username, password, provider, err := e.db.GetFreshRSSConfig()
+	serverURL, username, password, provider, err := e.db.GetArticleSyncConfig(syncReq.ArticleID)
 	if err != nil || serverURL == "" || username == "" || password == "" {
 		log.Printf("[Rule Sync] FreshRSS not configured, skipping sync")
 		return
@@ -647,7 +625,8 @@ func (e *Engine) performImmediateSync(syncReq *database.SyncRequest) {
 	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, e.db)
 
 	// Perform immediate sync
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	err = syncService.SyncArticleStatus(ctx, syncReq.ArticleID, syncReq.ArticleURL, syncReq.Action)
 	if err != nil {
 		log.Printf("[Rule Sync] Failed for article %d: %v", syncReq.ArticleID, err)

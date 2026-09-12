@@ -62,6 +62,13 @@ func PrepareArticleContent(content, baseURL string) string {
 					continue
 				}
 				attr.Val = value.String()
+			case "referrerpolicy":
+				// Preserve feeds' explicit privacy policy without allowing content
+				// to opt into sending more referrer information to image hosts.
+				if node.Data != "img" || !strings.EqualFold(strings.TrimSpace(attr.Val), "no-referrer") {
+					continue
+				}
+				attr.Val = "no-referrer"
 			case "class":
 				allowed := []string{}
 				for _, c := range strings.Fields(attr.Val) {

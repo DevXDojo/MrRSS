@@ -139,25 +139,31 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		} else {
 			// Use AI summarization
 			// Apply rate limiting for AI requests
-			h.AITracker.WaitForRateLimit()
+			if err := h.AITracker.WaitForRateLimitContext(r.Context()); err != nil {
+				return
+			}
 
 			// Try to get AI config from ProfileProvider first
-			var apiKey, endpoint, model string
+			var apiKey, endpoint, model, customHeaders string
+			hasProfile := false
 			if h.AIProfileProvider != nil {
-				cfg, err := h.AIProfileProvider.GetConfigForFeature(ai.FeatureSummary)
-				if err == nil && cfg != nil {
-					apiKey = cfg.APIKey
-					endpoint = cfg.Endpoint
-					model = cfg.Model
+				profile, err := h.AIProfileProvider.GetProfileForFeature(ai.FeatureSummary)
+				if err == nil && profile != nil {
+					hasProfile = true
+					apiKey = profile.APIKey
+					endpoint = profile.Endpoint
+					model = profile.Model
+					customHeaders = profile.CustomHeaders
 					log.Printf("AI summary profile selected endpoint=%s model=%s", ai.RedactEndpoint(endpoint), model)
 				}
 			}
 
 			// Fallback to global settings if ProfileProvider not available or no profile configured
-			if apiKey == "" && endpoint == "" {
+			if !hasProfile {
 				apiKey, _ = h.DB.GetEncryptedSetting("ai_api_key")
 				endpoint, _ = h.DB.GetSetting("ai_endpoint")
 				model, _ = h.DB.GetSetting("ai_model")
+				customHeaders, _ = h.DB.GetSetting("ai_custom_headers")
 				log.Printf("Using global AI settings for summarization (API key: %s)", func() string {
 					if apiKey != "" {
 						return "configured"
@@ -167,10 +173,10 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 			}
 
 			systemPrompt, _ := h.DB.GetSetting("ai_summary_prompt")
-			customHeaders, _ := h.DB.GetSetting("ai_custom_headers")
 			language, _ := h.DB.GetSetting("language")
 
 			aiSummarizer := summary.NewAISummarizerWithDB(apiKey, endpoint, model, h.DB)
+			defer aiSummarizer.Close()
 			if systemPrompt != "" {
 				aiSummarizer.SetSystemPrompt(systemPrompt)
 			}
@@ -180,7 +186,10 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 			if language != "" {
 				aiSummarizer.SetLanguage(language)
 			}
-			aiResult, err := aiSummarizer.Summarize(content, summaryLength)
+			aiResult, err := aiSummarizer.SummarizeContext(r.Context(), content, summaryLength)
+			if r.Context().Err() != nil {
+				return
+			}
 			if err != nil {
 				publicErr := ai.ClassifyUserFacingError(err)
 				log.Printf("AI summary failed code=%s status=%d; using local fallback", publicErr.Code, publicErr.HTTPStatus)
@@ -202,10 +211,12 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		result = summarizer.Summarize(content, summaryLength)
 	}
 
-	// Cache the summary in the database
-	if err := h.DB.UpdateArticleSummary(req.ArticleID, result.Summary); err != nil {
-		log.Printf("Failed to cache summary for article %d: %v", req.ArticleID, err)
-		// Don't fail the request if caching fails
+	// A temporary local fallback must not prevent future AI attempts after the
+	// user fixes credentials, changes the prompt, or the provider recovers.
+	if !usedFallback {
+		if err := h.DB.UpdateArticleSummary(req.ArticleID, result.Summary); err != nil {
+			log.Printf("Failed to cache summary for article %d: %v", req.ArticleID, err)
+		}
 	}
 
 	// Convert markdown summary to HTML (for all summaries, not just AI)

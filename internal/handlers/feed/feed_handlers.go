@@ -9,6 +9,7 @@ import (
 
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/models"
 	"MrRSS/internal/rsshub"
 	"MrRSS/internal/utils/urlutil"
 )
@@ -136,7 +137,9 @@ func HandleAddFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		feedID, err = h.Fetcher.AddRSSHubSubscription(route, req.Category, req.Title)
 	} else {
 		// Add feed using URL
-		feedID, err = h.Fetcher.AddSubscription(req.URL, req.Category, req.Title)
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+		feedID, err = h.Fetcher.AddSubscriptionWithOptions(ctx, models.Feed{URL: req.URL, Category: req.Category, Title: req.Title, ProxyEnabled: req.ProxyEnabled, ProxyURL: req.ProxyURL})
 	}
 
 	if err != nil {

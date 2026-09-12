@@ -5,6 +5,42 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.34] -2026-09-12
+
+### Added
+
+- Configure FreshRSS and Miniflux independently, including simultaneous sync, separate credentials and status, provider-scoped feeds/articles/queues, and migration of existing Miniflux settings. Use theme-aware Miniflux icons.
+- Add Microsoft Edge translation without an API key alongside Azure Translator, using the configured proxy, in-memory token reuse, bounded requests, and long-text splitting. Propagate cancelled or failed non-AI Markdown translation requests instead of reporting partial success. (#1190)
+- Add a Linux desktop `--software-rendering` launch option for GBM/graphics-related blank windows, with instructions for portable and AppImage launches. Preserve normal rendering when the option is absent. (Related to #852; the reported hardware-specific failure remains unverified.)
+- Add an optional desktop table layout above the reader, with selectable feed, author, date, and status columns and a resizable split. Preserve filtering, grouping, translation, and article actions. (#945)
+- Group article lists and cards by local calendar date or feed, with stable pagination and matching reading order. Limit relative mark-as-read actions to the current feed when grouped by feed. (#565)
+- Preview the latest feed articles before subscribing, including RSSHub URLs, without saving subscriptions or reading state. Use the selected proxy for both preview and initial subscription requests. (#564)
+- Clip articles to a configured SiYuan notebook as Markdown with source metadata, encrypted API-token storage, and a customizable toolbar action. (#688)
+- Configure article date formats, 12/24-hour time, and relative timestamps across lists, details, and the media gallery. (#563)
+- Customize article toolbar button visibility and order, with a restore-defaults action. (#1150)
+
+### Fixed
+
+- Use the SiYuan plugin icon in settings and the article toolbar. Consolidate article sorting, grouping, and filters in a More panel with explicit selections, immediate updates, keyboard access, and viewport-aware placement; place sidebar sorting between pin and close, remove sidebar scrollbar arrows, and use shared modal footer buttons for toolbar customization.
+- Fix release regression-test setup for read-later and AI summaries, remove an unused dropdown assignment, and run frontend CI tests explicitly in single-run mode.
+- Extract video poster covers and lazy-loaded or single-quoted HTML images from feed entries; skip empty image metadata and fall back to description covers when full content has none. Resolve embedded covers against the article link. (Related to #546; Xiaohongshu-specific compatibility and the requested video view still need a concrete feed example and scope.)
+- Preserve multi-condition automation rules and article filters across articles instead of mutating their condition arrays while evaluating AND groups. Keep NOT/AND/OR precedence consistent for multi-keyword rules. (#335)
+- Recover feed icons after URL changes, feed refreshes, or restored connectivity; use website favicons and a local placeholder when images fail, rather than leaving sidebar icons permanently hidden. (#335)
+- Keep the previous article list visible and inert while switching feeds, replacing it atomically when the current request completes. Prevent snapshot rows from triggering hover-read actions or entering keyboard navigation, and delay the loading indicator for fast requests. (#435)
+- Preserve reading state when toggling read-later with keyboard shortcuts, refresh its counts, and roll back failed requests. Ignore repeated toggles while the shortcut request is pending. (#580)
+- Remove misleading SQLite "out of memory" text from file-open failures and explain storage access, read-only, full-disk, and invalid-database startup errors without attempting destructive repair. (Related to #800; the reported environment-specific open failure remains under investigation.)
+- Preserve legacy AI translation credentials when no profile exists, and apply created, edited, deleted, or newly selected default AI profiles without restarting. (#767)
+- Keep read-later articles until explicitly removed, independently of reading state, and preserve read state when adding them to the list. (#580)
+- Keep settings dropdowns outside the scrolling form, fit them to available space, and prevent search-field focus from shifting the form. (#447)
+- Let slow and large feed downloads use the configured retry budget instead of being cut off by a fixed 30-second HTTP timeout. (#603)
+- Use the selected AI profile's headers for summaries, preserve legacy AI configuration when no profile exists, and keep temporary local fallbacks retryable. Cancel abandoned summary requests without overwriting newer results. (#772)
+- Honor application proxy settings across Google, DeepL, Baidu, Microsoft, and Tencent translation; apply changed credentials and proxy settings without restarting. (#767, #918)
+- Use the configured Google translation endpoint and decode the alternative endpoint's response format; preserve both the Microsoft endpoint and region. (#767)
+- Show the macOS menu-bar unread count, update it while the reader is hidden, and respect the unread-count visibility setting. (#544)
+- Fetch Miniflux articles through its supported Google Reader item endpoints and preserve folders, read state, and starred state during synchronization. (#1191) (@HernandoR)
+- Preserve image `referrerpolicy="no-referrer"` in article content so feeds can load images from hosts that reject the desktop WebView referrer. (#1189)
+- Apply the configured application proxy and encrypted proxy credentials to media cache downloads and direct media forwarding, and cancel downloads with their requests. (#1189)
+
 ## [1.3.33] - 2026-09-10
 
 ### Added

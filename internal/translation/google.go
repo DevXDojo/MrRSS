@@ -1,10 +1,12 @@
 package translation
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -36,6 +38,10 @@ func NewGoogleFreeTranslatorWithDB(db DBInterface) *GoogleFreeTranslator {
 }
 
 func (t *GoogleFreeTranslator) Translate(text, targetLang string) (string, error) {
+	return t.TranslateContext(context.Background(), text, targetLang)
+}
+
+func (t *GoogleFreeTranslator) TranslateContext(ctx context.Context, text, targetLang string) (string, error) {
 	if text == "" {
 		return "", nil
 	}
@@ -80,7 +86,11 @@ func (t *GoogleFreeTranslator) Translate(text, targetLang string) (string, error
 	q.Set("q", text)
 	u.RawQuery = q.Encode()
 
-	resp, err := t.client.Get(u.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return "", fmt.Errorf("create Google translation request: %w", err)
+	}
+	resp, err := t.client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -88,6 +98,16 @@ func (t *GoogleFreeTranslator) Translate(text, targetLang string) (string, error
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("translation api returned status: %d", resp.StatusCode)
+	}
+
+	// The alternative Dictionary endpoint returns sentence objects (and, on
+	// some deployments, a compact array), unlike the default GTX endpoint.
+	if endpoint == "clients5.google.com" {
+		var raw json.RawMessage
+		if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+			return "", fmt.Errorf("decode Google translation response: %w", err)
+		}
+		return decodeGoogleDictionaryResponse(raw)
 	}
 
 	// The response is a complex nested array structure
@@ -114,4 +134,30 @@ func (t *GoogleFreeTranslator) Translate(text, targetLang string) (string, error
 	}
 
 	return "", fmt.Errorf("invalid response format")
+}
+
+func decodeGoogleDictionaryResponse(raw json.RawMessage) (string, error) {
+	var result struct {
+		Sentences []struct {
+			Translation string `json:"trans"`
+		} `json:"sentences"`
+	}
+	if err := json.Unmarshal(raw, &result); err == nil {
+		var translated strings.Builder
+		for _, sentence := range result.Sentences {
+			translated.WriteString(sentence.Translation)
+		}
+		if translated.Len() > 0 {
+			return translated.String(), nil
+		}
+	}
+	var detected [][]string
+	if err := json.Unmarshal(raw, &detected); err == nil && len(detected) == 1 && len(detected[0]) > 0 && detected[0][0] != "" {
+		return detected[0][0], nil
+	}
+	var translated []string
+	if err := json.Unmarshal(raw, &translated); err == nil && len(translated) == 1 && translated[0] != "" {
+		return translated[0], nil
+	}
+	return "", fmt.Errorf("invalid Google dictionary translation response")
 }

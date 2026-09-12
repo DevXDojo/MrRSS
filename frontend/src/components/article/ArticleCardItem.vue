@@ -4,7 +4,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhEyeSlash, PhStar, PhClockCountdown } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
-import { formatDate as formatDateUtil, formatExactDateTime } from '@/utils/date';
+import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import { getProxiedMediaUrl, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { useAppStore } from '@/stores/app';
 import { imageCache } from '@/utils/imageCache';
@@ -22,7 +22,7 @@ const emit = defineEmits<{
   observeElement: [element: Element | null];
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const store = useAppStore();
 
 // Check if article is from RSSHub feed - O(1) lookup using feedMap
@@ -32,10 +32,7 @@ const isRSSHubArticle = computed(() => {
   return feed?.url.startsWith('rsshub://') || false;
 });
 
-// Translation function wrapper for formatDate
-const formatDateWithI18n = (dateStr: string): string => {
-  return formatDateUtil(dateStr, locale.value, t);
-};
+const { formatArticleDate: formatDateWithI18n, formatArticleDateTime } = useArticleDateFormat();
 
 const mediaCacheEnabled = ref(false);
 
@@ -207,7 +204,7 @@ function handleImageError(event: Event) {
       <!-- Meta info -->
       <div class="card-meta">
         <span class="feed-name">{{ article.feed_title }}</span>
-        <span class="publish-date" :title="formatExactDateTime(article.published_at, locale)">
+        <span class="publish-date" :title="formatArticleDateTime(article.published_at)">
           {{ formatDateWithI18n(article.published_at) }}
         </span>
       </div>

@@ -3,6 +3,7 @@ import { ref, computed, type Ref } from 'vue';
 import type { Article, Feed, Tag, UnreadCounts, RefreshProgress } from '@/types/models';
 import type { FilterCondition } from '@/types/filter';
 import { useSettings } from '@/composables/core/useSettings';
+import { parseArticleGroupBy, type ArticleGroupBy } from '@/utils/articleGrouping';
 
 export function preserveSelectedArticle<T extends { id: number }>(
   freshArticles: T[],
@@ -134,6 +135,7 @@ export interface AppState {
   refreshProgress: Ref<RefreshProgress>;
   showOnlyUnread: Ref<boolean>;
   articleSortOrder: Ref<ArticleSortOrder>;
+  articleGroupBy: Ref<ArticleGroupBy>;
   activeFilters: Ref<FilterCondition[]>;
   filteredArticlesFromServer: Ref<Article[]>;
   articleNavigationContext: Ref<Article[] | null>;
@@ -161,6 +163,7 @@ export interface AppActions {
   startAutoRefresh: (minutes: number) => void;
   toggleShowOnlyUnread: () => void;
   setArticleSortOrder: (order: ArticleSortOrder) => void;
+  setArticleGroupBy: (groupBy: ArticleGroupBy) => void;
   setActiveFilters: (filters: FilterCondition[]) => void;
   setArticleNavigationContext: (articles: Article[] | null) => void;
 }
@@ -210,6 +213,9 @@ export const useAppStore = defineStore('app', () => {
     savedArticleSortOrder === 'oldest' ? 'oldest' : 'newest'
   );
   const activeFilters = ref<FilterCondition[]>([]);
+  const articleGroupBy = ref<ArticleGroupBy>(
+    parseArticleGroupBy(localStorage.getItem('articleGroupBy'))
+  );
   const filteredArticlesFromServer = ref<Article[]>([]);
   // A temporary ordered list used by result views (for example AI search).
   // Keeping this in the store lets ArticleDetail resolve and navigate articles
@@ -335,6 +341,7 @@ export const useAppStore = defineStore('app', () => {
 
     let url = `/api/articles?page=${page.value}&limit=${limit}`;
     url += `&sort_order=${articleSortOrder.value}`;
+    url += `&group_by=${articleGroupBy.value}`;
     if (currentFilter.value) url += `&filter=${currentFilter.value}`;
     if (
       showOnlyUnread.value &&
@@ -384,6 +391,11 @@ export const useAppStore = defineStore('app', () => {
   function setArticleSortOrder(order: ArticleSortOrder): void {
     articleSortOrder.value = order;
     localStorage.setItem('articleSortOrder', order);
+  }
+
+  function setArticleGroupBy(groupBy: ArticleGroupBy): void {
+    articleGroupBy.value = groupBy;
+    localStorage.setItem('articleGroupBy', groupBy);
   }
 
   async function fetchFeeds(): Promise<void> {
@@ -658,10 +670,12 @@ export const useAppStore = defineStore('app', () => {
         throw new Error(`Invalid JSON response from refresh API: ${e}`, { cause: e });
       }
 
-      // Also trigger FreshRSS sync if enabled
-      if (settingsRef.value.freshrss_enabled === true) {
+      await startFreshRSSStatusPolling();
+      // Refresh each enabled reader independently.
+      for (const provider of ['freshrss', 'miniflux'] as const) {
+        if (!settingsRef.value[`${provider}_enabled`]) continue;
         try {
-          await fetch('/api/freshrss/sync', { method: 'POST' });
+          await fetch(`/api/${provider}/sync`, { method: 'POST' });
         } catch (e) {
           // If FreshRSS sync fails, it's okay - just log it
           console.log('FreshRSS sync failed:', e);
@@ -792,70 +806,55 @@ export const useAppStore = defineStore('app', () => {
     }, 500);
   }
 
-  // FreshRSS sync status monitoring
+  // Track each reader separately so the first completed sync refreshes the UI too.
   let freshrssPollInterval: ReturnType<typeof setInterval> | null = null;
-  let lastKnownFreshRSSSyncTime: string | null = null;
-
+  let readerPollController: AbortController | null = null;
+  const lastReaderSyncTimes = new Map<string, string | null>();
   async function startFreshRSSStatusPolling(): Promise<void> {
-    // Stop any existing polling
-    if (freshrssPollInterval) {
-      clearInterval(freshrssPollInterval);
-    }
-
-    // Check if FreshRSS is enabled
+    stopFreshRSSStatusPolling();
+    const controller = new AbortController();
+    readerPollController = controller;
+    const lastTimes = lastReaderSyncTimes;
+    let polling = false;
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/api/settings', { signal: controller.signal });
       if (!res.ok) return;
-      const settings = await res.json();
-
-      if (settings.freshrss_enabled !== 'true') {
-        return; // FreshRSS not enabled, don't start polling
-      }
-
-      // Initialize last known sync time
-      const statusRes = await fetch('/api/freshrss/status');
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        lastKnownFreshRSSSyncTime = statusData.last_sync_time;
-      }
-    } catch (e) {
-      console.error('[FreshRSS] Error checking status:', e);
-      return;
-    }
-
-    // Start polling every 5 seconds
-    freshrssPollInterval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/freshrss/status');
-        if (!res.ok) return;
-
-        const data = await res.json();
-
-        // Check if sync time has updated (sync completed)
-        if (
-          lastKnownFreshRSSSyncTime !== null &&
-          data.last_sync_time !== lastKnownFreshRSSSyncTime
-        ) {
-          console.log('[FreshRSS] Sync completed detected, refreshing data...');
-          // Refresh all data
-          await fetchFeeds();
-          await fetchArticles(false, true);
-          await fetchUnreadCounts();
+      const data = await res.json();
+      const providers = (['freshrss', 'miniflux'] as const).filter(
+        (p) => data[`${p}_enabled`] === 'true'
+      );
+      if (!providers.length || controller.signal.aborted) return;
+      const poll = async () => {
+        if (polling || controller.signal.aborted) return;
+        polling = true;
+        try {
+          let changed = false;
+          for (const provider of providers) {
+            const status = await fetch(`/api/${provider}/status`, { signal: controller.signal });
+            if (!status.ok) continue;
+            const time: string | null = (await status.json()).last_sync_time;
+            if (lastTimes.has(provider) && lastTimes.get(provider) !== time) changed = true;
+            lastTimes.set(provider, time);
+          }
+          if (changed && !controller.signal.aborted)
+            await Promise.all([fetchFeeds(), fetchArticles(false, true), fetchUnreadCounts()]);
+        } catch {
+          /* Retry on the next interval, unless stopped. */
+        } finally {
+          polling = false;
         }
-
-        // Update known sync time
-        lastKnownFreshRSSSyncTime = data.last_sync_time;
-      } catch (e) {
-        console.error('[FreshRSS] Error polling status:', e);
-      }
-    }, 5000); // Poll every 5 seconds
-  }
-
-  function stopFreshRSSStatusPolling(): void {
-    if (freshrssPollInterval) {
-      clearInterval(freshrssPollInterval);
-      freshrssPollInterval = null;
+      };
+      await poll();
+      if (!controller.signal.aborted) freshrssPollInterval = setInterval(poll, 5000);
+    } catch {
+      /* Settings may be unavailable while shutting down. */
     }
+  }
+  function stopFreshRSSStatusPolling(): void {
+    readerPollController?.abort();
+    readerPollController = null;
+    if (freshrssPollInterval) clearInterval(freshrssPollInterval);
+    freshrssPollInterval = null;
   }
 
   async function checkForAppUpdates(): Promise<void> {
@@ -1013,6 +1012,7 @@ export const useAppStore = defineStore('app', () => {
     refreshProgress,
     showOnlyUnread,
     articleSortOrder,
+    articleGroupBy,
     activeFilters,
     filteredArticlesFromServer,
     articleNavigationContext,
@@ -1045,6 +1045,7 @@ export const useAppStore = defineStore('app', () => {
     startAutoRefresh,
     toggleShowOnlyUnread,
     setArticleSortOrder,
+    setArticleGroupBy,
     setActiveFilters,
     setFilteredArticlesFromServer,
     setArticleNavigationContext,

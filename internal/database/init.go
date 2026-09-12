@@ -72,7 +72,7 @@ func (db *DB) Init() error {
 			// Don't return error — the app can still work without incremental vacuum
 		}
 	})
-	return err
+	return explainInitializationError(err)
 }
 
 // migrateAutoVacuumIncremental switches the database to auto_vacuum=INCREMENTAL
@@ -190,5 +190,5 @@ func applyAdditionalMigrations(db *DB) error {
 		return err
 	}
 
-	return nil
+	return migrateReaderProviders(db.DB)
 }

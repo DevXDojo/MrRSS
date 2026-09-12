@@ -1,4 +1,12 @@
-import { ref, computed, onMounted, onUnmounted, type Ref, type CSSProperties } from 'vue';
+import {
+  ref,
+  shallowRef,
+  computed,
+  onMounted,
+  onUnmounted,
+  type Ref,
+  type CSSProperties,
+} from 'vue';
 import type { SelectOption } from '@/types/select';
 
 // Global state to track currently open dropdown
@@ -23,7 +31,8 @@ export function useSelect(options: UseSelectOptions) {
   const selectedIndex = ref(-1);
   const triggerRef = ref<HTMLElement>();
   const dropdownRef = ref<HTMLElement>();
-  const shouldTeleport = ref(false); // Whether to teleport to body
+  const shouldTeleport = ref(false);
+  const teleportTarget = shallowRef<HTMLElement | string>('body');
   const dropdownPositionStyle = ref<CSSProperties>({
     position: 'absolute',
     left: '0px',
@@ -153,7 +162,6 @@ export function useSelect(options: UseSelectOptions) {
     let element: HTMLElement | null = triggerRef.value;
     let scrollableContainer: HTMLElement | null = null;
     let modalContent: HTMLElement | null = null;
-    let useTeleport = false;
 
     // Walk up the DOM tree to find relevant containers
     while (element && element !== document.body) {
@@ -161,7 +169,7 @@ export function useSelect(options: UseSelectOptions) {
       const style = window.getComputedStyle(element);
       const isScrollable =
         (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflow === 'auto') &&
-        element.scrollHeight > element.clientHeight;
+        element !== triggerRef.value;
 
       // Check if this is inside a modal (has data-modal-open attribute)
       const isInModal = element.closest('[data-modal-open]') !== null;
@@ -170,7 +178,7 @@ export function useSelect(options: UseSelectOptions) {
         scrollableContainer = element;
       }
 
-      // For settings modal - has header but we should not teleport
+      // Find the scrolling body while retaining the modal's stacking context.
       const settingsModal = element.closest('[data-settings-modal]');
       if (settingsModal) {
         // The scrollable content in settings modal
@@ -178,20 +186,16 @@ export function useSelect(options: UseSelectOptions) {
         if (contentArea && contentArea.contains(triggerRef.value)) {
           scrollableContainer = contentArea as HTMLElement;
           modalContent = settingsModal as HTMLElement;
-          // Don't teleport - stay in modal's stacking context
-          useTeleport = false;
           break;
         }
       }
 
-      // For BaseModal with header/footer - don't teleport to stay in stacking context
+      // BaseModal uses the same scroll-body structure.
       if (isInModal && !modalContent) {
         modalContent = element.closest('[data-modal-open]') as HTMLElement;
         const modalBody = modalContent.querySelector('.overflow-y-scroll');
         if (modalBody && modalBody.contains(triggerRef.value)) {
           scrollableContainer = modalBody as HTMLElement;
-          // Don't teleport - this keeps dropdown within modal's stacking context
-          useTeleport = false;
           break;
         }
       }
@@ -199,6 +203,10 @@ export function useSelect(options: UseSelectOptions) {
       element = element.parentElement;
     }
 
+    // Render outside the scrolling body, but inside the modal backdrop so
+    // nested modals keep their own stacking order. Absolute descendants inside
+    // the scroll body can change its scrollHeight merely by opening a menu.
+    const useTeleport = scrollableContainer !== null || modalContent !== null;
     return { scrollableContainer, modalContent, useTeleport };
   }
 
@@ -219,8 +227,10 @@ export function useSelect(options: UseSelectOptions) {
 
     // Update teleport flag
     shouldTeleport.value = bounds?.useTeleport || false;
+    teleportTarget.value = bounds?.modalContent || 'body';
 
-    let position: 'top' | 'bottom' = options.position?.value || 'bottom';
+    const preferredPosition = options.position?.value || 'bottom';
+    let position: 'top' | 'bottom' = preferredPosition === 'top' ? 'top' : 'bottom';
 
     // Calculate available space considering containers
     let spaceBelow: number;
@@ -238,20 +248,46 @@ export function useSelect(options: UseSelectOptions) {
     }
 
     // Auto-detect position based on available space
-    if (options.position?.value === 'auto') {
+    if (preferredPosition === 'auto') {
       position = spaceAbove > spaceBelow ? 'top' : 'bottom';
+    } else if (
+      position === 'bottom' &&
+      spaceBelow < Math.min(100, desiredMaxHeight) &&
+      spaceAbove > spaceBelow
+    ) {
+      position = 'top';
+    } else if (
+      position === 'top' &&
+      spaceAbove < Math.min(100, desiredMaxHeight) &&
+      spaceBelow > spaceAbove
+    ) {
+      position = 'bottom';
     }
 
     // Calculate max height based on available space and desired max height
-    let maxHeight = Math.min(desiredMaxHeight, position === 'bottom' ? spaceBelow : spaceAbove);
-
-    // Ensure minimum height for usability
-    const minHeight = 100;
-    if (maxHeight < minHeight) {
-      maxHeight = minHeight;
-    }
+    const maxHeight = Math.max(
+      0,
+      Math.floor(Math.min(desiredMaxHeight, position === 'bottom' ? spaceBelow : spaceAbove))
+    );
 
     const width = triggerRect.width;
+
+    if (shouldTeleport.value) {
+      const modal = bounds?.modalContent;
+      const modalRect = modal?.getBoundingClientRect();
+      const left = Math.max(margin, Math.min(triggerRect.left, viewportWidth - width - margin));
+      dropdownPositionStyle.value = {
+        position: modal ? 'absolute' : 'fixed',
+        left: `${left - (modalRect?.left || 0)}px`,
+        width: `${Math.min(width, viewportWidth - 2 * margin)}px`,
+        maxHeight: `${maxHeight}px`,
+        zIndex: '50',
+        ...(position === 'bottom'
+          ? { top: `${triggerRect.bottom + margin - (modalRect?.top || 0)}px` }
+          : { bottom: `${(modalRect?.bottom ?? viewportHeight) - triggerRect.top + margin}px` }),
+      };
+      return;
+    }
 
     // Use absolute positioning (within modal's stacking context)
     dropdownPositionStyle.value = {
@@ -381,6 +417,7 @@ export function useSelect(options: UseSelectOptions) {
     maxWidthStyle,
     maxHeightStyle,
     shouldTeleport,
+    teleportTarget,
     resetIndex,
     registerAsOpen,
     unregisterAsOpen,

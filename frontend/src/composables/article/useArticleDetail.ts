@@ -234,19 +234,20 @@ export function useArticleDetail() {
 
   async function toggleReadLater() {
     if (!article.value) return;
-    const newState = !article.value.is_read_later;
-    article.value.is_read_later = newState;
-    // When adding to read later, also mark as unread
-    if (newState) {
-      article.value.is_read = false;
-    }
+    const target = article.value;
+    const newState = !target.is_read_later;
+    target.is_read_later = newState;
     try {
-      await fetch(`/api/articles/toggle-read-later?id=${article.value.id}`, { method: 'POST' });
-      store.fetchUnreadCounts();
+      const response = await fetch(`/api/articles/toggle-read-later?id=${target.id}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      void store.fetchFilterCounts();
     } catch (e) {
       console.error('Error toggling read later:', e);
       // Revert on error
-      article.value.is_read_later = !newState;
+      target.is_read_later = !newState;
+      window.showToast(t('common.errors.savingSettings'), 'error');
     }
   }
 

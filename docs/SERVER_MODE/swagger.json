@@ -12,11 +12,128 @@
             "name": "GPL-3.0",
             "url": "https://www.gnu.org/licenses/gpl-3.0.en.html"
         },
-        "version": "1.3.33"
+        "version": "1.3.34"
     },
     "host": "localhost:1234",
     "basePath": "/api",
     "paths": {
+        "/miniflux/status": {
+            "get": {
+                "description": "Get the current synchronization status with Miniflux",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "miniflux"
+                ],
+                "summary": "Get Miniflux sync status",
+                "responses": {
+                    "200": {
+                        "description": "Sync status (pending_changes, failed_items, last_sync_time)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/miniflux/sync": {
+            "post": {
+                "description": "Perform bidirectional synchronization with Miniflux server (pull and push changes)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "miniflux"
+                ],
+                "summary": "Sync with Miniflux",
+                "responses": {
+                    "200": {
+                        "description": "Sync started status (status, message)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (Miniflux disabled or incomplete settings)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/miniflux/sync-feed": {
+            "post": {
+                "description": "Synchronize articles for a specific Miniflux feed/stream",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "miniflux"
+                ],
+                "summary": "Sync single Miniflux feed",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Miniflux stream ID",
+                        "name": "stream_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sync started status (status, message)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (Miniflux disabled or stream_id missing)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ai/profiles": {
             "get": {
                 "description": "Get all AI configuration profiles (without API keys for security)",
@@ -6302,6 +6419,10 @@
                 "email_username": {
                     "description": "IMAP username",
                     "type": "string"
+                },
+                "sync_provider": {
+                    "type": "string",
+                    "enum": ["freshrss", "miniflux"]
                 },
                 "freshrss_stream_id": {
                     "description": "FreshRSS stream ID (e.g., \"feed/http://...\")",

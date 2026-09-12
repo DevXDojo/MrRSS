@@ -1,11 +1,35 @@
 package cache
 
 import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestMediaCacheCancelledDownloadDoesNotWriteFile(t *testing.T) {
+	mc, err := NewMediaCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("cancelled request reached media host")
+	}))
+	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, err = mc.Get(ctx, server.Client(), server.URL+"/image.png", "")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation, got %v", err)
+	}
+	if mc.Exists(server.URL + "/image.png") {
+		t.Fatal("cancelled download was cached")
+	}
+}
 
 func TestMediaCache_BasicOperations(t *testing.T) {
 	dir := t.TempDir()
@@ -30,7 +54,7 @@ func TestMediaCache_BasicOperations(t *testing.T) {
 		t.Fatalf("expected Exists to be true for cached file")
 	}
 
-	data, ctype, err := mc.Get(url, "")
+	data, ctype, err := mc.Get(context.Background(), http.DefaultClient, url, "")
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}

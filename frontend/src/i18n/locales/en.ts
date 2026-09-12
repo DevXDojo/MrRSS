@@ -16,6 +16,10 @@ const en: TranslationMessages = {
       fullArticleFetched: 'Full article content loaded',
       hideArticle: 'Hide Article',
       markAboveAsRead: 'Mark Above as Read',
+      markAboveInFeedAsRead: 'Mark Above in This Feed as Read',
+      markBelowInFeedAsRead: 'Mark Below in This Feed as Read',
+      markRelativeInFeedConfirmMessage:
+        'Mark articles in this direction as read within the current feed?',
       markAllAsReadFeed: 'Mark All as Read',
       markAllRead: 'Mark All as Read',
       markAllReadShortcut: 'Mark All as Read',
@@ -124,12 +128,36 @@ const en: TranslationMessages = {
       mediaFilter: 'Filter multimedia content',
     },
     list: {
+      loadingArticles: 'Loading articles…',
+      more: 'More',
+      options: 'List options',
+      appliesImmediately: 'Applies immediately',
+      sorting: { label: 'Sort by date', newest: 'Newest first', oldest: 'Oldest first' },
+      grouping: {
+        label: 'Group by',
+        none: 'No grouping',
+        date: 'Date',
+        feed: 'Feed',
+        unknownDate: 'Unknown date',
+        unknownFeed: 'Untitled feed',
+      },
       markAllVisibleAsRead: 'Mark All Visible as Read',
       allArticlesLoaded: 'All articles loaded',
       allCaughtUp: "You're all caught up",
       noUnreadArticles: 'There are no unread articles left.',
       noFavorites: 'No favorites yet',
       noFavoritesHint: 'Favorite articles you want to revisit, and they will appear here.',
+    },
+    table: {
+      title: 'Title',
+      feed: 'Feed',
+      author: 'Author',
+      date: 'Published',
+      status: 'Status',
+      read: 'Read',
+      unread: 'Unread',
+      showColumn: 'Show {name} column',
+      resize: 'Resize article list and reader',
     },
     navigation: {
       goToAllArticles: 'Go to All Articles',
@@ -156,6 +184,13 @@ const en: TranslationMessages = {
       translatingSummary: 'Translating summary...',
     },
     toolbar: {
+      customize: 'Customize Toolbar',
+      customizeHint:
+        'Choose visible buttons and their order. Translation and export buttons appear when their features are enabled.',
+      reset: 'Restore Defaults',
+      moveUp: 'Move {name} up',
+      moveDown: 'Move {name} down',
+      saveFailed: 'Could not save the toolbar layout. Please try again.',
       addToFavorite: 'Add to Favorites',
       addToReadLater: 'Add to Read Later',
     },
@@ -404,6 +439,19 @@ const en: TranslationMessages = {
       startDiscovery: 'Start discovery',
     },
     feed: {
+      previewTitle: 'Preview feed',
+      previewHint:
+        'Browse the latest articles before subscribing. Previewing does not save a subscription or change reading state.',
+      previewLoading: 'Loading feed preview…',
+      previewFailed: 'Could not load this feed. Check the URL and proxy settings, then retry.',
+      previewRetry: 'Retry preview',
+      previewCount: 'Showing {count} of {total} available articles, newest first.',
+      previewEmpty:
+        'This feed currently contains no articles. You can still subscribe to receive future updates.',
+      previewUntitled: 'Untitled article',
+      previewNoContent: 'This feed provides no article body. Open the original page to read it.',
+      previewTruncated:
+        'This long article was shortened for preview. Open the original page to continue reading.',
       cookieOrigin: 'Cookie website',
       cookie: 'Cookie',
       cookieSaved: 'Saved; leave blank to keep it',
@@ -766,6 +814,9 @@ const en: TranslationMessages = {
       microsoftEndpointDesc: 'Custom API endpoint (leave empty to use official endpoint)',
       microsoftEndpointPlaceholder: 'https://api.cognitive.microsofttranslator.com',
       microsoftTranslate: 'Microsoft Translator',
+      microsoftEdgeTranslate: 'Microsoft Edge (no API key)',
+      microsoftEdgeTranslateDesc:
+        'Translate through Microsoft Edge without an API key. Uses your proxy settings; availability and rate limits depend on Microsoft’s consumer service.',
       tencentSecretId: 'Tencent Cloud Secret ID',
       tencentSecretIdDesc: 'Enter your Tencent Cloud Secret ID',
       tencentSecretIdPlaceholder: 'Enter your Secret ID',
@@ -882,6 +933,7 @@ const en: TranslationMessages = {
       layoutModeNormal: 'Normal',
       layoutModeCompact: 'Compact',
       layoutModeCard: 'Card',
+      layoutModeTable: 'Table above reader (desktop)',
       contentFontFamily: 'Content Font Family',
       contentFontFamilyDesc: 'Font family for article content',
       contentFontSize: 'Content Font Size',
@@ -1036,6 +1088,8 @@ const en: TranslationMessages = {
       reDetectNetwork: 'Re-detect',
     },
     freshrss: {
+      integration: '{name} Integration',
+      integrationDesc: 'Configure and sync {name} independently using its Google Reader API.',
       apiPassword: 'Google Reader Password',
       apiPasswordDesc:
         'Google Reader API password configured on the server (different from your normal login password)',
@@ -1069,6 +1123,30 @@ const en: TranslationMessages = {
       usernamePlaceholder: 'Enter your Google Reader username',
     },
     plugins: {
+      siyuan: {
+        integration: 'SiYuan integration',
+        description: 'Clip articles as Markdown documents to a SiYuan notebook.',
+        setup: 'Set up SiYuan',
+        instructions:
+          'Keep SiYuan running and its destination notebook open. Copy the API token from SiYuan Settings → Authentication. Images remain links to their original hosts.',
+        endpoint: 'SiYuan address',
+        endpointDesc:
+          'The default connects to SiYuan on the machine running MrRSS. In server mode, use an address reachable from the server.',
+        token: 'API token',
+        notebook: 'Notebook ID',
+        notebookDesc: 'Copy the destination notebook ID from SiYuan, not its display name.',
+        folder: 'Document folder',
+        folderDesc:
+          'Start with /, for example /MrRSS. Article IDs distinguish titles. Re-exporting does not overwrite an existing document.',
+        exportTo: 'Export to SiYuan',
+        exporting: 'Exporting to SiYuan…',
+        exported: 'Article saved to SiYuan.',
+        configurationError:
+          'Check the SiYuan integration address, notebook ID, and folder in Settings → Plugins.',
+        contentError: 'Load the article content before exporting to SiYuan.',
+        exportFailed:
+          'SiYuan export failed. Check that SiYuan is running, the notebook is open, and the API token is correct.',
+      },
       notion: {
         apiKey: 'API Key',
         apiKeyDesc: 'Internal Integration Token from Notion',
@@ -1123,6 +1201,17 @@ const en: TranslationMessages = {
       },
     },
     reading: {
+      dateFormat: 'Date format',
+      dateFormatDesc:
+        'Choose how article publication dates appear in lists, details, and the media gallery.',
+      timeFormat: 'Time format',
+      localeFormat: 'Follow language',
+      timeFormat12: '12-hour clock',
+      timeFormat24: '24-hour clock',
+      dateTimePreview: 'Preview: {value}',
+      relativeTime: 'Relative article times',
+      relativeTimeDesc:
+        'Show recent dates as “2 hours ago”. Turn off to always show the full date and time. Hover over a date to see its exact time.',
       scrollMarkAsRead: 'Mark articles as read while scrolling',
       scrollMarkAsReadDesc:
         'Mark an unread article after it has been visible and then leaves the list viewport.',

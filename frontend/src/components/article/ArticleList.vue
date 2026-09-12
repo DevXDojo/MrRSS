@@ -1,31 +1,38 @@
 <script setup lang="ts">
 import { withShortcut } from '@/composables/ui/shortcutBindings';
-import { useAppStore } from '@/stores/app';
+import { useAppStore, type ArticleSortOrder } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, type Ref } from 'vue';
 import {
   PhArrowClockwise,
   PhList,
   PhSpinner,
-  PhFunnel,
   PhTrash,
   PhCheckCircle,
   PhCircle,
   PhClock,
   PhLightning,
   PhStar,
-  PhSortAscending,
-  PhSortDescending,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
+import ArticleListMoreMenu from './ArticleListMoreMenu.vue';
+import {
+  articleGroupStarts,
+  orderGroupedArticles,
+  parseArticleGroupBy,
+} from '@/utils/articleGrouping';
+import { formatCalendarDate } from '@/utils/date';
 import ArticleItem from './ArticleItem.vue';
 import ArticleCardItem from './ArticleCardItem.vue';
+import ArticleTableRow from './ArticleTableRow.vue';
+import { parseArticleTableColumns } from '@/utils/articleTable';
 import ArticleDetailModal from './ArticleDetailModal.vue';
 import AISearchBar from './AISearchBar.vue';
 import { useArticleTranslation } from '@/composables/article/useArticleTranslation';
 import { useArticleFilter } from '@/composables/article/useArticleFilter';
 import { useArticleActions } from '@/composables/article/useArticleActions';
 import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
+import { useArticleListTransition } from '@/composables/article/useArticleListTransition';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseSettingsData } from '@/composables/core/useSettings.generated';
@@ -34,7 +41,7 @@ import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import type { Article } from '@/types/models';
 
 const store = useAppStore();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { settings } = useSettings();
 
 const listRef: Ref<HTMLDivElement | null> = ref(null);
@@ -67,6 +74,8 @@ const hasScrolledToBottom = ref(false);
 // Layout mode computed
 const layoutMode = computed(() => settings.value.layout_mode || 'normal');
 const isCardMode = computed(() => layoutMode.value === 'card');
+const isTableMode = computed(() => layoutMode.value === 'table');
+const tableColumns = computed(() => parseArticleTableColumns(settings.value.article_table_columns));
 
 async function scrollPendingFeedArticleIntoView(): Promise<void> {
   const articleId = pendingFeedArticleId.value;
@@ -245,6 +254,10 @@ const { showArticleContextMenu } = useArticleActions(
 const { onContextMenu: showSelectionContextMenu } = useArticleSelectionMenu(listRef);
 
 function handleArticleContextMenu(event: MouseEvent, article: Article): void {
+  if (showingPrevious.value) {
+    event.preventDefault();
+    return;
+  }
   showSelectionContextMenu(event);
   if (!event.defaultPrevented) showArticleContextMenu(event, article);
 }
@@ -257,13 +270,15 @@ async function preserveRelativeReadPosition(
   const anchor = list?.querySelector<HTMLElement>(`[data-article-id="${referenceArticle.id}"]`);
   const anchorTop = anchor?.getBoundingClientRect().top;
   const referenceTime = new Date(referenceArticle.published_at).getTime();
+  const markNewer = (direction === 'above') === (store.articleSortOrder === 'newest');
 
   if (Number.isFinite(referenceTime)) {
     filteredArticles.value.forEach((article) => {
       const publishedTime = new Date(article.published_at).getTime();
       if (
+        (store.articleGroupBy !== 'feed' || article.feed_id === referenceArticle.feed_id) &&
         Number.isFinite(publishedTime) &&
-        (direction === 'above' ? publishedTime > referenceTime : publishedTime < referenceTime)
+        (markNewer ? publishedTime > referenceTime : publishedTime < referenceTime)
       ) {
         article.is_read = true;
       }
@@ -281,12 +296,25 @@ async function preserveRelativeReadPosition(
   }
 }
 
-// Virtual rendering: only render visible articles + buffer
-const visibleArticles = computed(() => {
-  // For now, render all articles but could be optimized for virtual scrolling
-  // Keeping it simple to avoid complexity
-  return filteredArticles.value;
-});
+const visibleArticles = computed(() =>
+  orderGroupedArticles(filteredArticles.value, store.articleGroupBy, store.articleSortOrder)
+);
+const { displayedArticles, showingPrevious, showLoadingIndicator } = useArticleListTransition(
+  visibleArticles,
+  computed(() => store.isLoading)
+);
+const groupStarts = computed(() =>
+  articleGroupStarts(displayedArticles.value, store.articleGroupBy)
+);
+
+function groupLabel(article: Article): string {
+  if (store.articleGroupBy === 'feed')
+    return article.feed_title || t('article.list.grouping.unknownFeed');
+  const date = new Date(article.published_at);
+  return Number.isFinite(date.getTime())
+    ? formatCalendarDate(date, locale.value, settings.value.date_format)
+    : t('article.list.grouping.unknownDate');
+}
 
 async function markArticleAfterScroll(articleId: number): Promise<void> {
   const article = filteredArticles.value.find((item) => item.id === articleId);
@@ -518,15 +546,15 @@ watch(
   }
 );
 
-// Keep detail navigation aligned with the currently visible AI result order,
-// including the unread-only preference, without replacing the main timeline.
+// Keep detail navigation in the same order as grouped lists and search results.
 watch(
-  () => (isAISearchActive.value ? filteredArticles.value.map((article) => article.id) : []),
+  () => [isAISearchActive.value, store.articleGroupBy, visibleArticles.value],
   () => {
-    if (isAISearchActive.value) {
-      store.setArticleNavigationContext([...filteredArticles.value]);
-    }
-  }
+    store.setArticleNavigationContext(
+      isAISearchActive.value || store.articleGroupBy !== 'none' ? [...visibleArticles.value] : null
+    );
+  },
+  { immediate: true }
 );
 
 // Detail buttons and global shortcuts can move inside the search result set
@@ -543,9 +571,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
-  if (isAISearchActive.value) {
-    store.setArticleNavigationContext(null);
-  }
+  store.setArticleNavigationContext(null);
   cleanupTranslation();
   // Clear scroll throttle timer
   if (scrollThrottleTimer) {
@@ -659,6 +685,7 @@ function onRefreshTooltipHide(): void {
 
 // Article selection and interaction
 function selectArticle(article: Article): void {
+  if (showingPrevious.value) return;
   // Check if we should open in browser based on feed or global settings
   const feed = store.feeds.find((f) => f.id === article.feed_id);
   let openInBrowserMode = false;
@@ -973,13 +1000,15 @@ async function cardModalToggleReadLater(): Promise<void> {
   const article = cardModalArticle.value;
 
   try {
-    await fetch(`/api/articles/toggle-read-later?id=${article.id}`, {
+    const response = await fetch(`/api/articles/toggle-read-later?id=${article.id}`, {
       method: 'POST',
     });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     article.is_read_later = !article.is_read_later;
     await store.fetchFilterCounts();
   } catch (e) {
     console.error('Error toggling read later:', e);
+    window.showToast(t('common.errors.savingSettings'), 'error');
   }
 }
 
@@ -1027,9 +1056,20 @@ const isUnreadEmptyState = computed(
 );
 const isFavoritesEmptyState = computed(() => store.currentFilter === 'favorites');
 
-async function toggleArticleSortOrder(): Promise<void> {
-  const nextOrder = store.articleSortOrder === 'newest' ? 'oldest' : 'newest';
-  store.setArticleSortOrder(nextOrder);
+async function changeArticleSortOrder(order: ArticleSortOrder): Promise<void> {
+  if (order === store.articleSortOrder) return;
+  store.setArticleSortOrder(order);
+  await reloadArticleOrder();
+}
+
+async function changeArticleGrouping(value: string | number): Promise<void> {
+  const groupBy = parseArticleGroupBy(String(value));
+  if (groupBy === store.articleGroupBy) return;
+  store.setArticleGroupBy(groupBy);
+  await reloadArticleOrder();
+}
+
+async function reloadArticleOrder(): Promise<void> {
   if (activeFilters.value.length > 0) {
     await fetchFilteredArticles(activeFilters.value);
   } else if (!isAISearchActive.value) {
@@ -1072,9 +1112,10 @@ async function markAllVisibleAsRead(): Promise<void> {
 
 <template>
   <section
+    :aria-busy="store.isLoading || isFilterLoading"
     :class="[
       'article-list flex flex-col w-full border-r border-border bg-bg-primary shrink-0 h-full',
-      { 'card-mode': isCardMode },
+      { 'card-mode': isCardMode, 'table-mode': isTableMode },
     ]"
   >
     <div class="p-2 sm:p-4 border-b border-border bg-bg-primary">
@@ -1119,38 +1160,14 @@ async function markAllVisibleAsRead(): Promise<void> {
               :weight="store.showOnlyUnread ? 'fill' : 'regular'"
             />
           </button>
-          <button
-            class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-            :title="
-              store.articleSortOrder === 'newest'
-                ? t('article.action.sortOldestFirst')
-                : t('article.action.sortNewestFirst')
-            "
-            @click="toggleArticleSortOrder"
-          >
-            <PhSortDescending
-              v-if="store.articleSortOrder === 'newest'"
-              :size="18"
-              class="sm:w-5 sm:h-5"
-            />
-            <PhSortAscending v-else :size="18" class="sm:w-5 sm:h-5" />
-          </button>
-          <div class="relative">
-            <button
-              class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-              :class="activeFilters.length > 0 ? 'filter-active' : ''"
-              :title="t('modal.filter.filter')"
-              @click="showFilterModal = true"
-            >
-              <PhFunnel :size="18" class="sm:w-5 sm:h-5" />
-            </button>
-            <div
-              v-if="activeFilters.length > 0"
-              class="absolute -top-1 -right-1 bg-accent text-white text-[9px] sm:text-[10px] font-bold rounded-full min-w-[14px] sm:min-w-[16px] h-3.5 sm:h-4 px-0.5 sm:px-1 flex items-center justify-center"
-            >
-              {{ activeFilters.length }}
-            </div>
-          </div>
+          <ArticleListMoreMenu
+            :sort-order="store.articleSortOrder"
+            :group-by="store.articleGroupBy"
+            :filter-count="activeFilters.length"
+            @sort="changeArticleSortOrder"
+            @group="changeArticleGrouping"
+            @filter="showFilterModal = true"
+          />
           <div
             class="relative"
             @mouseenter="onRefreshTooltipShow"
@@ -1301,154 +1318,259 @@ async function markAllVisibleAsRead(): Promise<void> {
       @clear="handleAISearchClear"
     />
 
-    <div ref="listRef" class="flex-1 overflow-y-scroll article-list-scroll" @scroll="handleScroll">
+    <div class="relative flex-1 min-h-0 min-w-0" :class="{ 'cursor-wait': showingPrevious }">
       <div
-        v-if="
-          filteredArticles.length === 0 && !store.isLoading && !isFilterLoading && !isAISearchActive
-        "
-        class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
-        data-testid="article-list-empty"
+        v-if="showLoadingIndicator"
+        class="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-2 bg-bg-primary/95 px-3 py-2 text-sm text-text-secondary"
+        role="status"
       >
-        <template v-if="isFavoritesEmptyState">
-          <PhStar :size="40" weight="duotone" class="mb-3 text-yellow-500" />
-          <div class="text-base font-medium text-text-primary">
-            {{ t('article.list.noFavorites') }}
-          </div>
-          <div class="mt-1 text-sm">{{ t('article.list.noFavoritesHint') }}</div>
-        </template>
-        <template v-else-if="isUnreadEmptyState">
-          <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />
-          <div class="text-base font-medium text-text-primary">
-            {{ t('article.list.allCaughtUp') }}
-          </div>
-          <div class="mt-1 text-sm">{{ t('article.list.noUnreadArticles') }}</div>
-        </template>
-        <template v-else>
-          {{ t('article.content.noArticles') }}
-        </template>
+        <PhSpinner :size="16" class="animate-spin" />
+        {{ t('article.list.loadingArticles') }}
       </div>
-
-      <!-- AI Search no results message -->
       <div
-        v-if="isAISearchActive && filteredArticles.length === 0 && !store.isLoading"
-        class="p-4 sm:p-5 text-center text-text-secondary text-sm sm:text-base"
+        ref="listRef"
+        class="h-full overflow-y-scroll article-list-scroll"
+        :class="{ 'pointer-events-none': showingPrevious }"
+        :inert="showingPrevious || undefined"
+        @scroll="handleScroll"
       >
-        {{ t('aiSearch.noResults') }}
-      </div>
-
-      <!-- Article list with content-visibility for performance -->
-      <!-- Card mode: grid layout -->
-      <div v-if="isCardMode" class="card-grid-container">
         <div
-          v-for="article in visibleArticles"
-          :key="article.id"
-          class="min-w-0 overflow-hidden rounded-lg"
+          v-if="
+            filteredArticles.length === 0 &&
+            !store.isLoading &&
+            !isFilterLoading &&
+            !isAISearchActive
+          "
+          class="flex min-h-full flex-col items-center justify-center p-6 sm:p-8 text-center text-text-secondary"
+          data-testid="article-list-empty"
         >
-          <ArticleCardItem
-            :article="article"
-            :is-active="cardModalArticle?.id === article.id || recentlyClosedCardId === article.id"
-            @click="selectArticle(article)"
-            @contextmenu="(e) => handleArticleContextMenu(e, article)"
-            @observe-element="(element) => observeListArticle(element, article.id)"
-          />
-          <div
-            v-if="isAISearchActive && article.excerpt"
-            class="border-t border-border/50 bg-bg-secondary/70 px-3 py-2 text-xs text-text-secondary"
-          >
-            <div class="mb-1 flex flex-wrap items-center gap-1.5">
-              <span class="font-medium text-accent">
-                {{
-                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
-                }}
-              </span>
-              <span
-                v-for="field in article.matched_fields || []"
-                :key="field"
-                class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
-              >
-                {{ searchFieldLabel(field) }}
-              </span>
+          <template v-if="isFavoritesEmptyState">
+            <PhStar :size="40" weight="duotone" class="mb-3 text-yellow-500" />
+            <div class="text-base font-medium text-text-primary">
+              {{ t('article.list.noFavorites') }}
             </div>
-            <p class="line-clamp-3 leading-5">
-              <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
-                <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
-                  part.text
-                }}</mark>
-                <span v-else>{{ part.text }}</span>
-              </template>
-            </p>
-          </div>
-        </div>
-      </div>
-      <!-- Normal/Compact mode: list layout -->
-      <div v-else class="article-list-container">
-        <div v-for="article in visibleArticles" :key="article.id" class="min-w-0">
-          <ArticleItem
-            :article="article"
-            :is-active="store.currentArticleId === article.id"
-            @click="selectArticle(article)"
-            @contextmenu="(e) => handleArticleContextMenu(e, article)"
-            @observe-element="(element) => observeListArticle(element, article.id)"
-            @hover-mark-as-read="handleHoverMarkAsRead"
-          />
-          <div
-            v-if="isAISearchActive && article.excerpt"
-            class="border-b border-border bg-bg-secondary/60 px-3 pb-2 pt-1.5 text-xs text-text-secondary"
-          >
-            <div class="mb-1 flex flex-wrap items-center gap-1.5">
-              <span class="font-medium text-accent">
-                {{
-                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
-                }}
-              </span>
-              <span
-                v-for="field in article.matched_fields || []"
-                :key="field"
-                class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
-              >
-                {{ searchFieldLabel(field) }}
-              </span>
+            <div class="mt-1 text-sm">{{ t('article.list.noFavoritesHint') }}</div>
+          </template>
+          <template v-else-if="isUnreadEmptyState">
+            <PhCheckCircle :size="40" weight="duotone" class="mb-3 text-green-500" />
+            <div class="text-base font-medium text-text-primary">
+              {{ t('article.list.allCaughtUp') }}
             </div>
-            <p class="line-clamp-2 leading-5">
-              <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
-                <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
-                  part.text
-                }}</mark>
-                <span v-else>{{ part.text }}</span>
-              </template>
-            </p>
-          </div>
+            <div class="mt-1 text-sm">{{ t('article.list.noUnreadArticles') }}</div>
+          </template>
+          <template v-else>
+            {{ t('article.content.noArticles') }}
+          </template>
         </div>
-      </div>
 
-      <!-- Bottom: Mark All Visible as Read button (inserted at end of list) -->
-      <Transition
-        enter-active-class="transition ease-out duration-200"
-        enter-from-class="opacity-0 translate-y-2"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition ease-in duration-150"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-2"
-      >
-        <div v-if="shouldShowBottomMarkAllRead" class="mx-3 mb-3 pt-6 pb-3 text-center">
-          <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium"
-            @click="markAllVisibleAsRead"
-          >
-            <PhCheckCircle :size="18" />
-            <span>{{ t('article.list.markAllVisibleAsRead') }}</span>
-          </button>
-          <div class="text-xs text-text-secondary mt-2">
-            {{ t('article.list.allArticlesLoaded') }}
-          </div>
+        <!-- AI Search no results message -->
+        <div
+          v-if="isAISearchActive && filteredArticles.length === 0 && !store.isLoading"
+          class="p-4 sm:p-5 text-center text-text-secondary text-sm sm:text-base"
+        >
+          {{ t('aiSearch.noResults') }}
         </div>
-      </Transition>
 
-      <div
-        v-if="store.isLoading || isFilterLoading"
-        class="p-3 sm:p-4 text-center text-text-secondary"
-      >
-        <PhSpinner :size="20" class="animate-spin sm:w-6 sm:h-6" />
+        <table
+          v-if="isTableMode"
+          class="article-table w-full table-fixed border-collapse"
+          :aria-label="articleListTitle"
+        >
+          <colgroup>
+            <col v-for="column in tableColumns" :key="column" :class="`table-column-${column}`" />
+          </colgroup>
+          <thead class="sticky top-0 z-10 bg-bg-secondary text-xs text-text-secondary">
+            <tr>
+              <th
+                v-for="column in tableColumns"
+                :key="column"
+                scope="col"
+                class="px-3 py-2 text-left font-medium border-b border-border"
+              >
+                {{ t(`article.table.${column}`) }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="article in displayedArticles" :key="article.id">
+              <tr v-if="groupStarts.has(article.id)" class="bg-bg-secondary text-text-secondary">
+                <th
+                  :colspan="tableColumns.length"
+                  scope="rowgroup"
+                  class="px-3 py-2 text-left text-sm font-medium"
+                >
+                  {{ groupLabel(article) }}
+                </th>
+              </tr>
+              <ArticleTableRow
+                :disabled="showingPrevious"
+                :article="article"
+                :columns="tableColumns"
+                :is-active="store.currentArticleId === article.id"
+                @click="selectArticle(article)"
+                @contextmenu="(event) => handleArticleContextMenu(event, article)"
+                @observe-element="(element) => observeListArticle(element, article.id)"
+                @hover-mark-as-read="handleHoverMarkAsRead"
+              />
+              <tr
+                v-if="isAISearchActive && article.excerpt"
+                class="border-b border-border text-xs text-text-secondary"
+              >
+                <td :colspan="tableColumns.length" class="px-3 pb-2">
+                  <span class="text-accent mr-2">{{
+                    t('aiSearch.relevanceScore', {
+                      score: Math.round(article.relevance_score || 0),
+                    })
+                  }}</span>
+                  <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                    <mark v-if="part.matched" class="bg-accent/20 text-text-primary">{{
+                      part.text
+                    }}</mark>
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+
+        <!-- Article list with content-visibility for performance -->
+        <!-- Card mode: grid layout -->
+        <div v-else-if="isCardMode" class="card-grid-container">
+          <template v-for="article in displayedArticles" :key="article.id">
+            <h4
+              v-if="groupStarts.has(article.id)"
+              class="col-span-full px-1 py-2 text-sm font-medium text-text-secondary"
+            >
+              {{ groupLabel(article) }}
+            </h4>
+            <div class="min-w-0 overflow-hidden rounded-lg">
+              <ArticleCardItem
+                :article="article"
+                :is-active="
+                  cardModalArticle?.id === article.id || recentlyClosedCardId === article.id
+                "
+                @click="selectArticle(article)"
+                @contextmenu="(e) => handleArticleContextMenu(e, article)"
+                @observe-element="(element) => observeListArticle(element, article.id)"
+              />
+              <div
+                v-if="isAISearchActive && article.excerpt"
+                class="border-t border-border/50 bg-bg-secondary/70 px-3 py-2 text-xs text-text-secondary"
+              >
+                <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span class="font-medium text-accent">
+                    {{
+                      t('aiSearch.relevanceScore', {
+                        score: Math.round(article.relevance_score || 0),
+                      })
+                    }}
+                  </span>
+                  <span
+                    v-for="field in article.matched_fields || []"
+                    :key="field"
+                    class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+                  >
+                    {{ searchFieldLabel(field) }}
+                  </span>
+                </div>
+                <p class="line-clamp-3 leading-5">
+                  <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                    <mark
+                      v-if="part.matched"
+                      class="rounded bg-accent/20 px-0.5 text-text-primary"
+                      >{{ part.text }}</mark
+                    >
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </p>
+              </div>
+            </div>
+          </template>
+        </div>
+        <!-- Normal/Compact mode: list layout -->
+        <div v-else class="article-list-container">
+          <template v-for="article in displayedArticles" :key="article.id">
+            <h4
+              v-if="groupStarts.has(article.id)"
+              class="border-b border-border bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary"
+            >
+              {{ groupLabel(article) }}
+            </h4>
+            <div class="min-w-0">
+              <ArticleItem
+                :disabled="showingPrevious"
+                :article="article"
+                :is-active="store.currentArticleId === article.id"
+                @click="selectArticle(article)"
+                @contextmenu="(e) => handleArticleContextMenu(e, article)"
+                @observe-element="(element) => observeListArticle(element, article.id)"
+                @hover-mark-as-read="handleHoverMarkAsRead"
+              />
+              <div
+                v-if="isAISearchActive && article.excerpt"
+                class="border-b border-border bg-bg-secondary/60 px-3 pb-2 pt-1.5 text-xs text-text-secondary"
+              >
+                <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span class="font-medium text-accent">
+                    {{
+                      t('aiSearch.relevanceScore', {
+                        score: Math.round(article.relevance_score || 0),
+                      })
+                    }}
+                  </span>
+                  <span
+                    v-for="field in article.matched_fields || []"
+                    :key="field"
+                    class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+                  >
+                    {{ searchFieldLabel(field) }}
+                  </span>
+                </div>
+                <p class="line-clamp-2 leading-5">
+                  <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                    <mark
+                      v-if="part.matched"
+                      class="rounded bg-accent/20 px-0.5 text-text-primary"
+                      >{{ part.text }}</mark
+                    >
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </p>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Bottom: Mark All Visible as Read button (inserted at end of list) -->
+        <Transition
+          enter-active-class="transition ease-out duration-200"
+          enter-from-class="opacity-0 translate-y-2"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition ease-in duration-150"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-2"
+        >
+          <div v-if="shouldShowBottomMarkAllRead" class="mx-3 mb-3 pt-6 pb-3 text-center">
+            <button
+              class="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium"
+              @click="markAllVisibleAsRead"
+            >
+              <PhCheckCircle :size="18" />
+              <span>{{ t('article.list.markAllVisibleAsRead') }}</span>
+            </button>
+            <div class="text-xs text-text-secondary mt-2">
+              {{ t('article.list.allArticlesLoaded') }}
+            </div>
+          </div>
+        </Transition>
+
+        <div
+          v-if="(store.isLoading && !showingPrevious) || isFilterLoading"
+          class="p-3 sm:p-4 text-center text-text-secondary"
+        >
+          <PhSpinner :size="20" class="animate-spin sm:w-6 sm:h-6" />
+        </div>
       </div>
     </div>
   </section>
@@ -1482,6 +1604,31 @@ async function markAllVisibleAsRead(): Promise<void> {
 
 <style scoped>
 @reference "../../style.css";
+.article-table {
+  min-width: 600px;
+}
+.table-column-title {
+  width: auto;
+}
+.table-column-feed,
+.table-column-author {
+  width: 18%;
+}
+.table-column-date {
+  width: 22%;
+}
+.table-column-status {
+  width: 90px;
+}
+
+@media (min-width: 768px) {
+  .article-list.table-mode {
+    width: 100% !important;
+    min-height: 0;
+    height: clamp(160px, var(--table-list-height, 40%), calc(100% - 160px));
+    border-right: none;
+  }
+}
 @media (min-width: 768px) {
   .article-list {
     width: var(--article-list-width, 400px);

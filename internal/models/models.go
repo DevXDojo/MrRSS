@@ -44,6 +44,7 @@ type Feed struct {
 	EmailLastUID    int    `json:"email_last_uid"`              // Last processed email UID for incremental updates
 	// FreshRSS integration
 	IsFreshRSSSource bool   `json:"is_freshrss_source"` // Whether this feed is from FreshRSS sync
+	SyncProvider     string `json:"sync_provider"`
 	FreshRSSStreamID string `json:"freshrss_stream_id"` // FreshRSS stream ID (e.g., "feed/http://...")
 	// Statistics
 	LatestArticleTime *time.Time `json:"latest_article_time,omitempty"` // Latest article publish time

@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"MrRSS/internal/database"
-	"MrRSS/internal/freshrss"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
 )
@@ -395,34 +394,7 @@ func HandleMarkRelativeToArticle(h *core.Handler, w http.ResponseWriter, r *http
 
 // performImmediateBulkSync performs immediate sync for multiple articles to FreshRSS in a background goroutine
 func performImmediateBulkSync(h *core.Handler, syncReqs []database.SyncRequest) {
-	// Check if FreshRSS is enabled and configured
-	enabled, _ := h.DB.GetSetting("freshrss_enabled")
-	if enabled != "true" {
-		return
+	for i := range syncReqs {
+		performImmediateSync(h, &syncReqs[i])
 	}
-
-	serverURL, username, password, provider, err := h.DB.GetFreshRSSConfig()
-	if err != nil || serverURL == "" || username == "" || password == "" {
-		log.Printf("[Bulk Sync] FreshRSS not configured, skipping sync")
-		return
-	}
-
-	// Create sync service
-	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
-
-	// Perform immediate sync for each article
-	ctx := context.Background()
-	successCount := 0
-	for _, syncReq := range syncReqs {
-		err = syncService.SyncArticleStatus(ctx, syncReq.ArticleID, syncReq.ArticleURL, syncReq.Action)
-		if err != nil {
-			log.Printf("[Bulk Sync] Failed for article %d: %v", syncReq.ArticleID, err)
-			// Enqueue for retry during next global sync
-			_ = h.DB.EnqueueSyncChange(syncReq.ArticleID, syncReq.ArticleURL, syncReq.Action)
-		} else {
-			successCount++
-			log.Printf("[Bulk Sync] Success for article %d: %s", syncReq.ArticleID, syncReq.Action)
-		}
-	}
-	log.Printf("[Bulk Sync] Completed: %d/%d articles synced successfully", successCount, len(syncReqs))
 }

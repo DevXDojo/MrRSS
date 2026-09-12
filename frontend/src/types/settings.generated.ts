@@ -22,6 +22,8 @@ export interface SettingsData {
   ai_translation_prompt: string;
   ai_usage_limit: string;
   ai_usage_tokens: string;
+  article_table_columns: string;
+  article_toolbar_layout: string;
   auto_cleanup_enabled: boolean;
   auto_mark_read_days: number;
   auto_mark_read_enabled: boolean;
@@ -43,6 +45,7 @@ export interface SettingsData {
   custom_translation_name: string;
   custom_translation_response_path: string;
   custom_translation_timeout: number;
+  date_format: string;
   deepl_api_key: string;
   deepl_endpoint: string;
   default_view_mode: string;
@@ -74,6 +77,13 @@ export interface SettingsData {
   microsoft_api_key: string;
   microsoft_endpoint: string;
   microsoft_region: string;
+  miniflux_api_password: string;
+  miniflux_auto_sync_interval: number;
+  miniflux_enabled: boolean;
+  miniflux_last_sync_time: string;
+  miniflux_server_url: string;
+  miniflux_sync_on_startup: boolean;
+  miniflux_username: string;
   network_bandwidth_mbps: string;
   network_latency_ms: string;
   network_speed: string;
@@ -90,6 +100,7 @@ export interface SettingsData {
   proxy_type: string;
   proxy_username: string;
   refresh_mode: string;
+  relative_time: boolean;
   remember_article_position: boolean;
   retry_timeout_seconds: number;
   rsshub_api_key: string;
@@ -106,6 +117,11 @@ export interface SettingsData {
   sidebar_category_order: string;
   sidebar_pinned_items: string;
   sidebar_sort_mode: string;
+  siyuan_api_token: string;
+  siyuan_enabled: boolean;
+  siyuan_endpoint: string;
+  siyuan_folder: string;
+  siyuan_notebook_id: string;
   startup_on_boot: boolean;
   summary_enabled: boolean;
   summary_length: string;
@@ -116,6 +132,7 @@ export interface SettingsData {
   tencent_secret_id: string;
   tencent_secret_key: string;
   theme: string;
+  time_format: string;
   translation_enabled: boolean;
   translation_only_mode: boolean;
   translation_provider: string;

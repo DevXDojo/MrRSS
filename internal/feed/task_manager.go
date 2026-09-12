@@ -947,17 +947,7 @@ func parseInt(s string) (int, error) {
 // getRetryTimeout retrieves the retry timeout from settings
 // Returns the configured timeout in seconds (default 60 seconds)
 func (tm *TaskManager) getRetryTimeout() time.Duration {
-	retryTimeoutStr, err := tm.fetcher.db.GetSetting("retry_timeout_seconds")
-	if err != nil || retryTimeoutStr == "" {
-		return 60 * time.Second // Default to 60 seconds
-	}
-
-	retryTimeout, err := parseInt(retryTimeoutStr)
-	if err != nil || retryTimeout <= 0 {
-		return 60 * time.Second // Default to 60 seconds if invalid
-	}
-
-	return time.Duration(retryTimeout) * time.Second
+	return tm.fetcher.retryTimeout()
 }
 
 // initTaskLog initializes the task log file

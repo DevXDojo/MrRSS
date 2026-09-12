@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import {
   PhX,
   PhCopy,
@@ -35,6 +36,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const { formatArticleDateTime } = useArticleDateFormat();
 
 // Track media cache setting
 const mediaCacheEnabled = ref(false);
@@ -481,7 +483,7 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
       <div class="flex items-center gap-4 text-sm text-white/80">
         <span class="truncate flex-1">{{ article?.feed_title }}</span>
         <span class="shrink-0">{{
-          article?.published_at ? new Date(article.published_at).toLocaleDateString() : ''
+          article?.published_at ? formatArticleDateTime(article.published_at) : ''
         }}</span>
       </div>
     </div>

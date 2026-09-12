@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"MrRSS/internal/database"
 	"MrRSS/internal/freshrss"
@@ -79,13 +80,7 @@ func HandleToggleFavoriteWithImmediateSync(h *core.Handler, w http.ResponseWrite
 
 // performImmediateSync performs an immediate sync to FreshRSS in a background goroutine
 func performImmediateSync(h *core.Handler, syncReq *database.SyncRequest) {
-	// Check if FreshRSS is enabled and configured
-	enabled, _ := h.DB.GetSetting("freshrss_enabled")
-	if enabled != "true" {
-		return
-	}
-
-	serverURL, username, password, provider, err := h.DB.GetFreshRSSConfig()
+	serverURL, username, password, provider, err := h.DB.GetArticleSyncConfig(syncReq.ArticleID)
 	if err != nil || serverURL == "" || username == "" || password == "" {
 		log.Printf("[Immediate Sync] FreshRSS not configured, skipping sync")
 		return
@@ -95,7 +90,8 @@ func performImmediateSync(h *core.Handler, syncReq *database.SyncRequest) {
 	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
 
 	// Perform immediate sync
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	err = syncService.SyncArticleStatus(ctx, syncReq.ArticleID, syncReq.ArticleURL, syncReq.Action)
 	if err != nil {
 		log.Printf("[Immediate Sync] Failed for article %d: %v", syncReq.ArticleID, err)

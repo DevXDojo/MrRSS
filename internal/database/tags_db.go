@@ -288,7 +288,7 @@ func (db *DB) GetFeedsByTag(tagID int64) ([]models.Feed, error) {
 			f.article_view_mode, f.auto_expand_content,
 			f.email_address, f.email_imap_server, f.email_imap_port,
 			f.email_username, f.email_password, f.email_folder, f.email_last_uid,
-			f.is_freshrss_source, f.freshrss_stream_id
+			f.is_freshrss_source, f.freshrss_stream_id, f.sync_provider
 		FROM feeds f
 		INNER JOIN feed_tags ft ON f.id = ft.feed_id
 		WHERE ft.tag_id = ?
@@ -314,7 +314,7 @@ func (db *DB) GetFeedsByTag(tagID int64) ([]models.Feed, error) {
 			&feed.XPathItemCategories, &feed.XPathItemUid, &feed.ArticleViewMode,
 			&feed.AutoExpandContent, &feed.EmailAddress, &feed.EmailIMAPServer,
 			&feed.EmailIMAPPort, &feed.EmailUsername, &feed.EmailPassword, &feed.EmailFolder,
-			&feed.EmailLastUID, &feed.IsFreshRSSSource, &feed.FreshRSSStreamID,
+			&feed.EmailLastUID, &feed.IsFreshRSSSource, &feed.FreshRSSStreamID, &feed.SyncProvider,
 		)
 		if err != nil {
 			return nil, err

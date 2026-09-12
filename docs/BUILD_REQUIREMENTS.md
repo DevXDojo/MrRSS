@@ -230,6 +230,30 @@ This error is from older versions. Wails v3 uses its own system tray implementat
 sudo apt-get install libsoup-3.0-dev
 ```
 
+### Linux: Blank window or "Failed to create GBM buffer"
+
+If the desktop app opens a blank window with a GBM buffer error, fully quit MrRSS
+(including its tray process), then start it with software rendering:
+
+```bash
+./MrRSS --software-rendering
+```
+
+For an AppImage, append `--software-rendering` to the command using your downloaded
+AppImage's filename. Starting a second instance does not change the renderer of an
+already running instance.
+
+This Linux desktop option disables WebKit hardware acceleration and its DMA-BUF
+renderer, and selects GTK's fallback Cairo renderer (`GSK_RENDERER=cairo`). See the
+[GTK renderer documentation](https://docs.gtk.org/gtk4/running.html#gsk_renderer).
+It may increase CPU usage or limit accelerated content, and is a compatibility
+workaround rather than a diagnosis of every blank window. The option applies to
+this launch only; omit it on the next launch to return to the normal configuration.
+It does not change system graphics settings or stored reader data.
+
+Linux 出现白屏并伴随 GBM 错误时，请先完全退出 MrRSS（包括托盘进程），再在启动命令后加上
+`--software-rendering`。此选项仅影响本次启动，可能增加 CPU 使用量；下次不加该参数即可恢复正常配置。
+
 ### Windows: "gcc: command not found"
 
 **Solution**: Install MinGW:
