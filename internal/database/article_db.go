@@ -215,7 +215,7 @@ func (db *DB) GetArticlesWithUnreadFilter(filter string, feedID int64, category 
 }
 
 // GetArticlesWithUnreadFilterSorted returns articles in a validated publication-time order.
-func (db *DB) GetArticlesWithUnreadFilterSorted(filter string, feedID int64, category string, showHidden bool, onlyUnread bool, sortOrder string, limit, offset int) ([]models.Article, error) {
+func (db *DB) GetArticlesWithUnreadFilterSorted(filter string, feedID int64, category string, showHidden bool, onlyUnread bool, sortOrder string, limit, offset int, groupBy ...string) ([]models.Article, error) {
 	db.WaitForReady()
 
 	// Optimization: For category queries, first get the feed IDs, then query articles
@@ -320,7 +320,13 @@ func (db *DB) GetArticlesWithUnreadFilterSorted(filter string, feedID int64, cat
 	if sortOrder == "oldest" {
 		direction = "ASC"
 	}
-	query += " ORDER BY a.published_at " + direction + ", a.id " + direction + " LIMIT ? OFFSET ?"
+	query += " ORDER BY "
+	// Group before LIMIT/OFFSET so a feed stays contiguous across page boundaries.
+	// IDs provide stable group order, independent of duplicate or renamed titles.
+	if len(groupBy) > 0 && groupBy[0] == "feed" {
+		query += "a.feed_id ASC, "
+	}
+	query += "a.published_at " + direction + ", a.id " + direction + " LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
 	rows, err := db.Query(query, args...)

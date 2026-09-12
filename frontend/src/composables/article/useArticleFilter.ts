@@ -56,6 +56,7 @@ export function useArticleFilter() {
           page: page,
           limit: 50,
           sort_order: store.articleSortOrder,
+          group_by: store.articleGroupBy,
         }),
       });
 

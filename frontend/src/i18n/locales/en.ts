@@ -16,6 +16,10 @@ const en: TranslationMessages = {
       fullArticleFetched: 'Full article content loaded',
       hideArticle: 'Hide Article',
       markAboveAsRead: 'Mark Above as Read',
+      markAboveInFeedAsRead: 'Mark Above in This Feed as Read',
+      markBelowInFeedAsRead: 'Mark Below in This Feed as Read',
+      markRelativeInFeedConfirmMessage:
+        'Mark articles in this direction as read within the current feed?',
       markAllAsReadFeed: 'Mark All as Read',
       markAllRead: 'Mark All as Read',
       markAllReadShortcut: 'Mark All as Read',
@@ -124,6 +128,14 @@ const en: TranslationMessages = {
       mediaFilter: 'Filter multimedia content',
     },
     list: {
+      grouping: {
+        label: 'Group by',
+        none: 'No grouping',
+        date: 'Date',
+        feed: 'Feed',
+        unknownDate: 'Unknown date',
+        unknownFeed: 'Untitled feed',
+      },
       markAllVisibleAsRead: 'Mark All Visible as Read',
       allArticlesLoaded: 'All articles loaded',
       allCaughtUp: "You're all caught up",

@@ -3,6 +3,7 @@ import { ref, computed, type Ref } from 'vue';
 import type { Article, Feed, Tag, UnreadCounts, RefreshProgress } from '@/types/models';
 import type { FilterCondition } from '@/types/filter';
 import { useSettings } from '@/composables/core/useSettings';
+import { parseArticleGroupBy, type ArticleGroupBy } from '@/utils/articleGrouping';
 
 export function preserveSelectedArticle<T extends { id: number }>(
   freshArticles: T[],
@@ -134,6 +135,7 @@ export interface AppState {
   refreshProgress: Ref<RefreshProgress>;
   showOnlyUnread: Ref<boolean>;
   articleSortOrder: Ref<ArticleSortOrder>;
+  articleGroupBy: Ref<ArticleGroupBy>;
   activeFilters: Ref<FilterCondition[]>;
   filteredArticlesFromServer: Ref<Article[]>;
   articleNavigationContext: Ref<Article[] | null>;
@@ -161,6 +163,7 @@ export interface AppActions {
   startAutoRefresh: (minutes: number) => void;
   toggleShowOnlyUnread: () => void;
   setArticleSortOrder: (order: ArticleSortOrder) => void;
+  setArticleGroupBy: (groupBy: ArticleGroupBy) => void;
   setActiveFilters: (filters: FilterCondition[]) => void;
   setArticleNavigationContext: (articles: Article[] | null) => void;
 }
@@ -210,6 +213,9 @@ export const useAppStore = defineStore('app', () => {
     savedArticleSortOrder === 'oldest' ? 'oldest' : 'newest'
   );
   const activeFilters = ref<FilterCondition[]>([]);
+  const articleGroupBy = ref<ArticleGroupBy>(
+    parseArticleGroupBy(localStorage.getItem('articleGroupBy'))
+  );
   const filteredArticlesFromServer = ref<Article[]>([]);
   // A temporary ordered list used by result views (for example AI search).
   // Keeping this in the store lets ArticleDetail resolve and navigate articles
@@ -335,6 +341,7 @@ export const useAppStore = defineStore('app', () => {
 
     let url = `/api/articles?page=${page.value}&limit=${limit}`;
     url += `&sort_order=${articleSortOrder.value}`;
+    url += `&group_by=${articleGroupBy.value}`;
     if (currentFilter.value) url += `&filter=${currentFilter.value}`;
     if (
       showOnlyUnread.value &&
@@ -384,6 +391,11 @@ export const useAppStore = defineStore('app', () => {
   function setArticleSortOrder(order: ArticleSortOrder): void {
     articleSortOrder.value = order;
     localStorage.setItem('articleSortOrder', order);
+  }
+
+  function setArticleGroupBy(groupBy: ArticleGroupBy): void {
+    articleGroupBy.value = groupBy;
+    localStorage.setItem('articleGroupBy', groupBy);
   }
 
   async function fetchFeeds(): Promise<void> {
@@ -1013,6 +1025,7 @@ export const useAppStore = defineStore('app', () => {
     refreshProgress,
     showOnlyUnread,
     articleSortOrder,
+    articleGroupBy,
     activeFilters,
     filteredArticlesFromServer,
     articleNavigationContext,
@@ -1045,6 +1058,7 @@ export const useAppStore = defineStore('app', () => {
     startAutoRefresh,
     toggleShowOnlyUnread,
     setArticleSortOrder,
+    setArticleGroupBy,
     setActiveFilters,
     setFilteredArticlesFromServer,
     setArticleNavigationContext,

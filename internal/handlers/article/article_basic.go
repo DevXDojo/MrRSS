@@ -20,6 +20,7 @@ import (
 // @Param        category  query     string  false  "Filter by category name"
 // @Param        only_unread query   bool    false  "Filter for only unread articles"
 // @Param        sort_order query    string  false  "Publication order: newest or oldest" Enums(newest, oldest)
+// @Param        group_by query      string  false  "Group articles by feed before pagination" Enums(none, date, feed)
 // @Param        page      query     int     false  "Page number (default: 1)"  minimum(1)
 // @Param        limit     query     int     false  "Items per page (default: 50, max: 500)"  minimum(1)  maximum(500)
 // @Success      200  {array}   models.Article  "List of articles"
@@ -69,7 +70,7 @@ func HandleArticles(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	showHiddenStr, _ := h.DB.GetSetting("show_hidden_articles")
 	showHidden := showHiddenStr == "true"
 
-	articles, err := h.DB.GetArticlesWithUnreadFilterSorted(filter, feedID, category, showHidden, onlyUnread, sortOrder, limit, offset)
+	articles, err := h.DB.GetArticlesWithUnreadFilterSorted(filter, feedID, category, showHidden, onlyUnread, sortOrder, limit, offset, r.URL.Query().Get("group_by"))
 	if err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return

@@ -27,6 +27,7 @@ type FilterRequest struct {
 	Page       int               `json:"page"`
 	Limit      int               `json:"limit"`
 	SortOrder  string            `json:"sort_order"`
+	GroupBy    string            `json:"group_by"`
 }
 
 // FilterResponse represents the response for filtered articles with pagination info

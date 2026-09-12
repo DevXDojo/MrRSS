@@ -176,7 +176,7 @@ func HandleFilteredArticles(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	if sortOrder != "oldest" {
 		sortOrder = "newest"
 	}
-	articles, err := h.DB.GetArticlesWithUnreadFilterSorted("", 0, "", showHidden, false, sortOrder, 50000, 0)
+	articles, err := h.DB.GetArticlesWithUnreadFilterSorted("", 0, "", showHidden, false, sortOrder, 50000, 0, req.GroupBy)
 	if err != nil {
 		response.Error(w, err, http.StatusInternalServerError)
 		return

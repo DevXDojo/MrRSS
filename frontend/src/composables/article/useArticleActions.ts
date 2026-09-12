@@ -12,10 +12,7 @@ export function useArticleActions(
   t: Composer['t'],
   defaultViewMode: { value: ViewMode },
   onReadStatusChange?: () => void | Promise<void>,
-  onRelativeRead?: (
-    article: Article,
-    direction: RelativeReadDirection
-  ) => void | Promise<void>
+  onRelativeRead?: (article: Article, direction: RelativeReadDirection) => void | Promise<void>
 ) {
   const store = useAppStore();
   const { settings } = useSettings();
@@ -54,12 +51,20 @@ export function useArticleActions(
         iconColor: 'text-text-secondary',
       },
       {
-        label: t('article.action.markAboveAsRead'),
+        label: t(
+          store.articleGroupBy === 'feed'
+            ? 'article.action.markAboveInFeedAsRead'
+            : 'article.action.markAboveAsRead'
+        ),
         action: 'markAboveAsRead',
         icon: 'ph-arrow-bend-right-up',
       },
       {
-        label: t('article.action.markBelowAsRead'),
+        label: t(
+          store.articleGroupBy === 'feed'
+            ? 'article.action.markBelowInFeedAsRead'
+            : 'article.action.markBelowAsRead'
+        ),
         action: 'markBelowAsRead',
         icon: 'ph-arrow-bend-left-down',
       },
@@ -230,8 +235,7 @@ export function useArticleActions(
       }
     } else if (action === 'markAboveAsRead' || action === 'markBelowAsRead') {
       try {
-        const direction: RelativeReadDirection =
-          action === 'markAboveAsRead' ? 'above' : 'below';
+        const direction: RelativeReadDirection = action === 'markAboveAsRead' ? 'above' : 'below';
 
         // Show confirmation dialog
         const confirmTitle =
@@ -239,9 +243,11 @@ export function useArticleActions(
             ? t('article.action.markAboveReadConfirmTitle')
             : t('article.action.markBelowReadConfirmTitle');
         const confirmMessage =
-          action === 'markAboveAsRead'
-            ? t('article.action.markAboveReadConfirmMessage')
-            : t('article.action.markBelowReadConfirmMessage');
+          store.articleGroupBy === 'feed'
+            ? t('article.action.markRelativeInFeedConfirmMessage')
+            : action === 'markAboveAsRead'
+              ? t('article.action.markAboveReadConfirmMessage')
+              : t('article.action.markBelowReadConfirmMessage');
 
         const confirmed = settings.value.confirm_mark_as_read
           ? await window.showConfirm({
@@ -260,11 +266,18 @@ export function useArticleActions(
         // Build query parameters
         const params = new URLSearchParams({
           id: article.id.toString(),
-          direction: direction,
+          direction:
+            store.articleSortOrder === 'oldest'
+              ? direction === 'above'
+                ? 'below'
+                : 'above'
+              : direction,
         });
 
         // Add feed_id or category if we're in a filtered view
-        if (store.currentFeedId) {
+        if (store.articleGroupBy === 'feed') {
+          params.append('feed_id', article.feed_id.toString());
+        } else if (store.currentFeedId) {
           params.append('feed_id', store.currentFeedId.toString());
         } else if (store.currentCategory) {
           params.append('category', store.currentCategory);

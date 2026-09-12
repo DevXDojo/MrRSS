@@ -18,6 +18,13 @@ import {
   PhSortDescending,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
+import BaseSelect from '../common/BaseSelect.vue';
+import {
+  articleGroupStarts,
+  orderGroupedArticles,
+  parseArticleGroupBy,
+} from '@/utils/articleGrouping';
+import { formatCalendarDate } from '@/utils/date';
 import ArticleItem from './ArticleItem.vue';
 import ArticleCardItem from './ArticleCardItem.vue';
 import ArticleDetailModal from './ArticleDetailModal.vue';
@@ -34,7 +41,7 @@ import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import type { Article } from '@/types/models';
 
 const store = useAppStore();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { settings } = useSettings();
 
 const listRef: Ref<HTMLDivElement | null> = ref(null);
@@ -257,13 +264,15 @@ async function preserveRelativeReadPosition(
   const anchor = list?.querySelector<HTMLElement>(`[data-article-id="${referenceArticle.id}"]`);
   const anchorTop = anchor?.getBoundingClientRect().top;
   const referenceTime = new Date(referenceArticle.published_at).getTime();
+  const markNewer = (direction === 'above') === (store.articleSortOrder === 'newest');
 
   if (Number.isFinite(referenceTime)) {
     filteredArticles.value.forEach((article) => {
       const publishedTime = new Date(article.published_at).getTime();
       if (
+        (store.articleGroupBy !== 'feed' || article.feed_id === referenceArticle.feed_id) &&
         Number.isFinite(publishedTime) &&
-        (direction === 'above' ? publishedTime > referenceTime : publishedTime < referenceTime)
+        (markNewer ? publishedTime > referenceTime : publishedTime < referenceTime)
       ) {
         article.is_read = true;
       }
@@ -281,12 +290,25 @@ async function preserveRelativeReadPosition(
   }
 }
 
-// Virtual rendering: only render visible articles + buffer
-const visibleArticles = computed(() => {
-  // For now, render all articles but could be optimized for virtual scrolling
-  // Keeping it simple to avoid complexity
-  return filteredArticles.value;
-});
+const visibleArticles = computed(() =>
+  orderGroupedArticles(filteredArticles.value, store.articleGroupBy, store.articleSortOrder)
+);
+const groupStarts = computed(() => articleGroupStarts(visibleArticles.value, store.articleGroupBy));
+const groupingOptions = computed(() =>
+  ['none', 'date', 'feed'].map((value) => ({
+    value,
+    label: t(`article.list.grouping.${value}`),
+  }))
+);
+
+function groupLabel(article: Article): string {
+  if (store.articleGroupBy === 'feed')
+    return article.feed_title || t('article.list.grouping.unknownFeed');
+  const date = new Date(article.published_at);
+  return Number.isFinite(date.getTime())
+    ? formatCalendarDate(date, locale.value, settings.value.date_format)
+    : t('article.list.grouping.unknownDate');
+}
 
 async function markArticleAfterScroll(articleId: number): Promise<void> {
   const article = filteredArticles.value.find((item) => item.id === articleId);
@@ -518,15 +540,15 @@ watch(
   }
 );
 
-// Keep detail navigation aligned with the currently visible AI result order,
-// including the unread-only preference, without replacing the main timeline.
+// Keep detail navigation in the same order as grouped lists and search results.
 watch(
-  () => (isAISearchActive.value ? filteredArticles.value.map((article) => article.id) : []),
+  () => [isAISearchActive.value, store.articleGroupBy, visibleArticles.value],
   () => {
-    if (isAISearchActive.value) {
-      store.setArticleNavigationContext([...filteredArticles.value]);
-    }
-  }
+    store.setArticleNavigationContext(
+      isAISearchActive.value || store.articleGroupBy !== 'none' ? [...visibleArticles.value] : null
+    );
+  },
+  { immediate: true }
 );
 
 // Detail buttons and global shortcuts can move inside the search result set
@@ -543,9 +565,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
-  if (isAISearchActive.value) {
-    store.setArticleNavigationContext(null);
-  }
+  store.setArticleNavigationContext(null);
   cleanupTranslation();
   // Clear scroll throttle timer
   if (scrollThrottleTimer) {
@@ -1032,6 +1052,15 @@ const isFavoritesEmptyState = computed(() => store.currentFilter === 'favorites'
 async function toggleArticleSortOrder(): Promise<void> {
   const nextOrder = store.articleSortOrder === 'newest' ? 'oldest' : 'newest';
   store.setArticleSortOrder(nextOrder);
+  await reloadArticleOrder();
+}
+
+async function changeArticleGrouping(value: string | number): Promise<void> {
+  store.setArticleGroupBy(parseArticleGroupBy(String(value)));
+  await reloadArticleOrder();
+}
+
+async function reloadArticleOrder(): Promise<void> {
   if (activeFilters.value.length > 0) {
     await fetchFilteredArticles(activeFilters.value);
   } else if (!isAISearchActive.value) {
@@ -1296,6 +1325,18 @@ async function markAllVisibleAsRead(): Promise<void> {
       </div>
     </div>
 
+    <div
+      class="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-text-secondary"
+    >
+      <span>{{ t('article.list.grouping.label') }}</span>
+      <BaseSelect
+        :model-value="store.articleGroupBy"
+        :options="groupingOptions"
+        size="xs"
+        @update:model-value="changeArticleGrouping"
+      />
+    </div>
+
     <!-- AI Search Bar -->
     <AISearchBar
       v-if="isAISearchEnabled"
@@ -1341,86 +1382,104 @@ async function markAllVisibleAsRead(): Promise<void> {
       <!-- Article list with content-visibility for performance -->
       <!-- Card mode: grid layout -->
       <div v-if="isCardMode" class="card-grid-container">
-        <div
-          v-for="article in visibleArticles"
-          :key="article.id"
-          class="min-w-0 overflow-hidden rounded-lg"
-        >
-          <ArticleCardItem
-            :article="article"
-            :is-active="cardModalArticle?.id === article.id || recentlyClosedCardId === article.id"
-            @click="selectArticle(article)"
-            @contextmenu="(e) => handleArticleContextMenu(e, article)"
-            @observe-element="(element) => observeListArticle(element, article.id)"
-          />
-          <div
-            v-if="isAISearchActive && article.excerpt"
-            class="border-t border-border/50 bg-bg-secondary/70 px-3 py-2 text-xs text-text-secondary"
+        <template v-for="article in visibleArticles" :key="article.id">
+          <h4
+            v-if="groupStarts.has(article.id)"
+            class="col-span-full px-1 py-2 text-sm font-medium text-text-secondary"
           >
-            <div class="mb-1 flex flex-wrap items-center gap-1.5">
-              <span class="font-medium text-accent">
-                {{
-                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
-                }}
-              </span>
-              <span
-                v-for="field in article.matched_fields || []"
-                :key="field"
-                class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
-              >
-                {{ searchFieldLabel(field) }}
-              </span>
+            {{ groupLabel(article) }}
+          </h4>
+          <div class="min-w-0 overflow-hidden rounded-lg">
+            <ArticleCardItem
+              :article="article"
+              :is-active="
+                cardModalArticle?.id === article.id || recentlyClosedCardId === article.id
+              "
+              @click="selectArticle(article)"
+              @contextmenu="(e) => handleArticleContextMenu(e, article)"
+              @observe-element="(element) => observeListArticle(element, article.id)"
+            />
+            <div
+              v-if="isAISearchActive && article.excerpt"
+              class="border-t border-border/50 bg-bg-secondary/70 px-3 py-2 text-xs text-text-secondary"
+            >
+              <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                <span class="font-medium text-accent">
+                  {{
+                    t('aiSearch.relevanceScore', {
+                      score: Math.round(article.relevance_score || 0),
+                    })
+                  }}
+                </span>
+                <span
+                  v-for="field in article.matched_fields || []"
+                  :key="field"
+                  class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+                >
+                  {{ searchFieldLabel(field) }}
+                </span>
+              </div>
+              <p class="line-clamp-3 leading-5">
+                <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                  <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
+                    part.text
+                  }}</mark>
+                  <span v-else>{{ part.text }}</span>
+                </template>
+              </p>
             </div>
-            <p class="line-clamp-3 leading-5">
-              <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
-                <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
-                  part.text
-                }}</mark>
-                <span v-else>{{ part.text }}</span>
-              </template>
-            </p>
           </div>
-        </div>
+        </template>
       </div>
       <!-- Normal/Compact mode: list layout -->
       <div v-else class="article-list-container">
-        <div v-for="article in visibleArticles" :key="article.id" class="min-w-0">
-          <ArticleItem
-            :article="article"
-            :is-active="store.currentArticleId === article.id"
-            @click="selectArticle(article)"
-            @contextmenu="(e) => handleArticleContextMenu(e, article)"
-            @observe-element="(element) => observeListArticle(element, article.id)"
-            @hover-mark-as-read="handleHoverMarkAsRead"
-          />
-          <div
-            v-if="isAISearchActive && article.excerpt"
-            class="border-b border-border bg-bg-secondary/60 px-3 pb-2 pt-1.5 text-xs text-text-secondary"
+        <template v-for="article in visibleArticles" :key="article.id">
+          <h4
+            v-if="groupStarts.has(article.id)"
+            class="border-b border-border bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary"
           >
-            <div class="mb-1 flex flex-wrap items-center gap-1.5">
-              <span class="font-medium text-accent">
-                {{
-                  t('aiSearch.relevanceScore', { score: Math.round(article.relevance_score || 0) })
-                }}
-              </span>
-              <span
-                v-for="field in article.matched_fields || []"
-                :key="field"
-                class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
-              >
-                {{ searchFieldLabel(field) }}
-              </span>
+            {{ groupLabel(article) }}
+          </h4>
+          <div class="min-w-0">
+            <ArticleItem
+              :article="article"
+              :is-active="store.currentArticleId === article.id"
+              @click="selectArticle(article)"
+              @contextmenu="(e) => handleArticleContextMenu(e, article)"
+              @observe-element="(element) => observeListArticle(element, article.id)"
+              @hover-mark-as-read="handleHoverMarkAsRead"
+            />
+            <div
+              v-if="isAISearchActive && article.excerpt"
+              class="border-b border-border bg-bg-secondary/60 px-3 pb-2 pt-1.5 text-xs text-text-secondary"
+            >
+              <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                <span class="font-medium text-accent">
+                  {{
+                    t('aiSearch.relevanceScore', {
+                      score: Math.round(article.relevance_score || 0),
+                    })
+                  }}
+                </span>
+                <span
+                  v-for="field in article.matched_fields || []"
+                  :key="field"
+                  class="rounded bg-accent/10 px-1.5 py-0.5 text-accent"
+                >
+                  {{ searchFieldLabel(field) }}
+                </span>
+              </div>
+              <p class="line-clamp-2 leading-5">
+                <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
+                  <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
+                    part.text
+                  }}</mark>
+                  <span v-else>{{ part.text }}</span>
+                </template>
+              </p>
             </div>
-            <p class="line-clamp-2 leading-5">
-              <template v-for="(part, index) in searchExcerptParts(article)" :key="index">
-                <mark v-if="part.matched" class="rounded bg-accent/20 px-0.5 text-text-primary">{{
-                  part.text
-                }}</mark>
-                <span v-else>{{ part.text }}</span>
-              </template>
-            </p>
           </div>
-        </div>
+        </template>
       </div>
 
       <!-- Bottom: Mark All Visible as Read button (inserted at end of list) -->
