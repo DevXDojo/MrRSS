@@ -1,6 +1,7 @@
 package summary
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -151,6 +152,15 @@ func (s *AISummarizer) getUserPrompt(targetWords int, text string) string {
 // Summarize generates a summary of the given text using an OpenAI-compatible API.
 // Automatically detects and adapts to different API formats (Gemini, OpenAI, Ollama).
 func (s *AISummarizer) Summarize(text string, length SummaryLength) (SummaryResult, error) {
+	return s.SummarizeContext(context.Background(), text, length)
+}
+
+// Close releases idle connections once this summarizer is no longer needed.
+func (s *AISummarizer) Close() {
+	s.httpClient.CloseIdleConnections()
+}
+
+func (s *AISummarizer) SummarizeContext(ctx context.Context, text string, length SummaryLength) (SummaryResult, error) {
 	// Clean the text first
 	cleanedText := cleanText(text)
 
@@ -174,7 +184,13 @@ func (s *AISummarizer) Summarize(text string, length SummaryLength) (SummaryResu
 	userPrompt := s.getUserPrompt(targetWords, cleanedText)
 
 	// Use the universal client which handles format detection automatically
-	result, err := s.client.RequestWithThinking(systemPrompt, userPrompt)
+	result, err := s.client.RequestWithConfigContext(ctx, ai.RequestConfig{
+		Model:        s.Model,
+		SystemPrompt: systemPrompt,
+		UserPrompt:   userPrompt,
+		Temperature:  0.3,
+		MaxTokens:    2048,
+	})
 	if err != nil {
 		return SummaryResult{}, err
 	}

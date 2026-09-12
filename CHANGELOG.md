@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Use the selected AI profile's headers for summaries, preserve legacy AI configuration when no profile exists, and keep temporary local fallbacks retryable. Cancel abandoned summary requests without overwriting newer results. (#772)
 - Honor application proxy settings across Google, DeepL, Baidu, Microsoft, and Tencent translation; apply changed credentials and proxy settings without restarting. (#767, #918)
 - Use the configured Google translation endpoint and decode the alternative endpoint's response format; preserve both the Microsoft endpoint and region. (#767)
 - Show the macOS menu-bar unread count, update it while the reader is hidden, and respect the unread-count visibility setting. (#544)
