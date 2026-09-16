@@ -28,6 +28,7 @@ import (
 	"MrRSS/internal/monitor"
 	"MrRSS/internal/network"
 	"MrRSS/internal/routes"
+	"MrRSS/internal/singleinstance"
 	"MrRSS/internal/translation"
 	"MrRSS/internal/tray"
 	"MrRSS/internal/utils"
@@ -93,6 +94,21 @@ func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
 }
 
 func main() {
+	// Reject duplicate Linux launches before truncating logs, opening SQLite,
+	// running migrations, or starting schedulers. This does not depend on D-Bus.
+	dataDir, err := fileutil.GetDataDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	instanceLock, err := singleinstance.Acquire(dataDir)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	if instanceLock != nil {
+		defer instanceLock.Close()
+	}
+
 	// Get proper paths for data files
 	logPath, err := fileutil.GetLogPath()
 	if err != nil {

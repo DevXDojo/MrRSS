@@ -87,6 +87,11 @@ func PrepareArticleContent(content, baseURL string) string {
 			attrs = append(attrs, attr)
 		}
 		node.Attr = attrs
+		if node.Data == "img" {
+			// Reader images must not leak the app origin, even when feeds omit
+			// a policy. Hotlink-protected hosts often reject wails.localhost.
+			sel.SetAttr("referrerpolicy", "no-referrer")
+		}
 		if node.Data == "iframe" {
 			source, _ := url.Parse(sel.AttrOr("src", ""))
 			if source == nil || !allowedEmbedHost(source.Hostname()) {

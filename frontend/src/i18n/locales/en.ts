@@ -2,6 +2,41 @@ import type { TranslationMessages } from '../types';
 
 const en: TranslationMessages = {
   article: {
+    report: {
+      title: 'AI reading report',
+      description:
+        'Turn the first articles in your current list into a source-linked briefing. Preview the selection, choose a focus, then generate.',
+      count: 'Articles from the current list (1–{max})',
+      profile: 'AI profile',
+      summaryProfile: 'Use summary profile / global configuration',
+      focus: 'What should the report focus on? (optional)',
+      focusPlaceholder:
+        'For example: AI product launches, practical implications, and conflicting claims',
+      coverage: '{available} of {total} selected articles have content',
+      localOnly:
+        'Uses local article content or RSS excerpts. Missing articles are skipped. No websites are fetched; selected text is sent to your configured AI service only when you generate.',
+      cached: 'Local content',
+      rss_excerpt: 'RSS excerpt',
+      missing: 'No content · skipped',
+      truncated: 'Partial text',
+      noExcerpt: 'No local text available.',
+      noContent:
+        'Open articles to load their content, then reopen this report. You can also choose a different list.',
+      settings: 'AI settings',
+      retryPreview: 'Reload source preview',
+      generating: 'Reading sources and organizing the report… You can stop at any time.',
+      result: 'Your reading briefing',
+      provenance: '{count} selected articles · {model}',
+      copy: 'Copy report',
+      sources: 'Sources',
+      readingOrder: 'Worth reading next',
+      caveats: 'Coverage and uncertainty',
+      transient:
+        'AI synthesis can be mistaken. Check source articles for important details. Copy the report to keep it; closing this window discards it.',
+      stop: 'Stop generation',
+      generate: 'Generate report',
+      regenerate: 'Generate again',
+    },
     action: {
       goToFeed: 'Go to Feed',
       searchWith: 'Search with {engine}',
@@ -102,6 +137,8 @@ const en: TranslationMessages = {
       promptExplain: 'Explain the difficult ideas in simple terms.',
       promptAnalyze: "Analyze the article's reasoning and implications.",
       promptVerify: 'Which claims in this article should be verified?',
+      promptEvidence:
+        'Find the key claims and support each with a brief quote from this article. Clearly identify claims that lack evidence in the supplied text.',
       showThinking: 'Show Thinking',
       switchSession: 'Switch chat session',
       thinking: 'Thinking',
@@ -227,6 +264,8 @@ const en: TranslationMessages = {
     showingResults: 'Showing AI search results',
   },
   aiErrors: {
+    report_no_content:
+      'These articles have no local content. Open them to load the text, then try again.',
     configuration_invalid:
       'The AI configuration is incomplete or invalid. Check the endpoint and model.',
     usage_limit_reached:

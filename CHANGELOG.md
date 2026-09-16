@@ -5,6 +5,26 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.35] - 2026-09-16
+
+### Added
+
+- Generate an AI reading report from 1–20 articles in the current list, with an optional focus and model profile, topic summaries, validated source references, recommended reading order, and copyable output. Preview local content coverage first; identify missing or truncated sources, cancel generation, and keep a previous report when a retry fails. Reports do not change reading state or save automatically. (#829; manual-report portion of #658)
+- Add an article-chat quick prompt to find supporting excerpts and identify conclusions not supported by the supplied text, in English and Chinese.
+
+### Changed
+
+- Improve built-in AI summaries with a one-sentence takeaway and grounded key points that preserve numbers, dates, attribution, and uncertainty. Remove script/style noise and decode HTML entities before summarization; preserve custom prompts and reject thinking-only output so temporary failures remain retryable.
+
+### Fixed
+
+- Apply `referrerpolicy="no-referrer"` to all reader images, including feeds without an explicit policy, so image hosts do not receive the desktop WebView origin. Existing configured media proxy support is preserved. (#1200)
+- Use the persistent AppImage path for Linux autostart, quote special characters and spaces in executable paths, and honor `XDG_CONFIG_HOME` when enabling or disabling startup. (#1198)
+- Prevent duplicate Linux desktop processes from opening the same data directory using a D-Bus-independent file lock acquired before logging, database initialization, and background scheduling. Reopen a hidden instance from its system tray icon. (#1199)
+- Preserve article context on AI chat follow-ups and resumed conversations, apply selected profile headers, and retain legacy credentials when no profile exists. Keep recent history within its existing message limit.
+- Report actionable AI chat errors without provider details, reject empty thinking-only answers, close idle connections, and avoid a direct-network fallback when proxy construction fails.
+- Sanitize fresh and saved AI chat answers and generated, cached, and RSS summaries with the reader's structural HTML allowlist.
+
 ## [1.3.34] -2026-09-12
 
 ### Added
@@ -40,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fetch Miniflux articles through its supported Google Reader item endpoints and preserve folders, read state, and starred state during synchronization. (#1191) (@HernandoR)
 - Preserve image `referrerpolicy="no-referrer"` in article content so feeds can load images from hosts that reject the desktop WebView referrer. (#1189)
 - Apply the configured application proxy and encrypted proxy credentials to media cache downloads and direct media forwarding, and cancel downloads with their requests. (#1189)
+
+## [Unreleased]
 
 ## [1.3.33] - 2026-09-10
 

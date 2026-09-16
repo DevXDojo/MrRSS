@@ -39,8 +39,11 @@ describe('article list more menu', () => {
         'feed',
       ]);
       expect(trigger.attributes('aria-expanded')).toBe('true');
-      expect(panel.get('button').text()).toContain('2');
-      await panel.get('button').trigger('click');
+      const filterButton = panel
+        .findAll('button')
+        .find((button) => button.text().includes('modal.filter.filter'))!;
+      expect(filterButton.text()).toContain('2');
+      await filterButton.trigger('click');
       expect(wrapper.emitted('filter')).toHaveLength(1);
       expect(document.querySelector('[role="dialog"]')).toBeNull();
     } finally {

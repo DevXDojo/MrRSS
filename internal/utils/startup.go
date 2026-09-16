@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // EnableStartup enables the application to start on system boot
@@ -85,12 +86,19 @@ func disableStartupWindows() error {
 
 // Linux implementation using .desktop file in autostart
 func enableStartupLinux(executable string) error {
-	homeDir, err := os.UserHomeDir()
+	// APPIMAGE identifies the persistent outer file, not the transient mount.
+	if appImage := os.Getenv("APPIMAGE"); appImage != "" {
+		executable = appImage
+	}
+	execValue, err := desktopExec(executable)
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return err
+	}
+	autostartDir, err := linuxAutostartDir()
+	if err != nil {
+		return err
 	}
 
-	autostartDir := filepath.Join(homeDir, ".config", "autostart")
 	if err := os.MkdirAll(autostartDir, 0755); err != nil {
 		return fmt.Errorf("failed to create autostart directory: %w", err)
 	}
@@ -103,7 +111,7 @@ Exec=%s
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
-`, executable)
+`, execValue)
 
 	if err := os.WriteFile(desktopFile, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write desktop file: %w", err)
@@ -114,12 +122,12 @@ X-GNOME-Autostart-enabled=true
 }
 
 func disableStartupLinux() error {
-	homeDir, err := os.UserHomeDir()
+	autostartDir, err := linuxAutostartDir()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return err
 	}
 
-	desktopFile := filepath.Join(homeDir, ".config", "autostart", "mrrss.desktop")
+	desktopFile := filepath.Join(autostartDir, "mrrss.desktop")
 	if err := os.Remove(desktopFile); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("failed to remove desktop file: %w", err)
@@ -128,6 +136,28 @@ func disableStartupLinux() error {
 
 	log.Println("Startup disabled for Linux")
 	return nil
+}
+
+func linuxAutostartDir() (string, error) {
+	if configDir := os.Getenv("XDG_CONFIG_HOME"); filepath.IsAbs(configDir) {
+		return filepath.Join(configDir, "autostart"), nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ".config", "autostart"), nil
+}
+
+// desktopExec quotes one executable according to the Desktop Entry Exec grammar.
+// Escape argument quoting first, then the desktop file's string escaping layer.
+func desktopExec(executable string) (string, error) {
+	if !filepath.IsAbs(executable) || strings.ContainsAny(executable, "\x00\r\n") {
+		return "", fmt.Errorf("startup executable must be an absolute path without line breaks")
+	}
+	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "`", "\\`", "$", `\$`, "%", "%%").Replace(executable)
+	escaped = strings.NewReplacer(`\`, `\\`, "\t", `\t`).Replace(escaped)
+	return `"` + escaped + `"`, nil
 }
 
 // macOS implementation using LaunchAgents plist

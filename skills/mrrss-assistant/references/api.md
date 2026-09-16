@@ -6,7 +6,7 @@ Generated from `docs/SERVER_MODE/swagger.json`. Regenerate with:
 python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
 ```
 
-- API version: `1.3.34`
+- API version: `1.3.35`
 - API root: `{base_url}/api`
 - Endpoint paths below are relative to the API root unless they already start with `/api/`.
 
@@ -93,6 +93,24 @@ Test AI profile
 
 Parameters:
   - `id` (path, required): Profile ID
+
+### `POST /ai/reading-report`
+
+Generate AI reading report
+
+Parameters:
+  - `request` (body, required): Selected articles, optional profile and focus
+
+Request body: see the Swagger schema for full field details.
+
+### `POST /ai/reading-report/preview`
+
+Preview reading report sources
+
+Parameters:
+  - `request` (body, required): Selected article IDs
+
+Request body: see the Swagger schema for full field details.
 
 ### `POST /ai/search`
 

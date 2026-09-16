@@ -13,6 +13,8 @@ import (
 
 // registerAIRoutes registers all AI-related routes
 func registerAIRoutes(mux *http.ServeMux, h *core.Handler) {
+	mux.HandleFunc("/api/ai/reading-report/preview", func(w http.ResponseWriter, r *http.Request) { aihandlers.HandlePreviewReadingReport(h, w, r) })
+	mux.HandleFunc("/api/ai/reading-report", func(w http.ResponseWriter, r *http.Request) { aihandlers.HandleGenerateReadingReport(h, w, r) })
 	// AI Chat
 	mux.HandleFunc("/api/ai-chat/cancel", func(w http.ResponseWriter, r *http.Request) { chat.HandleCancelAIChat(h, w, r) })
 	mux.HandleFunc("/api/ai-chat", func(w http.ResponseWriter, r *http.Request) { chat.HandleAIChat(h, w, r) })

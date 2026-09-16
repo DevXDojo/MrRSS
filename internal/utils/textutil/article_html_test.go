@@ -49,12 +49,28 @@ func TestArticleHTMLPreservesImageNoReferrer(t *testing.T) {
 		}
 	}
 	for _, content := range []string{
-		`<img src="/photo.jpg" referrerpolicy="unsafe-url">`,
-		`<img src="/photo.jpg" referrerpolicy="invalid">`,
 		`<a href="/link" referrerpolicy="no-referrer">link</a>`,
 	} {
 		if got := PrepareArticleContent(content, "https://example.org"); strings.Contains(got, "referrerpolicy") {
 			t.Errorf("unexpected policy retained: %s", got)
+		}
+	}
+}
+
+func TestArticleImagesDefaultToNoReferrer(t *testing.T) {
+	for _, content := range []string{
+		`<img src="http://img.example/get?src=http://mmbiz.qpic.cn/photo">`,
+		`<img src="/photo.jpg" referrerpolicy="unsafe-url">`,
+		`<img data-src="//img.example/photo" referrerpolicy="invalid">`,
+		`![photo](https://img.example/photo)`,
+	} {
+		// A heading makes the final case an unambiguous Markdown source.
+		if strings.HasPrefix(content, "![") {
+			content = "# Article\n\n" + content
+		}
+		got := PrepareArticleContent(content, "https://example.org/article")
+		if strings.Count(got, `referrerpolicy="no-referrer"`) != 1 || strings.Contains(got, "unsafe-url") {
+			t.Errorf("image must use no-referrer: %s", got)
 		}
 	}
 }

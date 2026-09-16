@@ -195,10 +195,10 @@ func TestChatResponsePreferencesAcrossModelsAndProtocols(t *testing.T) {
 				if preference != "" && strings.Count(system, preference) != 1 {
 					t.Fatalf("preference missing or duplicated: %q", system)
 				}
-				if preference == "" && system != "" {
+				if preference == "" && strings.Contains(system, "User response preferences for this chat:") {
 					t.Fatalf("cleared preference still sent: %q", system)
 				}
-				if index == 0 && !strings.Contains(system, "article evidence") {
+				if !strings.Contains(system, "article evidence") {
 					t.Fatal("article context lost")
 				}
 			}
