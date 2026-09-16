@@ -5772,6 +5772,102 @@
                     }
                 }
             }
+        },
+        "/ai/reading-report": {
+            "post": {
+                "description": "Generate a transient report from 1-20 selected local articles, with optional AI profile and focus (500 characters maximum). Honors AI usage limits, proxy settings and request cancellation. Does not mark articles read or save reports.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "summary": "Generate AI reading report",
+                "parameters": [
+                    {
+                        "description": "Selected articles, optional profile and focus",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ReadingReportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ReadingReportResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/reading-report/preview": {
+            "post": {
+                "description": "Inspect local content coverage for 1-20 distinct article IDs; no external requests or reading-state changes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "summary": "Preview reading report sources",
+                "parameters": [
+                    {
+                        "description": "Selected article IDs",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ReadingReportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ReadingReportPreview"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -6422,7 +6518,10 @@
                 },
                 "sync_provider": {
                     "type": "string",
-                    "enum": ["freshrss", "miniflux"]
+                    "enum": [
+                        "freshrss",
+                        "miniflux"
+                    ]
                 },
                 "freshrss_stream_id": {
                     "description": "FreshRSS stream ID (e.g., \"feed/http://...\")",
@@ -6479,7 +6578,7 @@
                     "type": "string"
                 },
                 "refresh_interval": {
-                    "description": "Custom refresh interval in minutes (0 = use global, -1 = intelligent, -2 = never, \u003e0 = custom minutes)",
+                    "description": "Custom refresh interval in minutes (0 = use global, -1 = intelligent, -2 = never, >0 = custom minutes)",
                     "type": "integer"
                 },
                 "script_path": {
@@ -6858,6 +6957,138 @@
                     "type": "boolean"
                 },
                 "remove_selector": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ReadingReportPreview": {
+            "type": "object",
+            "properties": {
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/readingreport.Source"
+                    }
+                }
+            }
+        },
+        "handlers.ReadingReportRequest": {
+            "type": "object",
+            "properties": {
+                "article_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "focus": {
+                    "type": "string"
+                },
+                "profile_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.ReadingReportResponse": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "report": {
+                    "$ref": "#/definitions/readingreport.Report"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/readingreport.Source"
+                    }
+                }
+            }
+        },
+        "readingreport.ReadingItem": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "source_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "readingreport.Report": {
+            "type": "object",
+            "properties": {
+                "caveats": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "overview": {
+                    "type": "string"
+                },
+                "reading_order": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/readingreport.ReadingItem"
+                    }
+                },
+                "topics": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/readingreport.Topic"
+                    }
+                }
+            }
+        },
+        "readingreport.Source": {
+            "type": "object",
+            "properties": {
+                "article_id": {
+                    "type": "integer"
+                },
+                "characters": {
+                    "type": "integer"
+                },
+                "excerpt": {
+                    "type": "string"
+                },
+                "feed": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "description": "cached, rss_excerpt, or missing",
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "truncated": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "readingreport.Topic": {
+            "type": "object",
+            "properties": {
+                "source_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 }
             }

@@ -37,6 +37,7 @@ function setup(
     update_check_enabled: 'false',
     image_gallery_enabled: 'true',
     shortcuts_enabled: 'true',
+    ai_chat_save_history: 'true',
     ...overrides,
   };
   cy.intercept('/api/**', { statusCode: 200, body: {} });
@@ -162,6 +163,47 @@ describe('Reading interactions', () => {
     cy.contains('.chat-panel .select-text', 'Selectable answer')
       .should('be.visible')
       .and('have.css', 'user-select', 'text');
+  });
+
+  it('previews source coverage and creates a reading report with working citations', () => {
+    setup({ translation_enabled: 'false' });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    const sources = [{ id: 1, article_id: 1, title: article.title, url: article.url, feed: 'Reading Feed', kind: 'rss_excerpt', truncated: true, characters: 100, excerpt: 'Article evidence' }];
+    cy.intercept('POST', '/api/ai/reading-report/preview', (req) => {
+      expect(req.body.article_ids).to.deep.equal([1]);
+      req.reply({ sources });
+    }).as('reportPreview');
+    cy.intercept('POST', '/api/ai/reading-report', (req) => {
+      expect(req.body.focus).to.equal('Practical implications');
+      req.reply({ sources, model: 'fixture', report: { overview: 'A useful overview', topics: [{ title: 'Main topic', summary: '<img src=x onerror=alert(1)> is displayed as text', source_ids: [1] }], reading_order: [{ source_id: 1, reason: 'Contains primary evidence' }], caveats: ['Only an excerpt was available'] } });
+    }).as('readingReport');
+    cy.get('button[title="More"]').click();
+    cy.contains('button', 'AI reading report').click();
+    cy.wait('@reportPreview');
+    cy.get('[data-testid="reading-report"]').should('contain', 'RSS excerpt').and('contain', 'Partial text');
+    cy.get('[data-testid="report-focus"]').type('Practical implications');
+    cy.contains('button', 'Generate report').click();
+    cy.wait('@readingReport');
+    cy.get('[data-testid="report-result"]').should('contain', 'A useful overview').and('contain', 'Contains primary evidence');
+    cy.get('[data-testid="report-result"] img').should('not.exist');
+    cy.contains('[data-testid="report-result"] button', '[1]').first().click();
+    cy.wait('@openBrowser').its('request.body.url').should('equal', article.url);
+  });
+
+  it('sends the evidence quick prompt and retains article content on follow-ups', () => {
+    setup({ ai_chat_enabled: 'true', ai_chat_save_history: 'false', translation_enabled: 'false' });
+    cy.intercept('GET', '/api/ai/profiles', []);
+    cy.intercept('POST', '/api/ai-chat', (req) => {
+      expect(req.body.article_content).to.contain('First paragraph');
+      req.reply({ response: 'Evidence answer', html: '<p>Evidence answer</p>', history_saved: false });
+    }).as('evidenceChat');
+    openArticle();
+    cy.get('button[title="AI Chat"]').click();
+    cy.contains('.chat-panel button', 'Find the key claims').scrollIntoView().click();
+    cy.wait('@evidenceChat').its('request.body.messages.0.content').should('contain', 'brief quote');
+    cy.contains('.chat-panel', 'Evidence answer').should('be.visible');
+    cy.get('input[placeholder="Type a message..."]').type('Explain that evidence{enter}');
+    cy.wait('@evidenceChat').its('request.body.is_first_message').should('equal', false);
   });
 
   it('keeps title editing above message actions without selecting the session on save', () => {

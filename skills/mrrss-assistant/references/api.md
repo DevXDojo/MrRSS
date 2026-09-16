@@ -94,6 +94,24 @@ Test AI profile
 Parameters:
   - `id` (path, required): Profile ID
 
+### `POST /ai/reading-report`
+
+Generate AI reading report
+
+Parameters:
+  - `request` (body, required): Selected articles, optional profile and focus
+
+Request body: see the Swagger schema for full field details.
+
+### `POST /ai/reading-report/preview`
+
+Preview reading report sources
+
+Parameters:
+  - `request` (body, required): Selected article IDs
+
+Request body: see the Swagger schema for full field details.
+
 ### `POST /ai/search`
 
 AI-powered article search

@@ -2,6 +2,38 @@ import type { TranslationMessages } from '../types';
 
 const zh: TranslationMessages = {
   article: {
+    report: {
+      title: 'AI 阅读报告',
+      description:
+        '将当前列表前几篇文章整理为带来源的阅读简报。先预览文章范围，再选择关注点并生成。',
+      count: '当前列表的文章数量（1–{max}）',
+      profile: 'AI 配置',
+      summaryProfile: '使用摘要配置 / 全局配置',
+      focus: '希望重点关注什么？（可选）',
+      focusPlaceholder: '例如：AI 产品发布、实际影响，以及不同报道中有分歧的观点',
+      coverage: '已选 {total} 篇，其中 {available} 篇有可用内容',
+      localOnly:
+        '使用本地正文或 RSS 摘要，跳过缺少内容的文章。不抓取网站；点击生成后才会将所选文本发送给已配置的 AI 服务。',
+      cached: '本地正文',
+      rss_excerpt: 'RSS 摘要',
+      missing: '无正文 · 已跳过',
+      truncated: '部分文本',
+      noExcerpt: '暂无本地文本。',
+      noContent: '请先打开文章加载正文，再重新打开报告；也可以选择其他文章列表。',
+      settings: 'AI 设置',
+      retryPreview: '重新预览来源',
+      generating: '正在阅读来源并整理报告……可随时停止。',
+      result: '你的阅读简报',
+      provenance: '所选 {count} 篇文章 · {model}',
+      copy: '复制报告',
+      sources: '来源文章',
+      readingOrder: '值得接着读',
+      caveats: '覆盖范围与不确定性',
+      transient: 'AI 归纳可能出错，重要细节请回看原文。可复制报告留存；关闭窗口后不会保存。',
+      stop: '停止生成',
+      generate: '生成报告',
+      regenerate: '重新生成',
+    },
     action: {
       goToFeed: '返回所属订阅源',
       searchWith: '使用 {engine} 搜索',
@@ -98,6 +130,8 @@ const zh: TranslationMessages = {
       promptExplain: '用简单的话解释文章中的难点。',
       promptAnalyze: '分析文章的论证和潜在影响。',
       promptVerify: '文章中的哪些说法需要进一步核实？',
+      promptEvidence:
+        '找出文章的关键结论，并分别引用简短原文作为依据。对所提供正文中缺乏证据的结论，请明确标注。',
       showThinking: '显示思考过程',
       switchSession: '切换对话',
       thinking: '思考中',
@@ -219,6 +253,7 @@ const zh: TranslationMessages = {
     showingResults: '正在显示 AI 搜索结果',
   },
   aiErrors: {
+    report_no_content: '这些文章暂无本地正文。请先打开文章加载内容，再重试。',
     configuration_invalid: 'AI 配置不完整或无效，请检查接口地址和模型。',
     usage_limit_reached: '已达到 MrRSS 设置的 AI 使用上限，请调整上限后重试。',
     rate_limited: 'AI 服务请求过于频繁，请稍后再试。',

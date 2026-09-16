@@ -80,7 +80,7 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 
 		response.JSON(w, map[string]interface{}{
 			"summary":        originalSummary,
-			"html":           textutil.SanitizeHTML(originalSummary),
+			"html":           textutil.PrepareArticleContent(originalSummary, ""),
 			"sentence_count": 0,
 			"is_too_short":   false,
 			"cached":         true,
@@ -95,7 +95,7 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		article, err := h.DB.GetArticleByID(req.ArticleID)
 		if err == nil && article.Summary != "" && article.Summary != "<no content>" {
 			// Article has a cached summary, convert it to HTML and return
-			htmlSummary := textutil.ConvertMarkdownToHTML(article.Summary)
+			htmlSummary := textutil.PrepareArticleContent(textutil.RenderMarkdown(article.Summary), "")
 			response.JSON(w, map[string]interface{}{
 				"summary":        article.Summary,
 				"html":           htmlSummary,
@@ -220,7 +220,7 @@ func HandleSummarizeArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	}
 
 	// Convert markdown summary to HTML (for all summaries, not just AI)
-	htmlSummary := textutil.ConvertMarkdownToHTML(result.Summary)
+	htmlSummary := textutil.PrepareArticleContent(textutil.RenderMarkdown(result.Summary), "")
 
 	resp := map[string]interface{}{
 		"summary":        result.Summary,

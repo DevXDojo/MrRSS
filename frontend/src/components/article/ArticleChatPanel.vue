@@ -218,6 +218,7 @@ const questionPrompts = computed(() => [
   t('article.chat.promptExplain'),
   t('article.chat.promptAnalyze'),
   t('article.chat.promptVerify'),
+  t('article.chat.promptEvidence'),
 ]);
 
 const customPrompts = computed<string[]>(() => {

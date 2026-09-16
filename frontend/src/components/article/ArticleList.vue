@@ -16,6 +16,7 @@ import {
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
 import ArticleListMoreMenu from './ArticleListMoreMenu.vue';
+import ReadingReportModal from './ReadingReportModal.vue';
 import {
   articleGroupStarts,
   orderGroupedArticles,
@@ -47,6 +48,7 @@ const { settings } = useSettings();
 const listRef: Ref<HTMLDivElement | null> = ref(null);
 const defaultViewMode = ref<'original' | 'rendered' | 'external'>('original');
 const showFilterModal = ref(false);
+const reportArticles = ref<Article[] | null>(null);
 const isRefreshing = ref(false);
 const savedScrollTop = ref(0);
 const showRefreshTooltip = ref(false);
@@ -1164,9 +1166,13 @@ async function markAllVisibleAsRead(): Promise<void> {
             :sort-order="store.articleSortOrder"
             :group-by="store.articleGroupBy"
             :filter-count="activeFilters.length"
+            :report-disabled="
+              showingPrevious || store.isLoading || isFilterLoading || visibleArticles.length === 0
+            "
             @sort="changeArticleSortOrder"
             @group="changeArticleGrouping"
             @filter="showFilterModal = true"
+            @report="reportArticles = [...visibleArticles]"
           />
           <div
             class="relative"
@@ -1593,6 +1599,11 @@ async function markAllVisibleAsRead(): Promise<void> {
 
   <!-- Filter Modal - Teleported to body to avoid positioning constraints -->
   <Teleport to="body">
+    <ReadingReportModal
+      v-if="reportArticles"
+      :articles="reportArticles"
+      @close="reportArticles = null"
+    />
     <ArticleFilterModal
       :show="showFilterModal"
       :current-filters="activeFilters"

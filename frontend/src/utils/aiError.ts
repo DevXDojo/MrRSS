@@ -7,6 +7,7 @@ export interface ParsedAIError {
 }
 
 const knownCodes = new Set([
+  'report_no_content',
   'configuration_invalid',
   'usage_limit_reached',
   'rate_limited',
