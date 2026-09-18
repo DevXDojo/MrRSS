@@ -27,6 +27,7 @@ import ArticleItem from './ArticleItem.vue';
 import ArticleCardItem from './ArticleCardItem.vue';
 import ArticleTableRow from './ArticleTableRow.vue';
 import { parseArticleTableColumns } from '@/utils/articleTable';
+import { loadArticleContent, invalidateArticleContent } from '@/utils/articleContentCache';
 import ArticleDetailModal from './ArticleDetailModal.vue';
 import AISearchBar from './AISearchBar.vue';
 import { useArticleTranslation } from '@/composables/article/useArticleTranslation';
@@ -912,17 +913,12 @@ async function openCardModal(article: Article): Promise<void> {
   // Load article content
   try {
     const mediaCacheEnabled = await isMediaCacheEnabled();
-    const res = await fetch(`/api/articles/content?id=${article.id}`);
-    if (res.ok) {
-      const data = await res.json();
-      let content = data.content || '';
-      if (mediaCacheEnabled && content) {
-        content = proxyImagesInHtml(content, article.url);
-      }
-      cardModalContent.value = content;
-    } else {
-      cardModalContent.value = '';
+    const data = await loadArticleContent(article.id);
+    let content = data.content;
+    if (mediaCacheEnabled && content) {
+      content = proxyImagesInHtml(content, article.url);
     }
+    cardModalContent.value = content;
   } catch (e) {
     console.error('Error loading article content:', e);
     cardModalContent.value = '';
@@ -1032,6 +1028,7 @@ async function cardModalReloadContent(): Promise<void> {
     if (!res.ok) {
       throw new Error(t('common.errors.fetchingArticleContent'));
     }
+    invalidateArticleContent(article.id);
     await openCardModal(article);
   } catch (e) {
     console.error('Error reloading article content:', e);

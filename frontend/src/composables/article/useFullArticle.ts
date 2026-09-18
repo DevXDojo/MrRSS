@@ -1,6 +1,7 @@
 import { ref, watch, onBeforeUnmount } from 'vue';
 import type { Article } from '@/types/models';
 import { isMediaCacheEnabled, proxyImagesInHtml } from '@/utils/mediaProxy';
+import { invalidateArticleContent } from '@/utils/articleContentCache';
 
 interface Options {
   article: () => Article;
@@ -48,6 +49,8 @@ export function useFullArticle(options: Options) {
       if (!current()) return;
       if (typeof data.content !== 'string' || !data.content.trim())
         throw new Error('Empty article');
+      // The full text replaced the stored body, so the cached copy is stale.
+      invalidateArticleContent(article.id);
       content.value = cacheEnabled
         ? proxyImagesInHtml(data.content, data.feed_url || article.url)
         : data.content;
