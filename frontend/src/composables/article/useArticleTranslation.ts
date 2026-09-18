@@ -136,6 +136,14 @@ export function useArticleTranslation() {
     }
   }
 
+  // Rows are unmounted once they leave the rendered window; releasing them here
+  // keeps the observer from retaining detached elements.
+  function unobserveArticle(el: Element | null): void {
+    if (el && observer) {
+      observer.unobserve(el);
+    }
+  }
+
   // Update translation settings from event
   function handleTranslationSettingsChange(
     enabled: boolean,
@@ -178,6 +186,7 @@ export function useArticleTranslation() {
     setupIntersectionObserver,
     translateArticle,
     observeArticle,
+    unobserveArticle,
     handleTranslationSettingsChange,
     cleanup,
   };
