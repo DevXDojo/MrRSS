@@ -11,6 +11,17 @@ MrRSS supports XPath mode for extracting RSS-like content from websites that don
 
 ## XPath Types
 
+XPath reads downloaded HTML/XML, not the DOM after JavaScript execution. If a
+list is populated by an API, use a custom script for that API. For example, the
+China government latest-policy page has an empty `//ul[@id="list-1-ajax-id"]`.
+Use [`gov_policy_feed.py`](../scripts/examples/gov_policy_feed.py) through
+[Custom Script mode](CUSTOM_SCRIPT_MODE.md). It supplies titles, stable links
+and dates; enable full-text fetching for article bodies. Scripts use their
+interpreter's network/proxy environment, not MrRSS proxy settings.
+
+The date XPath must select a date element (such as `.//span[@class="date"]`),
+not a link. A date such as `2026-09-17` uses the layout `2006-01-02`.
+
 ### HTML + XPath
 
 Use this for regular web pages. The HTML will be parsed and cleaned before applying XPath expressions.
