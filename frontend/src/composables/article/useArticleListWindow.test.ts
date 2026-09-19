@@ -55,6 +55,18 @@ describe('article list windowing', () => {
     expect(api.bottomSpacerHeight.value).toBe(0);
   });
 
+  it('does not restore spacers when pending keyboard navigation crosses a layout change', async () => {
+    const enabled = ref(true);
+    const { api } = mountWindow(3000, 0, 800, enabled);
+    const navigation = api.ensureArticleVisible(2500);
+    enabled.value = false;
+    await navigation;
+    await nextTick();
+    expect(api.windowItems.value).toHaveLength(3000);
+    expect(api.topSpacerHeight.value).toBe(0);
+    expect(api.bottomSpacerHeight.value).toBe(0);
+  });
+
   it('caps rendered rows for long lists and keeps the window near the viewport', () => {
     const { api } = mountWindow(3000);
     api.updateFromScroll();

@@ -205,10 +205,11 @@ export function useArticleListWindow(
     if (index === -1) return;
     if (index >= rangeStart.value && index < rangeEnd.value) return;
     const half = Math.floor(MAX_RENDERED / 2);
-    revision += 1;
+    const currentRevision = ++revision;
     const start = Math.max(0, Math.min(index - half, items.value.length - MAX_RENDERED));
     applyRange(start, Math.min(items.value.length, start + MAX_RENDERED));
     await nextTick();
+    if (revision !== currentRevision || !isVirtualized.value) return;
     measureMountedRows();
     applyRange(start, Math.min(items.value.length, start + MAX_RENDERED));
     await nextTick();
