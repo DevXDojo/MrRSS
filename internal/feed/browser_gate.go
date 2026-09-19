@@ -23,8 +23,15 @@ func newBrowserGate(limit int) *browserGate {
 // acquire blocks until a slot is free or ctx is done. The returned release
 // function must be called to free the slot.
 func (g *browserGate) acquire(ctx context.Context) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	select {
 	case g.sem <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			<-g.sem
+			return nil, err
+		}
 		return func() { <-g.sem }, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()

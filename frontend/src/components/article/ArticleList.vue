@@ -317,7 +317,12 @@ const {
   updateFromScroll: updateListWindow,
   ensureArticleVisible,
   resetWindow: resetArticleListWindow,
-} = useArticleListWindow(displayedArticles, listRef);
+} = useArticleListWindow(displayedArticles, listRef, {
+  // Grid row boundaries and grouped/table headers need layout-specific
+  // virtualization. Preserve those layouts until that support is available.
+  enabled: computed(() => !isCardMode.value && !isTableMode.value && store.articleGroupBy === 'none'),
+  layoutKey: layoutMode,
+});
 const groupStarts = computed(() =>
   articleGroupStarts(displayedArticles.value, store.articleGroupBy)
 );
@@ -382,12 +387,12 @@ function setupScrollReadObserver(): void {
 }
 
 function observeListArticle(element: Element | null, articleId: number): void {
-  observeArticle(element);
   const previous = scrollReadElements.get(articleId);
   if (previous) {
     scrollReadObserver?.unobserve(previous);
     unobserveArticle(previous);
   }
+  observeArticle(element);
   if (!element) {
     scrollReadElements.delete(articleId);
     scrollReadSeen.delete(articleId);
@@ -593,9 +598,12 @@ watch(
 // the rendered window; bring it back in before it is scrolled into view.
 watch(
   () => store.currentArticleId,
-  (articleId) => {
+  async (articleId) => {
     if (articleId === null) return;
-    void ensureArticleVisible(articleId);
+    await ensureArticleVisible(articleId);
+    if (store.currentArticleId !== articleId) return;
+    listRef.value?.querySelector<HTMLElement>(`[data-article-id="${articleId}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
   }
 );
 
@@ -947,16 +955,18 @@ async function openCardModal(article: Article): Promise<void> {
   try {
     const mediaCacheEnabled = await isMediaCacheEnabled();
     const data = await loadArticleContent(article.id);
+    if (cardModalArticle.value?.id !== article.id || !showCardModal.value) return;
     let content = data.content;
     if (mediaCacheEnabled && content) {
-      content = proxyImagesInHtml(content, article.url);
+      content = proxyImagesInHtml(content, data.feedUrl || article.url);
     }
     cardModalContent.value = content;
   } catch (e) {
+    if (cardModalArticle.value?.id !== article.id || !showCardModal.value) return;
     console.error('Error loading article content:', e);
     cardModalContent.value = '';
   } finally {
-    isCardModalLoading.value = false;
+    if (cardModalArticle.value?.id === article.id) isCardModalLoading.value = false;
   }
 }
 

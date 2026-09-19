@@ -11,7 +11,7 @@ function makeArticles(count: number): Article[] {
   );
 }
 
-function mountWindow(count: number, scrollTop = 0, clientHeight = 800) {
+function mountWindow(count: number, scrollTop = 0, clientHeight = 800, enabled = ref(true)) {
   const items = ref<Article[]>(makeArticles(count));
   const container = document.createElement('div');
   Object.defineProperty(container, 'scrollTop', { value: scrollTop, writable: true });
@@ -22,7 +22,8 @@ function mountWindow(count: number, scrollTop = 0, clientHeight = 800) {
     setup() {
       api = useArticleListWindow(
         computed(() => items.value),
-        ref(container as unknown as HTMLElement)
+        ref(container as unknown as HTMLElement),
+        { enabled }
       );
       return () => null;
     },
@@ -39,6 +40,17 @@ describe('article list windowing', () => {
     const { api } = mountWindow(120);
     expect(api.isVirtualized.value).toBe(false);
     expect(api.windowItems.value).toHaveLength(120);
+    expect(api.topSpacerHeight.value).toBe(0);
+    expect(api.bottomSpacerHeight.value).toBe(0);
+  });
+
+  it('preserves complete rendering for layouts that cannot be windowed', async () => {
+    const enabled = ref(true);
+    const { api } = mountWindow(3000, 9600, 800, enabled);
+    api.updateFromScroll();
+    enabled.value = false;
+    await nextTick();
+    expect(api.windowItems.value).toHaveLength(3000);
     expect(api.topSpacerHeight.value).toBe(0);
     expect(api.bottomSpacerHeight.value).toBe(0);
   });

@@ -1,4 +1,4 @@
-import { computed, nextTick, onMounted, ref, watch, type ComputedRef, type Ref } from 'vue';
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch, type ComputedRef, type Ref } from 'vue';
 import type { Article } from '@/types/models';
 
 /**
@@ -17,7 +17,7 @@ import type { Article } from '@/types/models';
 export function useArticleListWindow(
   items: ComputedRef<Article[]> | Ref<Article[]>,
   scrollEl: Ref<HTMLElement | null>,
-  options: { itemSelector?: string } = {}
+  options: { itemSelector?: string; enabled?: Ref<boolean>; layoutKey?: Ref<string> } = {}
 ) {
   const itemSelector = options.itemSelector ?? '[data-article-id]';
 
@@ -34,7 +34,9 @@ export function useArticleListWindow(
   const rangeEnd = ref(MAX_RENDERED);
   const topSpacerHeight = ref(0);
   const bottomSpacerHeight = ref(0);
-  const isVirtualized = computed(() => items.value.length >= VIRTUALIZE_FROM);
+  const isVirtualized = computed(() => options.enabled?.value !== false && items.value.length >= VIRTUALIZE_FROM);
+  let revision = 0;
+  let resizeObserver: ResizeObserver | undefined;
 
   let cachedHeight = 0;
   let cachedOffsets: number[] | null = null;
@@ -165,12 +167,16 @@ export function useArticleListWindow(
       return;
     }
 
-    const anchor = container.querySelector<HTMLElement>(itemSelector);
+    const anchor = Array.from(container.querySelectorAll<HTMLElement>(itemSelector)).find(
+      (element) => element.getBoundingClientRect().bottom > container.getBoundingClientRect().top
+    ) ?? container.querySelector<HTMLElement>(itemSelector);
     const anchorId = anchor ? Number(anchor.dataset.articleId) : NaN;
     const anchorTop = anchor ? anchor.getBoundingClientRect().top : null;
 
     applyRange(startIndex, endIndex);
+    const currentRevision = ++revision;
     void nextTick(() => {
+      if (revision !== currentRevision) return;
       measureMountedRows();
       if (anchorTop === null || !Number.isFinite(anchorId)) return;
       const moved = container.querySelector<HTMLElement>(
@@ -196,14 +202,17 @@ export function useArticleListWindow(
   }
 
   function resetWindow(): void {
+    revision += 1;
     heights.clear();
     invalidateOffsets();
     applyRange(0, isVirtualized.value ? MAX_RENDERED : items.value.length);
   }
 
   watch(
-    () => items.value.length,
+    () => items.value.map((item) => item.id),
     () => {
+      const ids = new Set(items.value.map((item) => item.id));
+      for (const id of heights.keys()) if (!ids.has(id)) heights.delete(id);
       invalidateOffsets();
       // applyRange clamps, which covers a shorter list as well as a longer one.
       applyRange(rangeStart.value, Math.min(rangeEnd.value, items.value.length));
@@ -213,7 +222,23 @@ export function useArticleListWindow(
 
   onMounted(() => {
     resetWindow();
+    if (typeof ResizeObserver !== 'undefined' && scrollEl.value) {
+      let width = scrollEl.value.clientWidth;
+      resizeObserver = new ResizeObserver(() => {
+        const nextWidth = scrollEl.value?.clientWidth ?? 0;
+        if (nextWidth !== width) {
+          width = nextWidth;
+          heights.clear();
+          invalidateOffsets();
+        }
+        updateFromScroll();
+      });
+      resizeObserver.observe(scrollEl.value);
+    }
   });
+
+  if (options.layoutKey) watch(options.layoutKey, () => { resetWindow(); updateFromScroll(); });
+  onBeforeUnmount(() => { revision += 1; resizeObserver?.disconnect(); });
 
   watch(isVirtualized, (virtualized) => {
     if (!virtualized) {

@@ -20,6 +20,7 @@ const MAX_CACHED_ARTICLES = 8;
 
 const cachedContent = new Map<number, ArticleContentResponse>();
 const inFlightRequests = new Map<number, Promise<ArticleContentResponse>>();
+let generation = 0;
 
 /** Returns the cached body and refreshes its LRU position. */
 export function getCachedArticleContent(articleId: number): ArticleContentResponse | undefined {
@@ -31,11 +32,15 @@ export function getCachedArticleContent(articleId: number): ArticleContentRespon
 }
 
 export function invalidateArticleContent(articleId: number): void {
+  generation += 1;
   cachedContent.delete(articleId);
+  inFlightRequests.delete(articleId);
 }
 
 export function clearArticleContentCache(): void {
+  generation += 1;
   cachedContent.clear();
+  inFlightRequests.clear();
 }
 
 export function getArticleContentCacheSize(): number {
@@ -50,11 +55,16 @@ export async function loadArticleContent(
   articleId: number,
   signal?: AbortSignal
 ): Promise<ArticleContentResponse> {
+  signal?.throwIfAborted();
   const hit = getCachedArticleContent(articleId);
   if (hit) return hit;
 
-  const pending = inFlightRequests.get(articleId);
+  // Cancellable readers own their requests. Sharing a caller's abort signal
+  // would let leaving one article cancel another reader's current request.
+  const pending = signal ? undefined : inFlightRequests.get(articleId);
   if (pending) return pending;
+
+  const requestGeneration = generation;
 
   const request = (async (): Promise<ArticleContentResponse> => {
     const response = await fetch(`/api/articles/content?id=${articleId}`, { signal });
@@ -72,7 +82,7 @@ export async function loadArticleContent(
     // (it fetches the source on demand and returns "cached: false" with nothing
     // when that fails). Caching it would leave the reader stuck on "no content"
     // until an unrelated reload, so only non-empty bodies are remembered.
-    if (entry.content.trim() !== '') {
+    if (entry.content.trim() !== '' && !signal?.aborted && generation === requestGeneration) {
       cachedContent.set(articleId, entry);
       while (cachedContent.size > MAX_CACHED_ARTICLES) {
         const oldest = cachedContent.keys().next();
@@ -83,10 +93,10 @@ export async function loadArticleContent(
     return entry;
   })();
 
-  inFlightRequests.set(articleId, request);
+  if (!signal) inFlightRequests.set(articleId, request);
   try {
     return await request;
   } finally {
-    inFlightRequests.delete(articleId);
+    if (inFlightRequests.get(articleId) === request) inFlightRequests.delete(articleId);
   }
 }

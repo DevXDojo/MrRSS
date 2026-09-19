@@ -279,6 +279,9 @@ func HandleCleanupArticleContent(h *core.Handler, w http.ResponseWriter, r *http
 	}
 
 	log.Printf("Cleaned up %d article content entries", count)
+	if h.ContentCache != nil {
+		h.ContentCache.Clear()
+	}
 	response.JSON(w, map[string]interface{}{
 		"success":         true,
 		"entries_cleaned": count,

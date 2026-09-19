@@ -1300,7 +1300,7 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 	if err != nil {
 		return nil, fmt.Errorf("browser parse gate: %w", err)
 	}
-	defer release()
+	defer func() { cancel(); release() }()
 
 	var pageContent string
 
