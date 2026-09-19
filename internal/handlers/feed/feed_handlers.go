@@ -127,7 +127,14 @@ func HandleAddFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		feedID, err = h.Fetcher.AddScriptSubscription(req.ScriptPath, req.Category, req.Title)
 	} else if req.XPathItem != "" {
 		// Add feed using XPath
-		feedID, err = h.Fetcher.AddXPathSubscription(req.URL, req.Category, req.Title, req.Type, req.XPathItem, req.XPathItemTitle, req.XPathItemContent, req.XPathItemUri, req.XPathItemAuthor, req.XPathItemTimestamp, req.XPathItemTimeFormat, req.XPathItemThumbnail, req.XPathItemCategories, req.XPathItemUid)
+		feedID, err = h.Fetcher.AddXPathSubscriptionWithOptions(r.Context(), models.Feed{
+			URL: req.URL, Category: req.Category, Title: req.Title, Type: req.Type,
+			ProxyEnabled: req.ProxyEnabled, ProxyURL: req.ProxyURL,
+			XPathItem: req.XPathItem, XPathItemTitle: req.XPathItemTitle, XPathItemContent: req.XPathItemContent,
+			XPathItemUri: req.XPathItemUri, XPathItemAuthor: req.XPathItemAuthor,
+			XPathItemTimestamp: req.XPathItemTimestamp, XPathItemTimeFormat: req.XPathItemTimeFormat,
+			XPathItemThumbnail: req.XPathItemThumbnail, XPathItemCategories: req.XPathItemCategories, XPathItemUid: req.XPathItemUid,
+		})
 	} else if req.Type == "email" {
 		// Add feed as email newsletter subscription
 		feedID, err = h.Fetcher.AddEmailSubscription(req.EmailAddress, req.EmailIMAPServer, req.EmailUsername, req.EmailPassword, req.Category, req.Title, req.EmailFolder, req.EmailIMAPPort)

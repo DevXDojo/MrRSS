@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PhBookOpen } from '@phosphor-icons/vue';
+import { PhBookOpen, PhCursorClick } from '@phosphor-icons/vue';
+import XPathPicker from './XPathPicker.vue';
+import type { XPathSelection } from '@/utils/xpathPicker';
 import BaseSelect from '@/components/common/BaseSelect.vue';
 import { openInBrowser } from '@/utils/browser';
 import type { SelectOption } from '@/types/select';
@@ -9,6 +11,8 @@ import type { SelectOption } from '@/types/select';
 interface Props {
   mode: 'add' | 'edit';
   url: string;
+  proxyEnabled?: boolean;
+  proxyUrl?: string;
   xpathType: 'HTML+XPath' | 'XML+XPath';
   xpathItem: string;
   xpathItemTitle: string;
@@ -45,6 +49,19 @@ const emit = defineEmits<{
 }>();
 
 const { t, locale } = useI18n();
+const showPicker = ref(false);
+function applySelection(selection: XPathSelection) {
+  emit('update:xpath-item', selection.item);
+  emit('update:xpath-item-title', selection.title);
+  emit('update:xpath-item-uri', selection.uri);
+  emit('update:xpath-item-content', selection.content);
+  emit('update:xpath-item-timestamp', selection.timestamp);
+  emit('update:xpath-item-thumbnail', selection.thumbnail);
+  emit('update:xpath-item-uid', selection.uri);
+  emit('update:xpath-item-author', '');
+  emit('update:xpath-item-categories', '');
+  showPicker.value = false;
+}
 
 // Build options for BaseSelect
 const xpathTypeOptions = computed<SelectOption[]>(() => {
@@ -242,6 +259,15 @@ const xpathPlaceholders = {
 
     <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
       <button
+        v-if="props.xpathType === 'HTML+XPath'"
+        type="button"
+        class="text-xs sm:text-sm text-accent hover:underline flex items-center gap-1 disabled:opacity-50"
+        :disabled="!/^https?:\/\//i.test(props.url)"
+        @click="showPicker = true"
+      >
+        <PhCursorClick :size="14" />{{ t('modal.feed.picker.title') }}
+      </button>
+      <button
         type="button"
         class="text-xs sm:text-sm text-accent hover:underline flex items-center gap-1"
         @click="openDocumentation"
@@ -250,6 +276,14 @@ const xpathPlaceholders = {
         {{ t('modal.feed.xpathDocumentation') }}
       </button>
     </div>
+    <XPathPicker
+      v-if="showPicker"
+      :url="props.url"
+      :proxy-enabled="props.proxyEnabled"
+      :proxy-url="props.proxyUrl"
+      @close="showPicker = false"
+      @apply="applySelection"
+    />
   </div>
 </template>
 

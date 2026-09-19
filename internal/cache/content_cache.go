@@ -24,27 +24,37 @@ type FeedCacheItem struct {
 
 // ContentCache provides LRU-style caching for article content
 type ContentCache struct {
-	mu      sync.RWMutex
-	content map[int64]*ContentCacheItem
-	feeds   map[int64]*FeedCacheItem // Cache feeds by feedID
-	maxSize int
-	ttl     time.Duration
+	mu       sync.RWMutex
+	content  map[int64]*ContentCacheItem
+	feeds    map[int64]*FeedCacheItem // Cache feeds by feedID
+	maxSize  int
+	maxFeeds int
+	ttl      time.Duration
 }
 
-// NewContentCache creates a new content cache
-func NewContentCache(maxSize int, ttl time.Duration) *ContentCache {
+// NewContentCache creates a new content cache. maxSize bounds cached article
+// bodies and maxFeeds bounds cached parsed feeds, which carry every item of a
+// feed and are considerably larger per entry.
+func NewContentCache(maxSize int, maxFeeds int, ttl time.Duration) *ContentCache {
+	if maxSize < 1 {
+		maxSize = 1
+	}
+	if maxFeeds < 1 {
+		maxFeeds = 1
+	}
 	return &ContentCache{
-		content: make(map[int64]*ContentCacheItem),
-		feeds:   make(map[int64]*FeedCacheItem),
-		maxSize: maxSize,
-		ttl:     ttl,
+		content:  make(map[int64]*ContentCacheItem),
+		feeds:    make(map[int64]*FeedCacheItem),
+		maxSize:  maxSize,
+		maxFeeds: maxFeeds,
+		ttl:      ttl,
 	}
 }
 
 // Get retrieves content from cache if it exists and hasn't expired
 func (cc *ContentCache) Get(articleID int64) (string, bool) {
-	cc.mu.RLock()
-	defer cc.mu.RUnlock()
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
 
 	item, exists := cc.content[articleID]
 	if !exists {
@@ -53,12 +63,7 @@ func (cc *ContentCache) Get(articleID int64) (string, bool) {
 
 	// Check if expired
 	if time.Now().After(item.ExpiresAt) {
-		// Item expired, remove it
-		go func() {
-			cc.mu.Lock()
-			delete(cc.content, articleID)
-			cc.mu.Unlock()
-		}()
+		delete(cc.content, articleID)
 		return "", false
 	}
 
@@ -67,8 +72,8 @@ func (cc *ContentCache) Get(articleID int64) (string, bool) {
 
 // GetFeed retrieves feed from cache if it exists and hasn't expired
 func (cc *ContentCache) GetFeed(feedID int64) (*gofeed.Feed, bool) {
-	cc.mu.RLock()
-	defer cc.mu.RUnlock()
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
 
 	item, exists := cc.feeds[feedID]
 	if !exists {
@@ -77,12 +82,7 @@ func (cc *ContentCache) GetFeed(feedID int64) (*gofeed.Feed, bool) {
 
 	// Check if expired
 	if time.Now().After(item.ExpiresAt) {
-		// Item expired, remove it
-		go func() {
-			cc.mu.Lock()
-			delete(cc.feeds, feedID)
-			cc.mu.Unlock()
-		}()
+		delete(cc.feeds, feedID)
 		return nil, false
 	}
 
@@ -97,21 +97,19 @@ func (cc *ContentCache) Set(articleID int64, content string) {
 	now := time.Now()
 
 	// If cache is at max capacity, remove oldest item before adding new one
-	if len(cc.content) >= cc.maxSize {
+	if _, replacing := cc.content[articleID]; !replacing && len(cc.content) >= cc.maxSize {
 		// Find oldest item by set time
 		var oldestID int64
-		var oldestTime = time.Now() // Initialize to current time
+		var oldestTime time.Time
 
 		for id, item := range cc.content {
-			if item.SetAt.Before(oldestTime) {
+			if oldestTime.IsZero() || item.SetAt.Before(oldestTime) || (item.SetAt.Equal(oldestTime) && id < oldestID) {
 				oldestTime = item.SetAt
 				oldestID = id
 			}
 		}
 
-		if oldestID != 0 {
-			delete(cc.content, oldestID)
-		}
+		delete(cc.content, oldestID)
 	}
 
 	cc.content[articleID] = &ContentCacheItem{
@@ -129,21 +127,19 @@ func (cc *ContentCache) SetFeed(feedID int64, feed *gofeed.Feed) {
 	now := time.Now()
 
 	// If cache is at max capacity, remove oldest item before adding new one
-	if len(cc.feeds) >= cc.maxSize {
+	if _, replacing := cc.feeds[feedID]; !replacing && len(cc.feeds) >= cc.maxFeeds {
 		// Find oldest item by set time
 		var oldestID int64
-		var oldestTime = time.Now() // Initialize to current time
+		var oldestTime time.Time
 
 		for id, item := range cc.feeds {
-			if item.SetAt.Before(oldestTime) {
+			if oldestTime.IsZero() || item.SetAt.Before(oldestTime) || (item.SetAt.Equal(oldestTime) && id < oldestID) {
 				oldestTime = item.SetAt
 				oldestID = id
 			}
 		}
 
-		if oldestID != 0 {
-			delete(cc.feeds, oldestID)
-		}
+		delete(cc.feeds, oldestID)
 	}
 
 	cc.feeds[feedID] = &FeedCacheItem{

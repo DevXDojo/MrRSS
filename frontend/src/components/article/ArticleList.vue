@@ -27,6 +27,7 @@ import ArticleItem from './ArticleItem.vue';
 import ArticleCardItem from './ArticleCardItem.vue';
 import ArticleTableRow from './ArticleTableRow.vue';
 import { parseArticleTableColumns } from '@/utils/articleTable';
+import { loadArticleContent, invalidateArticleContent } from '@/utils/articleContentCache';
 import ArticleDetailModal from './ArticleDetailModal.vue';
 import AISearchBar from './AISearchBar.vue';
 import { useArticleTranslation } from '@/composables/article/useArticleTranslation';
@@ -34,6 +35,7 @@ import { useArticleFilter } from '@/composables/article/useArticleFilter';
 import { useArticleActions } from '@/composables/article/useArticleActions';
 import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
 import { useArticleListTransition } from '@/composables/article/useArticleListTransition';
+import { useArticleListWindow } from '@/composables/article/useArticleListWindow';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseSettingsData } from '@/composables/core/useSettings.generated';
@@ -83,6 +85,7 @@ async function scrollPendingFeedArticleIntoView(): Promise<void> {
   const articleId = pendingFeedArticleId.value;
   if (!articleId || !listRef.value) return;
 
+  await ensureArticleVisible(articleId);
   await nextTick();
   const articleElement = listRef.value.querySelector<HTMLElement>(
     `[data-article-id="${articleId}"]`
@@ -114,6 +117,7 @@ const {
   loadTranslationSettings,
   setupIntersectionObserver,
   observeArticle,
+  unobserveArticle,
   handleTranslationSettingsChange,
   cleanup: cleanupTranslation,
 } = useArticleTranslation();
@@ -263,7 +267,6 @@ function handleArticleContextMenu(event: MouseEvent, article: Article): void {
   showSelectionContextMenu(event);
   if (!event.defaultPrevented) showArticleContextMenu(event, article);
 }
-
 async function preserveRelativeReadPosition(
   referenceArticle: Article,
   direction: 'above' | 'below'
@@ -305,6 +308,23 @@ const { displayedArticles, showingPrevious, showLoadingIndicator } = useArticleL
   visibleArticles,
   computed(() => store.isLoading)
 );
+// Keeps only the rows around the viewport mounted: rendering every loaded
+// article costs roughly 0.5 MB per row in the web view (measured).
+const {
+  windowItems,
+  topSpacerHeight,
+  bottomSpacerHeight,
+  updateFromScroll: updateListWindow,
+  ensureArticleVisible,
+  resetWindow: resetArticleListWindow,
+} = useArticleListWindow(displayedArticles, listRef, {
+  // Grid row boundaries and grouped/table headers need layout-specific
+  // virtualization. Preserve those layouts until that support is available.
+  enabled: computed(
+    () => !isCardMode.value && !isTableMode.value && store.articleGroupBy === 'none'
+  ),
+  layoutKey: layoutMode,
+});
 const groupStarts = computed(() =>
   articleGroupStarts(displayedArticles.value, store.articleGroupBy)
 );
@@ -369,9 +389,12 @@ function setupScrollReadObserver(): void {
 }
 
 function observeListArticle(element: Element | null, articleId: number): void {
-  observeArticle(element);
   const previous = scrollReadElements.get(articleId);
-  if (previous) scrollReadObserver?.unobserve(previous);
+  if (previous) {
+    scrollReadObserver?.unobserve(previous);
+    unobserveArticle(previous);
+  }
+  observeArticle(element);
   if (!element) {
     scrollReadElements.delete(articleId);
     scrollReadSeen.delete(articleId);
@@ -530,6 +553,7 @@ watch(
       shouldRestoreScroll.value = false; // Disable scroll restoration after refresh
       if (listRef.value) {
         listRef.value.scrollTop = 0;
+        resetArticleListWindow();
       }
     }
   }
@@ -569,6 +593,20 @@ watch(
     if (articleId !== null && aiSearchResults.value.some((article) => article.id === articleId)) {
       temporarilyKeepArticles.value.add(articleId);
     }
+  }
+);
+
+// Keyboard/detail navigation can move the selection to a row that is outside
+// the rendered window; bring it back in before it is scrolled into view.
+watch(
+  () => store.currentArticleId,
+  async (articleId) => {
+    if (articleId === null) return;
+    await ensureArticleVisible(articleId);
+    if (store.currentArticleId !== articleId) return;
+    listRef.value
+      ?.querySelector<HTMLElement>(`[data-article-id="${articleId}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
   }
 );
 
@@ -753,6 +791,13 @@ let scrollThrottleTimer: ReturnType<typeof setTimeout> | null = null;
 const SCROLL_THROTTLE_DELAY = 200; // 200ms throttle
 const SCROLL_THRESHOLD = 400; // Increased from 200 to 400 for better UX
 
+// Keeps the rendered window in sync on every scroll event; the load-more check
+// stays throttled inside handleScroll.
+function onListScroll(event: Event): void {
+  updateListWindow();
+  handleScroll(event);
+}
+
 function handleScroll(e: Event): void {
   // Throttle scroll events to improve performance
   if (scrollThrottleTimer) return;
@@ -912,22 +957,19 @@ async function openCardModal(article: Article): Promise<void> {
   // Load article content
   try {
     const mediaCacheEnabled = await isMediaCacheEnabled();
-    const res = await fetch(`/api/articles/content?id=${article.id}`);
-    if (res.ok) {
-      const data = await res.json();
-      let content = data.content || '';
-      if (mediaCacheEnabled && content) {
-        content = proxyImagesInHtml(content, article.url);
-      }
-      cardModalContent.value = content;
-    } else {
-      cardModalContent.value = '';
+    const data = await loadArticleContent(article.id);
+    if (cardModalArticle.value?.id !== article.id || !showCardModal.value) return;
+    let content = data.content;
+    if (mediaCacheEnabled && content) {
+      content = proxyImagesInHtml(content, data.feedUrl || article.url);
     }
+    cardModalContent.value = content;
   } catch (e) {
+    if (cardModalArticle.value?.id !== article.id || !showCardModal.value) return;
     console.error('Error loading article content:', e);
     cardModalContent.value = '';
   } finally {
-    isCardModalLoading.value = false;
+    if (cardModalArticle.value?.id === article.id) isCardModalLoading.value = false;
   }
 }
 
@@ -1032,6 +1074,7 @@ async function cardModalReloadContent(): Promise<void> {
     if (!res.ok) {
       throw new Error(t('common.errors.fetchingArticleContent'));
     }
+    invalidateArticleContent(article.id);
     await openCardModal(article);
   } catch (e) {
     console.error('Error reloading article content:', e);
@@ -1077,7 +1120,10 @@ async function reloadArticleOrder(): Promise<void> {
   } else if (!isAISearchActive.value) {
     await store.fetchArticles();
   }
-  if (listRef.value) listRef.value.scrollTop = 0;
+  if (listRef.value) {
+    listRef.value.scrollTop = 0;
+    resetArticleListWindow();
+  }
 }
 
 // Mark all currently visible articles as read
@@ -1338,7 +1384,7 @@ async function markAllVisibleAsRead(): Promise<void> {
         class="h-full overflow-y-scroll article-list-scroll"
         :class="{ 'pointer-events-none': showingPrevious }"
         :inert="showingPrevious || undefined"
-        @scroll="handleScroll"
+        @scroll="onListScroll"
       >
         <div
           v-if="
@@ -1377,6 +1423,14 @@ async function markAllVisibleAsRead(): Promise<void> {
           {{ t('aiSearch.noResults') }}
         </div>
 
+        <!-- Virtualised list: the rows outside the window are collapsed into spacers -->
+        <div
+          v-if="topSpacerHeight > 0"
+          class="shrink-0"
+          :style="{ height: `${topSpacerHeight}px` }"
+          aria-hidden="true"
+        />
+
         <table
           v-if="isTableMode"
           class="article-table w-full table-fixed border-collapse"
@@ -1398,7 +1452,7 @@ async function markAllVisibleAsRead(): Promise<void> {
             </tr>
           </thead>
           <tbody>
-            <template v-for="article in displayedArticles" :key="article.id">
+            <template v-for="article in windowItems" :key="article.id">
               <tr v-if="groupStarts.has(article.id)" class="bg-bg-secondary text-text-secondary">
                 <th
                   :colspan="tableColumns.length"
@@ -1443,7 +1497,7 @@ async function markAllVisibleAsRead(): Promise<void> {
         <!-- Article list with content-visibility for performance -->
         <!-- Card mode: grid layout -->
         <div v-else-if="isCardMode" class="card-grid-container">
-          <template v-for="article in displayedArticles" :key="article.id">
+          <template v-for="article in windowItems" :key="article.id">
             <h4
               v-if="groupStarts.has(article.id)"
               class="col-span-full px-1 py-2 text-sm font-medium text-text-secondary"
@@ -1496,7 +1550,7 @@ async function markAllVisibleAsRead(): Promise<void> {
         </div>
         <!-- Normal/Compact mode: list layout -->
         <div v-else class="article-list-container">
-          <template v-for="article in displayedArticles" :key="article.id">
+          <template v-for="article in windowItems" :key="article.id">
             <h4
               v-if="groupStarts.has(article.id)"
               class="border-b border-border bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary"
@@ -1547,6 +1601,13 @@ async function markAllVisibleAsRead(): Promise<void> {
             </div>
           </template>
         </div>
+
+        <div
+          v-if="bottomSpacerHeight > 0"
+          class="shrink-0"
+          :style="{ height: `${bottomSpacerHeight}px` }"
+          aria-hidden="true"
+        />
 
         <!-- Bottom: Mark All Visible as Read button (inserted at end of list) -->
         <Transition

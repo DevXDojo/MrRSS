@@ -14,7 +14,6 @@ import (
 	"MrRSS/internal/models"
 	"MrRSS/internal/rsshub"
 	"MrRSS/internal/utils"
-	"MrRSS/internal/utils/httputil"
 
 	"github.com/antchfx/htmlquery"
 	"github.com/antchfx/xmlquery"
@@ -391,6 +390,17 @@ func (f *Fetcher) AddScriptSubscription(scriptPath string, category string, cust
 // AddXPathSubscription adds a new feed subscription that uses XPath expressions
 // and returns the feed ID.
 func (f *Fetcher) AddXPathSubscription(url string, category string, customTitle string, feedType string, xpathItem string, xpathItemTitle string, xpathItemContent string, xpathItemUri string, xpathItemAuthor string, xpathItemTimestamp string, xpathItemTimeFormat string, xpathItemThumbnail string, xpathItemCategories string, xpathItemUid string) (int64, error) {
+	return f.AddXPathSubscriptionWithOptions(context.Background(), models.Feed{
+		URL: url, Category: category, Title: customTitle, Type: feedType,
+		XPathItem: xpathItem, XPathItemTitle: xpathItemTitle, XPathItemContent: xpathItemContent,
+		XPathItemUri: xpathItemUri, XPathItemAuthor: xpathItemAuthor, XPathItemTimestamp: xpathItemTimestamp,
+		XPathItemTimeFormat: xpathItemTimeFormat, XPathItemThumbnail: xpathItemThumbnail,
+		XPathItemCategories: xpathItemCategories, XPathItemUid: xpathItemUid,
+	})
+}
+
+func (f *Fetcher) AddXPathSubscriptionWithOptions(ctx context.Context, source models.Feed) (int64, error) {
+	url, customTitle, feedType, xpathItem := source.URL, source.Title, source.Type, source.XPathItem
 	// Validate URL
 	if url == "" {
 		return 0, &XPathError{
@@ -416,7 +426,7 @@ func (f *Fetcher) AddXPathSubscription(url string, category string, customTitle 
 	}
 
 	// Test fetch the URL to ensure it's accessible before adding
-	httpClient, err := httputil.CreateHTTPClient("", 30*time.Second)
+	httpClient, err := f.getHTTPClient(source)
 	if err != nil {
 		return 0, &XPathError{
 			Operation: "fetch",
@@ -426,7 +436,14 @@ func (f *Fetcher) AddXPathSubscription(url string, category string, customTitle 
 		}
 	}
 
-	resp, err := httpClient.Get(url)
+	defer httpClient.CloseIdleConnections()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := httpClient.Do(request)
 	if err != nil {
 		return 0, &XPathError{
 			Operation: "fetch",
@@ -468,7 +485,10 @@ func (f *Fetcher) AddXPathSubscription(url string, category string, customTitle 
 				Err:       err,
 			}
 		}
-		items := htmlquery.Find(doc, xpathItem)
+		items, queryErr := htmlquery.QueryAll(doc, xpathItem)
+		if queryErr != nil {
+			return 0, &XPathError{Operation: "validate", XPathExpr: xpathItem, Details: "Invalid item XPath", Err: queryErr}
+		}
 		if len(items) == 0 {
 			return 0, &XPathError{
 				Operation: "extract",
@@ -487,7 +507,10 @@ func (f *Fetcher) AddXPathSubscription(url string, category string, customTitle 
 				Err:       err,
 			}
 		}
-		items := xmlquery.Find(doc, xpathItem)
+		items, queryErr := xmlquery.QueryAll(doc, xpathItem)
+		if queryErr != nil {
+			return 0, &XPathError{Operation: "validate", XPathExpr: xpathItem, Details: "Invalid item XPath", Err: queryErr}
+		}
 		if len(items) == 0 {
 			return 0, &XPathError{
 				Operation: "extract",
@@ -504,24 +527,8 @@ func (f *Fetcher) AddXPathSubscription(url string, category string, customTitle 
 		title = "XPath Feed"
 	}
 
-	feed := &models.Feed{
-		Title:               title,
-		URL:                 url,
-		Category:            category,
-		Type:                feedType,
-		XPathItem:           xpathItem,
-		XPathItemTitle:      xpathItemTitle,
-		XPathItemContent:    xpathItemContent,
-		XPathItemUri:        xpathItemUri,
-		XPathItemAuthor:     xpathItemAuthor,
-		XPathItemTimestamp:  xpathItemTimestamp,
-		XPathItemTimeFormat: xpathItemTimeFormat,
-		XPathItemThumbnail:  xpathItemThumbnail,
-		XPathItemCategories: xpathItemCategories,
-		XPathItemUid:        xpathItemUid,
-	}
-
-	return f.db.AddFeed(feed)
+	source.Title = title
+	return f.db.AddFeed(&source)
 }
 
 // ImportSubscription imports a feed subscription and returns the feed ID.
@@ -1280,8 +1287,8 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 	utils.DebugLog("parseFeedWithJavaScript: Starting JavaScript execution for URL: %s, priority: %v", feedURL, priority)
 
 	// Create a context with timeout for browser operations
-	browserCtx, cancel := chromedp.NewContext(ctx)
-	defer cancel()
+	browserCtx, cancelBrowser := chromedp.NewContext(ctx)
+	defer cancelBrowser()
 
 	// Set timeout based on priority
 	timeout := 30 * time.Second
@@ -1290,8 +1297,17 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 	}
 
 	utils.DebugLog("parseFeedWithJavaScript: Setting timeout to %v", timeout)
-	browserCtx, cancel = context.WithTimeout(browserCtx, timeout)
+	browserCtx, cancel := context.WithTimeout(browserCtx, timeout)
 	defer cancel()
+
+	// Bound peak memory: every active parse runs its own temporary headless
+	// Chrome, so cap how many may run at once. Waiters hold this context, so
+	// they still respect the per-feed timeout while queued.
+	release, err := f.acquireBrowserSlot(browserCtx)
+	if err != nil {
+		return nil, fmt.Errorf("browser parse gate: %w", err)
+	}
+	defer func() { cancelBrowser(); release() }()
 
 	var pageContent string
 
@@ -1305,7 +1321,7 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 
 	// Run chromedp tasks: navigate to URL and wait for page to load, then get the final HTML
 	utils.DebugLog("parseFeedWithJavaScript: Starting chromedp tasks for URL: %s", feedURL)
-	err := chromedp.Run(browserCtx,
+	err = chromedp.Run(browserCtx,
 		chromedp.Navigate(feedURL),
 		// Wait for the page to be ready (network idle or DOM content loaded)
 		chromedp.WaitReady("body"),

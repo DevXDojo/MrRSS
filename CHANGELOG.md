@@ -1,9 +1,27 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to MrRSS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.3.36] - 2026-09-19
+
+### Added
+
+- Choose a custom data directory with `--data-dir` or `MRRSS_DATA_DIR` in desktop and server builds. Use the same directory for the database, logs, scripts and caches, retain it for built-in startup and AppImage updates, and preserve paths with spaces, Unicode and URI delimiters. See `docs/DATA_DIRECTORY.md` for migration instructions. (#1204)
+- Select article containers, titles, links, dates, summaries and thumbnails in a safe static webpage preview, inspect matching samples, and apply generated XPath expressions in the add/edit feed form. Respect the selected proxy and request cancellation; do not execute page scripts or load external preview resources. (#1205)
+
+### Changed
+
+- Reduce reader memory use with bounded article/feed caches, an approximately 8 MiB SQLite page cache per connection and two idle connections, at most two concurrent browser parses, streamed media downloads/serving with range and conditional requests, and lazy article images. Cache eight recently opened article bodies while preserving cancellation and invalidation behavior. (#1202, @expoli)
+- Window long ungrouped normal/compact article lists. Keep cards, tables and grouped views fully rendered to preserve grid positions and headers; retain keyboard navigation and release observers for unmounted rows. (#1202, @expoli)
+
+### Fixed
+
+- Atomically replace the installed Linux AppImage instead of launching an update from the temporary download directory. Restart after the old instance exits, retain launch options, bypass close-to-tray during the handoff, and remove the downloaded file and empty directory. Preserve the installed image if staging fails. (#1201)
+- Provide a standard-library Python feed for the government latest-policy page, whose JavaScript-generated article list is absent from static HTML. Document the JSON alternative and correct XPath date configuration. (#1203)
+- Correct the content-cache TTL from nanoseconds to 30 minutes, enforce capacity even when writes share a timestamp, and prevent expired or in-flight entries from undoing cache invalidation. (#1202, @expoli)
 
 ## [1.3.35] - 2026-09-16
 
@@ -60,8 +78,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fetch Miniflux articles through its supported Google Reader item endpoints and preserve folders, read state, and starred state during synchronization. (#1191) (@HernandoR)
 - Preserve image `referrerpolicy="no-referrer"` in article content so feeds can load images from hosts that reject the desktop WebView referrer. (#1189)
 - Apply the configured application proxy and encrypted proxy credentials to media cache downloads and direct media forwarding, and cancel downloads with their requests. (#1189)
-
-## [Unreleased]
 
 ## [1.3.33] - 2026-09-10
 

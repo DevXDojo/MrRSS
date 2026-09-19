@@ -2,12 +2,15 @@ package utils
 
 import (
 	"fmt"
+	"html"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"MrRSS/internal/utils/fileutil"
 )
 
 // EnableStartup enables the application to start on system boot
@@ -45,12 +48,19 @@ func DisableStartup() error {
 
 // Windows implementation using registry
 func enableStartupWindows(executable string) error {
+	command := `"` + executable + `"`
+	if dir := fileutil.CustomDataDir(); dir != "" {
+		// Windows paths cannot contain quotes; double trailing slashes before
+		// the closing quote (notably when the chosen directory is a drive root).
+		trimmed := strings.TrimRight(dir, `\`)
+		command += ` --data-dir "` + trimmed + strings.Repeat(`\`, 2*(len(dir)-len(trimmed))) + `"`
+	}
 	// Use reg.exe to add registry entry
 	cmd := exec.Command("reg", "add",
 		"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 		"/v", "MrRSS",
 		"/t", "REG_SZ",
-		"/d", fmt.Sprintf("\"%s\"", executable),
+		"/d", command,
 		"/f")
 
 	output, err := cmd.CombinedOutput()
@@ -93,6 +103,13 @@ func enableStartupLinux(executable string) error {
 	execValue, err := desktopExec(executable)
 	if err != nil {
 		return err
+	}
+	if dir := fileutil.CustomDataDir(); dir != "" {
+		quotedDir, err := desktopExec(dir)
+		if err != nil {
+			return err
+		}
+		execValue += " --data-dir " + quotedDir
 	}
 	autostartDir, err := linuxAutostartDir()
 	if err != nil {
@@ -181,13 +198,13 @@ func enableStartupDarwin(executable string) error {
 	<string>com.mrrss.app</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>%s</string>
+		%s
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
 </dict>
 </plist>
-`, executable)
+`, startupDarwinArguments(executable))
 
 	if err := os.WriteFile(plistFile, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write plist file: %w", err)
@@ -195,6 +212,14 @@ func enableStartupDarwin(executable string) error {
 
 	log.Printf("Startup enabled for macOS: %s", plistFile)
 	return nil
+}
+
+func startupDarwinArguments(executable string) string {
+	args := "<string>" + html.EscapeString(executable) + "</string>"
+	if dir := fileutil.CustomDataDir(); dir != "" {
+		args += "\n\t\t<string>--data-dir</string>\n\t\t<string>" + html.EscapeString(dir) + "</string>"
+	}
+	return args
 }
 
 func disableStartupDarwin() error {

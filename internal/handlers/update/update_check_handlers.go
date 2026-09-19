@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"syscall"
@@ -215,6 +216,9 @@ func HandleCheckUpdates(h *core.Handler, w http.ResponseWriter, r *http.Request)
 	platform := runtime.GOOS
 	arch := runtime.GOARCH
 	isPortable := fileutil.IsPortableMode()
+	if platform == "linux" && os.Getenv("APPIMAGE") != "" {
+		isPortable = false
+	}
 
 	for _, asset := range release.Assets {
 		name := strings.ToLower(asset.Name)

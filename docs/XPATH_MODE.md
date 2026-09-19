@@ -11,6 +11,17 @@ MrRSS supports XPath mode for extracting RSS-like content from websites that don
 
 ## XPath Types
 
+XPath reads downloaded HTML/XML, not the DOM after JavaScript execution. If a
+list is populated by an API, use a custom script for that API. For example, the
+China government latest-policy page has an empty `//ul[@id="list-1-ajax-id"]`.
+Use [`gov_policy_feed.py`](../scripts/examples/gov_policy_feed.py) through
+[Custom Script mode](CUSTOM_SCRIPT_MODE.md). It supplies titles, stable links
+and dates; enable full-text fetching for article bodies. Scripts use their
+interpreter's network/proxy environment, not MrRSS proxy settings.
+
+The date XPath must select a date element (such as `.//span[@class="date"]`),
+not a link. A date such as `2026-09-17` uses the layout `2006-01-02`.
+
 ### HTML + XPath
 
 Use this for regular web pages. The HTML will be parsed and cleaned before applying XPath expressions.
@@ -20,6 +31,21 @@ Use this for regular web pages. The HTML will be parsed and cleaned before apply
 Use this for XML-based sources that aren't standard RSS/Atom feeds.
 
 ## Required Configuration
+
+### Visual picker (HTML only)
+
+In the add/edit XPath form, enter an HTTP(S) URL and open **Visual XPath picker**.
+Click an article and use **Parent element** until the whole repeating container
+is selected. Choose it, then select title/link and optional date, summary and
+thumbnail elements inside that same article. Check the matched containers and
+samples, then apply. Applying replaces the XPath configuration; nothing is saved
+until you submit the feed form. Set the date layout there as needed.
+
+The preview preserves document structure with neutral styling and image
+placeholders. It does not execute page scripts, load external resources or use
+your browser login. Links cannot navigate. Proxy settings from the form apply to
+both the preview and subscription validation. Generated paths describe the
+current page structure and may need editing if that structure changes.
 
 ### Source URL
 

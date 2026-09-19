@@ -94,6 +94,13 @@ func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
 }
 
 func main() {
+	dataDirOption, err := fileutil.DataDirArgument(os.Args[1:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := fileutil.ConfigureDataDir(dataDirOption); err != nil {
+		log.Fatal(err)
+	}
 	// Reject duplicate Linux launches before truncating logs, opening SQLite,
 	// running migrations, or starting schedulers. This does not depend on D-Bus.
 	dataDir, err := fileutil.GetDataDir()
@@ -283,6 +290,10 @@ func main() {
 
 	// Set app instance to handler for browser integration
 	h.SetApp(app)
+	h.QuitForUpdate = func() {
+		quitRequested.Store(true)
+		app.Quit()
+	}
 	log.Println("Browser integration enabled")
 
 	// Expose the API to local integrations such as the mrrss-assistant skill.
