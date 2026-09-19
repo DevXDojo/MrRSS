@@ -101,6 +101,7 @@ type Defaults struct {
 	NetworkBandwidthMbps          string `json:"network_bandwidth_mbps"`
 	NetworkLatencyMs              string `json:"network_latency_ms"`
 	NetworkSpeed                  string `json:"network_speed"`
+	NotificationConfig            string `json:"notification_config"`
 	NotionAPIKey                  string `json:"notion_api_key"`
 	NotionEnabled                 bool   `json:"notion_enabled"`
 	NotionPageId                  string `json:"notion_page_id"`
@@ -347,6 +348,8 @@ func GetString(key string) string {
 		return defaults.NetworkLatencyMs
 	case "network_speed":
 		return defaults.NetworkSpeed
+	case "notification_config":
+		return defaults.NotificationConfig
 	case "notion_api_key":
 		return defaults.NotionAPIKey
 	case "notion_enabled":

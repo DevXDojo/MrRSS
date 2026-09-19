@@ -17,6 +17,7 @@ import (
 	"MrRSS/internal/discovery"
 	"MrRSS/internal/feed"
 	"MrRSS/internal/models"
+	"MrRSS/internal/notification"
 	svc "MrRSS/internal/service"
 	"MrRSS/internal/statistics"
 	"MrRSS/internal/translation"
@@ -47,6 +48,7 @@ type DiscoveryState struct {
 // Handler holds all dependencies for HTTP handlers.
 // It now uses a service registry for better separation of concerns.
 type Handler struct {
+	Notifications *notification.Service
 	// Services registry provides access to all business logic services
 	Services *svc.Registry
 
@@ -76,6 +78,7 @@ func NewHandler(db *database.DB, fetcher *feed.Fetcher, translator translation.T
 	registry := svc.NewRegistry(db, fetcher, translator)
 
 	h := &Handler{
+		Notifications:     notification.New(db),
 		Services:          registry,
 		DB:                db,
 		Fetcher:           fetcher,

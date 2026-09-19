@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a dedicated Notifications settings tab with locally bundled Telegram, Discord and Feishu/Lark logos, multiple destinations, encrypted credentials, connection tests, condition-based article alerts, scheduled briefings, quiet hours, previews and delivery history. Persist queued messages across restarts and retry transient failures with bounded backoff in desktop and server modes. (#1208)
+
+### Fixed
+
+- Keep settings usable on narrow screens with horizontal tab navigation and a separate search row. Protect unsaved notification drafts when closing settings or switching tabs. (#1208)
+
 ## [1.3.36] - 2026-09-20
 
 ### Added

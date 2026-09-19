@@ -58,6 +58,7 @@ export type TabName =
   | 'rules'
   | 'network'
   | 'plugins'
+  | 'notifications'
   | 'shortcuts'
   | 'statistics'
   | 'about';

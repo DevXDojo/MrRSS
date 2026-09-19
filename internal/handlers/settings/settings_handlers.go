@@ -52,6 +52,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// Get all settings using the definition-driven approach
 		settings := GetAllSettings(h)
+		delete(settings, "notification_config") // Dedicated API redacts and validates channel secrets.
 		settings["data_directory"], _ = fileutil.GetDataDir()
 		response.JSON(w, settings)
 
@@ -65,6 +66,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 		// Bootstrap storage is changed only by the explicit migration endpoint.
 		delete(req, "data_directory")
+		delete(req, "notification_config") // Prevent stale generic autosaves overwriting push rules.
 
 		wasEnabled := map[string]bool{}
 		for _, provider := range []string{"freshrss", "miniflux"} {
@@ -118,6 +120,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 		// Re-fetch all settings after save to return updated values
 		settings := GetAllSettings(h)
+		delete(settings, "notification_config")
 		settings["data_directory"], _ = fileutil.GetDataDir()
 		response.JSON(w, settings)
 

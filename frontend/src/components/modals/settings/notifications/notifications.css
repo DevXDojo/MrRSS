@@ -1,0 +1,96 @@
+@reference "../../../../style.css";
+
+.push-tab .push-hero {
+  @apply p-5 rounded-xl border border-border;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--accent-color) 9%, var(--bg-primary)),
+    var(--bg-primary)
+  );
+}
+.push-tab .push-hero-icon {
+  @apply rounded-xl p-2 text-accent shrink-0;
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+}
+.push-tab .push-panel {
+  @apply p-4 rounded-xl border border-border bg-bg-secondary;
+}
+.push-tab .push-provider {
+  @apply rounded-xl border border-border bg-bg-primary overflow-hidden;
+}
+.push-tab .push-provider-heading {
+  @apply w-full flex items-center gap-3 p-4 hover:bg-bg-secondary transition-colors;
+}
+.push-tab .push-logo {
+  @apply w-9 h-9 object-contain shrink-0;
+}
+.push-tab .push-editor {
+  @apply p-4 rounded-xl border border-border bg-bg-secondary;
+}
+.push-tab .push-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+}
+.push-tab .push-field {
+  @apply flex flex-col gap-2 text-sm min-w-0;
+}
+.push-tab .push-label {
+  @apply text-sm font-medium mb-2;
+}
+.push-tab .push-input {
+  @apply w-full min-w-0 rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary;
+}
+.push-tab .push-help {
+  @apply text-xs text-text-secondary leading-relaxed;
+}
+.push-tab .push-button {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-bg-primary px-3 py-2 text-xs font-medium hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.push-tab .push-primary {
+  @apply bg-accent border-transparent text-white hover:bg-accent-hover;
+}
+.push-tab .push-icon-button {
+  @apply inline-flex items-center justify-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed shrink-0;
+}
+.push-tab .push-badge {
+  @apply inline-flex items-center rounded-full px-2 py-1 text-xs bg-bg-tertiary text-text-secondary whitespace-nowrap;
+}
+.push-tab .push-row {
+  @apply flex items-center gap-2;
+}
+.push-tab .push-choice {
+  @apply inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs cursor-pointer bg-bg-primary;
+}
+.push-tab .push-selected {
+  @apply text-accent border-accent;
+  background: color-mix(in srgb, var(--accent-color) 10%, var(--bg-primary));
+}
+.push-tab .push-empty {
+  @apply text-center border border-dashed border-border rounded-xl p-6;
+}
+.push-tab .push-preview {
+  @apply rounded-lg border border-border bg-bg-primary p-4;
+}
+.push-tab .push-preview pre + pre {
+  @apply pt-3 border-t border-border;
+}
+.push-tab .push-error {
+  @apply rounded-lg border border-red-300 bg-red-50 text-red-700 p-3 text-sm;
+}
+.dark-mode .push-tab .push-error {
+  @apply bg-red-950 border-red-800 text-red-200;
+}
+.push-tab .push-condition {
+  @apply grid gap-2 items-center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) auto;
+}
+@media (max-width: 640px) {
+  .push-tab .push-condition {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .push-tab .push-provider-heading {
+    @apply gap-2 p-3;
+  }
+  .push-tab .push-logo {
+    @apply w-7 h-7;
+  }
+}

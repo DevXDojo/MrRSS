@@ -100,6 +100,7 @@ var AllSettings = []SettingDef{
 	{Key: "network_bandwidth_mbps", Encrypted: false},
 	{Key: "network_latency_ms", Encrypted: false},
 	{Key: "network_speed", Encrypted: false},
+	{Key: "notification_config", Encrypted: true},
 	{Key: "notion_api_key", Encrypted: true},
 	{Key: "notion_enabled", Encrypted: false},
 	{Key: "notion_page_id", Encrypted: false},

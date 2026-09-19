@@ -88,6 +88,7 @@ export interface SettingsData {
   network_bandwidth_mbps: string;
   network_latency_ms: string;
   network_speed: string;
+  notification_config: string;
   notion_api_key: string;
   notion_enabled: boolean;
   notion_page_id: string;

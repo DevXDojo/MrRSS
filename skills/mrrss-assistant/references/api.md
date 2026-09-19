@@ -769,6 +769,43 @@ Detect network speed
 
 Get network info
 
+## Notifications
+
+### `GET /notifications/config`
+
+Read notification settings
+
+### `PUT /notifications/config`
+
+Save notification settings
+
+Parameters:
+  - `config` (body, required): Complete configuration with current revision
+
+Request body: see the Swagger schema for full field details.
+
+### `GET /notifications/history`
+
+List notification deliveries
+
+### `POST /notifications/preview`
+
+Preview a notification rule
+
+Parameters:
+  - `rule` (body, required): Rule to preview
+
+Request body: see the Swagger schema for full field details.
+
+### `POST /notifications/test`
+
+Test a notification destination
+
+Parameters:
+  - `channel` (body, required): Destination to test
+
+Request body: see the Swagger schema for full field details.
+
 ## Opml
 
 ### `GET /opml/export`

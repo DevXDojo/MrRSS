@@ -82,6 +82,7 @@
   "network_bandwidth_mbps": "0",
   "network_latency_ms": "0",
   "network_speed": "medium",
+  "notification_config": "",
   "notion_api_key": "",
   "notion_enabled": false,
   "notion_page_id": "",

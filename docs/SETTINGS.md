@@ -1,5 +1,7 @@
 # Settings Management System
 
+For notification channels, alert rules, scheduled briefings and delivery behavior, see the [Notifications guide](NOTIFICATIONS.md).
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)

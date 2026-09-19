@@ -13,6 +13,7 @@ import (
 
 // StartBackgroundScheduler starts the background scheduler for auto-updates and cleanup.
 func (h *Handler) StartBackgroundScheduler(ctx context.Context) {
+	go h.Notifications.Run(ctx)
 	go h.startAutoMarkReadScheduler(ctx)
 
 	// Trigger initial cleanup on startup

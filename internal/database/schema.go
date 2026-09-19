@@ -7,6 +7,9 @@ import (
 // initSchema initializes the database schema by creating all tables and indexes.
 // This is extracted from db.go for better code organization.
 func initSchema(db *sql.DB) error {
+	if _, err := db.Exec(notificationSchema); err != nil {
+		return err
+	}
 	// First create tables
 	query := `
 	CREATE TABLE IF NOT EXISTS feeds (

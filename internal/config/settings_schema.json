@@ -4,6 +4,13 @@
     "description": "Settings schema definition - add new settings here only!"
   },
   "settings": {
+    "notification_config": {
+      "type": "string",
+      "default": "",
+      "category": "notifications",
+      "encrypted": true,
+      "frontend_key": "notification_config"
+    },
     "data_directory": {
       "type": "string",
       "default": "",

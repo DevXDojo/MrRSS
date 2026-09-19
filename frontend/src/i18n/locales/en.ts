@@ -1,4 +1,5 @@
 import type { TranslationMessages } from '../types';
+import { enNotifications } from './notifications';
 
 const en: TranslationMessages = {
   article: {
@@ -784,6 +785,7 @@ const en: TranslationMessages = {
     },
   },
   setting: {
+    notifications: enNotifications,
     search: {
       clear: 'Clear settings search',
       noResults: 'No matching settings',

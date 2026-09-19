@@ -4,12 +4,17 @@ import (
 	"net/http"
 
 	"MrRSS/internal/handlers/core"
+	notificationhandlers "MrRSS/internal/handlers/notification"
 	settings "MrRSS/internal/handlers/settings"
 	stathandlers "MrRSS/internal/handlers/statistics"
 )
 
 // registerSettingsRoutes registers all settings-related routes
 func registerSettingsRoutes(mux *http.ServeMux, h *core.Handler) {
+	mux.HandleFunc("/api/notifications/config", func(w http.ResponseWriter, r *http.Request) { notificationhandlers.HandleConfig(h, w, r) })
+	mux.HandleFunc("/api/notifications/test", func(w http.ResponseWriter, r *http.Request) { notificationhandlers.HandleTest(h, w, r) })
+	mux.HandleFunc("/api/notifications/preview", func(w http.ResponseWriter, r *http.Request) { notificationhandlers.HandlePreview(h, w, r) })
+	mux.HandleFunc("/api/notifications/history", func(w http.ResponseWriter, r *http.Request) { notificationhandlers.HandleHistory(h, w, r) })
 	// Settings
 	mux.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) { settings.HandleSettings(h, w, r) })
 

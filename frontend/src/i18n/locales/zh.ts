@@ -1,4 +1,5 @@
 import type { TranslationMessages } from '../types';
+import { zhNotifications } from './notifications';
 
 const zh: TranslationMessages = {
   article: {
@@ -755,6 +756,7 @@ const zh: TranslationMessages = {
     },
   },
   setting: {
+    notifications: zhNotifications,
     search: {
       clear: '清除设置搜索',
       noResults: '没有匹配的设置',

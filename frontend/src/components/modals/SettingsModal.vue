@@ -9,6 +9,7 @@ import ContentTab from './settings/content/ContentTab.vue';
 import AITab from './settings/ai/AITab.vue';
 import NetworkTab from './settings/network/NetworkTab.vue';
 import PluginsTab from './settings/plugins/PluginsTab.vue';
+import NotificationsTab from './settings/notifications/NotificationsTab.vue';
 import ShortcutsTab from './settings/shortcuts/ShortcutsTab.vue';
 import RulesTab from './settings/rules/RulesTab.vue';
 import StatisticsTab from './settings/statistics/StatisticsTab.vue';
@@ -16,6 +17,7 @@ import AboutTab from './settings/about/AboutTab.vue';
 import DiscoverAllFeedsModal from './discovery/DiscoverAllFeedsModal.vue';
 import {
   PhGear,
+  PhBellRinging,
   PhSlidersHorizontal,
   PhBookOpen,
   PhRss,
@@ -49,7 +51,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Modal close handling; nested modals are placed above this layer automatically.
-const { zIndex: modalZIndex } = useModalClose(() => emit('close'), LARGE_MODAL_Z_INDEX);
+const { zIndex: modalZIndex } = useModalClose(() => void requestClose(), LARGE_MODAL_Z_INDEX);
 
 // Use composables
 const { settings, fetchSettings, applySettings } = useSettings();
@@ -85,6 +87,31 @@ const emit = defineEmits<{
 }>();
 
 const activeTab: Ref<TabName> = ref(props.initialTab);
+const notificationEditing = ref(false);
+const notificationBusy = ref(false);
+let checkingNotificationExit = false;
+
+async function canLeaveNotifications() {
+  if (notificationBusy.value) {
+    window.showToast(t('setting.notifications.waitForSave'), 'info');
+    return false;
+  }
+  if (!notificationEditing.value) return true;
+  if (checkingNotificationExit) return false;
+  checkingNotificationExit = true;
+  try {
+    return await window.showConfirm({
+      title: t('setting.notifications.unsavedTitle'),
+      message: t('setting.notifications.unsavedMessage'),
+    });
+  } finally {
+    checkingNotificationExit = false;
+  }
+}
+
+async function requestClose() {
+  if (await canLeaveNotifications()) emit('close');
+}
 const showDiscoverAllModal = ref(false);
 const settingsContentRef = ref<HTMLElement | null>(null);
 const settingsSearchRef = ref<HTMLElement | null>(null);
@@ -139,6 +166,12 @@ const settingsTabs: Array<{
     icon: PhGlobe,
     labelKey: 'setting.tab.network',
     searchNamespaces: ['setting.network'],
+  },
+  {
+    id: 'notifications',
+    icon: PhBellRinging,
+    labelKey: 'setting.notifications.title',
+    searchNamespaces: ['setting.notifications'],
   },
   {
     id: 'plugins',
@@ -226,12 +259,14 @@ const settingsSearchResults = computed<SettingsSearchResult[]>(() => {
     .map(({ rank: _rank, ...result }) => result);
 });
 
-function selectSettingsTab(tab: TabName) {
+async function selectSettingsTab(tab: TabName) {
+  if (tab !== activeTab.value && !(await canLeaveNotifications())) return;
   activeTab.value = tab;
   clearSettingsSearch();
 }
 
 async function selectSettingsSearchResult(result: SettingsSearchResult) {
+  if (result.tab !== activeTab.value && !(await canLeaveNotifications())) return;
   activeTab.value = result.tab;
   settingsSearchOpen.value = false;
 
@@ -251,8 +286,9 @@ async function selectSettingsSearchResult(result: SettingsSearchResult) {
     : candidateList.filter((element) =>
         (element.textContent?.toLocaleLowerCase() || '').includes(query)
       );
-  const match = matches
-    .sort((left, right) => (left.textContent?.length || 0) - (right.textContent?.length || 0))[0];
+  const match = matches.sort(
+    (left, right) => (left.textContent?.length || 0) - (right.textContent?.length || 0)
+  )[0];
   if (!match) return;
 
   match.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -281,8 +317,7 @@ function handleSettingsSearchKeydown(event: KeyboardEvent) {
   } else if (event.key === 'ArrowUp') {
     event.preventDefault();
     settingsSearchOpen.value = true;
-    highlightedSearchIndex.value =
-      (highlightedSearchIndex.value - 1 + resultCount) % resultCount;
+    highlightedSearchIndex.value = (highlightedSearchIndex.value - 1 + resultCount) % resultCount;
   } else if (event.key === 'Enter') {
     event.preventDefault();
     const result = settingsSearchResults.value[highlightedSearchIndex.value];
@@ -330,7 +365,7 @@ function handleDiscoverAll() {
       class="bg-bg-primary w-full max-w-5xl h-full sm:h-[800px] sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in mx-2 sm:mx-4 my-2 sm:my-4"
     >
       <div
-        class="grid grid-cols-[minmax(0,1fr)_minmax(12rem,20rem)_minmax(0,1fr)] items-center gap-3 border-b border-border p-3 sm:p-5 shrink-0"
+        class="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_minmax(12rem,20rem)_minmax(0,1fr)] items-center gap-3 border-b border-border p-3 sm:p-5 shrink-0"
       >
         <h3
           class="justify-self-start text-text-secondary sm:text-lg font-semibold m-0 flex items-center gap-2"
@@ -340,7 +375,7 @@ function handleDiscoverAll() {
         </h3>
         <div
           ref="settingsSearchRef"
-          class="relative w-full justify-self-center"
+          class="relative w-full justify-self-center order-3 col-span-2 sm:order-none sm:col-span-1"
           @focusout="handleSettingsSearchFocusOut"
         >
           <PhMagnifyingGlass
@@ -410,16 +445,18 @@ function handleDiscoverAll() {
           class="flex h-10 w-10 cursor-pointer items-center justify-center justify-self-end rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           :aria-label="t('common.close')"
           :title="t('common.close')"
-          @click="emit('close')"
+          @click="requestClose"
         >
           <PhX :size="22" />
         </button>
       </div>
 
-      <div class="flex flex-1 min-h-0 overflow-hidden">
+      <div class="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
         <!-- Sidebar Navigation -->
-        <div class="w-48 sm:w-56 border-r border-border bg-bg-secondary shrink-0 overflow-y-scroll">
-          <nav class="p-2 space-y-1">
+        <div
+          class="w-full sm:w-56 border-b sm:border-b-0 sm:border-r border-border bg-bg-secondary shrink-0 overflow-x-auto overflow-y-hidden sm:overflow-y-scroll sm:overflow-x-hidden"
+        >
+          <nav class="flex sm:block p-2 gap-1 sm:space-y-1">
             <button
               v-for="tab in settingsTabs"
               :key="tab.id"
@@ -435,7 +472,7 @@ function handleDiscoverAll() {
         <!-- Content Area -->
         <div
           ref="settingsContentRef"
-          class="settings-content flex-1 overflow-y-scroll p-3 sm:p-6 min-h-0 scroll-smooth overscroll-contain"
+          class="settings-content flex-1 overflow-y-scroll p-3 sm:p-6 min-h-0 min-w-0 scroll-smooth overscroll-contain"
           data-settings-content
         >
           <GeneralTab
@@ -492,6 +529,12 @@ function handleDiscoverAll() {
             @update:settings="settings = $event"
           />
 
+          <NotificationsTab
+            v-if="activeTab === 'notifications'"
+            @editing="notificationEditing = $event"
+            @busy="notificationBusy = $event"
+          />
+
           <RulesTab
             v-if="activeTab === 'rules'"
             :settings="settings"
@@ -534,7 +577,7 @@ function handleDiscoverAll() {
 <style scoped>
 @reference "../../style.css";
 .sidebar-tab-btn {
-  @apply w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-transparent text-text-secondary font-medium cursor-pointer transition-all relative;
+  @apply w-auto sm:w-full shrink-0 whitespace-nowrap flex items-center gap-3 px-3 py-2.5 rounded-lg bg-transparent text-text-secondary font-medium cursor-pointer transition-all relative;
 }
 
 .sidebar-tab-btn:hover {
@@ -560,6 +603,18 @@ function handleDiscoverAll() {
 
 .settings-content {
   overflow-anchor: none;
+}
+
+@media (max-width: 639px) {
+  .sidebar-tab-btn.active::before {
+    top: auto;
+    bottom: 0;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    height: 3px;
+    border-radius: 2px;
+  }
 }
 
 :deep([data-settings-search-match='true']) {
