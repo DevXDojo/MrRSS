@@ -1003,6 +1003,23 @@ const zh: TranslationMessages = {
       fontSystemDefault: '系统默认',
     },
     database: {
+      dataDirectory: '数据目录',
+      directoryDescription:
+        '选择一个空文件夹。下次启动时，MrRSS 会在打开数据库前复制订阅、文章、设置、脚本和缓存，原目录保留作为备份。',
+      directoryCurrent: '当前目录：',
+      directoryDestination: '新的空文件夹路径',
+      directoryBrowse: '浏览…',
+      directoryChange: '更改目录',
+      directoryConfirm:
+        '下次启动时将数据复制到 {path}。请完全退出 MrRSS（包括系统托盘），然后重新打开。确认数据完整前请保留原目录。',
+      directoryScheduled: '已保存。请完全退出 MrRSS 后重新打开以迁移数据；仅关闭到托盘不会生效。',
+      directoryPending: '下次启动迁移至：',
+      directoryCancel: '取消目录变更',
+      directoryOverridden:
+        '当前目录由启动参数或 MRRSS_DATA_DIR 控制。移除该配置并重新启动后，可在此设置。',
+      directoryFailed: '无法更改数据目录。',
+      directoryMigrationFailed: '迁移失败，仍在使用原目录。',
+
       articleContentCacheCleanup: '文章内容缓存',
       articleContentCacheCleanupDesc: '清除所有缓存的文章内容',
       autoCleanup: '自动清理',

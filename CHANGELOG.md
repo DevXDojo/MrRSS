@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Choose a custom data directory with `--data-dir` or `MRRSS_DATA_DIR` in desktop and server builds. Use the same directory for the database, logs, scripts and caches, retain it for built-in startup and AppImage updates, and preserve paths with spaces, Unicode and URI delimiters. See `docs/DATA_DIRECTORY.md` for migration instructions. (#1204)
+- Choose a data directory in Settings → General → Data Management. Migrate to an empty folder on the next launch, preserve the original data as a backup, and keep using the original directory if copying fails. Retain command-line/environment overrides for desktop and server deployments. (#1204)
 - Select XPath fields in an isolated preview with original page styles and images, hover highlights, ancestor selection and extracted samples. Distinguish article containers by class, allow selecting fields in any matching item, and infer URLs from linked titles. Disable source scripts, forms and navigation. (#1205)
 
 ### Changed

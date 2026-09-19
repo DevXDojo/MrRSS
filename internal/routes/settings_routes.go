@@ -13,6 +13,9 @@ func registerSettingsRoutes(mux *http.ServeMux, h *core.Handler) {
 	// Settings
 	mux.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) { settings.HandleSettings(h, w, r) })
 
+	mux.HandleFunc("/api/settings/data-directory", func(w http.ResponseWriter, r *http.Request) { settings.HandleDataDirectory(h, w, r) })
+	mux.HandleFunc("/api/settings/data-directory/select", func(w http.ResponseWriter, r *http.Request) { settings.HandleSelectDataDirectory(h, w, r) })
+
 	// Statistics
 	mux.HandleFunc("/api/statistics", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
+import DataDirectorySettings from './DataDirectorySettings.vue';
 import { useI18n } from 'vue-i18n';
 import { clearArticleContentCache } from '@/utils/articleContentCache';
 import {
@@ -158,6 +159,7 @@ watch(
 
 <template>
   <SettingGroup :icon="PhDatabase" :title="t('setting.database.dataManagement')">
+    <DataDirectorySettings />
     <!-- Article Cleanup -->
     <SettingWithToggle
       :icon="PhBroom"

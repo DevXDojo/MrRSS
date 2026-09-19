@@ -98,8 +98,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := fileutil.ConfigureDataDir(dataDirOption); err != nil {
-		log.Fatal(err)
+	storageLock, err := fileutil.InitializeDesktopStorage(dataDirOption)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	if storageLock != nil {
+		defer storageLock.Close()
 	}
 	// Reject duplicate Linux launches before truncating logs, opening SQLite,
 	// running migrations, or starting schedulers. This does not depend on D-Bus.

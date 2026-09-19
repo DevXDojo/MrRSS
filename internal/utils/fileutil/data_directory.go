@@ -15,7 +15,7 @@ func CustomDataDir() string { return customDataDir }
 // Preserve the canonical directory when an updater restarts from a different
 // working directory, including an originally relative --data-dir argument.
 func DataDirRestartArgs(args []string) []string {
-	if customDataDir == "" {
+	if customDataDir == "" || desktopStorageManaged {
 		return append([]string(nil), args...)
 	}
 	result := []string{}

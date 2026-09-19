@@ -736,3 +736,13 @@ This optimization:
 - ✅ Uses snake_case throughout (simpler than camelCase)
 
 Happy coding! 🚀
+
+
+### Bootstrap storage setting
+
+`data_directory` is declared in the schema, but its authoritative value lives in
+an OS-local bootstrap file because it is needed before SQLite can be opened.
+The regular settings endpoint reports the active value and ignores it on autosave.
+The desktop directory endpoint explicitly schedules or cancels an offline copy on
+the next launch. See [Data directory](DATA_DIRECTORY.md). Do not store the location
+only in the database or apply it while the current database is open.

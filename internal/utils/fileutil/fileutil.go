@@ -49,6 +49,10 @@ func GetDataDir() (string, error) {
 	if customDataDir != "" {
 		return customDataDir, nil
 	}
+	return DefaultDataDir()
+}
+
+func DefaultDataDir() (string, error) {
 	var dataDir string
 	var err error
 

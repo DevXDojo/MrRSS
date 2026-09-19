@@ -1037,6 +1037,24 @@ const en: TranslationMessages = {
       selectScriptPlaceholder: 'Select a script...',
     },
     database: {
+      dataDirectory: 'Data directory',
+      directoryDescription:
+        'Choose an empty folder. On the next launch, MrRSS copies subscriptions, articles, settings, scripts and caches before opening the database. The original folder is kept as a backup.',
+      directoryCurrent: 'Current location:',
+      directoryDestination: 'New empty folder',
+      directoryBrowse: 'Browse…',
+      directoryChange: 'Change directory',
+      directoryConfirm:
+        'Copy your data to {path} on the next launch? Fully quit MrRSS (including the system tray), then reopen it. Keep the original folder until you have checked your data.',
+      directoryScheduled:
+        'Saved. Fully quit MrRSS, then reopen it to migrate. Closing to the tray is not sufficient.',
+      directoryPending: 'Next launch:',
+      directoryCancel: 'Cancel directory change',
+      directoryOverridden:
+        'The launch option or MRRSS_DATA_DIR controls this location. Remove that override and relaunch to manage it here.',
+      directoryFailed: 'Could not change the data directory.',
+      directoryMigrationFailed: 'Migration failed; your original directory is still in use.',
+
       articleContentCacheCleanup: 'Article Content Cache',
       articleContentCacheCleanupDesc: 'Clear all cached article content',
       autoCleanup: 'Auto Cleanup',

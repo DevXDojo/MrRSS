@@ -4,6 +4,13 @@
     "description": "Settings schema definition - add new settings here only!"
   },
   "settings": {
+    "data_directory": {
+      "type": "string",
+      "default": "",
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "data_directory"
+    },
     "update_interval": {
       "type": "int",
       "default": 30,

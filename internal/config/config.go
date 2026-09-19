@@ -58,6 +58,7 @@ type Defaults struct {
 	CustomTranslationName         string `json:"custom_translation_name"`
 	CustomTranslationResponsePath string `json:"custom_translation_response_path"`
 	CustomTranslationTimeout      int    `json:"custom_translation_timeout"`
+	DataDirectory                 string `json:"data_directory"`
 	DateFormat                    string `json:"date_format"`
 	DeeplAPIKey                   string `json:"deepl_api_key"`
 	DeeplEndpoint                 string `json:"deepl_endpoint"`
@@ -260,6 +261,8 @@ func GetString(key string) string {
 		return defaults.CustomTranslationResponsePath
 	case "custom_translation_timeout":
 		return strconv.Itoa(defaults.CustomTranslationTimeout)
+	case "data_directory":
+		return defaults.DataDirectory
 	case "date_format":
 		return defaults.DateFormat
 	case "deepl_api_key":
