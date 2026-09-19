@@ -32,6 +32,21 @@ Use this for XML-based sources that aren't standard RSS/Atom feeds.
 
 ## Required Configuration
 
+### Visual picker (HTML only)
+
+In the add/edit XPath form, enter an HTTP(S) URL and open **Visual XPath picker**.
+Click an article and use **Parent element** until the whole repeating container
+is selected. Choose it, then select title/link and optional date, summary and
+thumbnail elements inside that same article. Check the matched containers and
+samples, then apply. Applying replaces the XPath configuration; nothing is saved
+until you submit the feed form. Set the date layout there as needed.
+
+The preview preserves document structure with neutral styling and image
+placeholders. It does not execute page scripts, load external resources or use
+your browser login. Links cannot navigate. Proxy settings from the form apply to
+both the preview and subscription validation. Generated paths describe the
+current page structure and may need editing if that structure changes.
+
 ### Source URL
 
 The URL of the webpage or XML document to scrape.
