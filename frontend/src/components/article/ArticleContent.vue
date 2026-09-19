@@ -960,7 +960,9 @@ watch(
       }
       readingProgress.value = 0;
       showBackToTop.value = false;
-      pendingScrollRestoreArticleId = appSettings.value.remember_article_position ? (newId ?? null) : null;
+      pendingScrollRestoreArticleId = appSettings.value.remember_article_position
+        ? (newId ?? null)
+        : null;
       pendingScrollRestoreAttempts = 0;
 
       // Cancel any ongoing summary generation for the previous article

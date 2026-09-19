@@ -1,4 +1,13 @@
-import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch, type ComputedRef, type Ref } from 'vue';
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+  ref,
+  watch,
+  type ComputedRef,
+  type Ref,
+} from 'vue';
 import type { Article } from '@/types/models';
 
 /**
@@ -34,7 +43,9 @@ export function useArticleListWindow(
   const rangeEnd = ref(MAX_RENDERED);
   const topSpacerHeight = ref(0);
   const bottomSpacerHeight = ref(0);
-  const isVirtualized = computed(() => options.enabled?.value !== false && items.value.length >= VIRTUALIZE_FROM);
+  const isVirtualized = computed(
+    () => options.enabled?.value !== false && items.value.length >= VIRTUALIZE_FROM
+  );
   let revision = 0;
   let resizeObserver: ResizeObserver | undefined;
 
@@ -162,22 +173,21 @@ export function useArticleListWindow(
     if (size < MIN_RENDERED) endIndex = Math.min(items.value.length, startIndex + MIN_RENDERED);
     if (endIndex - startIndex > MAX_RENDERED)
       endIndex = Math.min(items.value.length, startIndex + MAX_RENDERED);
-    if (startIndex === rangeStart.value && endIndex === rangeEnd.value) {
-      measureMountedRows();
-      return;
-    }
-
-    const anchor = Array.from(container.querySelectorAll<HTMLElement>(itemSelector)).find(
-      (element) => element.getBoundingClientRect().bottom > container.getBoundingClientRect().top
-    ) ?? container.querySelector<HTMLElement>(itemSelector);
+    const anchor =
+      Array.from(container.querySelectorAll<HTMLElement>(itemSelector)).find(
+        (element) => element.getBoundingClientRect().bottom > container.getBoundingClientRect().top
+      ) ?? container.querySelector<HTMLElement>(itemSelector);
     const anchorId = anchor ? Number(anchor.dataset.articleId) : NaN;
     const anchorTop = anchor ? anchor.getBoundingClientRect().top : null;
 
     applyRange(startIndex, endIndex);
     const currentRevision = ++revision;
-    void nextTick(() => {
+    void nextTick(async () => {
       if (revision !== currentRevision) return;
       measureMountedRows();
+      applyRange(startIndex, endIndex);
+      await nextTick();
+      if (revision !== currentRevision) return;
       if (anchorTop === null || !Number.isFinite(anchorId)) return;
       const moved = container.querySelector<HTMLElement>(
         `${itemSelector}[data-article-id="${anchorId}"]`
@@ -195,10 +205,13 @@ export function useArticleListWindow(
     if (index === -1) return;
     if (index >= rangeStart.value && index < rangeEnd.value) return;
     const half = Math.floor(MAX_RENDERED / 2);
+    revision += 1;
     const start = Math.max(0, Math.min(index - half, items.value.length - MAX_RENDERED));
     applyRange(start, Math.min(items.value.length, start + MAX_RENDERED));
     await nextTick();
     measureMountedRows();
+    applyRange(start, Math.min(items.value.length, start + MAX_RENDERED));
+    await nextTick();
   }
 
   function resetWindow(): void {
@@ -210,10 +223,14 @@ export function useArticleListWindow(
 
   watch(
     () => items.value.map((item) => item.id),
-    () => {
+    (_ids, previousIds) => {
       const ids = new Set(items.value.map((item) => item.id));
       for (const id of heights.keys()) if (!ids.has(id)) heights.delete(id);
       invalidateOffsets();
+      revision += 1;
+      // Reordering/filtering can leave the same length. Offsets are keyed by
+      // sequence, not just count, and removed article measurements must go.
+      if (previousIds && items.value.length === 0) heights.clear();
       // applyRange clamps, which covers a shorter list as well as a longer one.
       applyRange(rangeStart.value, Math.min(rangeEnd.value, items.value.length));
       updateFromScroll();
@@ -237,10 +254,18 @@ export function useArticleListWindow(
     }
   });
 
-  if (options.layoutKey) watch(options.layoutKey, () => { resetWindow(); updateFromScroll(); });
-  onBeforeUnmount(() => { revision += 1; resizeObserver?.disconnect(); });
+  if (options.layoutKey)
+    watch(options.layoutKey, () => {
+      resetWindow();
+      updateFromScroll();
+    });
+  onBeforeUnmount(() => {
+    revision += 1;
+    resizeObserver?.disconnect();
+  });
 
   watch(isVirtualized, (virtualized) => {
+    revision += 1;
     if (!virtualized) {
       heights.clear();
       invalidateOffsets();

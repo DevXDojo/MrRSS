@@ -17,11 +17,23 @@ export function flattenPreview(root: XPathPreviewNode): XPathPreviewNode[] {
 }
 
 export function previewText(node: XPathPreviewNode): string {
-  return [node.text ?? '', ...(node.children ?? []).map(previewText)].join(' ').replace(/\s+/g, ' ').trim();
+  return [node.text ?? '', ...(node.children ?? []).map(previewText)]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-export function relativePickerXPath(root: XPathPreviewNode, node: XPathPreviewNode, field: XPathPickerField): string | null {
-  if (!root.path || !node.path || (node.path !== root.path && !node.path.startsWith(`${root.path}/`))) return null;
+export function relativePickerXPath(
+  root: XPathPreviewNode,
+  node: XPathPreviewNode,
+  field: XPathPickerField
+): string | null {
+  if (
+    !root.path ||
+    !node.path ||
+    (node.path !== root.path && !node.path.startsWith(`${root.path}/`))
+  )
+    return null;
   let path = `.${node.path.slice(root.path.length)}`;
   if (field === 'uri') {
     if (!node.link) return null;
@@ -34,7 +46,11 @@ export function relativePickerXPath(root: XPathPreviewNode, node: XPathPreviewNo
 }
 
 // Generated paths only: never evaluate arbitrary XPath or render source HTML.
-export function previewField(root: XPathPreviewNode, relative: string, nodes: Map<string, XPathPreviewNode>): string {
+export function previewField(
+  root: XPathPreviewNode,
+  relative: string,
+  nodes: Map<string, XPathPreviewNode>
+): string {
   const [path, attr] = relative.split('/@');
   const node = nodes.get(`${root.path}${path.slice(1)}`);
   if (!node) return '';

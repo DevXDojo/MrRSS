@@ -258,7 +258,13 @@ const xpathPlaceholders = {
     </div>
 
     <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
-      <button v-if="props.xpathType === 'HTML+XPath'" type="button" class="text-xs sm:text-sm text-accent hover:underline flex items-center gap-1 disabled:opacity-50" :disabled="!/^https?:\/\//i.test(props.url)" @click="showPicker = true">
+      <button
+        v-if="props.xpathType === 'HTML+XPath'"
+        type="button"
+        class="text-xs sm:text-sm text-accent hover:underline flex items-center gap-1 disabled:opacity-50"
+        :disabled="!/^https?:\/\//i.test(props.url)"
+        @click="showPicker = true"
+      >
         <PhCursorClick :size="14" />{{ t('modal.feed.picker.title') }}
       </button>
       <button
@@ -270,7 +276,14 @@ const xpathPlaceholders = {
         {{ t('modal.feed.xpathDocumentation') }}
       </button>
     </div>
-    <XPathPicker v-if="showPicker" :url="props.url" :proxy-enabled="props.proxyEnabled" :proxy-url="props.proxyUrl" @close="showPicker = false" @apply="applySelection" />
+    <XPathPicker
+      v-if="showPicker"
+      :url="props.url"
+      :proxy-enabled="props.proxyEnabled"
+      :proxy-url="props.proxyUrl"
+      @close="showPicker = false"
+      @apply="applySelection"
+    />
   </div>
 </template>
 

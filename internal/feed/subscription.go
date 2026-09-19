@@ -14,7 +14,6 @@ import (
 	"MrRSS/internal/models"
 	"MrRSS/internal/rsshub"
 	"MrRSS/internal/utils"
-	"MrRSS/internal/utils/httputil"
 
 	"github.com/antchfx/htmlquery"
 	"github.com/antchfx/xmlquery"
@@ -1288,8 +1287,8 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 	utils.DebugLog("parseFeedWithJavaScript: Starting JavaScript execution for URL: %s, priority: %v", feedURL, priority)
 
 	// Create a context with timeout for browser operations
-	browserCtx, cancel := chromedp.NewContext(ctx)
-	defer cancel()
+	browserCtx, cancelBrowser := chromedp.NewContext(ctx)
+	defer cancelBrowser()
 
 	// Set timeout based on priority
 	timeout := 30 * time.Second
@@ -1298,7 +1297,7 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 	}
 
 	utils.DebugLog("parseFeedWithJavaScript: Setting timeout to %v", timeout)
-	browserCtx, cancel = context.WithTimeout(browserCtx, timeout)
+	browserCtx, cancel := context.WithTimeout(browserCtx, timeout)
 	defer cancel()
 
 	// Bound peak memory: every active parse runs its own temporary headless
@@ -1308,7 +1307,7 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 	if err != nil {
 		return nil, fmt.Errorf("browser parse gate: %w", err)
 	}
-	defer func() { cancel(); release() }()
+	defer func() { cancelBrowser(); release() }()
 
 	var pageContent string
 

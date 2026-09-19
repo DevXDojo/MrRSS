@@ -154,31 +154,46 @@ describe('article content cache', () => {
   it('does not reuse a cancelled readers request for a new selection', async () => {
     const firstController = new AbortController();
     const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
-      if (init?.signal === firstController.signal) return new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener('abort', () => reject(new Error('AbortError')));
-      });
+      if (init?.signal === firstController.signal)
+        return new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new Error('AbortError')));
+        });
       return Promise.resolve(jsonResponse({ content: 'current' }));
     });
     vi.stubGlobal('fetch', fetchMock);
     const first = loadArticleContent(1, firstController.signal);
     const rejected = expect(first).rejects.toThrow('AbortError');
     firstController.abort();
-    await expect(loadArticleContent(1, new AbortController().signal)).resolves.toMatchObject({ content: 'current' });
+    await expect(loadArticleContent(1, new AbortController().signal)).resolves.toMatchObject({
+      content: 'current',
+    });
     await rejected;
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it.each(['one', 'all'])('does not restore stale in-flight content after invalidation: %s', async (scope) => {
-    let resolveOld!: (response: Response) => void;
-    vi.stubGlobal('fetch', vi.fn()
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveOld = resolve; }))
-      .mockResolvedValueOnce(jsonResponse({ content: 'fresh' })));
-    const old = loadArticleContent(1);
-    if (scope === 'all') clearArticleContentCache();
-    else invalidateArticleContent(1);
-    await loadArticleContent(1);
-    resolveOld(jsonResponse({ content: 'old' }));
-    await old;
-    expect(getCachedArticleContent(1)?.content).toBe('fresh');
-  });
+  it.each(['one', 'all'])(
+    'does not restore stale in-flight content after invalidation: %s',
+    async (scope) => {
+      let resolveOld!: (response: Response) => void;
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockImplementationOnce(
+            () =>
+              new Promise<Response>((resolve) => {
+                resolveOld = resolve;
+              })
+          )
+          .mockResolvedValueOnce(jsonResponse({ content: 'fresh' }))
+      );
+      const old = loadArticleContent(1);
+      if (scope === 'all') clearArticleContentCache();
+      else invalidateArticleContent(1);
+      await loadArticleContent(1);
+      resolveOld(jsonResponse({ content: 'old' }));
+      await old;
+      expect(getCachedArticleContent(1)?.content).toBe('fresh');
+    }
+  );
 });

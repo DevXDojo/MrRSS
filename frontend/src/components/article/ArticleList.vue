@@ -320,7 +320,9 @@ const {
 } = useArticleListWindow(displayedArticles, listRef, {
   // Grid row boundaries and grouped/table headers need layout-specific
   // virtualization. Preserve those layouts until that support is available.
-  enabled: computed(() => !isCardMode.value && !isTableMode.value && store.articleGroupBy === 'none'),
+  enabled: computed(
+    () => !isCardMode.value && !isTableMode.value && store.articleGroupBy === 'none'
+  ),
   layoutKey: layoutMode,
 });
 const groupStarts = computed(() =>
@@ -602,7 +604,8 @@ watch(
     if (articleId === null) return;
     await ensureArticleVisible(articleId);
     if (store.currentArticleId !== articleId) return;
-    listRef.value?.querySelector<HTMLElement>(`[data-article-id="${articleId}"]`)
+    listRef.value
+      ?.querySelector<HTMLElement>(`[data-article-id="${articleId}"]`)
       ?.scrollIntoView({ block: 'nearest' });
   }
 );

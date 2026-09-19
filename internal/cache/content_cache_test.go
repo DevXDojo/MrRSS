@@ -77,8 +77,8 @@ func TestContentCache_FeedEviction(t *testing.T) {
 	// Add third feed, should evict oldest to respect the feed limit
 	cache.SetFeed(3, &gofeed.Feed{Title: "feed3"})
 
-	if cache.Size() > 3 {
-		t.Errorf("Cache size should not exceed 3, got %d", cache.Size())
+	if cache.Size() != 2 {
+		t.Errorf("Cache size should stay at 2, got %d", cache.Size())
 	}
 
 	_, found3 := cache.GetFeed(3)
@@ -90,6 +90,27 @@ func TestContentCache_FeedEviction(t *testing.T) {
 		if _, found2 := cache.GetFeed(2); found2 {
 			t.Error("Oldest feed should have been evicted when feed limit is reached")
 		}
+	}
+}
+
+func TestContentCacheCapacityWithEqualTimestampsAndReplacement(t *testing.T) {
+	cache := NewContentCache(2, 2, time.Minute)
+	stamp := time.Now().Add(time.Hour)
+	for _, id := range []int64{0, 1} {
+		cache.Set(id, "body")
+		cache.SetFeed(id, &gofeed.Feed{})
+		cache.content[id].SetAt = stamp
+		cache.feeds[id].SetAt = stamp
+	}
+	cache.Set(2, "new")
+	cache.SetFeed(2, &gofeed.Feed{})
+	if cache.Size() != 4 {
+		t.Fatalf("unbounded cache: %d", cache.Size())
+	}
+	cache.Set(2, "updated")
+	cache.SetFeed(2, &gofeed.Feed{Title: "updated"})
+	if cache.Size() != 4 {
+		t.Fatal("replacement evicted another entry")
 	}
 }
 
