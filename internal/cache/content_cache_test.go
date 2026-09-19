@@ -3,10 +3,12 @@ package cache
 import (
 	"testing"
 	"time"
+
+	"github.com/mmcdole/gofeed"
 )
 
 func TestContentCache_BasicOperations(t *testing.T) {
-	cache := NewContentCache(10, time.Minute)
+	cache := NewContentCache(10, 5, time.Minute)
 
 	// Test cache miss
 	content, found := cache.Get(1)
@@ -37,7 +39,7 @@ func TestContentCache_BasicOperations(t *testing.T) {
 
 func TestContentCache_Expiration(t *testing.T) {
 	// Short TTL for testing
-	cache := NewContentCache(10, time.Millisecond*10)
+	cache := NewContentCache(10, 5, time.Millisecond*10)
 
 	testContent := "<p>Test content</p>"
 	cache.Set(1, testContent)
@@ -61,9 +63,60 @@ func TestContentCache_Expiration(t *testing.T) {
 	}
 }
 
+func TestContentCache_FeedEviction(t *testing.T) {
+	// Small feed limit for testing feed eviction
+	cache := NewContentCache(10, 2, time.Minute)
+
+	cache.SetFeed(1, &gofeed.Feed{Title: "feed1"})
+	cache.SetFeed(2, &gofeed.Feed{Title: "feed2"})
+
+	if cache.Size() != 2 {
+		t.Errorf("Expected cache size 2, got %d", cache.Size())
+	}
+
+	// Add third feed, should evict oldest to respect the feed limit
+	cache.SetFeed(3, &gofeed.Feed{Title: "feed3"})
+
+	if cache.Size() != 2 {
+		t.Errorf("Cache size should stay at 2, got %d", cache.Size())
+	}
+
+	_, found3 := cache.GetFeed(3)
+	if !found3 {
+		t.Error("Newly added feed 3 should be in cache")
+	}
+
+	if _, found1 := cache.GetFeed(1); found1 {
+		if _, found2 := cache.GetFeed(2); found2 {
+			t.Error("Oldest feed should have been evicted when feed limit is reached")
+		}
+	}
+}
+
+func TestContentCacheCapacityWithEqualTimestampsAndReplacement(t *testing.T) {
+	cache := NewContentCache(2, 2, time.Minute)
+	stamp := time.Now().Add(time.Hour)
+	for _, id := range []int64{0, 1} {
+		cache.Set(id, "body")
+		cache.SetFeed(id, &gofeed.Feed{})
+		cache.content[id].SetAt = stamp
+		cache.feeds[id].SetAt = stamp
+	}
+	cache.Set(2, "new")
+	cache.SetFeed(2, &gofeed.Feed{})
+	if cache.Size() != 4 {
+		t.Fatalf("unbounded cache: %d", cache.Size())
+	}
+	cache.Set(2, "updated")
+	cache.SetFeed(2, &gofeed.Feed{Title: "updated"})
+	if cache.Size() != 4 {
+		t.Fatal("replacement evicted another entry")
+	}
+}
+
 func TestContentCache_Eviction(t *testing.T) {
 	// Small cache size for testing eviction
-	cache := NewContentCache(2, time.Minute)
+	cache := NewContentCache(2, 2, time.Minute)
 
 	// Fill cache
 	cache.Set(1, "content1")
@@ -97,7 +150,7 @@ func TestContentCache_Eviction(t *testing.T) {
 }
 
 func TestContentCache_Clear(t *testing.T) {
-	cache := NewContentCache(10, time.Minute)
+	cache := NewContentCache(10, 5, time.Minute)
 
 	cache.Set(1, "content1")
 	cache.Set(2, "content2")
@@ -118,5 +171,12 @@ func TestContentCache_Clear(t *testing.T) {
 
 	if found1 || found2 {
 		t.Error("Items should be gone after clear")
+	}
+
+	// Feeds should be gone after clear too
+	cache.SetFeed(10, &gofeed.Feed{Title: "feed"})
+	cache.Clear()
+	if _, foundFeed := cache.GetFeed(10); foundFeed {
+		t.Error("Feed should be gone after clear")
 	}
 }

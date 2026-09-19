@@ -57,6 +57,7 @@ var AllSettings = []SettingDef{
 	{Key: "custom_translation_name", Encrypted: false},
 	{Key: "custom_translation_response_path", Encrypted: false},
 	{Key: "custom_translation_timeout", Encrypted: false},
+	{Key: "data_directory", Encrypted: false},
 	{Key: "date_format", Encrypted: false},
 	{Key: "deepl_api_key", Encrypted: true},
 	{Key: "deepl_endpoint", Encrypted: false},

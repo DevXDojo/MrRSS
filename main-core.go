@@ -31,7 +31,7 @@ import (
 )
 
 // @title           MrRSS API
-// @version         1.3.35
+// @version         1.3.36
 // @description     MrRSS is a modern, cross-platform desktop RSS reader with auto-translation, smart feed discovery, and AI-powered summarization.
 
 // @contact.name   API Support
@@ -85,7 +85,11 @@ func main() {
 	})
 	host := flag.String("host", "0.0.0.0", "Host to listen on in server mode")
 	port := flag.String("port", "1234", "Port to listen on in server mode")
+	dataDirOption := flag.String("data-dir", "", "Data directory (defaults to MRRSS_DATA_DIR or ./data)")
 	flag.Parse()
+	if err := fileutil.ConfigureDataDir(*dataDirOption); err != nil {
+		log.Fatal(err)
+	}
 
 	// Force server mode for this build
 	fileutil.SetServerMode(true)

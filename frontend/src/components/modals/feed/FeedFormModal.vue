@@ -476,6 +476,8 @@ const submitButtonText = computed(() => {
         <XPathConfig
           :mode="mode"
           :url="url"
+          :proxy-enabled="proxyMode !== 'none'"
+          :proxy-url="proxyMode === 'custom' ? buildProxyUrl() : ''"
           :xpath-type="xpathType"
           :xpath-item="xpathItem"
           :xpath-item-title="xpathItemTitle"

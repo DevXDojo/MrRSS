@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
+import DataDirectorySettings from './DataDirectorySettings.vue';
 import { useI18n } from 'vue-i18n';
+import { clearArticleContentCache } from '@/utils/articleContentCache';
 import {
   PhDatabase,
   PhBroom,
@@ -118,6 +120,8 @@ async function cleanArticleContentCache() {
         `${t('setting.database.articleContentCacheCleanup')}: ${t('modal.feed.articlesRemoved', { count: data.entries_cleaned })}`,
         'success'
       );
+      // The backend dropped the stored bodies, so the local copies are stale.
+      clearArticleContentCache();
       // Immediately update cache count
       await fetchArticleCacheCount();
     } else {
@@ -155,6 +159,7 @@ watch(
 
 <template>
   <SettingGroup :icon="PhDatabase" :title="t('setting.database.dataManagement')">
+    <DataDirectorySettings />
     <!-- Article Cleanup -->
     <SettingWithToggle
       :icon="PhBroom"

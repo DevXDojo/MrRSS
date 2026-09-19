@@ -22,6 +22,7 @@ import {
 import { useSettings } from '@/composables/core/useSettings';
 import { useAppStore } from '@/stores/app';
 import { openInBrowser } from '@/utils/browser';
+import { withLazyImages } from '@/utils/lazyImages';
 import { wrapOrphanedTextNodes } from '@/utils/translationParagraphs';
 import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
 import { useFullArticle } from '@/composables/article/useFullArticle';
@@ -161,8 +162,10 @@ const showFullTextButton = computed(() => {
 });
 
 // Computed for the content to display (full article if available, otherwise RSS content)
+// Images get native lazy-loading hints so offscreen article images are not
+// fetched and decoded until they approach the viewport.
 const displayContent = computed(() => {
-  return fullArticleContent.value || props.articleContent;
+  return withLazyImages(fullArticleContent.value || props.articleContent);
 });
 
 // Use composables for summary and translation
@@ -716,7 +719,9 @@ async function translateContentParagraphs(
     }
 
     // Restore preserved elements and hyperlinks in the translated text
-    const translatedHTML = restorePreservedElements(translatedText, preservedElements, hyperlinks);
+    const translatedHTML = withLazyImages(
+      restorePreservedElements(translatedText, preservedElements, hyperlinks)
+    );
 
     // Determine how to insert translation based on element type
     const tagName = htmlEl.tagName;
@@ -955,7 +960,9 @@ watch(
       }
       readingProgress.value = 0;
       showBackToTop.value = false;
-      pendingScrollRestoreArticleId = appSettings.value.remember_article_position ? (newId ?? null) : null;
+      pendingScrollRestoreArticleId = appSettings.value.remember_article_position
+        ? (newId ?? null)
+        : null;
       pendingScrollRestoreAttempts = 0;
 
       // Cancel any ongoing summary generation for the previous article

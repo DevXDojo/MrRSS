@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { openInBrowser } from '@/utils/browser';
 import type { Article } from '@/types/models';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
+import { loadArticleContent, invalidateArticleContent } from '@/utils/articleContentCache';
 
 type ViewMode = 'original' | 'rendered' | 'external';
 type RenderAction = 'showContent' | 'showOriginal' | null;
@@ -295,37 +296,27 @@ export function useArticleDetail() {
     isLoadingContent.value = true;
 
     try {
-      const res = await fetch(`/api/articles/content?id=${loadingArticleId}`, {
-        signal: contentController.signal,
-      });
+      const data = await loadArticleContent(loadingArticleId, contentController.signal);
       if (!isCurrent()) return;
 
-      if (res.ok) {
-        const data = await res.json();
-        if (!isCurrent()) return;
+      let content = data.content;
 
-        let content = data.content || '';
+      // Proxy images if media cache is enabled
+      const cacheEnabled = await isMediaCacheEnabled();
+      if (!isCurrent()) return;
 
-        // Proxy images if media cache is enabled
-        const cacheEnabled = await isMediaCacheEnabled();
-        if (!isCurrent()) return;
+      if (cacheEnabled && content) {
+        // Use feed URL as referer for anti-hotlinking (more reliable than article URL)
+        const feedUrl = data.feedUrl || article.value.url;
+        content = proxyImagesInHtml(content, feedUrl);
+      }
 
-        if (cacheEnabled && content) {
-          // Use feed URL as referer for anti-hotlinking (more reliable than article URL)
-          const feedUrl = data.feed_url || article.value.url;
-          content = proxyImagesInHtml(content, feedUrl);
-        }
+      articleContent.value = content;
 
-        articleContent.value = content;
-
-        // Only show loading animation for non-cached content
-        if (!data.cached) {
-          // Content was fetched from feed, show loading and trigger watch
-          await nextTick(); // Ensure content is rendered first
-        }
-      } else {
-        console.error('Failed to fetch article content');
-        articleContent.value = '';
+      // Only show loading animation for non-cached content
+      if (!data.cached) {
+        // Content was fetched from feed, show loading and trigger watch
+        await nextTick(); // Ensure content is rendered first
       }
     } catch (e) {
       if (!isCurrent()) return;
@@ -362,6 +353,7 @@ export function useArticleDetail() {
       if (!res.ok) {
         throw new Error(`Reload content failed: ${res.status}`);
       }
+      invalidateArticleContent(reloadingArticleId);
       if (store.currentArticleId === reloadingArticleId) {
         window.dispatchEvent(
           new CustomEvent('article-content-reloaded', { detail: reloadingArticleId })

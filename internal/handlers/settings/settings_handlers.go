@@ -10,6 +10,7 @@ import (
 
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/utils/fileutil"
 )
 
 // safeGetEncryptedSetting safely retrieves an encrypted setting, returning empty string on error.
@@ -51,6 +52,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// Get all settings using the definition-driven approach
 		settings := GetAllSettings(h)
+		settings["data_directory"], _ = fileutil.GetDataDir()
 		response.JSON(w, settings)
 
 	case http.MethodPost:
@@ -60,6 +62,9 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 			response.Error(w, err, http.StatusBadRequest)
 			return
 		}
+
+		// Bootstrap storage is changed only by the explicit migration endpoint.
+		delete(req, "data_directory")
 
 		wasEnabled := map[string]bool{}
 		for _, provider := range []string{"freshrss", "miniflux"} {
@@ -113,6 +118,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 		// Re-fetch all settings after save to return updated values
 		settings := GetAllSettings(h)
+		settings["data_directory"], _ = fileutil.GetDataDir()
 		response.JSON(w, settings)
 
 	default:

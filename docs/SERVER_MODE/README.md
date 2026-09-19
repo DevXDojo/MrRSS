@@ -27,9 +27,9 @@ Open `http://127.0.0.1:1234/` in a browser. Change the port if the desktop app i
 
 浏览器打开 `http://127.0.0.1:1234/`。桌面版同时运行并占用 1234 时，请换一个端口。浏览器翻译可作用于渲染的文章文字，能否使用取决于浏览器及其网络连接。
 
-Server data is stored in `./data` relative to the working directory. Use a dedicated directory, and keep that directory stable across restarts. It does not automatically share or synchronize the desktop database. Native desktop dialogs and window controls are not browser capabilities.
+Server data defaults to `./data` relative to the working directory. Use `--data-dir PATH` or `MRRSS_DATA_DIR` to choose another location; see [custom data directories](../DATA_DIRECTORY.md). Keep the directory stable across restarts. It does not automatically share or synchronize the desktop database. Native desktop dialogs and window controls are not browser capabilities.
 
-服务端数据保存在启动工作目录下的 `./data`；请使用独立目录，并在重启时保持相同工作目录。它不会自动共享或同步桌面版数据库；原生文件对话框、窗口控制也不是浏览器功能。
+服务端数据默认保存在启动工作目录下的 `./data`，可通过 `--data-dir 路径` 或 `MRRSS_DATA_DIR` 指定位置，详见[自定义数据目录](../DATA_DIRECTORY.md)。重启时请保持目录一致。它不会自动共享或同步桌面版数据库；原生文件对话框、窗口控制也不是浏览器功能。
 
 The example binds to loopback. Network deployment needs controlled access to the entire reader and API; this server does not provide a user login. See the [API reference](swagger.json).
 

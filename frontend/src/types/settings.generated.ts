@@ -45,6 +45,7 @@ export interface SettingsData {
   custom_translation_name: string;
   custom_translation_response_path: string;
   custom_translation_timeout: number;
+  data_directory: string;
   date_format: string;
   deepl_api_key: string;
   deepl_endpoint: string;

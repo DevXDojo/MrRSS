@@ -19,6 +19,7 @@ func registerFeedRoutes(mux *http.ServeMux, h *core.Handler) {
 	mux.HandleFunc("/api/feeds", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleFeeds(h, w, r) })
 	mux.HandleFunc("/api/feeds/add", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleAddFeed(h, w, r) })
 	mux.HandleFunc("/api/feeds/preview", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandlePreviewFeed(h, w, r) })
+	mux.HandleFunc("/api/feeds/xpath-preview", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleXPathPreview(h, w, r) })
 	mux.HandleFunc("/api/feeds/delete", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleDeleteFeed(h, w, r) })
 	mux.HandleFunc("/api/feeds/update", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleUpdateFeed(h, w, r) })
 	mux.HandleFunc("/api/feeds/refresh", func(w http.ResponseWriter, r *http.Request) { feedhandlers.HandleRefreshFeed(h, w, r) })

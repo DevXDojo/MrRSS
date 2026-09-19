@@ -39,6 +39,7 @@
   "custom_translation_name": "",
   "custom_translation_response_path": "",
   "custom_translation_timeout": 10,
+  "data_directory": "",
   "date_format": "locale",
   "deepl_api_key": "",
   "deepl_endpoint": "",
