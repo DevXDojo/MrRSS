@@ -6,17 +6,22 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"sort"
 	"strings"
 
 	"MrRSS/internal/models"
 	"golang.org/x/net/html"
 )
 
-// XPathPreviewNode is data, never executable HTML. Paths refer to the original
-// parsed document, including siblings omitted from the safe visual preview.
+// XPathPreviewNode describes the source tree and includes a sanitized snapshot.
+// Paths refer to the original document, including omitted preview siblings.
 type XPathPreviewNode struct {
+	HTML     string              `json:"html,omitempty"`
+	BaseURL  string              `json:"base_url,omitempty"`
 	Path     string              `json:"path,omitempty"`
 	Group    string              `json:"group,omitempty"`
+	Classes  []string            `json:"classes,omitempty"`
 	Tag      string              `json:"tag,omitempty"`
 	Text     string              `json:"text,omitempty"`
 	Link     string              `json:"link,omitempty"`
@@ -64,6 +69,8 @@ func (f *Fetcher) PreviewXPathPage(ctx context.Context, source *models.Feed) (*X
 	return buildXPathPreview(string(data), resp.Request.URL.String())
 }
 
+var previewClassName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
+
 func buildXPathPreview(source, base string) (*XPathPreviewNode, error) {
 	doc, err := html.Parse(strings.NewReader(source))
 	if err != nil {
@@ -95,6 +102,13 @@ func buildXPathPreview(source, base string) (*XPathPreviewNode, error) {
 				continue
 			}
 			switch attr.Key {
+			case "class":
+				for _, name := range strings.Fields(attr.Val) {
+					if previewClassName.MatchString(name) {
+						result.Classes = append(result.Classes, name)
+					}
+				}
+				sort.Strings(result.Classes)
 			case "href":
 				result.Link = previewArticleURL(base, attr.Val)
 			case "src":
@@ -106,6 +120,9 @@ func buildXPathPreview(source, base string) (*XPathPreviewNode, error) {
 			case "datetime":
 				result.Date = attr.Val
 			}
+		}
+		for _, name := range result.Classes {
+			result.Group += fmt.Sprintf("[contains(concat(' ', normalize-space(@class), ' '), ' %s ')]", name)
 		}
 		indices := map[string]int{}
 		for child := node.FirstChild; child != nil; child = child.NextSibling {
@@ -124,5 +141,11 @@ func buildXPathPreview(source, base string) (*XPathPreviewNode, error) {
 		}
 		return result, nil
 	}
-	return visit(doc, "", 0)
+	preview, err := visit(doc, "", 0)
+	if err != nil {
+		return nil, err
+	}
+	preview.HTML = renderXPathSnapshot(doc)
+	preview.BaseURL = base
+	return preview, nil
 }

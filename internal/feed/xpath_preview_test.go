@@ -75,3 +75,33 @@ func TestXPathPreviewBoundsAndCancellation(t *testing.T) {
 		t.Fatal("accepted excessively deep page")
 	}
 }
+
+func TestXPathSnapshotKeepsStylesAndOriginalPaths(t *testing.T) {
+	source := `<html><head><link rel="stylesheet" href="/site.css"><style>.athing{color:red}</style><meta http-equiv="refresh" content="0;url=https://evil.test"></head><body><table><tr class="athing"><td><a href="/one" onclick="evil()">One</a></td></tr><tr><td>metadata</td></tr><tr class="athing"><td>Two</td></tr></table><form action="https://evil.test"><input value="secret"></form><img src="javascript:evil()"><script>evil()</script></body></html>`
+	preview, err := buildXPathPreview(source, "https://example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"<script", "onclick", "http-equiv", "javascript:", "action=", "secret"} {
+		if strings.Contains(preview.HTML, forbidden) {
+			t.Fatalf("active snapshot content: %s", forbidden)
+		}
+	}
+	if !strings.Contains(preview.HTML, `href="/site.css"`) || !strings.Contains(preview.HTML, "<style") || !strings.Contains(preview.HTML, "<table") {
+		t.Fatal("lost page layout")
+	}
+	doc, _ := htmlquery.Parse(strings.NewReader(source))
+	var visit func(*XPathPreviewNode)
+	visit = func(node *XPathPreviewNode) {
+		if node.Tag == "tr" && len(node.Classes) > 0 {
+			matched, err := htmlquery.QueryAll(doc, node.Group)
+			if err != nil || len(matched) != 2 {
+				t.Fatalf("class group %s: %d %v", node.Group, len(matched), err)
+			}
+		}
+		for _, child := range node.Children {
+			visit(child)
+		}
+	}
+	visit(preview)
+}

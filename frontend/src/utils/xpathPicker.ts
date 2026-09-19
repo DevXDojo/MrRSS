@@ -1,7 +1,10 @@
 export interface XPathPreviewNode {
+  html?: string;
+  base_url?: string;
   path?: string;
   group?: string;
   tag?: string;
+  classes?: string[];
   text?: string;
   link?: string;
   image?: string;
@@ -58,4 +61,32 @@ export function previewField(
   if (attr === 'src') return node.image ?? '';
   if (attr === 'datetime') return node.date ?? '';
   return previewText(node);
+}
+
+export function matchesPickerGroup(node: XPathPreviewNode, item: XPathPreviewNode): boolean {
+  const parent = (path?: string) => path?.slice(0, path.lastIndexOf('/'));
+  return (
+    !!node.path &&
+    node.tag === item.tag &&
+    parent(node.path) === parent(item.path) &&
+    (item.classes ?? []).every((name) => node.classes?.includes(name))
+  );
+}
+
+export function containingPickerItem(node: XPathPreviewNode, items: XPathPreviewNode[]) {
+  return items.find((item) => node.path === item.path || node.path?.startsWith(`${item.path}/`));
+}
+
+export function pickerLink(
+  node: XPathPreviewNode,
+  root: XPathPreviewNode,
+  nodes: Map<string, XPathPreviewNode>
+) {
+  let current: XPathPreviewNode | undefined = node;
+  while (current && current.path?.startsWith(root.path!)) {
+    if (current.link) return current;
+    current = nodes.get(current.path.slice(0, current.path.lastIndexOf('/')));
+  }
+  const links = flattenPreview(node).filter((child) => child.link);
+  return links.length === 1 ? links[0] : undefined;
 }

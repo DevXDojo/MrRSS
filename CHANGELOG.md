@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Choose a custom data directory with `--data-dir` or `MRRSS_DATA_DIR` in desktop and server builds. Use the same directory for the database, logs, scripts and caches, retain it for built-in startup and AppImage updates, and preserve paths with spaces, Unicode and URI delimiters. See `docs/DATA_DIRECTORY.md` for migration instructions. (#1204)
-- Select article containers, titles, links, dates, summaries and thumbnails in a safe static webpage preview, inspect matching samples, and apply generated XPath expressions in the add/edit feed form. Respect the selected proxy and request cancellation; do not execute page scripts or load external preview resources. (#1205)
+- Select XPath fields in an isolated preview with original page styles and images, hover highlights, ancestor selection and extracted samples. Distinguish article containers by class, allow selecting fields in any matching item, and infer URLs from linked titles. Disable source scripts, forms and navigation. (#1205)
 
 ### Changed
 

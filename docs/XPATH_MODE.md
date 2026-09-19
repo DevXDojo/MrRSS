@@ -35,17 +35,18 @@ Use this for XML-based sources that aren't standard RSS/Atom feeds.
 ### Visual picker (HTML only)
 
 In the add/edit XPath form, enter an HTTP(S) URL and open **Visual XPath picker**.
-Click an article and use **Parent element** until the whole repeating container
-is selected. Choose it, then select title/link and optional date, summary and
-thumbnail elements inside that same article. Check the matched containers and
-samples, then apply. Applying replaces the XPath configuration; nothing is saved
-until you submit the feed form. Set the date layout there as needed.
+Hover to highlight and click to select an element. Use the ancestor buttons to
+select the repeating article container, then choose title/link and optional fields
+inside any matching article. Selecting a linked title also fills the URL. Check
+matched samples and apply; nothing is saved until you submit the feed form.
+Set the date layout in the form as needed.
 
-The preview preserves document structure with neutral styling and image
-placeholders. It does not execute page scripts, load external resources or use
-your browser login. Links cannot navigate. Proxy settings from the form apply to
-both the preview and subscription validation. Generated paths describe the
-current page structure and may need editing if that structure changes.
+The isolated preview retains original styles and images. Source scripts, embedded
+frames, forms and navigation are disabled. The HTML fetch uses the form's proxy;
+styles, images and fonts load through the webview's network configuration. Pages
+that need JavaScript or a login may be incomplete; use a custom script for dynamic
+content. Generated paths describe the current page and may need updating if its
+structure changes.
 
 ### Source URL
 
