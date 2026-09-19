@@ -5,6 +5,22 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Fix the article content cache never serving hits: the configured TTL literal was interpreted as 1800 nanoseconds instead of 30 minutes, so entries expired instantly.
+
+### Changed
+
+- Bound cached parsed feeds with a separate, smaller limit (20) since each cached feed carries every item of the feed and is considerably larger than a single article body.
+- Cap concurrent headless-browser (chromedp) feed parses at 2 to bound peak memory during refreshes; queued parses still respect their per-feed timeout.
+- Add native lazy-loading hints (`loading="lazy"`, `decoding="async"`) to article content and translated paragraph images, so offscreen images are only fetched and decoded when scrolled into view.
+- Bound the SQLite page cache per connection (8 MiB, 200 MiB worst case across the pool instead of 800 MiB) and keep only two idle connections, so a burst of queries no longer leaves hundreds of MiB of page cache resident.
+- Stream cached and newly downloaded media through the file system instead of buffering whole images in memory, with range and conditional request support.
+- Keep the most recently opened article bodies in an 8-entry LRU so re-opening an article does not fetch and parse it again, invalidated whenever the stored body changes.
+- Render only the article rows near the viewport in the article list, so a long scroll no longer keeps thousands of rows mounted in the web view.
+
 ## [1.3.35] - 2026-09-16
 
 ### Added

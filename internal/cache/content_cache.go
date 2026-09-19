@@ -24,20 +24,27 @@ type FeedCacheItem struct {
 
 // ContentCache provides LRU-style caching for article content
 type ContentCache struct {
-	mu      sync.RWMutex
-	content map[int64]*ContentCacheItem
-	feeds   map[int64]*FeedCacheItem // Cache feeds by feedID
-	maxSize int
-	ttl     time.Duration
+	mu       sync.RWMutex
+	content  map[int64]*ContentCacheItem
+	feeds    map[int64]*FeedCacheItem // Cache feeds by feedID
+	maxSize  int
+	maxFeeds int
+	ttl      time.Duration
 }
 
-// NewContentCache creates a new content cache
-func NewContentCache(maxSize int, ttl time.Duration) *ContentCache {
+// NewContentCache creates a new content cache. maxSize bounds cached article
+// bodies and maxFeeds bounds cached parsed feeds, which carry every item of a
+// feed and are considerably larger per entry.
+func NewContentCache(maxSize int, maxFeeds int, ttl time.Duration) *ContentCache {
+	if maxFeeds < 1 {
+		maxFeeds = 1
+	}
 	return &ContentCache{
-		content: make(map[int64]*ContentCacheItem),
-		feeds:   make(map[int64]*FeedCacheItem),
-		maxSize: maxSize,
-		ttl:     ttl,
+		content:  make(map[int64]*ContentCacheItem),
+		feeds:    make(map[int64]*FeedCacheItem),
+		maxSize:  maxSize,
+		maxFeeds: maxFeeds,
+		ttl:      ttl,
 	}
 }
 
@@ -129,7 +136,7 @@ func (cc *ContentCache) SetFeed(feedID int64, feed *gofeed.Feed) {
 	now := time.Now()
 
 	// If cache is at max capacity, remove oldest item before adding new one
-	if len(cc.feeds) >= cc.maxSize {
+	if len(cc.feeds) >= cc.maxFeeds {
 		// Find oldest item by set time
 		var oldestID int64
 		var oldestTime = time.Now() // Initialize to current time

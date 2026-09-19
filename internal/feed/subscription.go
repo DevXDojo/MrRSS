@@ -1293,6 +1293,15 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 	browserCtx, cancel = context.WithTimeout(browserCtx, timeout)
 	defer cancel()
 
+	// Bound peak memory: every active parse runs its own temporary headless
+	// Chrome, so cap how many may run at once. Waiters hold this context, so
+	// they still respect the per-feed timeout while queued.
+	release, err := f.acquireBrowserSlot(browserCtx)
+	if err != nil {
+		return nil, fmt.Errorf("browser parse gate: %w", err)
+	}
+	defer release()
+
 	var pageContent string
 
 	// Give some extra time for JavaScript to execute (less for high priority)
@@ -1305,7 +1314,7 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 
 	// Run chromedp tasks: navigate to URL and wait for page to load, then get the final HTML
 	utils.DebugLog("parseFeedWithJavaScript: Starting chromedp tasks for URL: %s", feedURL)
-	err := chromedp.Run(browserCtx,
+	err = chromedp.Run(browserCtx,
 		chromedp.Navigate(feedURL),
 		// Wait for the page to be ready (network idle or DOM content loaded)
 		chromedp.WaitReady("body"),

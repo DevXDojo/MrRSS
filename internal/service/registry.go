@@ -2,6 +2,7 @@ package service
 
 import (
 	"sync"
+	"time"
 
 	"MrRSS/internal/ai"
 	"MrRSS/internal/cache"
@@ -54,7 +55,9 @@ func (r *Registry) initialize() {
 		r.discoveryService = discovery.NewService()
 	}
 	if r.contentCache == nil {
-		r.contentCache = cache.NewContentCache(100, 30*60) // 100 articles, 30 minutes
+		// 100 article bodies, 20 parsed feeds, 30 minutes. The previous literal
+		// 30*60 was interpreted as 1800 nanoseconds, so entries expired instantly.
+		r.contentCache = cache.NewContentCache(100, 20, 30*time.Minute)
 	}
 	if r.stats == nil {
 		r.stats = statistics.NewService(r.db)

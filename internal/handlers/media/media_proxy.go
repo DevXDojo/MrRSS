@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -246,16 +247,24 @@ func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 				log.Printf("Failed to initialize media cache: %v", err)
 				// Continue to fallback if enabled
 			} else {
-				// Get media (from cache or download)
-				data, contentType, err := mediaCache.Get(r.Context(), client, mediaURL, referer)
-				if err == nil {
-					// Success! Serve from cache
-					w.Header().Set("Content-Type", contentType)
-					w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-					w.Header().Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
-					w.Header().Set("X-Media-Source", "cache")
-					w.Write(data)
+				// Serve from disk when the media is already cached: streaming keeps
+				// large images out of the process heap.
+				if file, contentType, modTime, openErr := mediaCache.Open(mediaURL); openErr == nil {
+					serveCachedMedia(w, r, file, contentType, modTime, filepath.Base(mediaURL))
 					return
+				}
+
+				// Cache miss: download straight into the cache file, then stream it.
+				path, contentType, err := mediaCache.DownloadToFile(r.Context(), client, mediaURL, referer)
+				if err == nil {
+					if file, openErr := os.Open(path); openErr == nil {
+						info, statErr := file.Stat()
+						if statErr == nil {
+							serveCachedMedia(w, r, file, contentType, info.ModTime(), filepath.Base(path))
+							return
+						}
+						_ = file.Close()
+					}
 				}
 				log.Printf("Cache failed for %s: %v, trying fallback", mediaURL, err)
 			}
@@ -273,6 +282,17 @@ func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 	// All methods failed
 	response.Error(w, fmt.Errorf("failed to fetch media"), http.StatusInternalServerError)
+}
+
+// serveCachedMedia streams a cached media file to the client. http.ServeContent
+// sets Content-Length and handles range and conditional requests, so the image
+// is never buffered in memory. It closes the file.
+func serveCachedMedia(w http.ResponseWriter, r *http.Request, file *os.File, contentType string, modTime time.Time, name string) {
+	defer file.Close()
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+	w.Header().Set("X-Media-Source", "cache")
+	http.ServeContent(w, r, name, modTime, file)
 }
 
 // HandleMediaCacheCleanup performs manual cleanup of media cache
