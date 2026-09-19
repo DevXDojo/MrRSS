@@ -46,6 +46,9 @@ func IsPortableMode() bool {
 
 // GetDataDir returns the platform-specific user data directory for MrRSS.
 func GetDataDir() (string, error) {
+	if customDataDir != "" {
+		return customDataDir, nil
+	}
 	var dataDir string
 	var err error
 
