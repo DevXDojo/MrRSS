@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Choose a data directory in Settings → General → Data Management. Migrate to an empty folder on the next launch, preserve the original data as a backup, and keep using the original directory if copying fails. Retain command-line/environment overrides for desktop and server deployments. (#1204)
-- Select XPath fields in an isolated preview with original page styles and images, hover highlights, ancestor selection and extracted samples. Distinguish article containers by class, allow selecting fields in any matching item, and infer URLs from linked titles. Disable source scripts, forms and navigation. (#1205)
+- Select XPath fields in an isolated preview with original page styles and images, hover highlights, ancestor selection and extracted samples. Start from an article title to suggest a list and infer its links; calibrate the list or any field with a second example, review highlighted matches and field coverage, and retain manual selection. Disable source scripts, forms and navigation. (#1205)
 
 ### Changed
 

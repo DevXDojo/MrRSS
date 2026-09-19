@@ -35,11 +35,15 @@ Use this for XML-based sources that aren't standard RSS/Atom feeds.
 ### Visual picker (HTML only)
 
 In the add/edit XPath form, enter an HTTP(S) URL and open **Visual XPath picker**.
-Hover to highlight and click to select an element. Use the ancestor buttons to
-select the repeating article container, then choose title/link and optional fields
-inside any matching article. Selecting a linked title also fills the URL. Check
-matched samples and apply; nothing is saved until you submit the feed form.
-Set the date layout in the form as needed.
+Click an article title to suggest the repeated article list, highlighted in green.
+Confirm the list to fill the title and URL, or select a container manually using
+ancestor buttons. A second title example can calibrate the list suggestion.
+Every field supports a second example: select the field, choose **Calibrate with
+a second example**, then click that field in another article. Ambiguous rules are
+rejected; canceling calibration keeps the previous rule. Each field shows its
+coverage, extraction samples update as you select, and XPath expressions are
+collapsed under Advanced. Apply after checking the results; nothing is saved
+until you submit the feed form. Set the date layout in the form as needed.
 
 The isolated preview retains original styles and images. Source scripts, embedded
 frames, forms and navigation are disabled. The HTML fetch uses the form's proxy;

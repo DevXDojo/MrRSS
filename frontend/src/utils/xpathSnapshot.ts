@@ -11,6 +11,11 @@ export function createXPathSnapshot(html: string, baseURL: string, token: string
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border:2px solid #2563eb;background:rgba(37,99,235,.12);box-sizing:border-box;display:none';
     document.body.append(overlay);
+    const groupLayer = document.createElement('div');
+    groupLayer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483646';
+    document.body.append(groupLayer);
+    const indexed = new Map(Array.from(document.querySelectorAll('[data-mrrss-path]')).map(el => [el.dataset.mrrssPath, el]));
+    let matches = [];
     let target = null;
     let selected = null;
     function draw(el) {
@@ -18,20 +23,46 @@ export function createXPathSnapshot(html: string, baseURL: string, token: string
       const r = el.getBoundingClientRect();
       Object.assign(overlay.style, {display:'block',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});
     }
+    function drawMatches() {
+      groupLayer.replaceChildren();
+      for (const el of matches) {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
+        const mark = document.createElement('div');
+        mark.style.cssText = 'position:fixed;pointer-events:none;border:1px solid #16a34a;background:rgba(22,163,74,.05);box-sizing:border-box';
+        Object.assign(mark.style, {left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});
+        groupLayer.append(mark);
+        if (groupLayer.childElementCount >= 200) break;
+      }
+    }
     document.addEventListener('mousemove', e => { target = e.target.closest('[data-mrrss-path]'); draw(target); }, true);
-    document.addEventListener('mouseleave', () => draw(selected), true);
+    document.addEventListener('mouseleave', () => { target = null; draw(selected); });
     document.addEventListener('click', e => {
       e.preventDefault(); e.stopImmediatePropagation();
       const el = e.target.closest('[data-mrrss-path]');
       if (el) { selected = el; draw(el); parent.postMessage({type:'mrrss-xpath-pick',token,path:el.dataset.mrrssPath}, '*'); }
     }, true);
     document.addEventListener('submit', e => e.preventDefault(), true);
-    window.addEventListener('scroll', () => draw(target || selected), true);
-    window.addEventListener('resize', () => draw(selected));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); parent.postMessage({type:'mrrss-xpath-confirm',token}, '*'); }
+    });
+    let redrawPending = false;
+    function redraw() {
+      if (redrawPending) return;
+      redrawPending = true;
+      requestAnimationFrame(() => { redrawPending = false; draw(target || selected); drawMatches(); });
+    }
+    window.addEventListener('scroll', redraw, true);
+    window.addEventListener('resize', redraw);
+    window.addEventListener('load', redraw);
+    new ResizeObserver(redraw).observe(document.body);
     window.addEventListener('message', e => {
       if (e.source !== parent || e.data?.token !== token || e.data?.type !== 'mrrss-xpath-highlight') return;
-      selected = Array.from(document.querySelectorAll('[data-mrrss-path]')).find(el => el.dataset.mrrssPath === e.data.path);
+      selected = indexed.get(e.data.path);
+      matches = Array.isArray(e.data.matches) ? e.data.matches.map(path => indexed.get(path)).filter(Boolean) : [];
+      target = null;
       draw(selected);
+      drawMatches();
     });
     parent.postMessage({type:'mrrss-xpath-ready',token}, '*');
   })();

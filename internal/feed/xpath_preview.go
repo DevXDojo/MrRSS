@@ -17,6 +17,7 @@ import (
 // XPathPreviewNode describes the source tree and includes a sanitized snapshot.
 // Paths refer to the original document, including omitted preview siblings.
 type XPathPreviewNode struct {
+	// HTML must be displayed in an opaque sandbox with the inspector's nonce CSP.
 	HTML     string              `json:"html,omitempty"`
 	BaseURL  string              `json:"base_url,omitempty"`
 	Path     string              `json:"path,omitempty"`

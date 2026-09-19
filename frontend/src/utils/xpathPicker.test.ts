@@ -4,9 +4,12 @@ import {
   matchesPickerGroup,
   containingPickerItem,
   pickerLink,
+  suggestPickerItems,
+  inferPickerField,
   previewField,
   relativePickerXPath,
   type XPathPreviewNode,
+  type XPathPickerField,
 } from './xpathPicker';
 
 describe('visual XPath selection', () => {
@@ -39,6 +42,105 @@ describe('visual XPath selection', () => {
     expect(previewField(item, './a[1]/@href', nodes)).toBe('https://example.com/one');
     expect(previewField(item, './missing[1]', nodes)).toBe('');
   });
+});
+
+it.each<XPathPickerField>(['title', 'uri', 'timestamp', 'content', 'thumbnail'])(
+  'calibrates %s across different article wrappers without accepting ambiguous matches',
+  (field) => {
+    const tag = field === 'uri' ? 'a' : field === 'thumbnail' ? 'img' : 'span';
+    const firstItem: XPathPreviewNode = { path: '/ul[1]/li[1]', tag: 'li' };
+    const secondItem: XPathPreviewNode = { path: '/ul[1]/li[2]', tag: 'li' };
+    const first: XPathPreviewNode = {
+      path: firstItem.path + '/div[1]/' + tag + '[1]',
+      tag,
+      classes: ['field'],
+      text: 'First',
+      link: 'https://example.com/1',
+      image: 'https://example.com/1.png',
+      date: '2026-09-19',
+    };
+    const second: XPathPreviewNode = {
+      ...first,
+      path: secondItem.path + '/section[1]/' + tag + '[2]',
+      text: 'Second',
+      link: 'https://example.com/2',
+      image: 'https://example.com/2.png',
+      date: '2026-09-20',
+    };
+    firstItem.children = [first];
+    secondItem.children = [second];
+    const nodes = new Map([firstItem, secondItem, first, second].map((node) => [node.path!, node]));
+    const rule = inferPickerField(first, firstItem, second, secondItem, field, nodes);
+    expect(rule).toContain(`.//${tag}[contains(`);
+    expect(previewField(secondItem, rule!, nodes)).toBe(
+      previewField(secondItem, relativePickerXPath(secondItem, second, field)!, nodes)
+    );
+    expect(inferPickerField(first, firstItem, first, firstItem, field, nodes)).toBeNull();
+    secondItem.children.push({ ...second, path: second.path + '/duplicate[1]' });
+    expect(inferPickerField(first, firstItem, second, secondItem, field, nodes)).toBeNull();
+  }
+);
+
+it('uses two title examples to remove a one-off featured class from the article rule', () => {
+  const rows: XPathPreviewNode[] = [1, 2, 3].map((index) => ({
+    path: `/ul[1]/li[${index}]`,
+    group: '/ul[1]/li',
+    tag: 'li',
+    classes: index === 1 ? ['article', 'featured'] : ['article'],
+    children: [
+      {
+        path: `/ul[1]/li[${index}]/a[1]`,
+        tag: 'a',
+        text: `Title ${index}`,
+        link: `https://example.com/${index}`,
+      },
+    ],
+  }));
+  const nodes = new Map(rows.flatMap(flattenPreview).map((node) => [node.path!, node]));
+  expect(suggestPickerItems(rows[0].children![0], nodes)).toEqual([]);
+  const suggestion = suggestPickerItems(rows[0].children![0], nodes, rows[1].children![0])[0];
+  expect(suggestion.classes).toEqual(['article']);
+  expect(suggestion.group).not.toContain('featured');
+  expect(rows.filter((row) => matchesPickerGroup(row, suggestion))).toHaveLength(3);
+});
+
+it('infers repeated articles from a nested linked title and excludes metadata rows', () => {
+  const rows: XPathPreviewNode[] = [1, 3, 5].map((index) => {
+    const path = `/html[1]/body[1]/table[1]/tbody[1]/tr[${index}]`;
+    return {
+      path,
+      group: '/html[1]/body[1]/table[1]/tbody[1]/tr',
+      tag: 'tr',
+      classes: ['article'],
+      children: [
+        {
+          path: path + '/td[1]',
+          tag: 'td',
+          children: [
+            {
+              path: path + '/td[1]/a[1]',
+              tag: 'a',
+              link: `https://example.com/${index}`,
+              children: [
+                { path: path + '/td[1]/a[1]/span[1]', tag: 'span', text: `Title ${index}` },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  });
+  const metadata = { path: '/html[1]/body[1]/table[1]/tbody[1]/tr[2]', tag: 'tr' };
+  const nodes = new Map(
+    [...rows.flatMap(flattenPreview), metadata].map((node) => [node.path!, node])
+  );
+  const title = nodes.get(rows[1].path + '/td[1]/a[1]/span[1]')!;
+  expect(suggestPickerItems(title, nodes)).toEqual([rows[1]]);
+  expect(suggestPickerItems(metadata, nodes)).toEqual([]);
+  rows[0].children = [];
+  rows[2].children = [];
+  const incomplete = new Map(rows.flatMap(flattenPreview).map((node) => [node.path!, node]));
+  expect(suggestPickerItems(title, incomplete)).toEqual([]);
 });
 
 it('matches class-filtered article rows and allows fields in any matching item', () => {
