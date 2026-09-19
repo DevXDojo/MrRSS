@@ -400,6 +400,7 @@ const en: TranslationMessages = {
       copiedToClipboard: 'Copied to clipboard',
       downloadComplete: 'Download complete',
       downloadFailed: 'Download failed',
+      openedInBrowser: 'Opened in browser',
     },
     pagination: {
       deleting: 'Deleting',

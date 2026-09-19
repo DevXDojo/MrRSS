@@ -12,6 +12,7 @@ import {
   PhCopy,
 } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
+import { openInBrowser } from '@/utils/browser';
 
 interface Props {
   summaryResult: {
@@ -165,16 +166,7 @@ async function handleSummaryLinkClick(event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
 
-    try {
-      await fetch('/api/browser/open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: anchor.href }),
-      });
-    } catch (error) {
-      console.error('Failed to open link:', error);
-      window.showToast(t('common.errors.failedToOpenLink'), 'error');
-    }
+    await openInBrowser(anchor.href);
   }
 }
 </script>
