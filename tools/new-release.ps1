@@ -672,18 +672,23 @@ try {
 1. 先帮我检查 GitHub 上现有的 PR（$pullRequestText），并将它们合并进入 $releaseBranch 分支（注意不要默认合并进 main）：
    - 如果是 dependabot 的 PR，需要确认自动化 check 通过。对于未通过的，需要进行修改，直至其通过。
    - 对于其他 PR，需要检查自动化 check 是否通过、功能实现是否正确、代码是否符合规范、是否有潜在的安全问题等。对于不符合要求的 PR，需要进行修改，直至其通过；如果该 PR 的改动过大，或者对功能做出重大调整，告知我后，暂不处理。
-   - 需要更新 CHANGELOG.md，记录非 dependabot 的改动内容。
+   - 需要更新 CHANGELOG.md，记录非 dependabot 的改动内容。如果非 WCY-dt 或 dependabot 贡献了该 PR，则需要标注上贡献者名字。如果 PR 解决了某个 issue，则需要标注 issue 编号。
+   - PR #$($newPullRequest.number) 需要更新 description，每行一条 `Fixed #<issue number>`，记录修复的 Issue。
+
 2. 查看当前所有 Issue（$issueText），并进行实现：
-   - 每实现一个功能，需要记得 commit 到 $releaseBranch 分支；
-   - 有些 Issue 可能需要大改，或者对功能做出重大调整，告知我后，暂不处理；
-   - 有些 Issue 可能提供的信息不够充分，自动回复该 Issue，要求提供更多信息，暂不处理；
-   - 有些 Issue 可能在修改后无法进行验证，这一类 Issue 需要直接修改，并在修改完后检查代码逻辑，以取代实际验证；
-   - 开发时，不要一个功能就做一次验证，这样太浪费时间了；
-   - 开发全部完成后，如果有涉及到 UI 的功能，基于改动大小，决定是否使用你的 computer use 能力进行 UI 测试验证；
-   - 开发全部完成后，需要更新 CHANGELOG.md，记录本次版本的改动内容；
-   - PR #$($newPullRequest.number) 需要更新 description，每行一条 `Fixed #<issue number>`，记录本次版本修复的 Issue；
+   - 每实现一个功能，需要记得 commit 到 $releaseBranch 分支。
+   - 有些 Issue 可能需要大改，或者对功能做出重大调整，告知我后，由我决定是否处理。
+   - 有些 Issue 可能想法和功能很好，但细节上不够好，你可以主动分析并提出新的方案，然后按照新方案实现。
+   - 有些 Issue 可能提供的信息不够充分，自动回复该 Issue，要求提供更多信息，暂不处理。
+   - 有些 Issue 可能在修改后无法进行验证，这一类 Issue 需要直接修改，并在修改完后检查代码逻辑，以取代实际验证。
+   - 开发时，不要一个功能就做一次验证，这样太浪费时间了。但需要每个 issue 或者功能进行一次 commit。
+   - 开发全部完成后，需要更新 CHANGELOG.md，记录本次版本的改动内容。全部结束前要去掉 `## [Unreleased]`。
+   - 开发全部完成后，如果有涉及到 UI 的功能，无需走测，但需要总结并告知我改动位置与触发条件，方便我手动测试。
+   - PR #$($newPullRequest.number) 需要更新 description，每行一条 `Fixed #<issue number>`，记录修复的 Issue。
 
 我本机有 `gh` 指令，你也许需要用到。
+
+最终需要确保 PR 的自动化 check 通过。
 "@
 
     Write-Output $summary
