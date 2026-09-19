@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +40,11 @@ type DB struct {
 
 // NewDB creates a new database connection with optimized settings.
 func NewDB(dataSourceName string) (*DB, error) {
+	// Plain filesystem paths may contain URI delimiters, especially when the
+	// user chooses a custom data directory. Preserve explicit SQLite DSNs.
+	if dataSourceName != ":memory:" && !strings.HasPrefix(dataSourceName, "file:") {
+		dataSourceName = "file:" + strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").Replace(filepath.ToSlash(dataSourceName))
+	}
 	// Add busy_timeout to prevent "database is locked" errors
 	// Also enable WAL mode for better concurrency
 	// Set a bounded per-connection page cache and synchronous=NORMAL

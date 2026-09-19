@@ -15,12 +15,18 @@ func TestCustomDataDirectory(t *testing.T) {
 	if err := ConfigureDataDir(""); err != nil {
 		t.Fatal(err)
 	}
+	envDir, _ = filepath.EvalSymlinks(envDir)
 	if got, _ := GetDataDir(); got != envDir {
 		t.Fatalf("environment path = %q", got)
 	}
 	explicit := filepath.Join(t.TempDir(), "explicit space")
 	if err := ConfigureDataDir(explicit); err != nil {
 		t.Fatal(err)
+	}
+	explicit, _ = filepath.EvalSymlinks(explicit)
+	args := DataDirRestartArgs([]string{"--data-dir", "relative", "--software-rendering", "--", "value"})
+	if len(args) != 5 || args[0] != "--software-rendering" || args[2] != explicit || args[3] != "--" {
+		t.Fatalf("restart args: %v", args)
 	}
 	for _, mode := range []bool{false, true} {
 		SetServerMode(mode)

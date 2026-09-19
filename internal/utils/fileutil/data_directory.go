@@ -12,6 +12,30 @@ var customDataDir string
 
 func CustomDataDir() string { return customDataDir }
 
+// Preserve the canonical directory when an updater restarts from a different
+// working directory, including an originally relative --data-dir argument.
+func DataDirRestartArgs(args []string) []string {
+	if customDataDir == "" {
+		return append([]string(nil), args...)
+	}
+	result := []string{}
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--" {
+			result = append(result, "--data-dir", customDataDir)
+			return append(result, args[i:]...)
+		}
+		if args[i] == "--data-dir" {
+			i++
+			continue
+		}
+		if strings.HasPrefix(args[i], "--data-dir=") {
+			continue
+		}
+		result = append(result, args[i])
+	}
+	return append(result, "--data-dir", customDataDir)
+}
+
 func ConfigureDataDir(path string) error {
 	if path == "" {
 		path = os.Getenv("MRRSS_DATA_DIR")

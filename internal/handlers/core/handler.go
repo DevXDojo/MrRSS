@@ -62,6 +62,7 @@ type Handler struct {
 	ContentCache      *cache.ContentCache // Cache for article content
 	Stats             *statistics.Service // Statistics tracking service
 	SetStartupOnBoot  func(bool) error    // Optional desktop-only startup integration
+	QuitForUpdate     func()              // Desktop shutdown bypassing close-to-tray
 
 	// Discovery state tracking for polling-based progress
 	DiscoveryMu          sync.RWMutex

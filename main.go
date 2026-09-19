@@ -290,6 +290,10 @@ func main() {
 
 	// Set app instance to handler for browser integration
 	h.SetApp(app)
+	h.QuitForUpdate = func() {
+		quitRequested.Store(true)
+		app.Quit()
+	}
 	log.Println("Browser integration enabled")
 
 	// Expose the API to local integrations such as the mrrss-assistant skill.

@@ -66,6 +66,13 @@ func replaceAppImage(ctx context.Context, download, installed string) (string, e
 		return "", err
 	}
 	defer source.Close()
+	sourceInfo, err := source.Stat()
+	if err != nil {
+		return "", err
+	}
+	if os.SameFile(sourceInfo, info) {
+		return "", fmt.Errorf("download and installed image must differ")
+	}
 	// Reject HTML/error pages masquerading as a downloaded AppImage.
 	header := make([]byte, 11)
 	if _, err := io.ReadFull(source, header); err != nil || string(header[:4]) != "\x7fELF" || string(header[8:11]) != "AI\x02" {

@@ -85,7 +85,7 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 			response.Error(w, fmt.Errorf("cannot replace installed AppImage; check directory permissions or update it manually"), http.StatusInternalServerError)
 			return
 		}
-		if err := startAppImageAfterExit(target, os.Args[1:]); err != nil {
+		if err := startAppImageAfterExit(target, fileutil.DataDirRestartArgs(os.Args[1:])); err != nil {
 			log.Printf("AppImage restart failed: %v", err)
 			response.Error(w, fmt.Errorf("update installed; quit and reopen the installed AppImage manually"), http.StatusInternalServerError)
 			return
@@ -94,8 +94,8 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 		response.JSON(w, map[string]interface{}{"success": true, "message": "Update installed. Application will restart shortly."})
 		go func() {
 			time.Sleep(2 * time.Second)
-			if app, ok := h.App.(interface{ Quit() }); ok {
-				app.Quit()
+			if h.QuitForUpdate != nil {
+				h.QuitForUpdate()
 			} else {
 				os.Exit(0)
 			}
