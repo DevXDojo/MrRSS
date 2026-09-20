@@ -2,7 +2,18 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhShieldCheck, PhSparkle } from '@phosphor-icons/vue';
-import { SettingGroup, ToggleControl } from '@/components/settings';
+import {
+  SettingGroup,
+  SettingItem,
+  SubSettingItem,
+  NestedSettingsContainer,
+  ToggleControl,
+  SelectControl,
+  TextAreaControl,
+  InputControl,
+  ButtonControl,
+} from '@/components/settings';
+import '@/components/settings/styles.css';
 import AIProfileSelector from '../ai/AIProfileSelector.vue';
 import type { SettingsData } from '@/types/settings';
 import type { AdFilterConfig, AdAnalysis } from '@/types/adFilter';
@@ -131,9 +142,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <SettingGroup :icon="PhShieldCheck" :title="t('setting.adFilter.title')">
-    <div class="space-y-4 p-1 text-sm">
-      <p class="text-text-secondary">{{ t('setting.adFilter.description') }}</p>
+  <SettingGroup
+    :icon="PhShieldCheck"
+    :title="t('setting.adFilter.title')"
+    :description="t('setting.adFilter.description')"
+  >
+    <div class="space-y-2 sm:space-y-3 text-xs sm:text-sm">
       <p v-if="loading" role="status">{{ t('setting.adFilter.loading') }}</p>
       <div
         v-if="error"
@@ -148,139 +162,140 @@ onBeforeUnmount(() => {
       <fieldset
         v-if="!loading && baseline"
         :disabled="saving"
-        class="space-y-4 disabled:opacity-70"
+        class="space-y-2 sm:space-y-3 min-w-0 disabled:opacity-70"
       >
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="font-medium">{{ t('setting.adFilter.basic') }}</p>
-            <p class="text-xs text-text-secondary mt-1">{{ t('setting.adFilter.basicHint') }}</p>
-          </div>
-          <ToggleControl v-model="config.enabled" :aria-label="t('setting.adFilter.basic')" />
-        </div>
-        <div class="rounded-xl border border-border bg-bg-secondary p-3 space-y-3">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="font-medium flex items-center gap-2">
-                <PhSparkle :size="17" />{{ t('setting.adFilter.ai') }}
-              </p>
-              <p class="text-xs text-text-secondary mt-1">{{ t('setting.adFilter.aiHint') }}</p>
-            </div>
-            <ToggleControl
-              v-model="config.ai_enabled"
-              :disabled="!config.enabled"
-              :aria-label="t('setting.adFilter.ai')"
+        <SettingItem
+          :icon="PhShieldCheck"
+          :title="t('setting.adFilter.basic')"
+          :description="t('setting.adFilter.basicHint')"
+        >
+          <ToggleControl
+            v-model="config.enabled"
+            :disabled="saving"
+            :aria-label="t('setting.adFilter.basic')"
+          />
+        </SettingItem>
+        <SettingItem
+          :icon="PhSparkle"
+          :title="t('setting.adFilter.ai')"
+          :description="t('setting.adFilter.aiHint')"
+        >
+          <ToggleControl
+            v-model="config.ai_enabled"
+            :disabled="saving || !config.enabled"
+            :aria-label="t('setting.adFilter.ai')"
+          />
+        </SettingItem>
+        <NestedSettingsContainer v-if="config.ai_enabled">
+          <p class="text-xs text-text-secondary sm:hidden">{{ t('setting.adFilter.aiHint') }}</p>
+          <SubSettingItem :title="t('setting.adFilter.profile')">
+            <AIProfileSelector
+              :model-value="settings.ai_ad_filter_profile_id"
+              :disabled="saving"
+              allow-default
+              @update:model-value="
+                emit('update:settings', {
+                  ...props.settings,
+                  ai_ad_filter_profile_id: $event || '0',
+                })
+              "
             />
-          </div>
-          <template v-if="config.ai_enabled">
-            <div class="space-y-2">
-              <p class="font-medium text-xs">{{ t('setting.adFilter.profile') }}</p>
-              <AIProfileSelector
-                :model-value="settings.ai_ad_filter_profile_id"
-                allow-default
-                @update:model-value="
-                  emit('update:settings', {
-                    ...props.settings,
-                    ai_ad_filter_profile_id: $event || '0',
-                  })
-                "
-              />
-              <p class="text-xs text-text-secondary">{{ t('setting.adFilter.profileHint') }}</p>
-            </div>
-            <label class="block space-y-1"
-              ><span class="text-xs font-medium">{{ t('setting.adFilter.mode') }}</span
-              ><select v-model="config.ai_mode" class="filter-input">
-                <option value="review">{{ t('setting.adFilter.review') }}</option>
-                <option value="automatic">{{ t('setting.adFilter.automatic') }}</option>
-              </select></label
-            >
-            <p v-if="config.ai_mode === 'automatic'" class="text-xs text-text-secondary">
-              {{ t('setting.adFilter.automaticHint') }}
-            </p>
-            <label class="flex items-center gap-2 text-xs"
-              ><input v-model="config.include_self_promotion" type="checkbox" />{{
-                t('setting.adFilter.selfPromotion')
-              }}</label
-            >
-            <p class="text-xs text-text-secondary">{{ t('setting.adFilter.selfPromotionHint') }}</p>
-          </template>
-        </div>
-        <label class="block space-y-1"
+          </SubSettingItem>
+          <p class="text-xs text-text-secondary">{{ t('setting.adFilter.profileHint') }}</p>
+          <SubSettingItem :title="t('setting.adFilter.mode')">
+            <SelectControl
+              :model-value="config.ai_mode"
+              :disabled="saving"
+              :options="[
+                { value: 'review', label: t('setting.adFilter.review') },
+                { value: 'automatic', label: t('setting.adFilter.automatic') },
+              ]"
+              width="w-44 sm:w-56"
+              @update:model-value="config.ai_mode = $event === 'automatic' ? 'automatic' : 'review'"
+            />
+          </SubSettingItem>
+          <p v-if="config.ai_mode === 'automatic'" class="text-xs text-text-secondary">
+            {{ t('setting.adFilter.automaticHint') }}
+          </p>
+          <SubSettingItem
+            :title="t('setting.adFilter.selfPromotion')"
+            :description="t('setting.adFilter.selfPromotionHint')"
+          >
+            <ToggleControl
+              v-model="config.include_self_promotion"
+              :disabled="saving"
+              :aria-label="t('setting.adFilter.selfPromotion')"
+            />
+          </SubSettingItem>
+        </NestedSettingsContainer>
+        <label class="setting-item-col block space-y-2"
           ><span class="font-medium">{{ t('setting.adFilter.exceptions') }}</span
-          ><textarea
+          ><TextAreaControl
             v-model="config.allowlist"
-            rows="2"
-            class="filter-input font-mono"
+            :rows="2"
+            font-mono
             placeholder="example.org"
             spellcheck="false"
           /><span class="block text-xs text-text-secondary">{{
             t('setting.adFilter.exceptionsHint')
           }}</span></label
         >
-        <details class="rounded-lg border border-border p-3">
+        <details class="setting-item-col">
           <summary class="cursor-pointer text-xs font-medium">
             {{ t('setting.adFilter.rules') }}
           </summary>
           <p class="text-xs text-text-secondary mt-2 mb-2">{{ t('setting.adFilter.rulesHint') }}</p>
-          <textarea
+          <TextAreaControl
             v-model="config.rules"
             :aria-label="t('setting.adFilter.rules')"
-            rows="4"
-            class="filter-input font-mono"
+            :rows="4"
+            font-mono
             placeholder="example.org##.promotion&#10;example.org#@#.keep"
             spellcheck="false"
           />
         </details>
         <p class="text-xs text-text-secondary">{{ t('setting.adFilter.scope') }}</p>
         <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="px-3 py-2 rounded-lg bg-accent text-white disabled:opacity-40"
-            :disabled="!dirty"
+          <ButtonControl
+            type="primary"
+            :label="t('setting.adFilter.save')"
+            :disabled="!dirty || saving"
+            :loading="saving"
             @click="save"
-          >
-            {{ t('setting.adFilter.save') }}</button
-          ><button
+          />
+          <ButtonControl
             v-if="dirty"
-            type="button"
-            class="px-3 py-2 rounded-lg border border-border"
+            type="secondary"
+            :label="t('setting.adFilter.reset')"
+            :disabled="saving"
             @click="cancelDraft"
-          >
-            {{ t('setting.adFilter.reset') }}
-          </button>
+          />
         </div>
       </fieldset>
-      <details v-if="baseline" class="rounded-xl border border-border p-3">
+      <details v-if="baseline" class="setting-item-col">
         <summary class="font-medium cursor-pointer">{{ t('setting.adFilter.preview') }}</summary>
         <div class="mt-3 space-y-3">
           <p class="text-xs text-text-secondary">{{ t('setting.adFilter.previewHint') }}</p>
           <label class="block text-xs space-y-1"
             ><span>{{ t('setting.adFilter.sampleURL') }}</span
-            ><input v-model="sampleURL" class="filter-input" type="url" /></label
+            ><InputControl v-model="sampleURL" width="w-full" type="url" /></label
           ><label class="block text-xs space-y-1"
             ><span>{{ t('setting.adFilter.sampleHTML') }}</span
-            ><textarea
-              v-model="sampleHTML"
-              rows="5"
-              class="filter-input font-mono"
-              spellcheck="false"
-            />
+            ><TextAreaControl v-model="sampleHTML" :rows="5" font-mono spellcheck="false" />
           </label>
           <div class="flex flex-wrap gap-2">
-            <button
-              type="button"
-              class="px-3 py-2 rounded-lg border border-border disabled:opacity-40"
+            <ButtonControl
+              type="secondary"
+              :label="t('setting.adFilter.previewBasic')"
               :disabled="testing || saving || !config.enabled"
               @click="preview(false)"
-            >
-              {{ t('setting.adFilter.previewBasic') }}</button
-            ><button
-              type="button"
-              class="px-3 py-2 rounded-lg border border-border text-accent disabled:opacity-40"
+            />
+            <ButtonControl
+              type="secondary"
+              :label="t('setting.adFilter.previewAI')"
               :disabled="testing || saving || !config.enabled || !config.ai_enabled"
               @click="preview(true)"
-            >
-              {{ t('setting.adFilter.previewAI') }}
-            </button>
+            />
           </div>
           <p v-if="testing" role="status" class="text-xs text-text-secondary">
             {{ t('setting.adFilter.analyzing') }}
@@ -308,10 +323,3 @@ onBeforeUnmount(() => {
     </div>
   </SettingGroup>
 </template>
-
-<style scoped>
-@reference "../../../../style.css";
-.filter-input {
-  @apply block w-full min-w-0 rounded-lg border border-border bg-bg-primary p-2 text-sm text-text-primary focus:border-accent focus:outline-none;
-}
-</style>

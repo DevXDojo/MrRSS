@@ -1,55 +1,40 @@
 @reference "../../../../style.css";
 
-.push-tab .push-hero {
-  @apply p-5 rounded-xl border border-border;
-  background: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--accent-color) 9%, var(--bg-primary)),
-    var(--bg-primary)
-  );
-}
-.push-tab .push-hero-icon {
-  @apply rounded-xl p-2 text-accent shrink-0;
-  background: color-mix(in srgb, var(--accent-color) 12%, transparent);
-}
 .push-tab .push-panel {
-  @apply p-4 rounded-xl border border-border bg-bg-secondary;
-}
-.push-tab .push-provider {
-  @apply rounded-xl border border-border bg-bg-primary overflow-hidden;
+  @apply p-2 sm:p-3 border border-border bg-bg-secondary;
 }
 .push-tab .push-provider-heading {
-  @apply w-full flex items-center gap-3 p-4 hover:bg-bg-secondary transition-colors;
+  @apply w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border bg-bg-secondary hover:bg-bg-tertiary transition-colors;
 }
 .push-tab .push-logo {
-  @apply w-9 h-9 object-contain shrink-0;
+  @apply w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0;
 }
 .push-tab .push-editor {
-  @apply p-4 rounded-xl border border-border bg-bg-secondary;
+  @apply p-2 sm:p-3 border border-border bg-bg-secondary;
 }
 .push-tab .push-grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3;
 }
 .push-tab .push-field {
-  @apply flex flex-col gap-2 text-sm min-w-0;
+  @apply flex flex-col gap-1.5 text-xs sm:text-sm min-w-0;
 }
 .push-tab .push-label {
-  @apply text-sm font-medium mb-2;
+  @apply text-xs sm:text-sm font-medium mb-2;
 }
 .push-tab .push-input {
-  @apply w-full min-w-0 rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary;
+  @apply w-full min-w-0 border border-border bg-bg-secondary p-1.5 sm:p-2.5 text-xs sm:text-sm text-text-primary focus:border-accent focus:outline-none transition-colors;
 }
 .push-tab .push-help {
   @apply text-xs text-text-secondary leading-relaxed;
 }
 .push-tab .push-button {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-bg-primary px-3 py-2 text-xs font-medium hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply inline-flex items-center justify-center gap-1.5 sm:gap-2 border border-border bg-bg-tertiary px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
 }
 .push-tab .push-primary {
   @apply bg-accent border-transparent text-white hover:bg-accent-hover;
 }
 .push-tab .push-icon-button {
-  @apply inline-flex items-center justify-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed shrink-0;
+  @apply inline-flex items-center justify-center p-2 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed shrink-0;
 }
 .push-tab .push-badge {
   @apply inline-flex items-center rounded-full px-2 py-1 text-xs bg-bg-tertiary text-text-secondary whitespace-nowrap;
@@ -58,23 +43,23 @@
   @apply flex items-center gap-2;
 }
 .push-tab .push-choice {
-  @apply inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs cursor-pointer bg-bg-primary;
+  @apply inline-flex items-center gap-2 border border-border px-3 py-2 text-xs cursor-pointer bg-bg-primary;
 }
 .push-tab .push-selected {
   @apply text-accent border-accent;
   background: color-mix(in srgb, var(--accent-color) 10%, var(--bg-primary));
 }
 .push-tab .push-empty {
-  @apply text-center border border-dashed border-border rounded-xl p-6;
+  @apply border border-border bg-bg-secondary p-3;
 }
 .push-tab .push-preview {
-  @apply rounded-lg border border-border bg-bg-primary p-4;
+  @apply border border-border bg-bg-secondary p-2 sm:p-3;
 }
 .push-tab .push-preview pre + pre {
   @apply pt-3 border-t border-border;
 }
 .push-tab .push-error {
-  @apply rounded-lg border border-red-300 bg-red-50 text-red-700 p-3 text-sm;
+  @apply border border-red-300 bg-red-50 text-red-700 p-3 text-sm;
 }
 .dark-mode .push-tab .push-error {
   @apply bg-red-950 border-red-800 text-red-200;
@@ -87,10 +72,20 @@
   .push-tab .push-condition {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .push-tab .push-provider-heading {
-    @apply gap-2 p-3;
-  }
-  .push-tab .push-logo {
-    @apply w-7 h-7;
-  }
+}
+
+.push-tab .push-panel,
+.push-tab .push-provider-heading,
+.push-tab .push-editor,
+.push-tab .push-empty,
+.push-tab .push-preview,
+.push-tab .push-error {
+  border-radius: var(--ui-radius-surface);
+}
+.push-tab .push-input,
+.push-tab .push-button,
+.push-tab .push-icon-button,
+.push-tab .push-choice {
+  border-radius: var(--ui-radius-control);
+  min-height: var(--ui-control-height);
 }

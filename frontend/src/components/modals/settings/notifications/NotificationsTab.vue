@@ -13,7 +13,15 @@ import {
   PhCaretDown,
   PhCaretRight,
 } from '@phosphor-icons/vue';
-import { SettingGroup, ToggleControl } from '@/components/settings';
+import {
+  SettingGroup,
+  SettingItem,
+  SubSettingItem,
+  NestedSettingsContainer,
+  SelectControl,
+  ToggleControl,
+} from '@/components/settings';
+import '@/components/settings/styles.css';
 import { useNotifications } from '@/composables/notification/useNotifications';
 import { newChannel, newRule } from '@/types/notification';
 import type {
@@ -24,9 +32,6 @@ import type {
 } from '@/types/notification';
 import ChannelEditor from './ChannelEditor.vue';
 import RuleEditor from './RuleEditor.vue';
-import telegramLogo from '@/assets/brands/telegram.svg';
-import discordLogo from '@/assets/brands/discord.svg';
-import feishuLogo from '@/assets/brands/feishu.svg';
 import './notifications.css';
 
 const { t, locale } = useI18n();
@@ -50,9 +55,9 @@ const ruleDraft = ref<NotificationRule | null>(null);
 const expanded = ref<NotificationProvider[]>([]);
 const historyOpen = ref(false);
 const providers = [
-  { id: 'telegram' as const, name: 'Telegram', logo: telegramLogo },
-  { id: 'discord' as const, name: 'Discord', logo: discordLogo },
-  { id: 'feishu' as const, name: 'Feishu / Lark', logo: feishuLogo },
+  { id: 'telegram' as const, name: 'Telegram', logo: '/assets/notification_icons/telegram.svg' },
+  { id: 'discord' as const, name: 'Discord', logo: '/assets/notification_icons/discord.svg' },
+  { id: 'feishu' as const, name: 'Feishu / Lark', logo: '/assets/notification_icons/feishu.svg' },
 ];
 const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const zones = computed(() => [
@@ -167,7 +172,7 @@ function date(seconds: number) {
 </script>
 
 <template>
-  <div class="push-tab space-y-6">
+  <div class="push-tab space-y-4 sm:space-y-6">
     <p v-if="loading" role="status" class="text-sm text-text-secondary py-8 text-center">
       {{ t('setting.notifications.loading') }}
     </p>
@@ -182,78 +187,81 @@ function date(seconds: number) {
       </button>
     </div>
     <template v-if="config && !loading">
-      <section class="push-hero">
-        <div class="flex items-start gap-3">
-          <div class="push-hero-icon"><PhBellRinging :size="25" weight="duotone" /></div>
-          <div class="flex-1 min-w-0">
-            <h2 class="text-lg font-semibold">{{ t('setting.notifications.title') }}</h2>
-            <p class="text-sm text-text-secondary mt-1 leading-relaxed">
-              {{ t('setting.notifications.description') }}
-            </p>
-          </div>
+      <SettingGroup :icon="PhBellRinging" :title="t('setting.notifications.title')">
+        <SettingItem
+          :icon="PhBellRinging"
+          :title="t('setting.notifications.enable')"
+          :description="t('setting.notifications.description')"
+        >
           <ToggleControl
             :model-value="config.enabled"
             :disabled="saving || editing"
             :aria-label="t('setting.notifications.enable')"
             @update:model-value="common({ enabled: $event })"
           />
-        </div>
-        <div class="flex flex-wrap items-center gap-2 mt-4">
+        </SettingItem>
+        <div class="flex flex-wrap items-center gap-2 px-2 sm:px-3">
           <span class="push-badge" :class="{ 'push-selected': config.enabled }">{{
             t(config.enabled ? 'setting.notifications.running' : 'setting.notifications.off')
-          }}</span
-          ><span class="text-xs text-text-secondary">{{
+          }}</span>
+          <span class="push-help">{{
             t('setting.notifications.overview', { channels: activeChannels, rules: activeRules })
           }}</span>
         </div>
-        <p class="push-help mt-3">{{ t('setting.notifications.runtimeHint') }}</p>
-      </section>
+        <p class="push-help px-2 sm:px-3">{{ t('setting.notifications.runtimeHint') }}</p>
+      </SettingGroup>
 
       <SettingGroup
         :icon="PhClock"
         :title="t('setting.notifications.commonSettings')"
         :description="t('setting.notifications.commonHint')"
       >
-        <fieldset :disabled="saving || editing" class="push-panel space-y-4 min-w-0">
-          <label class="push-field"
-            ><span>{{ t('setting.notifications.timezone') }}</span
-            ><select
-              :value="config.timezone"
-              class="push-input"
-              @change="common({ timezone: value($event) })"
-            >
-              <option v-for="zone in zones" :key="zone" :value="zone">
-                {{ zone === 'Local' ? t('setting.notifications.systemTimezone') : zone }}
-              </option>
-            </select></label
+        <fieldset :disabled="saving || editing" class="space-y-2 sm:space-y-3 min-w-0">
+          <SettingItem :title="t('setting.notifications.timezone')">
+            <SelectControl
+              :model-value="config.timezone"
+              :options="
+                zones.map((zone) => ({
+                  value: zone,
+                  label: zone === 'Local' ? t('setting.notifications.systemTimezone') : zone,
+                }))
+              "
+              :disabled="saving || editing"
+              width="w-36 sm:w-64"
+              @update:model-value="common({ timezone: String($event) })"
+            />
+          </SettingItem>
+          <SettingItem
+            :title="t('setting.notifications.quietHours')"
+            :description="t('setting.notifications.quietHint')"
           >
-          <label class="flex items-center justify-between gap-3"
-            ><span class="text-sm font-medium">{{ t('setting.notifications.quietHours') }}</span
-            ><ToggleControl
+            <ToggleControl
               :model-value="config.quiet_enabled"
+              :disabled="saving || editing"
               :aria-label="t('setting.notifications.quietHours')"
               @update:model-value="common({ quiet_enabled: $event })"
-          /></label>
-          <div v-if="config.quiet_enabled" class="push-grid">
-            <label class="push-field"
-              ><span>{{ t('setting.notifications.quietStart') }}</span
-              ><input
+            />
+          </SettingItem>
+          <NestedSettingsContainer v-if="config.quiet_enabled">
+            <SubSettingItem :title="t('setting.notifications.quietStart')">
+              <input
                 :value="config.quiet_start"
+                :aria-label="t('setting.notifications.quietStart')"
                 type="time"
                 class="push-input"
-                @change="common({ quiet_start: value($event) })" /></label
-            ><label class="push-field"
-              ><span>{{ t('setting.notifications.quietEnd') }}</span
-              ><input
+                @change="common({ quiet_start: value($event) })"
+              />
+            </SubSettingItem>
+            <SubSettingItem :title="t('setting.notifications.quietEnd')">
+              <input
                 :value="config.quiet_end"
+                :aria-label="t('setting.notifications.quietEnd')"
                 type="time"
                 class="push-input"
                 @change="common({ quiet_end: value($event) })"
-            /></label>
-          </div>
-          <p v-if="config.quiet_enabled" class="push-help">
-            {{ t('setting.notifications.quietHint') }}
-          </p>
+              />
+            </SubSettingItem>
+          </NestedSettingsContainer>
         </fieldset>
       </SettingGroup>
 
@@ -271,10 +279,10 @@ function date(seconds: number) {
           >
             <img :src="provider.logo" :alt="provider.name" class="push-logo" />
             <span class="flex-1 text-left min-w-0"
-              ><span class="block text-sm font-semibold">{{
+              ><span class="block text-sm sm:text-base font-medium">{{
                 provider.id === 'feishu' ? t('setting.notifications.feishu') : provider.name
               }}</span
-              ><span class="block text-xs text-text-secondary mt-1">{{
+              ><span class="hidden sm:block text-xs text-text-secondary mt-1">{{
                 t(`setting.notifications.providerHint.${provider.id}`)
               }}</span></span
             >
@@ -289,8 +297,12 @@ function date(seconds: number) {
               class="shrink-0"
             />
           </button>
-          <div v-if="expanded.includes(provider.id)" class="px-4 pb-4 space-y-3">
-            <div v-for="channel in channelsFor(provider.id)" :key="channel.id" class="push-row">
+          <NestedSettingsContainer v-if="expanded.includes(provider.id)">
+            <div
+              v-for="channel in channelsFor(provider.id)"
+              :key="channel.id"
+              class="push-row sub-setting-item"
+            >
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-medium break-words">{{ channel.name }}</p>
                 <span class="text-xs text-text-secondary">{{
@@ -333,7 +345,7 @@ function date(seconds: number) {
             >
               <PhPlus :size="16" />{{ t('setting.notifications.addChannel') }}
             </button>
-          </div>
+          </NestedSettingsContainer>
         </section>
       </SettingGroup>
 
@@ -343,7 +355,6 @@ function date(seconds: number) {
         :description="t('setting.notifications.rulesHint')"
       >
         <div v-if="!config.rules.length && !ruleDraft" class="push-empty">
-          <PhBellRinging :size="30" class="text-accent mx-auto mb-3" weight="duotone" />
           <p class="text-sm font-medium">{{ t('setting.notifications.emptyRules') }}</p>
           <p class="push-help mt-2">
             {{
@@ -359,10 +370,10 @@ function date(seconds: number) {
           <component
             :is="rule.mode === 'digest' ? PhClock : PhBellRinging"
             :size="21"
-            class="text-accent shrink-0"
+            class="text-text-secondary shrink-0"
           />
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold break-words">{{ rule.name }}</p>
+            <p class="text-sm font-medium break-words">{{ rule.name }}</p>
             <p class="push-help mt-1">
               {{
                 rule.mode === 'digest'
@@ -421,7 +432,7 @@ function date(seconds: number) {
       <section class="push-panel">
         <div class="flex items-center justify-between gap-2">
           <button
-            class="flex items-center gap-2 text-sm font-semibold"
+            class="flex items-center gap-2 text-sm font-medium"
             :aria-expanded="historyOpen"
             @click="historyOpen = !historyOpen"
           >
