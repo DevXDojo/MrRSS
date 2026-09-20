@@ -48,7 +48,7 @@ func DisableStartup() error {
 
 // Windows implementation using registry
 func enableStartupWindows(executable string) error {
-	command := `"` + executable + `"`
+	command := `"` + executable + `" --start-minimized`
 	if dir := fileutil.CustomDataDir(); dir != "" && !fileutil.DesktopStorageManaged() {
 		// Windows paths cannot contain quotes; double trailing slashes before
 		// the closing quote (notably when the chosen directory is a drive root).
@@ -104,6 +104,7 @@ func enableStartupLinux(executable string) error {
 	if err != nil {
 		return err
 	}
+	execValue += " --start-minimized"
 	if dir := fileutil.CustomDataDir(); dir != "" && !fileutil.DesktopStorageManaged() {
 		quotedDir, err := desktopExec(dir)
 		if err != nil {
@@ -215,7 +216,7 @@ func enableStartupDarwin(executable string) error {
 }
 
 func startupDarwinArguments(executable string) string {
-	args := "<string>" + html.EscapeString(executable) + "</string>"
+	args := "<string>" + html.EscapeString(executable) + "</string>\n\t\t<string>--start-minimized</string>"
 	if dir := fileutil.CustomDataDir(); dir != "" && !fileutil.DesktopStorageManaged() {
 		args += "\n\t\t<string>--data-dir</string>\n\t\t<string>" + html.EscapeString(dir) + "</string>"
 	}

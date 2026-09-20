@@ -123,6 +123,7 @@ export interface SettingsData {
   siyuan_endpoint: string;
   siyuan_folder: string;
   siyuan_notebook_id: string;
+  startup_minimized: boolean;
   startup_on_boot: boolean;
   summary_enabled: boolean;
   summary_length: string;

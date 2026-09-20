@@ -60,6 +60,13 @@
       "encrypted": false,
       "frontend_key": "startupOnBoot"
     },
+    "startup_minimized": {
+      "type": "bool",
+      "default": false,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "startupMinimized"
+    },
     "close_to_tray": {
       "type": "bool",
       "default": true,

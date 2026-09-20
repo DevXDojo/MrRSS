@@ -1166,6 +1166,8 @@ const en: TranslationMessages = {
       uiFontSizeDesc: 'Base font size for the application interface',
       startupOnBoot: 'Start on System Boot',
       startupOnBootDesc: 'Automatically start MrRSS when the computer starts',
+      startupMinimized: 'Start in System Tray',
+      startupMinimizedDesc: 'Keep the window hidden when MrRSS starts with the system',
       theme: 'Theme',
       themeDesc: 'Choose the preferred color scheme',
     },

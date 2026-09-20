@@ -1124,6 +1124,8 @@ const zh: TranslationMessages = {
       uiFontSizeDesc: '应用界面的基础字体大小',
       startupOnBoot: '开机自启动',
       startupOnBootDesc: '在电脑启动时自动启动 MrRSS',
+      startupMinimized: '启动至系统托盘',
+      startupMinimizedDesc: '随系统启动时保持窗口隐藏',
       theme: '主题',
       themeDesc: '选择首选配色方案',
     },

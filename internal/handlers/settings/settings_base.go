@@ -135,6 +135,7 @@ var AllSettings = []SettingDef{
 	{Key: "siyuan_endpoint", Encrypted: false},
 	{Key: "siyuan_folder", Encrypted: false},
 	{Key: "siyuan_notebook_id", Encrypted: false},
+	{Key: "startup_minimized", Encrypted: false},
 	{Key: "startup_on_boot", Encrypted: false},
 	{Key: "summary_enabled", Encrypted: false},
 	{Key: "summary_length", Encrypted: false},

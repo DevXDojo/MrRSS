@@ -9,6 +9,7 @@ import {
   PhArchiveTray,
   PhTextT,
   PhTextAa,
+  PhArrowLineDown,
 } from '@phosphor-icons/vue';
 import {
   SettingGroup,
@@ -16,6 +17,9 @@ import {
   SettingWithToggle,
   SettingWithSelect,
   NumberControl,
+  NestedSettingsContainer,
+  SubSettingItem,
+  ToggleControl,
 } from '@/components/settings';
 import FontFamilySelect from '@/components/settings/FontFamilySelect.vue';
 import type { SettingsData } from '@/types/settings';
@@ -58,6 +62,19 @@ function updateUiFontSize(value: number) {
       :model-value="settings.startup_on_boot"
       @update:model-value="updateSetting('startup_on_boot', $event)"
     />
+
+    <NestedSettingsContainer v-if="settings.startup_on_boot">
+      <SubSettingItem
+        :icon="PhArrowLineDown"
+        :title="t('setting.general.startupMinimized')"
+        :description="t('setting.general.startupMinimizedDesc')"
+      >
+        <ToggleControl
+          :model-value="settings.startup_minimized"
+          @update:model-value="updateSetting('startup_minimized', $event)"
+        />
+      </SubSettingItem>
+    </NestedSettingsContainer>
 
     <SettingWithToggle
       :icon="PhArchiveTray"

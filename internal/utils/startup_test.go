@@ -24,7 +24,7 @@ func TestLinuxStartupUsesPersistentAppImageAndXDGDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(body), "Exec="+want+"\n") || strings.Contains(string(body), ".mount_") {
+	if !strings.Contains(string(body), "Exec="+want+" --start-minimized\n") || strings.Contains(string(body), ".mount_") {
 		t.Fatalf("unexpected entry: %s", body)
 	}
 	if err := disableStartupLinux(); err != nil {
@@ -71,7 +71,15 @@ func TestLinuxStartupFallsBackToExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	want, _ := desktopExec(executable)
-	if !strings.Contains(string(body), "Exec="+want+"\n") {
+	if !strings.Contains(string(body), "Exec="+want+" --start-minimized\n") {
 		t.Fatalf("unexpected entry: %s", body)
+	}
+}
+
+func TestStartupDarwinArgumentsRequestsMinimizedLaunch(t *testing.T) {
+	executable := filepath.Join(t.TempDir(), "MrRSS")
+	args := startupDarwinArguments(executable)
+	if !strings.Contains(args, "<string>--start-minimized</string>") {
+		t.Fatalf("missing minimized launch argument: %s", args)
 	}
 }
