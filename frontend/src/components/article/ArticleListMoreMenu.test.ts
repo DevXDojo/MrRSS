@@ -28,18 +28,26 @@ describe('article list more menu', () => {
       const panel = menuPanel();
       expect(panel.findAll('input[type="radio"]')).toHaveLength(5);
       expect(panel.get('input[value="newest"]').element).toBe(document.activeElement);
-      await panel.get('input[value="oldest"]').setValue(true);
+      const selectionButton = panel
+        .findAll('button')
+        .find((button) => button.text().includes('article.action.selectArticles'))!;
+      await selectionButton.trigger('click');
+      expect(wrapper.emitted('select')).toHaveLength(1);
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+
+      await trigger.trigger('click');
+      const reopenedPanel = menuPanel();
+      await reopenedPanel.get('input[value="oldest"]').setValue(true);
       expect(wrapper.emitted('sort')).toEqual([['oldest']]);
       await wrapper.setProps({ sortOrder: 'oldest' });
-      await panel.get('input[value="feed"]').setValue(true);
+      await reopenedPanel.get('input[value="feed"]').setValue(true);
       expect(wrapper.emitted('group')).toEqual([['feed']]);
       await wrapper.setProps({ groupBy: 'feed' });
-      expect(panel.findAll('input:checked').map((input) => input.attributes('value'))).toEqual([
-        'oldest',
-        'feed',
-      ]);
+      expect(
+        reopenedPanel.findAll('input:checked').map((input) => input.attributes('value'))
+      ).toEqual(['oldest', 'feed']);
       expect(trigger.attributes('aria-expanded')).toBe('true');
-      const filterButton = panel
+      const filterButton = reopenedPanel
         .findAll('button')
         .find((button) => button.text().includes('modal.filter.filter'))!;
       expect(filterButton.text()).toContain('2');

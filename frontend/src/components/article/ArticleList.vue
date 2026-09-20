@@ -1282,16 +1282,6 @@ async function markAllVisibleAsRead(): Promise<void> {
             <PhTrash :size="18" class="sm:w-5 sm:h-5" />
           </button>
           <button
-            v-if="visibleArticles.length > 0"
-            class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
-            :class="selectionMode ? 'text-accent bg-accent/10' : ''"
-            :title="t('article.action.selectArticles')"
-            :aria-pressed="selectionMode"
-            @click="selectionMode ? exitSelectionMode() : enterSelectionMode()"
-          >
-            <PhCheckSquare :size="18" class="sm:w-5 sm:h-5" />
-          </button>
-          <button
             class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
             :title="withShortcut(t('article.action.markAllRead'), 'markAllRead')"
             @click="markAllAsRead"
@@ -1322,10 +1312,15 @@ async function markAllVisibleAsRead(): Promise<void> {
             :report-disabled="
               showingPrevious || store.isLoading || isFilterLoading || visibleArticles.length === 0
             "
+            :selection-disabled="
+              showingPrevious || store.isLoading || isFilterLoading || visibleArticles.length === 0
+            "
+            :selection-active="selectionMode"
             @sort="changeArticleSortOrder"
             @group="changeArticleGrouping"
             @filter="showFilterModal = true"
             @report="reportArticles = [...visibleArticles]"
+            @select="selectionMode ? exitSelectionMode() : enterSelectionMode()"
           />
           <div
             class="relative"
