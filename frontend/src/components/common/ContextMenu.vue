@@ -115,8 +115,9 @@ onMounted(() => {
   // Use setTimeout to avoid catching the event that opened the menu
   document.addEventListener('keydown', handleKeyDown, true);
   listenerTimer = setTimeout(() => {
-    document.addEventListener('click', handleClickOutside);
-    document.addEventListener('contextmenu', handleClickOutside);
+    // Capture outside presses before card/detail overlays stop propagation.
+    document.addEventListener('click', handleClickOutside, true);
+    document.addEventListener('contextmenu', handleClickOutside, true);
   }, 0);
 });
 
@@ -131,8 +132,8 @@ watch(
 onUnmounted(() => {
   clearTimeout(listenerTimer);
   document.removeEventListener('keydown', handleKeyDown, true);
-  document.removeEventListener('click', handleClickOutside);
-  document.removeEventListener('contextmenu', handleClickOutside);
+  document.removeEventListener('click', handleClickOutside, true);
+  document.removeEventListener('contextmenu', handleClickOutside, true);
 });
 
 function handleAction(item: ContextMenuItem) {
