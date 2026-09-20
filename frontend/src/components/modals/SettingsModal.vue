@@ -36,9 +36,10 @@ import { useSettings } from '@/composables/core/useSettings';
 import { useAppUpdates } from '@/composables/core/useAppUpdates';
 import { useFeedManagement } from '@/composables/feed/useFeedManagement';
 import { useModalClose, LARGE_MODAL_Z_INDEX } from '@/composables/ui/useModalClose';
+import { settingsSearchKeys } from '@/config/settingsSearch';
 
 const store = useAppStore();
-const { t, tm } = useI18n();
+const { t } = useI18n();
 
 interface Props {
   initialTab?: TabName;
@@ -96,80 +97,61 @@ const settingsTabs: Array<{
   id: TabName;
   icon: Component;
   labelKey: string;
-  searchNamespaces: string[];
 }> = [
   {
     id: 'general',
     icon: PhSlidersHorizontal,
     labelKey: 'setting.tab.general',
-    searchNamespaces: ['setting.general', 'setting.update', 'setting.database'],
   },
   {
     id: 'reading',
     icon: PhBookOpen,
     labelKey: 'setting.tab.readingAndDisplay',
-    searchNamespaces: ['setting.reading', 'setting.typography', 'setting.customization'],
   },
   {
     id: 'feeds',
     icon: PhRss,
     labelKey: 'sidebar.feedList.feeds',
-    searchNamespaces: ['setting.feed', 'modal.feed', 'modal.discovery'],
   },
   {
     id: 'content',
     icon: PhTextT,
     labelKey: 'setting.tab.content',
-    searchNamespaces: ['setting.content', 'setting.translation'],
   },
   {
     id: 'ai',
     icon: PhBrain,
     labelKey: 'setting.tab.ai',
-    searchNamespaces: ['setting.ai', 'aiErrors'],
   },
   {
     id: 'rules',
     icon: PhFunnel,
     labelKey: 'modal.rule.rules',
-    searchNamespaces: ['setting.rule', 'modal.rule'],
   },
   {
     id: 'network',
     icon: PhGlobe,
     labelKey: 'setting.tab.network',
-    searchNamespaces: ['setting.network'],
   },
   {
     id: 'plugins',
     icon: PhPuzzlePiece,
     labelKey: 'setting.tab.plugins',
-    searchNamespaces: [
-      'setting.plugins',
-      'setting.freshrss',
-      'setting.rsshub',
-      'setting.notion',
-      'setting.obsidian',
-      'setting.zotero',
-    ],
   },
   {
     id: 'shortcuts',
     icon: PhKeyboard,
     labelKey: 'setting.shortcut.shortcuts',
-    searchNamespaces: ['setting.shortcut'],
   },
   {
     id: 'statistics',
     icon: PhChartBar,
     labelKey: 'setting.statistic.statistics',
-    searchNamespaces: ['setting.statistic'],
   },
   {
     id: 'about',
     icon: PhInfo,
     labelKey: 'setting.tab.about',
-    searchNamespaces: ['setting.about', 'setting.update'],
   },
 ];
 
@@ -178,15 +160,6 @@ interface SettingsSearchResult {
   tab: TabName;
   tabLabel: string;
   label: string;
-}
-
-function collectSearchText(value: unknown): string[] {
-  if (typeof value === 'string') return [value];
-  if (Array.isArray(value)) return value.flatMap(collectSearchText);
-  if (value && typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).flatMap(collectSearchText);
-  }
-  return [];
 }
 
 const settingsSearchResults = computed<SettingsSearchResult[]>(() => {
@@ -198,10 +171,7 @@ const settingsSearchResults = computed<SettingsSearchResult[]>(() => {
 
   for (const tab of settingsTabs) {
     const tabLabel = t(tab.labelKey);
-    const searchableText = [
-      tabLabel,
-      ...tab.searchNamespaces.flatMap((namespace) => collectSearchText(tm(namespace))),
-    ];
+    const searchableText = [tabLabel, ...settingsSearchKeys[tab.id].map((key) => t(key))];
 
     for (const text of searchableText) {
       const label = text.trim().replace(/\s+/g, ' ');
