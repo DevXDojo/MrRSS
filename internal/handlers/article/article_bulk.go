@@ -2,6 +2,8 @@ package article
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -10,6 +12,13 @@ import (
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
 )
+
+const maxBatchReadArticles = 5000
+
+type BatchReadRequest struct {
+	IDs  []int64 `json:"ids"`
+	Read bool    `json:"read"`
+}
 
 // HandleGetUnreadCounts returns unread counts for all feeds.
 // @Summary      Get unread counts
@@ -178,6 +187,65 @@ func HandleMarkAllAsRead(h *core.Handler, w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// HandleMarkArticlesRead updates the read state of an explicit article selection.
+// @Summary      Mark selected articles as read or unread
+// @Description  Update the read state of up to 5000 selected articles and sync supported reader services
+// @Tags         articles
+// @Accept       json
+// @Produce      json
+// @Param        request  body      BatchReadRequest  true  "Selected article IDs and target read state"
+// @Success      200      {object}  map[string]interface{}
+// @Failure      400      {object}  map[string]string
+// @Failure      405      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /articles/read-batch [post]
+func HandleMarkArticlesRead(h *core.Handler, w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.Error(w, nil, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request BatchReadRequest
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 128*1024))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		response.Error(w, errors.New("invalid batch read request"), http.StatusBadRequest)
+		return
+	}
+	if len(request.IDs) == 0 || len(request.IDs) > maxBatchReadArticles {
+		response.Error(w, errors.New("article selection must contain between 1 and 5000 IDs"), http.StatusBadRequest)
+		return
+	}
+
+	ids := make([]int64, 0, len(request.IDs))
+	seen := make(map[int64]struct{}, len(request.IDs))
+	for _, id := range request.IDs {
+		if id <= 0 {
+			response.Error(w, errors.New("article IDs must be positive"), http.StatusBadRequest)
+			return
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+
+	syncReqs, err := h.DB.MarkArticlesReadWithSync(ids, request.Read)
+	if err != nil {
+		response.Error(w, err, http.StatusInternalServerError)
+		return
+	}
+	if len(syncReqs) > 0 {
+		go performImmediateBulkSync(h, syncReqs)
+	}
+
+	response.JSON(w, map[string]interface{}{
+		"success": true,
+		"updated": len(ids),
+	})
 }
 
 // HandleClearReadLater removes all articles from the read later list.

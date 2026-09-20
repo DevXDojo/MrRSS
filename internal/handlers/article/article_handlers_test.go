@@ -242,6 +242,55 @@ func TestArticleActions_MarkRead_Favorite_Hide_ReadLater(t *testing.T) {
 	}
 }
 
+func TestHandleMarkArticlesRead(t *testing.T) {
+	h := setupHandler(t)
+	feedID, err := h.DB.AddFeed(&models.Feed{Title: "Batch", URL: "http://batch"})
+	if err != nil {
+		t.Fatalf("AddFeed: %v", err)
+	}
+	articles := []*models.Article{
+		{FeedID: feedID, Title: "first", URL: "http://batch/1", PublishedAt: time.Now()},
+		{FeedID: feedID, Title: "second", URL: "http://batch/2", PublishedAt: time.Now()},
+	}
+	if err := h.DB.SaveArticles(context.Background(), articles); err != nil {
+		t.Fatalf("SaveArticles: %v", err)
+	}
+	saved, err := h.DB.GetArticles("", feedID, "", true, 10, 0)
+	if err != nil || len(saved) != 2 {
+		t.Fatalf("GetArticles: %v (count %d)", err, len(saved))
+	}
+
+	body := fmt.Sprintf(`{"ids":[%d,%d,%d],"read":true}`, saved[0].ID, saved[1].ID, saved[0].ID)
+	req := httptest.NewRequest(http.MethodPost, "/api/articles/read-batch", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	article.HandleMarkArticlesRead(h, recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var result struct {
+		Updated int `json:"updated"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if result.Updated != 2 {
+		t.Fatalf("updated = %d, want 2 unique articles", result.Updated)
+	}
+	for _, savedArticle := range saved {
+		updated, err := h.DB.GetArticleByID(savedArticle.ID)
+		if err != nil || updated == nil || !updated.IsRead {
+			t.Fatalf("article %d was not marked read: %v", savedArticle.ID, err)
+		}
+	}
+
+	invalid := httptest.NewRequest(http.MethodPost, "/api/articles/read-batch", strings.NewReader(`{"ids":[],"read":false}`))
+	invalidRecorder := httptest.NewRecorder()
+	article.HandleMarkArticlesRead(h, invalidRecorder, invalid)
+	if invalidRecorder.Code != http.StatusBadRequest {
+		t.Fatalf("empty selection status = %d, want 400", invalidRecorder.Code)
+	}
+}
+
 func TestHandleReloadArticleContentClearsOnlyArticleContent(t *testing.T) {
 	h := setupHandler(t)
 	feedID, err := h.DB.AddFeed(&models.Feed{Title: "Reload Feed", URL: "http://example.com/feed"})

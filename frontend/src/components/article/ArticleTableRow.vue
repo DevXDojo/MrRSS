@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PhCircle, PhStar, PhClock } from '@phosphor-icons/vue';
+import { PhCheckSquare, PhCircle, PhSquare, PhStar, PhClock } from '@phosphor-icons/vue';
 import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import { useArticleHoverRead } from '@/composables/article/useArticleHoverRead';
 import { useSettings } from '@/composables/core/useSettings';
@@ -13,6 +13,8 @@ const props = defineProps<{
   columns: ArticleTableColumn[];
   isActive: boolean;
   disabled?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
 }>();
 const emit = defineEmits<{
   click: [];
@@ -26,7 +28,7 @@ const { formatArticleDate, formatArticleDateTime } = useArticleDateFormat();
 const hover = useArticleHoverRead(
   () => props.article,
   (id) => emit('hoverMarkAsRead', id),
-  () => props.disabled === true
+  () => props.disabled === true || props.selectionMode === true
 );
 const hasTranslation = computed(
   () => props.article.translated_title && props.article.translated_title !== props.article.title
@@ -40,6 +42,7 @@ const hasTranslation = computed(
     :class="[
       'cursor-pointer border-b border-border hover:bg-bg-secondary',
       isActive ? 'bg-accent/10' : '',
+      selected ? 'bg-accent/10 outline outline-1 -outline-offset-1 outline-accent/50' : '',
       article.is_read ? 'text-text-secondary' : 'text-text-primary font-medium',
     ]"
     @click="emit('click')"
@@ -50,17 +53,23 @@ const hasTranslation = computed(
     <td v-for="column in columns" :key="column" class="px-3 py-2 text-sm align-middle">
       <button
         v-if="column === 'title'"
-        class="block w-full truncate text-left focus-visible:outline-2 focus-visible:outline-accent"
+        class="flex w-full items-center gap-2 truncate text-left focus-visible:outline-2 focus-visible:outline-accent"
         :title="article.title"
         :aria-current="isActive ? 'true' : undefined"
         @click.stop="emit('click')"
       >
-        <span v-if="hasTranslation">{{ article.translated_title }}</span>
-        <span
-          v-if="!hasTranslation || !settings.translation_only_mode"
-          :class="hasTranslation ? 'ml-2 text-text-secondary font-normal' : ''"
-          >{{ article.title }}</span
-        >
+        <span v-if="selectionMode" class="shrink-0 text-accent" aria-hidden="true">
+          <PhCheckSquare v-if="selected" :size="17" weight="fill" />
+          <PhSquare v-else :size="17" />
+        </span>
+        <span class="min-w-0 truncate">
+          <span v-if="hasTranslation">{{ article.translated_title }}</span>
+          <span
+            v-if="!hasTranslation || !settings.translation_only_mode"
+            :class="hasTranslation ? 'ml-2 text-text-secondary font-normal' : ''"
+            >{{ article.title }}</span
+          >
+        </span>
       </button>
       <span v-else-if="column === 'feed'" class="block truncate" :title="article.feed_title">{{
         article.feed_title

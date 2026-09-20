@@ -13,6 +13,9 @@ import {
   PhClock,
   PhLightning,
   PhStar,
+  PhCheckSquare,
+  PhSquare,
+  PhX,
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
 import ArticleListMoreMenu from './ArticleListMoreMenu.vue';
@@ -56,6 +59,9 @@ const savedScrollTop = ref(0);
 const showRefreshTooltip = ref(false);
 // Track articles that should be temporarily kept in list even if read
 const temporarilyKeepArticles = ref<Set<number>>(new Set());
+const selectionMode = ref(false);
+const selectedArticleIds = ref<Set<number>>(new Set());
+const isApplyingSelection = ref(false);
 // Flag to control when scroll position should be restored
 const shouldRestoreScroll = ref(false);
 const pendingFeedArticleId = ref<number | null>(null);
@@ -260,7 +266,7 @@ const { showArticleContextMenu } = useArticleActions(
 const { onContextMenu: showSelectionContextMenu } = useArticleSelectionMenu(listRef);
 
 function handleArticleContextMenu(event: MouseEvent, article: Article): void {
-  if (showingPrevious.value) {
+  if (showingPrevious.value || selectionMode.value) {
     event.preventDefault();
     return;
   }
@@ -304,6 +310,78 @@ async function preserveRelativeReadPosition(
 const visibleArticles = computed(() =>
   orderGroupedArticles(filteredArticles.value, store.articleGroupBy, store.articleSortOrder)
 );
+const selectedArticleCount = computed(() => selectedArticleIds.value.size);
+const allVisibleArticlesSelected = computed(
+  () =>
+    visibleArticles.value.length > 0 &&
+    visibleArticles.value.every((article) => selectedArticleIds.value.has(article.id))
+);
+
+function enterSelectionMode(): void {
+  selectionMode.value = true;
+}
+
+function exitSelectionMode(): void {
+  selectionMode.value = false;
+  selectedArticleIds.value = new Set();
+}
+
+function toggleArticleSelection(articleId: number): void {
+  const next = new Set(selectedArticleIds.value);
+  if (next.has(articleId)) next.delete(articleId);
+  else next.add(articleId);
+  selectedArticleIds.value = next;
+}
+
+function toggleAllVisibleArticles(): void {
+  const visibleIds = visibleArticles.value.map((article) => article.id);
+  const next = new Set(selectedArticleIds.value);
+  if (allVisibleArticlesSelected.value) visibleIds.forEach((id) => next.delete(id));
+  else visibleIds.forEach((id) => next.add(id));
+  selectedArticleIds.value = next;
+}
+
+function updateSelectedReadState(ids: Set<number>, read: boolean): void {
+  for (const articles of [
+    store.articles,
+    filteredArticlesFromServer.value,
+    aiSearchResults.value,
+  ]) {
+    articles.forEach((article) => {
+      if (ids.has(article.id)) article.is_read = read;
+    });
+  }
+}
+
+async function applySelectedReadState(read: boolean): Promise<void> {
+  if (selectedArticleIds.value.size === 0 || isApplyingSelection.value) return;
+
+  const ids = [...selectedArticleIds.value];
+  isApplyingSelection.value = true;
+  try {
+    const result = await fetch('/api/articles/read-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, read }),
+    });
+    if (!result.ok) throw new Error(`HTTP ${result.status}`);
+
+    updateSelectedReadState(new Set(ids), read);
+    exitSelectionMode();
+    await Promise.allSettled([store.fetchUnreadCounts(), store.fetchFilterCounts()]);
+    window.showToast(
+      t(read ? 'article.action.markedSelectedAsRead' : 'article.action.markedSelectedAsUnread', {
+        count: ids.length,
+      }),
+      'success'
+    );
+  } catch (error) {
+    console.error('Error updating selected articles:', error);
+    window.showToast(t('article.action.batchReadUpdateFailed'), 'error');
+  } finally {
+    isApplyingSelection.value = false;
+  }
+}
 const { displayedArticles, showingPrevious, showLoadingIndicator } = useArticleListTransition(
   visibleArticles,
   computed(() => store.isLoading)
@@ -596,6 +674,21 @@ watch(
   }
 );
 
+watch(
+  () => [store.currentFeedId, store.currentCategory, store.currentFilter, isAISearchActive.value],
+  () => exitSelectionMode()
+);
+
+watch(
+  () => visibleArticles.value.map((article) => article.id),
+  (visibleIds) => {
+    if (!selectionMode.value || selectedArticleIds.value.size === 0) return;
+    const visible = new Set(visibleIds);
+    const next = new Set([...selectedArticleIds.value].filter((id) => visible.has(id)));
+    if (next.size !== selectedArticleIds.value.size) selectedArticleIds.value = next;
+  }
+);
+
 // Keyboard/detail navigation can move the selection to a row that is outside
 // the rendered window; bring it back in before it is scrolled into view.
 watch(
@@ -726,6 +819,10 @@ function onRefreshTooltipHide(): void {
 // Article selection and interaction
 function selectArticle(article: Article): void {
   if (showingPrevious.value) return;
+  if (selectionMode.value) {
+    toggleArticleSelection(article.id);
+    return;
+  }
   // Check if we should open in browser based on feed or global settings
   const feed = store.feeds.find((f) => f.id === article.feed_id);
   let openInBrowserMode = false;
@@ -1185,6 +1282,16 @@ async function markAllVisibleAsRead(): Promise<void> {
             <PhTrash :size="18" class="sm:w-5 sm:h-5" />
           </button>
           <button
+            v-if="visibleArticles.length > 0"
+            class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
+            :class="selectionMode ? 'text-accent bg-accent/10' : ''"
+            :title="t('article.action.selectArticles')"
+            :aria-pressed="selectionMode"
+            @click="selectionMode ? exitSelectionMode() : enterSelectionMode()"
+          >
+            <PhCheckSquare :size="18" class="sm:w-5 sm:h-5" />
+          </button>
+          <button
             class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
             :title="withShortcut(t('article.action.markAllRead'), 'markAllRead')"
             @click="markAllAsRead"
@@ -1361,6 +1468,43 @@ async function markAllVisibleAsRead(): Promise<void> {
           </button>
         </div>
       </div>
+      <div
+        v-if="selectionMode"
+        class="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-2 text-sm"
+      >
+        <button
+          class="flex items-center gap-1.5 rounded px-2 py-1 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+          :title="t('article.action.selectAllVisible')"
+          @click="toggleAllVisibleArticles"
+        >
+          <PhCheckSquare v-if="allVisibleArticlesSelected" :size="17" weight="fill" />
+          <PhSquare v-else :size="17" />
+          <span>{{ t('article.action.selectedArticles', { count: selectedArticleCount }) }}</span>
+        </button>
+        <div class="ml-auto flex items-center gap-1">
+          <button
+            class="rounded px-2 py-1 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="selectedArticleCount === 0 || isApplyingSelection"
+            @click="applySelectedReadState(true)"
+          >
+            {{ t('article.action.markAsRead') }}
+          </button>
+          <button
+            class="rounded px-2 py-1 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="selectedArticleCount === 0 || isApplyingSelection"
+            @click="applySelectedReadState(false)"
+          >
+            {{ t('article.action.markAsUnread') }}
+          </button>
+          <button
+            class="rounded p-1 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+            :title="t('common.cancel')"
+            @click="exitSelectionMode"
+          >
+            <PhX :size="17" />
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- AI Search Bar -->
@@ -1467,6 +1611,8 @@ async function markAllVisibleAsRead(): Promise<void> {
                 :article="article"
                 :columns="tableColumns"
                 :is-active="store.currentArticleId === article.id"
+                :selection-mode="selectionMode"
+                :selected="selectedArticleIds.has(article.id)"
                 @click="selectArticle(article)"
                 @contextmenu="(event) => handleArticleContextMenu(event, article)"
                 @observe-element="(element) => observeListArticle(element, article.id)"
@@ -1510,6 +1656,8 @@ async function markAllVisibleAsRead(): Promise<void> {
                 :is-active="
                   cardModalArticle?.id === article.id || recentlyClosedCardId === article.id
                 "
+                :selection-mode="selectionMode"
+                :selected="selectedArticleIds.has(article.id)"
                 @click="selectArticle(article)"
                 @contextmenu="(e) => handleArticleContextMenu(e, article)"
                 @observe-element="(element) => observeListArticle(element, article.id)"
@@ -1562,6 +1710,8 @@ async function markAllVisibleAsRead(): Promise<void> {
                 :disabled="showingPrevious"
                 :article="article"
                 :is-active="store.currentArticleId === article.id"
+                :selection-mode="selectionMode"
+                :selected="selectedArticleIds.has(article.id)"
                 @click="selectArticle(article)"
                 @contextmenu="(e) => handleArticleContextMenu(e, article)"
                 @observe-element="(element) => observeListArticle(element, article.id)"
