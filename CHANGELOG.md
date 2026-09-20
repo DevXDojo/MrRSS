@@ -5,7 +5,24 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.37] - 2026-09-21
+
+### Added
+
+- Select articles in normal, card, and table layouts, select all currently visible articles, and batch-mark the selection as read or unread through a bounded API that preserves reader-service synchronization. (#1210) (@baifengs)
+- Optionally keep the desktop window hidden in the system tray when the application starts with the operating system, while preserving normal visibility for manual launches. (#1215) (@EnterMan123)
+- Show an unread-state badge on multimedia gallery cards and remove it as soon as the article is marked read. (#1214) (@EnterMan123)
+
+### Changed
+
+- Align the data-directory and chat-response-preference layouts with neighboring settings, present chat-history retention as a nested setting, and use distinct icons for consecutive article-display options.
+- Pin local Wails tasks to the runtime version, install frontend dependencies from the lockfile, and wait for the Vite server before launching the desktop process in development mode.
+
+### Fixed
+
+- Scope card-view image discovery to article content so AI chat icons do not enter the image viewer. (#1212) (@EnterMan123)
+- Close article context menus when clicking modal overlays or other content that stops bubbling events. (#1213) (@EnterMan123)
+- Limit settings search to visible setting labels so hidden modal text, status messages, and placeholders do not produce unreachable results. (#1216) (@EnterMan123)
 
 ## [1.3.36] - 2026-09-20
 
