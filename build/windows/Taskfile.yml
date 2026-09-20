@@ -106,7 +106,7 @@ tasks:
     deps:
       - task: generate:icon:ico
     cmds:
-      - wails3 generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_{{.ARCH}}.syso
+      - '{{.WAILS3}} generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_{{.ARCH}}.syso'
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
 
@@ -118,7 +118,7 @@ tasks:
     generates:
       - "windows/icon.ico"
     cmds:
-      - wails3 generate icons -input windows/icon.png -windowsfilename windows/icon.ico -macfilename=
+      - '{{.WAILS3}} generate icons -input windows/icon.png -windowsfilename windows/icon.ico -macfilename='
 
   create:nsis:installer:
     summary: Creates an NSIS installer
@@ -127,7 +127,7 @@ tasks:
       - task: build
     cmds:
       # Create the Microsoft WebView2 bootstrapper if it doesn't exist
-      - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows"
+      - '{{.WAILS3}} generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows"'
       - |
         {{if eq OS "windows"}}
         makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\build\bin\{{.APP_NAME}}.exe" installer.nsi
@@ -151,7 +151,7 @@ tasks:
     deps:
       - task: build
     cmds:
-      - wails3 tool sign --input {{.BIN_DIR}}/{{.APP_NAME}}.exe {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+      - '{{.WAILS3}} tool sign --input {{.BIN_DIR}}/{{.APP_NAME}}.exe {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}'
     preconditions:
       - sh: '[ -n "{{.SIGN_CERTIFICATE}}" ] || [ -n "{{.SIGN_THUMBPRINT}}" ]'
         msg: "Either SIGN_CERTIFICATE or SIGN_THUMBPRINT is required. Set it in the vars section at the top of build/windows/Taskfile.yml"

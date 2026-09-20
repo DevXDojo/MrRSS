@@ -105,7 +105,7 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
 3. **安装 Wails v3 CLI**
 
    ```bash
-   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20
    ```
 
 4. **构建应用**

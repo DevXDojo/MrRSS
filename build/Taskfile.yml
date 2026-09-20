@@ -22,7 +22,7 @@ tasks:
       - sh: npm version
         msg: "Looks like npm isn't installed. Npm is part of the Node installer: https://nodejs.org/en/download/"
     cmds:
-      - npm install
+      - npm ci
 
   build:frontend:
     label: build:frontend (DEV={{.DEV}})
@@ -60,7 +60,7 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true
+      - "{{.WAILS3}} generate bindings -f '{{.BUILD_FLAGS}}' -clean=true"
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` files from an image
@@ -75,8 +75,8 @@ tasks:
       # Wails supplies build/windows and build/darwin defaults for omitted output
       # flags. This task already runs from build/, so explicitly disable the
       # unrelated output while preserving the platform-specific source images.
-      - wails3 generate icons -input appicon.png -windowsfilename= -macfilename darwin/icons.icns
-      - wails3 generate icons -input windows/icon.png -windowsfilename windows/icon.ico -macfilename=
+      - '{{.WAILS3}} generate icons -input appicon.png -windowsfilename= -macfilename darwin/icons.icns'
+      - '{{.WAILS3}} generate icons -input windows/icon.png -windowsfilename windows/icon.ico -macfilename='
 
   dev:frontend:
     summary: Runs the frontend in development mode
@@ -90,7 +90,7 @@ tasks:
     summary: Updates the build assets
     dir: build
     cmds:
-      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .
+      - '{{.WAILS3}} update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .'
 
   setup:docker:
     summary: Builds Docker image for cross-compilation (~800MB download)

@@ -104,14 +104,14 @@ Common entry points are below. Confirm they still exist in the current checkout;
 | Download Go dependencies | Repository root | `go mod download` |
 | Install locked frontend dependencies | `frontend/` | `npm ci` |
 | Discover build tasks | Repository root | `task --list` |
-| Desktop development | Repository root | `task dev` |
+| Desktop development | Repository root | `task dev` (uses the repository-pinned Wails CLI) |
 | Backend tests | Repository root | `go test -timeout=5m ./internal/...` |
 | Go static checks | Repository root | `go vet ./...` |
 | Frontend unit tests, single run | `frontend/` | `npm run test:unit` |
 | Frontend lint without autofix | `frontend/` | `npx --no-install eslint .` |
 | Frontend build | `frontend/` | `npm run build` |
 | End-to-end tests | `frontend/` | `npm run test:e2e` |
-| Desktop build | Repository root | `wails3 build` or `task build` |
+| Desktop build | Repository root | `task build` |
 
 - Start with tests for the affected packages or files, then run broader checks when the scope warrants them. Add regression tests for bug fixes and behavior changes; cover relevant failures and boundary conditions without relying on live services or real credentials.
 - Use a non-watching test command for automated verification. Inspect scripts before running them: lint and format scripts may apply fixes across the tree.

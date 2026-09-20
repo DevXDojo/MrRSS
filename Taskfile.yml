@@ -13,6 +13,8 @@ vars:
   APP_NAME: "MrRSS"
   BIN_DIR: "build/bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 5173}}'
+  # Keep this version synchronized with github.com/wailsapp/wails/v3 in go.mod.
+  WAILS3: go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20
 
 tasks:
   build:
@@ -33,7 +35,7 @@ tasks:
   dev:
     summary: Runs the application in development mode (monitoring disabled)
     cmds:
-      - wails3 dev -config ./build/config.yml
+      - '{{.WAILS3}} dev -config ./build/config.yml'
     env:
       MRRSS_DEBUG: "1"
 

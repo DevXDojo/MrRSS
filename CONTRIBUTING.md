@@ -31,7 +31,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 - Go 1.27 or higher
 - Node.js (LTS version)
-- Wails CLI: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`
+- Wails CLI: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20`
 
 **Linux only:** Install system dependencies:
 
