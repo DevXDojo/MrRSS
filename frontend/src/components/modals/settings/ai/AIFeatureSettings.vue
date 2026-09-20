@@ -8,6 +8,8 @@ import {
   PhBroom,
   PhMagnifyingGlass,
   PhLightning,
+  PhFloppyDisk,
+  PhChatDots,
 } from '@phosphor-icons/vue';
 import {
   TipBox,
@@ -16,6 +18,7 @@ import {
   NestedSettingsContainer,
   SubSettingItem,
   TextAreaControl,
+  ToggleControl,
 } from '@/components/settings';
 import AIProfileSelector from './AIProfileSelector.vue';
 import AIChatQuickPromptsSettings from './AIChatQuickPromptsSettings.vue';
@@ -121,13 +124,16 @@ async function clearAllChatSessions() {
     />
 
     <NestedSettingsContainer v-if="props.settings.ai_chat_enabled">
-      <SettingWithToggle
-        :icon="PhChatCircleText"
+      <SubSettingItem
+        :icon="PhFloppyDisk"
         :title="t('setting.ai.saveChatHistory')"
         :description="t('setting.ai.saveChatHistoryDesc')"
-        :model-value="props.settings.ai_chat_save_history"
-        @update:model-value="updateSetting('ai_chat_save_history', $event)"
-      />
+      >
+        <ToggleControl
+          :model-value="props.settings.ai_chat_save_history"
+          @update:model-value="updateSetting('ai_chat_save_history', $event)"
+        />
+      </SubSettingItem>
 
       <SubSettingItem
         :icon="PhRobot"
@@ -140,13 +146,12 @@ async function clearAllChatSessions() {
         />
       </SubSettingItem>
 
-      <div class="sub-setting-item-col">
-        <label for="ai-chat-response-preferences" class="font-medium text-xs sm:text-sm">
-          {{ t('setting.ai.responsePreferences') }}
-        </label>
-        <p class="text-text-secondary text-xs">
-          {{ t('setting.ai.responsePreferencesDesc') }}
-        </p>
+      <SubSettingItem
+        :icon="PhChatDots"
+        :title="t('setting.ai.responsePreferences')"
+        :description="t('setting.ai.responsePreferencesDesc')"
+        layout="column"
+      >
         <TextAreaControl
           id="ai-chat-response-preferences"
           :model-value="props.settings.ai_chat_response_preferences"
@@ -154,7 +159,7 @@ async function clearAllChatSessions() {
           :rows="4"
           @update:model-value="updateSetting('ai_chat_response_preferences', $event)"
         />
-      </div>
+      </SubSettingItem>
 
       <SubSettingItem
         :icon="PhLightning"
