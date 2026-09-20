@@ -11,6 +11,9 @@ import (
 
 // registerSettingsRoutes registers all settings-related routes
 func registerSettingsRoutes(mux *http.ServeMux, h *core.Handler) {
+	mux.HandleFunc("/api/ad-filter/analyze", func(w http.ResponseWriter, r *http.Request) { settings.HandleAdFilterAnalyze(h, w, r) })
+	mux.HandleFunc("/api/ad-filter/config", func(w http.ResponseWriter, r *http.Request) { settings.HandleAdFilterConfig(h, w, r) })
+	mux.HandleFunc("/api/ad-filter/preview", func(w http.ResponseWriter, r *http.Request) { settings.HandleAdFilterPreview(h, w, r) })
 	mux.HandleFunc("/api/notifications/config", func(w http.ResponseWriter, r *http.Request) { notificationhandlers.HandleConfig(h, w, r) })
 	mux.HandleFunc("/api/notifications/test", func(w http.ResponseWriter, r *http.Request) { notificationhandlers.HandleTest(h, w, r) })
 	mux.HandleFunc("/api/notifications/preview", func(w http.ResponseWriter, r *http.Request) { notificationhandlers.HandlePreview(h, w, r) })

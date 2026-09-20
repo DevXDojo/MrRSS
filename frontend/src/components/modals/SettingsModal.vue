@@ -87,30 +87,38 @@ const emit = defineEmits<{
 }>();
 
 const activeTab: Ref<TabName> = ref(props.initialTab);
-const notificationEditing = ref(false);
-const notificationBusy = ref(false);
-let checkingNotificationExit = false;
+const settingsDraftEditing = ref(false);
+const settingsDraftBusy = ref(false);
+let checkingSettingsExit = false;
 
-async function canLeaveNotifications() {
-  if (notificationBusy.value) {
+async function canLeaveSettings() {
+  if (settingsDraftBusy.value) {
     window.showToast(t('setting.notifications.waitForSave'), 'info');
     return false;
   }
-  if (!notificationEditing.value) return true;
-  if (checkingNotificationExit) return false;
-  checkingNotificationExit = true;
+  if (!settingsDraftEditing.value) return true;
+  if (checkingSettingsExit) return false;
+  checkingSettingsExit = true;
   try {
     return await window.showConfirm({
-      title: t('setting.notifications.unsavedTitle'),
-      message: t('setting.notifications.unsavedMessage'),
+      title: t(
+        activeTab.value === 'content'
+          ? 'setting.adFilter.unsavedTitle'
+          : 'setting.notifications.unsavedTitle'
+      ),
+      message: t(
+        activeTab.value === 'content'
+          ? 'setting.adFilter.unsavedMessage'
+          : 'setting.notifications.unsavedMessage'
+      ),
     });
   } finally {
-    checkingNotificationExit = false;
+    checkingSettingsExit = false;
   }
 }
 
 async function requestClose() {
-  if (await canLeaveNotifications()) emit('close');
+  if (await canLeaveSettings()) emit('close');
 }
 const showDiscoverAllModal = ref(false);
 const settingsContentRef = ref<HTMLElement | null>(null);
@@ -147,7 +155,7 @@ const settingsTabs: Array<{
     id: 'content',
     icon: PhTextT,
     labelKey: 'setting.tab.content',
-    searchNamespaces: ['setting.content', 'setting.translation'],
+    searchNamespaces: ['setting.content', 'setting.translation', 'setting.adFilter'],
   },
   {
     id: 'ai',
@@ -260,13 +268,13 @@ const settingsSearchResults = computed<SettingsSearchResult[]>(() => {
 });
 
 async function selectSettingsTab(tab: TabName) {
-  if (tab !== activeTab.value && !(await canLeaveNotifications())) return;
+  if (tab !== activeTab.value && !(await canLeaveSettings())) return;
   activeTab.value = tab;
   clearSettingsSearch();
 }
 
 async function selectSettingsSearchResult(result: SettingsSearchResult) {
-  if (result.tab !== activeTab.value && !(await canLeaveNotifications())) return;
+  if (result.tab !== activeTab.value && !(await canLeaveSettings())) return;
   activeTab.value = result.tab;
   settingsSearchOpen.value = false;
 
@@ -509,6 +517,8 @@ function handleDiscoverAll() {
             v-if="activeTab === 'content'"
             :settings="settings"
             @update:settings="settings = $event"
+            @editing="settingsDraftEditing = $event"
+            @busy="settingsDraftBusy = $event"
           />
 
           <AITab
@@ -531,8 +541,8 @@ function handleDiscoverAll() {
 
           <NotificationsTab
             v-if="activeTab === 'notifications'"
-            @editing="notificationEditing = $event"
-            @busy="notificationBusy = $event"
+            @editing="settingsDraftEditing = $event"
+            @busy="settingsDraftBusy = $event"
           />
 
           <RulesTab

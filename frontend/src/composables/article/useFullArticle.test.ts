@@ -47,6 +47,27 @@ function response(content: string) {
   return { ok: true, json: async () => ({ content }) };
 }
 describe('full article loading', () => {
+  it('keeps an entirely hidden full article available for restoration', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            content: '',
+            original_content: '<p>Preserved article</p>',
+            ad_filter: { enabled: true, removed: 1, reasons: { custom_rule: 1 }, guarded: 0 },
+          }),
+        })
+    );
+    const f = fixture();
+    await flushPromises();
+    expect(f.result.fullArticleFilterInfo.value?.originalContent).toContain('Preserved article');
+    expect(f.onContent).toHaveBeenCalledWith('');
+    expect(f.onError).not.toHaveBeenCalled();
+    f.wrapper.unmount();
+  });
   it('loads empty RSS articles once and keeps full text when RSS loading changes', async () => {
     const fetch = vi.fn().mockResolvedValue(response('<p>Full article</p>'));
     vi.stubGlobal('fetch', fetch);

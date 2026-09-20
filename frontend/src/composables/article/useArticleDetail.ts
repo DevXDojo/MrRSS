@@ -3,6 +3,7 @@ import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { openInBrowser } from '@/utils/browser';
 import type { Article } from '@/types/models';
+import type { ArticleFilterInfo } from '@/types/adFilter';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { loadArticleContent, invalidateArticleContent } from '@/utils/articleContentCache';
 
@@ -119,6 +120,7 @@ export function useArticleDetail() {
 
   const showContent = ref(false);
   const articleContent = ref('');
+  const articleFilterInfo = ref<ArticleFilterInfo>();
   let contentRequestId = 0;
   let contentController: AbortController | null = null;
   const isLoadingContent = ref(false);
@@ -300,6 +302,7 @@ export function useArticleDetail() {
       if (!isCurrent()) return;
 
       let content = data.content;
+      articleFilterInfo.value = data.filterInfo;
 
       // Proxy images if media cache is enabled
       const cacheEnabled = await isMediaCacheEnabled();
@@ -878,7 +881,14 @@ export function useArticleDetail() {
     }
   }
 
+  function refreshFilteredContent() {
+    if (article.value?.id) {
+      invalidateArticleContent(article.value.id);
+      void fetchArticleContent();
+    }
+  }
   onMounted(async () => {
+    window.addEventListener('ad-filter-changed', refreshFilteredContent);
     // Restore preferences from localStorage if store is empty
     if (store.articleViewModePreferences.size === 0) {
       try {
@@ -923,6 +933,7 @@ export function useArticleDetail() {
   });
 
   onBeforeUnmount(() => {
+    window.removeEventListener('ad-filter-changed', refreshFilteredContent);
     contentRequestId += 1;
     contentController?.abort();
     window.removeEventListener('render-article-content', handleRenderContent);
@@ -935,6 +946,7 @@ export function useArticleDetail() {
     article,
     showContent,
     articleContent,
+    articleFilterInfo,
     isLoadingContent,
     imageViewerSrc,
     imageViewerAlt,

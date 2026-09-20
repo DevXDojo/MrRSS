@@ -13,6 +13,7 @@ const {
   article,
   showContent,
   articleContent,
+  articleFilterInfo,
   isLoadingContent,
   imageViewerSrc,
   imageViewerAlt,
@@ -128,6 +129,7 @@ onBeforeUnmount(() => {
         v-else
         :article="article"
         :article-content="articleContent"
+        :filter-info="articleFilterInfo"
         :is-loading-content="isLoadingContent"
         :attach-image-event-listeners="attachImageEventListeners"
         :show-translations="showTranslations"

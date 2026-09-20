@@ -6038,6 +6038,136 @@
                     }
                 }
             }
+        },
+        "/ad-filter/analyze": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Analyze advertising with the configured AI profile",
+                "parameters": [
+                    {
+                        "description": "Article HTML and filter options",
+                        "name": "preview",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/settings.AdFilterPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/adfilter.Analysis"
+                        }
+                    }
+                }
+            }
+        },
+        "/ad-filter/config": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Read or update advertising filters",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/adfilter.Config"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Save advertising filters with revision conflict protection",
+                "parameters": [
+                    {
+                        "description": "Filtering options and current revision",
+                        "name": "config",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/adfilter.Config"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/adfilter.Config"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/ad-filter/preview": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Preview advertising filters locally",
+                "parameters": [
+                    {
+                        "description": "HTML sample and candidate options",
+                        "name": "preview",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/settings.AdFilterPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/adfilter.Content"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -7471,6 +7601,149 @@
                     "type": "string"
                 },
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "adfilter.Analysis": {
+            "type": "object",
+            "properties": {
+                "cached": {
+                    "type": "boolean"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "decisions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/adfilter.Decision"
+                    }
+                },
+                "guarded": {
+                    "type": "integer"
+                },
+                "scanned": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "truncated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "settings.AdFilterPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "html": {
+                    "type": "string"
+                },
+                "options": {
+                    "$ref": "#/definitions/adfilter.Options"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "adfilter.Decision": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "type": "number"
+                },
+                "evidence": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "adfilter.Content": {
+            "type": "object",
+            "properties": {
+                "ad_filter": {
+                    "$ref": "#/definitions/adfilter.Report"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "original_content": {
+                    "type": "string"
+                }
+            }
+        },
+        "adfilter.Options": {
+            "type": "object",
+            "properties": {
+                "ai_enabled": {
+                    "type": "boolean"
+                },
+                "ai_mode": {
+                    "type": "string"
+                },
+                "allowlist": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "include_self_promotion": {
+                    "type": "boolean"
+                },
+                "rules": {
+                    "type": "string"
+                }
+            }
+        },
+        "adfilter.Report": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "guarded": {
+                    "type": "integer"
+                },
+                "reasons": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "removed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "adfilter.Config": {
+            "type": "object",
+            "properties": {
+                "ai_enabled": {
+                    "type": "boolean"
+                },
+                "ai_mode": {
+                    "type": "string"
+                },
+                "allowlist": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "include_self_promotion": {
+                    "type": "boolean"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "rules": {
                     "type": "string"
                 }
             }

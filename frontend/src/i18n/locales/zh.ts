@@ -1,5 +1,6 @@
 import type { TranslationMessages } from '../types';
 import { zhNotifications } from './notifications';
+import { zhAdFilter } from './adFilter';
 
 const zh: TranslationMessages = {
   article: {
@@ -581,6 +582,17 @@ const zh: TranslationMessages = {
       xpath: 'XPath 支持',
       xpathDocumentation: 'XPath 文档',
       picker: {
+        undo: '撤销',
+        redo: '重做',
+        simplified: '简化页面布局',
+        parent: '选择父元素',
+        child: '选择子元素',
+        keyboardHint: 'Alt + ↑ / ↓ · Enter 确认 · Ctrl/Cmd + Z 撤销',
+        locate: '在页面中定位',
+        missingFields: '缺少标题或链接，请在应用前检查这条结果。',
+        missingOnly: '只看缺少必填字段的结果',
+        previous: '上一页',
+        next: '下一页',
         coverage: '{total} 篇中提取到 {count} 篇',
         fieldCalibrationHint: '请在另一篇文章中点击「{field}」，校准共同的提取规则。',
         calibrateField: '再选一个示例来校准',
@@ -757,6 +769,7 @@ const zh: TranslationMessages = {
   },
   setting: {
     notifications: zhNotifications,
+    adFilter: zhAdFilter,
     search: {
       clear: '清除设置搜索',
       noResults: '没有匹配的设置',

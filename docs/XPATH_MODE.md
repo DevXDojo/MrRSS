@@ -45,6 +45,14 @@ coverage, extraction samples update as you select, and XPath expressions are
 collapsed under Advanced. Apply after checking the results; nothing is saved
 until you submit the feed form. Set the date layout in the form as needed.
 
+Use **Undo / Redo** (Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z while the preview is focused)
+to revise confirmed choices. **Simplified layout** removes page styling when it
+obscures the list. Parent/child buttons or Alt+Up/Down refine the candidate;
+Enter confirms it. Results are paginated, can show only missing titles/links,
+and each result can be located in the page. A unique date or image is suggested
+only if it matches consistently across all selected articles. Applying a visual
+selection preserves manual author/category expressions and custom item IDs.
+
 The isolated preview retains original styles and images. Source scripts, embedded
 frames, forms and navigation are disabled. The HTML fetch uses the form's proxy;
 styles, images and fonts load through the webview's network configuration. Pages

@@ -18,11 +18,13 @@ import (
 	"strings"
 	"time"
 
+	"MrRSS/internal/adfilter"
 	"MrRSS/internal/cache"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/utils/fileutil"
 	"MrRSS/internal/utils/httputil"
+	"github.com/PuerkitoBio/goquery"
 )
 
 // validateMediaURL validates that the URL is HTTP/HTTPS and properly formatted
@@ -483,6 +485,17 @@ func HandleWebpageProxy(h *core.Handler, w http.ResponseWriter, r *http.Request)
 
 	// If this is HTML content, rewrite all resource URLs
 	if strings.Contains(strings.ToLower(contentType), "text/html") {
+		options := h.AdFilterOptions(r.Context())
+		if options.Applies(webpageURL) {
+			if doc, parseErr := goquery.NewDocumentFromReader(bytes.NewReader(bodyBytes)); parseErr == nil {
+				report := adfilter.Filter(doc, webpageURL, options)
+				if report.Removed > 0 {
+					if filtered, renderErr := doc.Html(); renderErr == nil {
+						bodyBytes = []byte(filtered)
+					}
+				}
+			}
+		}
 		bodyBytes = rewriteHTMLContent(bodyBytes, webpageURL)
 	}
 
@@ -1613,6 +1626,12 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 	if err := validateMediaURL(referer); err != nil {
 		log.Printf("Invalid referer validation failed for %s: %v", referer, err)
 		response.Error(w, err, http.StatusBadRequest)
+		return
+	}
+	if options := h.AdFilterOptions(r.Context()); options.Applies(referer) && adfilter.AdResource(resourceURL, referer) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-MrRSS-Filtered", "advertising-resource")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 

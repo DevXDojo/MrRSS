@@ -101,6 +101,23 @@ func (c *Client) RequestWithConfig(config RequestConfig) (ResponseResult, error)
 }
 
 // RequestWithConfigContext makes a cancellable request with full configuration.
+// RequestSingleFormatContext sends exactly one request in the configured protocol.
+// Unknown endpoints use OpenAI compatibility without speculative retries.
+func (c *Client) RequestSingleFormatContext(ctx context.Context, config RequestConfig) (ResponseResult, error) {
+	var handler FormatHandler = NewOpenAIHandler()
+	switch DetectAPIProvider(c.config.Endpoint) {
+	case "gemini":
+		handler = NewGeminiHandler()
+	case "anthropic":
+		handler = &AnthropicHandler{}
+	case "deepseek":
+		handler = &DeepSeekHandler{}
+	case "ollama":
+		handler = NewOllamaHandler()
+	}
+	return c.tryFormat(ctx, handler, config)
+}
+
 func (c *Client) RequestWithConfigContext(ctx context.Context, config RequestConfig) (ResponseResult, error) {
 	provider := DetectAPIProvider(c.config.Endpoint)
 

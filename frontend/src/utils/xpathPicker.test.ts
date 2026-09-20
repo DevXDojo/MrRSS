@@ -5,6 +5,7 @@ import {
   containingPickerItem,
   pickerLink,
   suggestPickerItems,
+  suggestOptionalPickerFields,
   inferPickerField,
   previewField,
   relativePickerXPath,
@@ -41,7 +42,32 @@ describe('visual XPath selection', () => {
     expect(previewField(item, './a[1]', nodes)).toBe('<script>plain text</script>');
     expect(previewField(item, './a[1]/@href', nodes)).toBe('https://example.com/one');
     expect(previewField(item, './missing[1]', nodes)).toBe('');
+    expect(previewField(item, '', nodes)).toBe('');
   });
+});
+
+it('suggests optional fields only when all article rows have one compatible element', () => {
+  const rows: XPathPreviewNode[] = [1, 2, 3].map((i) => ({
+    path: `/ul[1]/li[${i}]`,
+    tag: 'li',
+    children: [
+      { path: `/ul[1]/li[${i}]/time[1]`, tag: 'time', date: '2026-09-20' },
+      { path: `/ul[1]/li[${i}]/img[1]`, tag: 'img', image: 'https://example.org/image.png' },
+    ],
+  }));
+  const nodes = () => new Map(rows.flatMap(flattenPreview).map((node) => [node.path!, node]));
+  expect(suggestOptionalPickerFields(rows[0], rows, nodes())).toEqual({
+    timestamp: './time[1]/@datetime',
+    thumbnail: './img[1]/@src',
+  });
+  rows[1].children!.push({
+    path: '/ul[1]/li[2]/img[2]',
+    tag: 'img',
+    image: 'https://example.org/two.png',
+  });
+  expect(suggestOptionalPickerFields(rows[0], rows, nodes()).thumbnail).toBeUndefined();
+  rows[2].children = rows[2].children!.filter((node) => node.tag !== 'time');
+  expect(suggestOptionalPickerFields(rows[0], rows, nodes()).timestamp).toBeUndefined();
 });
 
 it.each<XPathPickerField>(['title', 'uri', 'timestamp', 'content', 'thumbnail'])(

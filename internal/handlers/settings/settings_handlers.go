@@ -67,6 +67,7 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		// Bootstrap storage is changed only by the explicit migration endpoint.
 		delete(req, "data_directory")
 		delete(req, "notification_config") // Prevent stale generic autosaves overwriting push rules.
+		delete(req, "ad_filter_config")    // Validated and revision-checked by the dedicated API.
 
 		wasEnabled := map[string]bool{}
 		for _, provider := range []string{"freshrss", "miniflux"} {

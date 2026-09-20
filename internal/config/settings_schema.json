@@ -4,6 +4,20 @@
     "description": "Settings schema definition - add new settings here only!"
   },
   "settings": {
+    "ai_ad_filter_profile_id": {
+      "type": "string",
+      "default": "",
+      "category": "ai",
+      "encrypted": false,
+      "frontend_key": "ai_ad_filter_profile_id"
+    },
+    "ad_filter_config": {
+      "type": "string",
+      "default": "{\"enabled\":true,\"allowlist\":\"\",\"rules\":\"\",\"revision\":0,\"ai_enabled\":false,\"ai_mode\":\"review\",\"include_self_promotion\":false}",
+      "category": "content",
+      "encrypted": false,
+      "frontend_key": "ad_filter_config"
+    },
     "notification_config": {
       "type": "string",
       "default": "",

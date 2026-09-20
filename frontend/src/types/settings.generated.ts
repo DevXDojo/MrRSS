@@ -5,6 +5,8 @@
 // To add new settings, edit internal/config/settings_schema.json and run: go run tools/settings-generator/main.go
 
 export interface SettingsData {
+  ad_filter_config: string;
+  ai_ad_filter_profile_id: string;
   ai_api_key: string;
   ai_chat_enabled: boolean;
   ai_chat_profile_id: string;

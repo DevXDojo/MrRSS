@@ -1,5 +1,6 @@
 import type { TranslationMessages } from '../types';
 import { enNotifications } from './notifications';
+import { enAdFilter } from './adFilter';
 
 const en: TranslationMessages = {
   article: {
@@ -606,6 +607,17 @@ const en: TranslationMessages = {
       xpath: 'XPath Support',
       xpathDocumentation: 'XPath Documentation',
       picker: {
+        undo: 'Undo',
+        redo: 'Redo',
+        simplified: 'Simplified page layout',
+        parent: 'Select parent',
+        child: 'Select child',
+        keyboardHint: 'Alt + ↑ / ↓ · Enter to confirm · Ctrl/Cmd + Z to undo',
+        locate: 'Locate on page',
+        missingFields: 'Missing title or link — review this result before applying.',
+        missingOnly: 'Show results missing required fields',
+        previous: 'Previous',
+        next: 'Next',
         coverage: 'Found in {count} of {total} articles',
         fieldCalibrationHint: 'Click {field} in a different article to check a shared rule.',
         calibrateField: 'Calibrate with a second example',
@@ -786,6 +798,7 @@ const en: TranslationMessages = {
   },
   setting: {
     notifications: enNotifications,
+    adFilter: enAdFilter,
     search: {
       clear: 'Clear settings search',
       noResults: 'No matching settings',

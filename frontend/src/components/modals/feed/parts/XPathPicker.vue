@@ -12,6 +12,7 @@ import {
   pickerLink,
   suggestPickerItems,
   inferPickerField,
+  suggestOptionalPickerFields,
   type XPathPreviewNode,
   type XPathPickerField,
   type XPathSelection,
@@ -34,6 +35,53 @@ const secondSeed = ref<XPathPreviewNode | null>(null);
 const calibrating = ref(false);
 const fieldCalibrating = ref(false);
 const fieldSeeds = ref<Partial<Record<XPathPickerField, XPathPreviewNode>>>({});
+const simplified = ref(false);
+const resultPage = ref(0);
+const missingOnly = ref(false);
+const pageSize = 5;
+function savedState() {
+  return {
+    selection: { ...selection.value },
+    item: item.value,
+    candidate: candidate.value,
+    manual: manual.value,
+    seed: seed.value,
+    secondSeed: secondSeed.value,
+    active: active.value,
+    fieldSeeds: { ...fieldSeeds.value },
+  };
+}
+type PickerState = ReturnType<typeof savedState>;
+const undoStack = ref<PickerState[]>([]);
+const redoStack = ref<PickerState[]>([]);
+function checkpoint() {
+  undoStack.value = [...undoStack.value.slice(-29), savedState()];
+  redoStack.value = [];
+}
+function restore(state: PickerState) {
+  selection.value = { ...state.selection };
+  item.value = state.item;
+  manual.value = state.manual;
+  seed.value = state.seed;
+  secondSeed.value = state.secondSeed;
+  active.value = state.active;
+  fieldSeeds.value = { ...state.fieldSeeds };
+  candidate.value = state.candidate;
+  calibrating.value = false;
+  fieldCalibrating.value = false;
+}
+function undo() {
+  const state = undoStack.value.pop();
+  if (!state) return;
+  redoStack.value.push(savedState());
+  restore(state);
+}
+function redo() {
+  const state = redoStack.value.pop();
+  if (!state) return;
+  undoStack.value.push(savedState());
+  restore(state);
+}
 const suggestions = computed(() =>
   seed.value ? suggestPickerItems(seed.value, byPath.value, secondSeed.value) : []
 );
@@ -134,6 +182,21 @@ const fieldCoverage = computed(() =>
     ])
   )
 );
+const resultItems = computed(() =>
+  highlightedItems.value.filter(
+    (node) =>
+      !missingOnly.value ||
+      !previewField(node, displaySelection.value.title, byPath.value).trim() ||
+      !previewField(node, displaySelection.value.uri, byPath.value).trim()
+  )
+);
+const pageCount = computed(() => Math.max(1, Math.ceil(resultItems.value.length / pageSize)));
+const visibleResults = computed(() =>
+  resultItems.value.slice(resultPage.value * pageSize, (resultPage.value + 1) * pageSize)
+);
+watch([resultItems, missingOnly], () => {
+  resultPage.value = 0;
+});
 const snapshot = computed(() =>
   tree.value?.html
     ? createXPathSnapshot(tree.value.html, tree.value.base_url || props.url, token.value)
@@ -146,6 +209,7 @@ function highlight() {
       token: token.value,
       path: candidate.value?.path,
       matches: highlightedItems.value.map((node) => node.path),
+      simplified: simplified.value,
     },
     '*'
   );
@@ -166,9 +230,38 @@ function receive(event: MessageEvent) {
     } else candidate.value = picked;
   }
   if (event.data.type === 'mrrss-xpath-confirm' && generated.value) choose();
+  if (event.data.type === 'mrrss-xpath-undo') undo();
+  if (event.data.type === 'mrrss-xpath-redo') redo();
+  if (event.data.type === 'mrrss-xpath-navigate') navigateCandidate(event.data.direction);
   if (event.data.type === 'mrrss-xpath-ready') highlight();
 }
-watch([candidate, highlightedItems], highlight);
+watch([candidate, highlightedItems, simplified], highlight);
+function locate(node: XPathPreviewNode) {
+  frame.value?.contentWindow?.postMessage(
+    { type: 'mrrss-xpath-locate', token: token.value, path: node.path },
+    '*'
+  );
+}
+function navigateCandidate(direction: string) {
+  if (!candidate.value?.path) return;
+  const parent = byPath.value.get(
+    candidate.value.path.slice(0, candidate.value.path.lastIndexOf('/'))
+  );
+  const next =
+    direction === 'parent'
+      ? parent
+      : candidate.value.children?.find((node) => node.path && node.tag);
+  if (!next || ['html', 'body'].includes(next.tag ?? '')) return;
+  if (active.value !== 'item' && !containingPickerItem(next, matches.value)) return;
+  candidate.value = next;
+  locate(next);
+}
+function clearField() {
+  checkpoint();
+  selection.value[active.value] = '';
+  candidate.value = null;
+  fieldCalibrating.value = false;
+}
 let controller: AbortController | null = null;
 let generation = 0;
 async function load() {
@@ -188,6 +281,8 @@ async function load() {
   calibrating.value = false;
   fieldCalibrating.value = false;
   fieldSeeds.value = {};
+  undoStack.value = [];
+  redoStack.value = [];
   token.value = Array.from(crypto.getRandomValues(new Uint8Array(24)), (byte) =>
     byte.toString(16).padStart(2, '0')
   ).join('');
@@ -216,6 +311,7 @@ async function load() {
 }
 function choose() {
   if (!candidate.value || !generated.value) return;
+  checkpoint();
   if (active.value === 'item') {
     const inferFields = guidedStart.value;
     item.value = candidate.value;
@@ -244,7 +340,13 @@ function choose() {
             '';
       }
     }
-    active.value = selection.value.uri ? 'timestamp' : 'title';
+    if (inferFields) {
+      Object.assign(
+        selection.value,
+        suggestOptionalPickerFields(candidate.value, matches.value, byPath.value)
+      );
+    }
+    active.value = selection.value.uri ? 'content' : 'title';
   } else {
     selection.value[active.value] = generated.value;
     if (!fieldCalibrating.value && fieldNode.value)
@@ -262,6 +364,7 @@ function choose() {
   fieldCalibrating.value = false;
 }
 function startManual() {
+  checkpoint();
   manual.value = true;
   active.value = 'item';
   item.value = null;
@@ -313,6 +416,29 @@ onBeforeUnmount(() => {
           <summary class="cursor-pointer">{{ t('modal.feed.picker.previewAbout') }}</summary>
           <p class="mt-1">{{ t('modal.feed.picker.staticHint') }}</p>
         </details>
+      </div>
+      <div v-if="tree" class="flex flex-wrap items-center gap-2 mb-3 text-xs">
+        <button
+          type="button"
+          class="px-3 py-1.5 border border-border rounded-lg disabled:opacity-40"
+          :disabled="!undoStack.length"
+          @click="undo"
+        >
+          {{ t('modal.feed.picker.undo') }}
+        </button>
+        <button
+          type="button"
+          class="px-3 py-1.5 border border-border rounded-lg disabled:opacity-40"
+          :disabled="!redoStack.length"
+          @click="redo"
+        >
+          {{ t('modal.feed.picker.redo') }}
+        </button>
+        <label class="flex items-center gap-2 ml-auto cursor-pointer"
+          ><input v-model="simplified" type="checkbox" />{{
+            t('modal.feed.picker.simplified')
+          }}</label
+        >
       </div>
       <p v-if="loading" class="text-text-secondary" role="status">
         {{ t('common.state.loading') }}
@@ -491,11 +617,7 @@ onBeforeUnmount(() => {
               v-if="active !== 'item' && selection[active]"
               type="button"
               class="block text-xs text-accent"
-              @click="
-                selection[active] = '';
-                candidate = null;
-                fieldCalibrating = false;
-              "
+              @click="clearField"
             >
               {{ t('modal.feed.picker.clearField', { field: fieldLabel(active) }) }}
             </button>
@@ -514,6 +636,15 @@ onBeforeUnmount(() => {
               >
                 {{ node.tag }}{{ node.classes?.length ? '.' + node.classes.join('.') : '' }}
               </button>
+            </div>
+            <div v-if="candidate" class="flex flex-wrap gap-3 text-xs">
+              <button type="button" class="text-accent" @click="navigateCandidate('parent')">
+                {{ t('modal.feed.picker.parent') }}
+              </button>
+              <button type="button" class="text-accent" @click="navigateCandidate('child')">
+                {{ t('modal.feed.picker.child') }}
+              </button>
+              <span class="text-text-secondary">{{ t('modal.feed.picker.keyboardHint') }}</span>
             </div>
             <p v-if="candidate && !generated" class="text-amber-600 text-xs">
               {{
@@ -560,10 +691,17 @@ onBeforeUnmount(() => {
             </p>
             <ul class="space-y-2">
               <li
-                v-for="match in highlightedItems.slice(0, 5)"
+                v-for="match in visibleResults"
                 :key="match.path"
                 class="p-3 bg-bg-secondary border border-border rounded-lg space-y-1"
               >
+                <button
+                  type="button"
+                  class="text-xs text-accent float-right ml-2"
+                  @click="locate(match)"
+                >
+                  {{ t('modal.feed.picker.locate') }}
+                </button>
                 <p class="font-medium line-clamp-2">
                   {{ previewField(match, displaySelection.title || '.', byPath).slice(0, 200) }}
                 </p>
@@ -579,8 +717,42 @@ onBeforeUnmount(() => {
                 <p v-if="displaySelection.content" class="text-xs text-text-secondary line-clamp-3">
                   {{ previewField(match, displaySelection.content, byPath) }}
                 </p>
+                <p
+                  v-if="
+                    item &&
+                    (!previewField(match, displaySelection.title, byPath).trim() ||
+                      !previewField(match, displaySelection.uri, byPath).trim())
+                  "
+                  class="text-xs text-amber-600"
+                >
+                  {{ t('modal.feed.picker.missingFields') }}
+                </p>
               </li>
             </ul>
+            <label v-if="item" class="flex items-center gap-2 text-xs"
+              ><input v-model="missingOnly" type="checkbox" />{{
+                t('modal.feed.picker.missingOnly')
+              }}</label
+            >
+            <div v-if="pageCount > 1" class="flex items-center justify-between text-xs">
+              <button
+                type="button"
+                class="text-accent disabled:opacity-40"
+                :disabled="resultPage === 0"
+                @click="resultPage--"
+              >
+                {{ t('modal.feed.picker.previous') }}
+              </button>
+              <span>{{ resultPage + 1 }} / {{ pageCount }}</span>
+              <button
+                type="button"
+                class="text-accent disabled:opacity-40"
+                :disabled="resultPage + 1 >= pageCount"
+                @click="resultPage++"
+              >
+                {{ t('modal.feed.picker.next') }}
+              </button>
+            </div>
           </section>
           <details
             v-if="item || candidate"
@@ -614,7 +786,9 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="px-4 py-2 rounded-lg bg-accent text-white disabled:opacity-40"
-            :disabled="!validSamples.length || (fieldCalibrating && !generated)"
+            :disabled="
+              !validSamples.length || active === 'item' || (fieldCalibrating && !generated)
+            "
             @click="apply"
           >
             {{ t('modal.feed.picker.apply') }}

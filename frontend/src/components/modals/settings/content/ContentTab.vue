@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { PhWarning } from '@phosphor-icons/vue';
 import TranslationSettings from './TranslationSettings.vue';
 import SummarySettings from './SummarySettings.vue';
+import AdFilterSettings from './AdFilterSettings.vue';
 
 interface Props {
   settings: SettingsData;
@@ -17,6 +18,8 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
+  editing: [value: boolean];
+  busy: [value: boolean];
 }>();
 
 // Create a computed ref that returns the settings object
@@ -60,6 +63,12 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
       </div>
     </div>
 
+    <AdFilterSettings
+      :settings="settings"
+      @update:settings="handleUpdateSettings"
+      @editing="emit('editing', $event)"
+      @busy="emit('busy', $event)"
+    />
     <TranslationSettings :settings="settings" @update:settings="handleUpdateSettings" />
 
     <SummarySettings :settings="settings" @update:settings="handleUpdateSettings" />

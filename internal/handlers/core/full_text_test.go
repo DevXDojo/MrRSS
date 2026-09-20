@@ -24,6 +24,32 @@ func fullTextHandler(t *testing.T) *Handler {
 	return &Handler{DB: db}
 }
 
+func TestFullTextRetainsOriginalWhenCustomRuleHidesEverything(t *testing.T) {
+	h := fullTextHandler(t)
+	h.DB.SetSetting("ad_filter_config", `{"enabled":true,"rules":"127.0.0.1##.story","ai_mode":"review"}`)
+	source := &models.Feed{Title: "fixture", URL: "https://example.org/feed"}
+	id, err := h.DB.AddFeed(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source.ID = id
+	if err := h.DB.SetFeedContentOptions(context.Background(), id, database.FeedContentOptions{ContentSelector: ".story"}); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `<div class="story"><p>All original editorial content is preserved.</p></div>`)
+	}))
+	defer server.Close()
+	result, err := h.FetchFullArticleForReader(context.Background(), server.URL, source)
+	if err != nil || result.Content != "" || !strings.Contains(result.OriginalContent, "editorial content") {
+		t.Fatalf("%+v %v", result, err)
+	}
+	original, err := h.FetchFullArticleContentContext(context.Background(), server.URL, source)
+	if err != nil || original != result.OriginalContent {
+		t.Fatalf("cache consumer lost original: %q %v", original, err)
+	}
+}
+
 func TestFullTextSelectorsLazyImagesAndRedirectBase(t *testing.T) {
 	h := fullTextHandler(t)
 	source := &models.Feed{Title: "test", URL: "https://example.org/feed"}

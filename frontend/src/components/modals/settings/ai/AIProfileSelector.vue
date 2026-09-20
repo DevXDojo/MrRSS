@@ -10,6 +10,7 @@ const { profiles, fetchProfiles } = useAIProfiles();
 interface Props {
   modelValue: string | null;
   disabled?: boolean;
+  allowDefault?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -31,6 +32,7 @@ onMounted(() => {
 // If no value is set, show the first profile but don't emit update
 const selectedValue = computed(() => {
   if (props.modelValue === null || props.modelValue === '') {
+    if (props.allowDefault) return '0';
     return profiles.value.length > 0 ? String(profiles.value[0].id) : '';
   }
   return String(props.modelValue);
@@ -38,6 +40,11 @@ const selectedValue = computed(() => {
 
 // Build options for BaseSelect
 const profileOptions = computed(() => {
+  if (props.allowDefault)
+    return [
+      { value: '0', label: t('setting.adFilter.defaultProfile') },
+      ...profiles.value.map((profile) => ({ value: String(profile.id), label: profile.name })),
+    ];
   if (profiles.value.length === 0) {
     return [{ value: '', label: t('setting.ai.noProfiles'), disabled: true }];
   }
@@ -63,7 +70,7 @@ function handleChange(value: string | number) {
     <BaseSelect
       :model-value="selectedValue"
       :options="profileOptions"
-      :disabled="disabled || profiles.length === 0"
+      :disabled="disabled || (!allowDefault && profiles.length === 0)"
       :placeholder="profiles.length === 0 ? t('setting.ai.noProfiles') : ''"
       width="w-44 sm:w-56"
       :searchable="true"

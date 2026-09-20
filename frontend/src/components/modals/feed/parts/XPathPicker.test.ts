@@ -73,6 +73,26 @@ it('guides a title click through list confirmation and applies inferred fields',
     expect(wrapper.text()).toContain('https://example.com/3');
     await wrapper
       .findAll('button')
+      .find((button) => button.text() === 'modal.feed.picker.undo')!
+      .trigger('click');
+    await flushPromises();
+    expect(
+      wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'modal.feed.picker.apply')!
+        .attributes('disabled')
+    ).toBeDefined();
+    expect(
+      wrapper.findAll('button').find((button) => button.text() === 'modal.feed.picker.confirmGroup')
+    ).toBeDefined();
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'modal.feed.picker.redo')!
+      .trigger('click');
+    await flushPromises();
+    expect(wrapper.text()).toContain('https://example.com/3');
+    await wrapper
+      .findAll('button')
       .find((button) => button.text().startsWith('modal.feed.picker.titleField'))!
       .trigger('click');
     await wrapper

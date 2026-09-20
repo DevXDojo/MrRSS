@@ -57,9 +57,10 @@ function applySelection(selection: XPathSelection) {
   emit('update:xpath-item-content', selection.content);
   emit('update:xpath-item-timestamp', selection.timestamp);
   emit('update:xpath-item-thumbnail', selection.thumbnail);
-  emit('update:xpath-item-uid', selection.uri);
-  emit('update:xpath-item-author', '');
-  emit('update:xpath-item-categories', '');
+  // Preserve manually configured metadata and custom identifiers when improving
+  // the visually selected fields of an existing subscription.
+  if (!props.xpathItemUid || props.xpathItemUid === props.xpathItemUri)
+    emit('update:xpath-item-uid', selection.uri);
   showPicker.value = false;
 }
 

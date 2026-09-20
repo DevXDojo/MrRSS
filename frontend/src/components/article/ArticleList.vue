@@ -42,6 +42,7 @@ import { parseSettingsData } from '@/composables/core/useSettings.generated';
 import { openInBrowser } from '@/utils/browser';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import type { Article } from '@/types/models';
+import type { ArticleFilterInfo } from '@/types/adFilter';
 
 const store = useAppStore();
 const { t, locale } = useI18n();
@@ -68,6 +69,7 @@ let scrollReadObserver: IntersectionObserver | null = null;
 const showCardModal = ref(false);
 const cardModalArticle = ref<Article | null>(null);
 const cardModalContent = ref('');
+const cardModalFilterInfo = ref<ArticleFilterInfo>();
 const isCardModalLoading = ref(false);
 const recentlyClosedCardId = ref<number | null>(null);
 let cardHighlightTimer: ReturnType<typeof setTimeout> | null = null;
@@ -465,7 +467,14 @@ function getFilterText(): string {
 const { initialize: initializeShowPreviewImages } = useShowPreviewImages();
 
 // Load settings and setup
+function refreshCardFilter() {
+  if (showCardModal.value && cardModalArticle.value) {
+    invalidateArticleContent(cardModalArticle.value.id);
+    void openCardModal(cardModalArticle.value);
+  }
+}
 onMounted(async () => {
+  window.addEventListener('ad-filter-changed', refreshCardFilter);
   await loadTranslationSettings();
   await initializeShowPreviewImages();
 
@@ -611,6 +620,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  window.removeEventListener('ad-filter-changed', refreshCardFilter);
   store.setArticleNavigationContext(null);
   cleanupTranslation();
   // Clear scroll throttle timer
@@ -960,6 +970,7 @@ async function openCardModal(article: Article): Promise<void> {
     const data = await loadArticleContent(article.id);
     if (cardModalArticle.value?.id !== article.id || !showCardModal.value) return;
     let content = data.content;
+    cardModalFilterInfo.value = data.filterInfo;
     if (mediaCacheEnabled && content) {
       content = proxyImagesInHtml(content, data.feedUrl || article.url);
     }
@@ -1647,6 +1658,7 @@ async function markAllVisibleAsRead(): Promise<void> {
     v-if="showCardModal && cardModalArticle"
     :article="cardModalArticle"
     :article-content="cardModalContent"
+    :filter-info="cardModalFilterInfo"
     :is-loading-content="isCardModalLoading"
     @close="closeCardModal"
     @previous="cardModalPrevious"

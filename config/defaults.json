@@ -1,4 +1,6 @@
 {
+  "ad_filter_config": "{\"enabled\":true,\"allowlist\":\"\",\"rules\":\"\",\"revision\":0,\"ai_enabled\":false,\"ai_mode\":\"review\",\"include_self_promotion\":false}",
+  "ai_ad_filter_profile_id": "",
   "ai_api_key": "",
   "ai_chat_enabled": false,
   "ai_chat_profile_id": "",

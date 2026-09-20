@@ -10,10 +10,12 @@
  * fetch, bulk content cleanup).
  */
 
+import type { ArticleFilterInfo } from '@/types/adFilter';
 export interface ArticleContentResponse {
   content: string;
   feedUrl: string;
   cached: boolean;
+  filterInfo?: ArticleFilterInfo;
 }
 
 const MAX_CACHED_ARTICLES = 8;
@@ -77,6 +79,12 @@ export async function loadArticleContent(
       feedUrl: typeof data.feed_url === 'string' ? data.feed_url : '',
       cached: data.cached === true,
     };
+    if (data.ad_filter)
+      entry.filterInfo = {
+        sourceContent: entry.content,
+        originalContent: typeof data.original_content === 'string' ? data.original_content : '',
+        report: data.ad_filter,
+      };
 
     // An empty body means the backend could not produce the article this time
     // (it fetches the source on demand and returns "cached: false" with nothing

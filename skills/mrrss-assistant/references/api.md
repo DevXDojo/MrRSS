@@ -605,6 +605,39 @@ Parameters:
 
 Request body: see the Swagger schema for full field details.
 
+## Ad Filter
+
+### `POST /ad-filter/analyze`
+
+Analyze advertising with the configured AI profile
+
+Parameters:
+  - `preview` (body, required): Article HTML and filter options
+
+Request body: see the Swagger schema for full field details.
+
+### `GET /ad-filter/config`
+
+Read or update advertising filters
+
+### `PUT /ad-filter/config`
+
+Save advertising filters with revision conflict protection
+
+Parameters:
+  - `config` (body, required): Filtering options and current revision
+
+Request body: see the Swagger schema for full field details.
+
+### `POST /ad-filter/preview`
+
+Preview advertising filters locally
+
+Parameters:
+  - `preview` (body, required): HTML sample and candidate options
+
+Request body: see the Swagger schema for full field details.
+
 ## Ai Chat
 
 ### `POST /ai-chat`

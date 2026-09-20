@@ -15,6 +15,12 @@ export function createXPathSnapshot(html: string, baseURL: string, token: string
     groupLayer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483646';
     document.body.append(groupLayer);
     const indexed = new Map(Array.from(document.querySelectorAll('[data-mrrss-path]')).map(el => [el.dataset.mrrssPath, el]));
+    const sourceStyles = Array.from(document.querySelectorAll('style,link[rel="stylesheet"]'));
+    const originalMedia = sourceStyles.map(el => [el, el.getAttribute('media')]);
+    const inlineStyles = Array.from(document.querySelectorAll('[style]')).filter(el => el !== overlay && el !== groupLayer).map(el => [el, el.getAttribute('style')]);
+    const simpleStyle = document.createElement('style');
+    simpleStyle.textContent = 'body{margin:20px!important;font:16px/1.6 system-ui!important;color:#222!important;background:#fff!important} img{max-width:240px;max-height:180px} article,li{margin:12px 0;padding:8px;border:1px solid #ddd} a{color:#2563eb} table{border-collapse:collapse} td{padding:6px}';
+    let simplified = false;
     let matches = [];
     let target = null;
     let selected = null;
@@ -45,6 +51,8 @@ export function createXPathSnapshot(html: string, baseURL: string, token: string
     document.addEventListener('submit', e => e.preventDefault(), true);
     document.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); parent.postMessage({type:'mrrss-xpath-confirm',token}, '*'); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); parent.postMessage({type:e.shiftKey?'mrrss-xpath-redo':'mrrss-xpath-undo',token}, '*'); }
+      if (e.altKey && ['ArrowUp','ArrowDown'].includes(e.key)) { e.preventDefault(); parent.postMessage({type:'mrrss-xpath-navigate',token,direction:e.key==='ArrowUp'?'parent':'child'}, '*'); }
     });
     let redrawPending = false;
     function redraw() {
@@ -57,7 +65,20 @@ export function createXPathSnapshot(html: string, baseURL: string, token: string
     window.addEventListener('load', redraw);
     new ResizeObserver(redraw).observe(document.body);
     window.addEventListener('message', e => {
-      if (e.source !== parent || e.data?.token !== token || e.data?.type !== 'mrrss-xpath-highlight') return;
+      if (e.source !== parent || e.data?.token !== token) return;
+      if (e.data.type === 'mrrss-xpath-locate') {
+        const el = indexed.get(e.data.path);
+        if (el) { selected=el; target=null; el.scrollIntoView({block:'center',behavior:'smooth'}); draw(el); }
+        return;
+      }
+      if (e.data.type !== 'mrrss-xpath-highlight') return;
+      if (simplified !== !!e.data.simplified) {
+        simplified = !!e.data.simplified;
+        for (const el of sourceStyles) { if (el.sheet) el.sheet.disabled = simplified; }
+        for (const [el,media] of originalMedia) { if (simplified) el.setAttribute('media','not all'); else if (media === null) el.removeAttribute('media'); else el.setAttribute('media',media); }
+        for (const [el,style] of inlineStyles) { if (simplified) el.removeAttribute('style'); else el.setAttribute('style',style); }
+        if (simplified) document.head.append(simpleStyle); else simpleStyle.remove();
+      }
       selected = indexed.get(e.data.path);
       matches = Array.isArray(e.data.matches) ? e.data.matches.map(path => indexed.get(path)).filter(Boolean) : [];
       target = null;

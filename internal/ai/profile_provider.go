@@ -32,6 +32,7 @@ const (
 	FeatureSummary     FeatureType = "summary"
 	FeatureChat        FeatureType = "chat"
 	FeatureSearch      FeatureType = "search"
+	FeatureAdFilter    FeatureType = "ad_filter"
 )
 
 // GetProfileForFeature returns the AI profile configured for a specific feature
@@ -67,6 +68,8 @@ func (p *ProfileProvider) getSettingKeyForFeature(feature FeatureType) string {
 		return "ai_chat_profile_id"
 	case FeatureSearch:
 		return "ai_search_profile_id"
+	case FeatureAdFilter:
+		return "ai_ad_filter_profile_id"
 	default:
 		return ""
 	}

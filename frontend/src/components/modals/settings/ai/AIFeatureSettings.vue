@@ -88,6 +88,17 @@ async function clearAllChatSessions() {
 
 <template>
   <SettingGroup :icon="PhRobot" :title="t('setting.ai.aiFeatures')">
+    <SubSettingItem
+      :icon="PhRobot"
+      :title="t('setting.adFilter.profile')"
+      :description="t('setting.adFilter.profileHint')"
+    >
+      <AIProfileSelector
+        :model-value="props.settings.ai_ad_filter_profile_id"
+        allow-default
+        @update:model-value="updateSetting('ai_ad_filter_profile_id', $event)"
+      />
+    </SubSettingItem>
     <!-- AI Search -->
     <TipBox type="info" :title="t('setting.ai.isBeta')" />
     <SettingWithToggle

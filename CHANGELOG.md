@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add reversible ad filtering with site exceptions, local previews and opt-in AI review using existing AI profiles. Require quoted evidence and a second audit before accepting AI suggestions; preserve original content and provide manual/automatic modes. (#1208)
+- Improve the visual XPath picker with undo/redo, simplified layouts, parent/child shortcuts, paginated extraction results, missing-field diagnostics and consistent optional date/image suggestions. (#1208)
+
 - Add a dedicated Notifications settings tab with locally bundled Telegram, Discord and Feishu/Lark logos, multiple destinations, encrypted credentials, connection tests, condition-based article alerts, scheduled briefings, quiet hours, previews and delivery history. Persist queued messages across restarts and retry transient failures with bounded backoff in desktop and server modes. (#1208)
 
 ### Fixed

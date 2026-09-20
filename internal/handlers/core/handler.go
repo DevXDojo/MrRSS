@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"MrRSS/internal/adfilter"
 	"MrRSS/internal/ai"
 	"MrRSS/internal/cache"
 	"MrRSS/internal/database"
@@ -48,6 +49,7 @@ type DiscoveryState struct {
 // Handler holds all dependencies for HTTP handlers.
 // It now uses a service registry for better separation of concerns.
 type Handler struct {
+	AdAnalyzer    adfilter.Analyzer
 	Notifications *notification.Service
 	// Services registry provides access to all business logic services
 	Services *svc.Registry

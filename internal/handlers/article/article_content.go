@@ -8,7 +8,6 @@ import (
 	"MrRSS/internal/feed"
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
-	"MrRSS/internal/utils/textutil"
 )
 
 // HandleGetArticleContent fetches the article content from RSS feed dynamically.
@@ -61,10 +60,13 @@ func HandleGetArticleContent(h *core.Handler, w http.ResponseWriter, r *http.Req
 		feedURL = feed.URL
 	}
 
+	prepared := h.PrepareArticleForReader(r.Context(), content, article.URL)
 	response.JSON(w, map[string]interface{}{
-		"content":  textutil.PrepareArticleContent(content, article.URL),
-		"feed_url": feedURL,
-		"cached":   wasCached,
+		"content":          prepared.Content,
+		"original_content": prepared.OriginalContent,
+		"ad_filter":        prepared.Filter,
+		"feed_url":         feedURL,
+		"cached":           wasCached,
 	})
 }
 
@@ -164,16 +166,15 @@ func HandleFetchFullArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	}
 
 	// Fetch full content
-	fullContent, err := h.FetchFullArticleContentContext(r.Context(), article.URL, feed)
+	fullContent, err := h.FetchFullArticleForReader(r.Context(), article.URL, feed)
 	if err != nil {
 		log.Printf("Error fetching full article content: %v", err)
 		response.Error(w, err, http.StatusInternalServerError)
 		return
 	}
 
-	response.JSON(w, map[string]string{
-		"content":  fullContent,
-		"feed_url": feedURL,
+	response.JSON(w, map[string]interface{}{
+		"content": fullContent.Content, "original_content": fullContent.OriginalContent, "ad_filter": fullContent.Filter, "feed_url": feedURL,
 	})
 }
 

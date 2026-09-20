@@ -9,12 +9,14 @@ import ArticleContent from './ArticleContent.vue';
 import ImageViewer from '../common/ImageViewer.vue';
 import FindInPage from '../common/FindInPage.vue';
 import type { Article } from '@/types/models';
+import type { ArticleFilterInfo } from '@/types/adFilter';
 import { openInBrowser } from '@/utils/browser';
 import { useSettings } from '@/composables/core/useSettings';
 
 interface Props {
   article: Article;
   articleContent: string;
+  filterInfo?: ArticleFilterInfo;
   isLoadingContent: boolean;
 }
 
@@ -347,6 +349,7 @@ function handleOverlayClick(e: MouseEvent) {
             v-else
             :article="article"
             :article-content="articleContent"
+            :filter-info="filterInfo"
             :is-loading-content="isLoadingContent"
             :attach-image-event-listeners="attachImageEventListeners"
             :show-translations="showTranslations"

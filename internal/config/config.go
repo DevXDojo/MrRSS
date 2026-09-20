@@ -18,6 +18,8 @@ var defaultsJSON []byte
 
 // Defaults holds all default settings values
 type Defaults struct {
+	AdFilterConfig                string `json:"ad_filter_config"`
+	AIAdFilterProfileId           string `json:"ai_ad_filter_profile_id"`
 	AIAPIKey                      string `json:"ai_api_key"`
 	AIChatEnabled                 bool   `json:"ai_chat_enabled"`
 	AIChatProfileId               string `json:"ai_chat_profile_id"`
@@ -182,6 +184,10 @@ func Get() Defaults {
 // GetString returns a setting default as a string
 func GetString(key string) string {
 	switch key {
+	case "ad_filter_config":
+		return defaults.AdFilterConfig
+	case "ai_ad_filter_profile_id":
+		return defaults.AIAdFilterProfileId
 	case "ai_api_key":
 		return defaults.AIAPIKey
 	case "ai_chat_enabled":

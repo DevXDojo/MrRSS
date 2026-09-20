@@ -54,6 +54,7 @@ export function previewField(
   relative: string,
   nodes: Map<string, XPathPreviewNode>
 ): string {
+  if (!relative) return '';
   const [path, attr] = relative.split('/@');
   let node: XPathPreviewNode | undefined;
   if (path.startsWith('.//')) {
@@ -150,6 +151,37 @@ export function pickerLink(
   }
   const links = flattenPreview(node).filter((child) => child.link);
   return links.length === 1 ? links[0] : undefined;
+}
+
+// Optional fields are suggestions only when their semantic element is unique in
+// every sampled article. Multiple images/dates must be chosen explicitly.
+export function suggestOptionalPickerFields(
+  root: XPathPreviewNode,
+  items: XPathPreviewNode[],
+  nodes: Map<string, XPathPreviewNode>
+): Partial<XPathSelection> {
+  const result: Partial<XPathSelection> = {};
+  const descendants = flattenPreview(root).filter((node) => node.path !== root.path);
+  for (const field of ['timestamp', 'thumbnail'] as const) {
+    const eligible = (node: XPathPreviewNode) =>
+      field === 'timestamp'
+        ? node.tag === 'time' && !!node.date
+        : node.tag === 'img' && !!node.image;
+    const candidates = descendants.filter(eligible);
+    if (candidates.length !== 1) continue;
+    const rule = relativePickerXPath(root, candidates[0], field);
+    if (
+      rule &&
+      items.length > 0 &&
+      items.every(
+        (item) =>
+          flattenPreview(item).filter(eligible).length === 1 &&
+          !!previewField(item, rule, nodes).trim()
+      )
+    )
+      result[field] = rule;
+  }
+  return result;
 }
 
 // Suggest repeated ancestors, but let the user confirm the highlighted group.

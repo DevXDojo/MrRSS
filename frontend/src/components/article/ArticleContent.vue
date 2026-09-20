@@ -6,6 +6,9 @@ import type { Article } from '@/types/models';
 import ArticleTitle from './parts/ArticleTitle.vue';
 import ArticleSummary from './parts/ArticleSummary.vue';
 import ArticleBody from './parts/ArticleBody.vue';
+import ArticleAdFilter from './parts/ArticleAdFilter.vue';
+import { useArticleAdFilter } from '@/composables/article/useArticleAdFilter';
+import type { ArticleFilterInfo } from '@/types/adFilter';
 import FloatingToc from './parts/FloatingToc.vue';
 import AudioPlayer from './parts/AudioPlayer.vue';
 import VideoPlayer from './parts/VideoPlayer.vue';
@@ -49,6 +52,7 @@ interface TranslationResult {
 interface Props {
   article: Article;
   articleContent: string;
+  filterInfo?: ArticleFilterInfo;
   isLoadingContent: boolean;
   attachImageEventListeners?: () => void;
   showTranslations?: boolean;
@@ -157,7 +161,8 @@ const showFullTextButton = computed(() => {
     !props.isLoadingContent &&
     props.article?.url &&
     props.showContent &&
-    !fullArticleContent.value // Don't show if we already have full content
+    !fullArticleContent.value &&
+    !fullArticleFilterInfo.value // Don't show if we already have full content
   );
 });
 
@@ -165,7 +170,7 @@ const showFullTextButton = computed(() => {
 // Images get native lazy-loading hints so offscreen article images are not
 // fetched and decoded until they approach the viewport.
 const displayContent = computed(() => {
-  return withLazyImages(fullArticleContent.value || props.articleContent);
+  return withLazyImages(adFilter.content.value);
 });
 
 // Use composables for summary and translation
@@ -415,21 +420,47 @@ async function forceTranslateContent() {
   await translateContentParagraphs(displayContent.value, true);
 }
 
-const { fullArticleContent, isFetchingFullArticle, fetchFullArticle } = useFullArticle({
-  article: () => props.article,
-  enabled: () => appSettings.value.full_text_fetch_enabled,
-  automatic: () => shouldAutoExpandContent.value,
-  loading: () => props.isLoadingContent,
-  onSuccess: () => window.showToast(t('article.action.fullArticleFetched'), 'success'),
-  onError: () => window.showToast(t('common.errors.fetchingFullArticle'), 'error'),
-  onContent: async (content) => {
-    const article = props.article;
-    if (shouldWaitForFullContentBeforeSummary.value) void generateSummary(article);
-    await nextTick();
-    if (props.article.id !== article.id) return;
-    enhanceRendering('.prose-content');
-    if (translationEnabled.value) await translateContentParagraphs(content);
-  },
+const { fullArticleContent, fullArticleFilterInfo, isFetchingFullArticle, fetchFullArticle } =
+  useFullArticle({
+    article: () => props.article,
+    enabled: () => appSettings.value.full_text_fetch_enabled,
+    automatic: () => shouldAutoExpandContent.value,
+    loading: () => props.isLoadingContent,
+    onSuccess: () => window.showToast(t('article.action.fullArticleFetched'), 'success'),
+    onError: () => window.showToast(t('common.errors.fetchingFullArticle'), 'error'),
+    onContent: async (content) => {
+      const article = props.article;
+      if (shouldWaitForFullContentBeforeSummary.value) void generateSummary(article);
+      await nextTick();
+      if (props.article.id !== article.id) return;
+      enhanceRendering('.prose-content');
+      if (translationEnabled.value) await translateContentParagraphs(content);
+    },
+  });
+const adFilter = useArticleAdFilter({
+  id: () => props.article.id,
+  url: () => props.article.url,
+  content: () =>
+    fullArticleFilterInfo.value
+      ? fullArticleContent.value
+      : fullArticleContent.value || props.articleContent,
+  info: () =>
+    fullArticleFilterInfo.value || fullArticleContent.value
+      ? fullArticleFilterInfo.value
+      : props.filterInfo,
+  mediaCache: () => appSettings.value.media_cache_enabled,
+});
+watch([adFilter.applied, adFilter.original], async () => {
+  const id = props.article.id;
+  contentTranslationRequestId++;
+  isTranslatingContent.value = false;
+  lastTranslatedArticleId.value = null;
+  lastTranslatedContentHash.value = '';
+  await nextTick();
+  if (props.article.id !== id) return;
+  enhanceRendering('.prose-content');
+  await reattachContentInteractions();
+  if (translationEnabled.value) await translateContentParagraphs(displayContent.value);
 });
 
 // Generate summary for the current article
@@ -1251,6 +1282,28 @@ onBeforeUnmount(() => {
           @generate-summary="generateSummary(props.article, true)"
         />
 
+        <ArticleAdFilter
+          v-if="
+            !isLoadingContent &&
+            (fullArticleContent ||
+              articleContent ||
+              fullArticleFilterInfo?.originalContent ||
+              filterInfo?.originalContent) &&
+            adFilter.applicable.value &&
+            (adFilter.removed.value > 0 || adFilter.options.value.ai_enabled)
+          "
+          :removed="adFilter.removed.value"
+          :ai-enabled="adFilter.options.value.ai_enabled"
+          :analysis="adFilter.analysis.value"
+          :busy="adFilter.busy.value"
+          :error="adFilter.error.value"
+          :original="adFilter.original.value"
+          :applied="adFilter.applied.value"
+          @analyze="adFilter.analyze"
+          @apply="adFilter.apply"
+          @toggle-original="adFilter.toggleOriginal"
+          @cancel="adFilter.cancel"
+        />
         <ArticleBody
           :article-content="displayContent"
           :is-translating-content="isTranslatingContent"
