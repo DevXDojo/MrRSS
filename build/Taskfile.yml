@@ -4,6 +4,7 @@ tasks:
   go:mod:tidy:
     summary: Runs `go mod tidy`
     internal: true
+    run: once
     sources:
       - go.mod
       - go.sum
@@ -12,7 +13,13 @@ tasks:
 
   install:frontend:deps:
     summary: Install frontend dependencies
+    # Frontend tasks can request this task in parallel. Keep one installation
+    # after Go module maintenance so node_modules is stable while Wails scans
+    # Go packages for bindings on Windows.
+    run: once
     dir: frontend
+    deps:
+      - task: go:mod:tidy
     sources:
       - package.json
       - package-lock.json
@@ -33,7 +40,6 @@ tasks:
     generates:
       - dist/**/*
     deps:
-      - task: install:frontend:deps
       - task: generate:bindings
         vars:
           BUILD_FLAGS:
@@ -49,7 +55,7 @@ tasks:
     label: generate:bindings (BUILD_FLAGS={{.BUILD_FLAGS}})
     summary: Generates bindings for the frontend
     deps:
-      - task: go:mod:tidy
+      - task: install:frontend:deps
     sources:
       - "**/*.[jt]s"
       - exclude: frontend/**/*
