@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Select articles in normal, card, and table layouts, select all currently visible articles, and batch-mark the selection as read or unread through a bounded API that preserves reader-service synchronization. (#1210) (@baifengs)
-- Optionally keep the desktop window hidden in the system tray when the application starts with the operating system, while preserving normal visibility for manual launches. (#1215) (@EnterMan123)
-- Show an unread-state badge on multimedia gallery cards and remove it as soon as the article is marked read. (#1214) (@EnterMan123)
+- Select articles in normal, card, and table layouts, select all currently visible articles, and batch-mark the selection as read or unread through a bounded API that preserves reader-service synchronization. (#1210)
+- Optionally keep the desktop window hidden in the system tray when the application starts with the operating system, while preserving normal visibility for manual launches. (#1215)
+- Show an unread-state badge on multimedia gallery cards and remove it as soon as the article is marked read. (#1214)
 
 ### Changed
 
@@ -20,9 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Scope card-view image discovery to article content so AI chat icons do not enter the image viewer. (#1212) (@EnterMan123)
-- Close article context menus when clicking modal overlays or other content that stops bubbling events. (#1213) (@EnterMan123)
-- Limit settings search to visible setting labels so hidden modal text, status messages, and placeholders do not produce unreachable results. (#1216) (@EnterMan123)
+- Scope card-view image discovery to article content so AI chat icons do not enter the image viewer. (#1212)
+- Close article context menus when clicking modal overlays or other content that stops bubbling events. (#1213)
+- Limit settings search to visible setting labels so hidden modal text, status messages, and placeholders do not produce unreachable results. (#1216)
 
 ## [1.3.36] - 2026-09-20
 
