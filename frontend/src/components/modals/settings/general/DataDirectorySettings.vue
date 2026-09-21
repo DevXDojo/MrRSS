@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhFolderOpen } from '@phosphor-icons/vue';
+import { SettingItem } from '@/components/settings';
 const { t } = useI18n();
 interface StorageStatus {
   data_directory: string;
@@ -91,51 +92,57 @@ async function cancel() {
 </script>
 
 <template>
-  <div v-if="status" class="p-3 rounded-lg bg-bg-secondary border border-border space-y-3">
-    <h4 class="font-semibold text-sm flex items-center gap-2">
-      <PhFolderOpen :size="20" />{{ t('setting.database.dataDirectory') }}
-    </h4>
-    <p class="text-xs text-text-secondary">{{ t('setting.database.directoryDescription') }}</p>
-    <p class="text-xs break-all">
-      <span class="text-text-secondary">{{ t('setting.database.directoryCurrent') }} </span
-      >{{ status.data_directory }}
-    </p>
-    <p v-if="!status.managed" class="text-xs text-text-secondary">
-      {{ t('setting.database.directoryOverridden') }}
-    </p>
-    <template v-else>
-      <p v-if="status.last_error" role="alert" class="text-xs text-red-500">
-        {{ t('setting.database.directoryMigrationFailed') }} {{ status.last_error }}
+  <SettingItem
+    v-if="status"
+    :icon="PhFolderOpen"
+    :title="t('setting.database.dataDirectory')"
+    :description="t('setting.database.directoryDescription')"
+    layout="column"
+  >
+    <div class="space-y-3">
+      <p class="text-xs break-all">
+        <span class="text-text-secondary">{{ t('setting.database.directoryCurrent') }} </span
+        >{{ status.data_directory }}
       </p>
-      <div v-if="status.pending_directory" class="space-y-2">
-        <p class="text-xs break-all">
-          {{ t('setting.database.directoryPending') }} {{ status.pending_directory }}
+      <p v-if="!status.managed" class="text-xs text-text-secondary">
+        {{ t('setting.database.directoryOverridden') }}
+      </p>
+      <template v-else>
+        <p v-if="status.last_error" role="alert" class="text-xs text-red-500">
+          {{ t('setting.database.directoryMigrationFailed') }} {{ status.last_error }}
         </p>
-        <p class="text-xs text-text-secondary">{{ t('setting.database.directoryScheduled') }}</p>
-        <button type="button" class="btn-secondary" :disabled="busy" @click="cancel">
-          {{ t('setting.database.directoryCancel') }}
-        </button>
-      </div>
-      <div v-else class="flex flex-wrap gap-2">
-        <input
-          v-model="path"
-          class="flex-1 min-w-0 p-2 rounded border border-border bg-bg-tertiary text-sm"
-          :disabled="busy"
-          :aria-label="t('setting.database.directoryDestination')"
-          :placeholder="t('setting.database.directoryDestination')"
-        />
-        <button type="button" class="btn-secondary" :disabled="busy" @click="browse">
-          {{ t('setting.database.directoryBrowse') }}
-        </button>
-        <button
-          type="button"
-          class="px-3 py-2 rounded bg-accent text-white disabled:opacity-40"
-          :disabled="busy || !path.trim()"
-          @click="save"
-        >
-          {{ t('setting.database.directoryChange') }}
-        </button>
-      </div>
-    </template>
-  </div>
+        <div v-if="status.pending_directory" class="space-y-2">
+          <p class="text-xs break-all">
+            {{ t('setting.database.directoryPending') }} {{ status.pending_directory }}
+          </p>
+          <p class="text-xs text-text-secondary">
+            {{ t('setting.database.directoryScheduled') }}
+          </p>
+          <button type="button" class="btn-secondary" :disabled="busy" @click="cancel">
+            {{ t('setting.database.directoryCancel') }}
+          </button>
+        </div>
+        <div v-else class="flex flex-wrap gap-2">
+          <input
+            v-model="path"
+            class="flex-1 min-w-0 rounded border border-border bg-bg-tertiary p-2 text-sm"
+            :disabled="busy"
+            :aria-label="t('setting.database.directoryDestination')"
+            :placeholder="t('setting.database.directoryDestination')"
+          />
+          <button type="button" class="btn-secondary" :disabled="busy" @click="browse">
+            {{ t('setting.database.directoryBrowse') }}
+          </button>
+          <button
+            type="button"
+            class="rounded bg-accent px-3 py-2 text-white disabled:opacity-40"
+            :disabled="busy || !path.trim()"
+            @click="save"
+          >
+            {{ t('setting.database.directoryChange') }}
+          </button>
+        </div>
+      </template>
+    </div>
+  </SettingItem>
 </template>

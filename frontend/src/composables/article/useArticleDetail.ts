@@ -3,6 +3,11 @@ import { useAppStore } from '@/stores/app';
 import { useI18n } from 'vue-i18n';
 import { openInBrowser } from '@/utils/browser';
 import type { Article } from '@/types/models';
+import {
+  hasArticleContent,
+  queryArticleContentImages,
+  queryArticleContentLinks,
+} from '@/utils/articleContentDom';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { loadArticleContent, invalidateArticleContent } from '@/utils/articleContentCache';
 
@@ -374,7 +379,7 @@ export function useArticleDetail() {
   // Works on both main content and translated content
   function unwrapImagesFromLinks() {
     // Process all links in prose content (both main content and translations)
-    const links = document.querySelectorAll<HTMLAnchorElement>('.prose-content a, .prose a');
+    const links = queryArticleContentLinks();
     const linksToProcess: HTMLAnchorElement[] = [];
 
     // Collect links that contain images (check both direct children and nested)
@@ -414,15 +419,11 @@ export function useArticleDetail() {
     unwrapImagesFromLinks();
 
     // Get all images in prose content (use more specific selector)
-    const proseContainers = document.querySelectorAll('[data-article-content] .prose-content');
-
-    if (proseContainers.length === 0) {
+    if (!hasArticleContent()) {
       return;
     }
 
-    const images = document.querySelectorAll<HTMLImageElement>(
-      '[data-article-content] .prose-content img'
-    );
+    const images = queryArticleContentImages();
 
     // Process images if there are any
     if (images.length > 0) {
@@ -464,11 +465,7 @@ export function useArticleDetail() {
               }
 
               // Collect all images from the article content
-              const allImages = Array.from(
-                document.querySelectorAll<HTMLImageElement>(
-                  '[data-article-content] .prose-content img'
-                )
-              )
+              const allImages = queryArticleContentImages()
                 .filter((img) => {
                   // Filter out small icons
                   return !(img.height <= 24 && img.height > 0);
@@ -554,7 +551,7 @@ export function useArticleDetail() {
   // Works for dynamically added content (e.g., translations)
   function attachLinkEventListeners() {
     // Get all text-only links (no images) in prose content
-    const links = document.querySelectorAll<HTMLAnchorElement>('.prose-content a, .prose a');
+    const links = queryArticleContentLinks();
 
     links.forEach((link) => {
       try {

@@ -117,6 +117,7 @@
   "siyuan_endpoint": "http://127.0.0.1:6806",
   "siyuan_folder": "/MrRSS",
   "siyuan_notebook_id": "",
+  "startup_minimized": false,
   "startup_on_boot": false,
   "summary_enabled": true,
   "summary_length": "medium",

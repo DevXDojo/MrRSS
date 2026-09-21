@@ -136,6 +136,7 @@ type Defaults struct {
 	SiyuanEndpoint                string `json:"siyuan_endpoint"`
 	SiyuanFolder                  string `json:"siyuan_folder"`
 	SiyuanNotebookId              string `json:"siyuan_notebook_id"`
+	StartupMinimized              bool   `json:"startup_minimized"`
 	StartupOnBoot                 bool   `json:"startup_on_boot"`
 	SummaryEnabled                bool   `json:"summary_enabled"`
 	SummaryLength                 string `json:"summary_length"`
@@ -417,6 +418,8 @@ func GetString(key string) string {
 		return defaults.SiyuanFolder
 	case "siyuan_notebook_id":
 		return defaults.SiyuanNotebookId
+	case "startup_minimized":
+		return strconv.FormatBool(defaults.StartupMinimized)
 	case "startup_on_boot":
 		return strconv.FormatBool(defaults.StartupOnBoot)
 	case "summary_enabled":

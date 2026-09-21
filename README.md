@@ -8,7 +8,7 @@
    <strong>English</strong> | <a href="README_zh.md">简体中文</a>
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.3.36-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
+[![Version](https://img.shields.io/badge/version-1.3.37-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
 [![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
@@ -105,7 +105,7 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
 3. **Install Wails v3 CLI**
 
    ```bash
-   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20
    ```
 
 4. **Build the application**

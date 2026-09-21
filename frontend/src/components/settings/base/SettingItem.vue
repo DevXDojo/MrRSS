@@ -6,18 +6,23 @@ interface Props {
   title: string;
   description?: string;
   required?: boolean;
+  layout?: 'row' | 'column';
 }
 
 withDefaults(defineProps<Props>(), {
   icon: undefined,
   description: '',
   required: false,
+  layout: 'row',
 });
 </script>
 
 <template>
-  <div class="setting-item">
-    <div class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0">
+  <div class="setting-item" :class="{ 'setting-item-column': layout === 'column' }">
+    <div
+      class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0"
+      :class="{ 'w-full': layout === 'column' }"
+    >
       <component
         :is="icon"
         v-if="icon"
@@ -35,7 +40,12 @@ withDefaults(defineProps<Props>(), {
         </slot>
       </div>
     </div>
-    <div class="setting-item-action">
+    <div v-if="layout === 'row'" class="setting-item-action">
+      <slot name="action">
+        <slot />
+      </slot>
+    </div>
+    <div v-else class="setting-item-action setting-item-action-column">
       <slot name="action">
         <slot />
       </slot>
@@ -55,5 +65,13 @@ withDefaults(defineProps<Props>(), {
 
 .setting-item-action {
   @apply shrink-0;
+}
+
+.setting-item-column {
+  @apply flex-col items-stretch;
+}
+
+.setting-item-action-column {
+  @apply w-full;
 }
 </style>

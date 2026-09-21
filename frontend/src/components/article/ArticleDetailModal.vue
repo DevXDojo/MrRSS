@@ -11,6 +11,7 @@ import FindInPage from '../common/FindInPage.vue';
 import type { Article } from '@/types/models';
 import { openInBrowser } from '@/utils/browser';
 import { useSettings } from '@/composables/core/useSettings';
+import { queryArticleContentImages } from '@/utils/articleContentDom';
 
 interface Props {
   article: Article;
@@ -266,7 +267,7 @@ function attachImageEventListeners() {
     const contentEl = document.querySelector('.modal-prose-content');
     if (!contentEl) return;
 
-    const images = contentEl.querySelectorAll('img');
+    const images = queryArticleContentImages(contentEl);
     const allImages: string[] = [];
 
     images.forEach((img) => {

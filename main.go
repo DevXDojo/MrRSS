@@ -94,6 +94,14 @@ func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
 }
 
 func main() {
+	startMinimizedRequested := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--start-minimized" {
+			startMinimizedRequested = true
+			break
+		}
+	}
+
 	dataDirOption, err := fileutil.DataDirArgument(os.Args[1:])
 	if err != nil {
 		log.Fatal(err)
@@ -209,6 +217,9 @@ func main() {
 	var lastMaximized atomic.Bool
 	var hiddenToTray atomic.Bool
 	var hideAfterFullscreen atomic.Bool
+	startupMinimized, _ := db.GetSetting("startup_minimized")
+	startHidden := startMinimizedRequested && startupMinimized == "true"
+	hiddenToTray.Store(startHidden)
 
 	// API Routes
 	log.Println("Setting up API routes...")
@@ -385,6 +396,7 @@ func main() {
 		Windows:          application.WindowsWindow{},
 		Linux:            linuxWindowOptions,
 		BackgroundColour: backgroundColour,
+		Hidden:           startHidden,
 	}
 
 	// Set position if restored from DB
@@ -399,7 +411,7 @@ func main() {
 	if !restoredFromDB {
 		mainWindow.Center()
 	}
-	if restoredMaximized {
+	if restoredMaximized && !startHidden {
 		mainWindow.Maximise()
 	}
 
@@ -516,7 +528,7 @@ func main() {
 	})
 
 	// macOS also uses the status item for its unread indicator.
-	if shouldCloseToTray() || runtime.GOOS == "darwin" {
+	if startHidden || shouldCloseToTray() || runtime.GOOS == "darwin" {
 		setupSystemTray()
 	}
 	if runtime.GOOS == "darwin" {

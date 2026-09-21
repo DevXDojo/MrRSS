@@ -2,7 +2,7 @@
 import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PhEyeSlash, PhStar, PhClockCountdown } from '@phosphor-icons/vue';
+import { PhCheckSquare, PhEyeSlash, PhSquare, PhStar, PhClockCountdown } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import { useArticleHoverRead } from '@/composables/article/useArticleHoverRead';
@@ -16,6 +16,8 @@ interface Props {
   article: Article;
   isActive: boolean;
   disabled?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -40,7 +42,7 @@ const compactMode = computed(() => {
 const { enter: handleMouseEnter, leave: handleMouseLeave } = useArticleHoverRead(
   () => props.article,
   (id) => emit('hoverMarkAsRead', id),
-  () => props.disabled === true
+  () => props.disabled === true || props.selectionMode === true
 );
 
 // Check if article is from RSSHub feed - O(1) lookup using feedMap
@@ -167,7 +169,11 @@ function handleImageError(event: Event) {
   <div
     :ref="(el) => emit('observeElement', el as Element | null)"
     :data-article-id="article.id"
-    :title="withShortcut(t('article.action.openArticle'), 'openArticle')"
+    :title="
+      selectionMode
+        ? t(selected ? 'article.action.deselectArticle' : 'article.action.selectArticle')
+        : withShortcut(t('article.action.openArticle'), 'openArticle')
+    "
     :class="[
       'article-card',
       article.is_read ? 'read' : '',
@@ -176,12 +182,21 @@ function handleImageError(event: Event) {
       article.is_read_later ? 'read-later' : '',
       isActive ? 'active' : '',
       compactMode ? 'compact' : '',
+      selected ? 'selected' : '',
     ]"
     @click="emit('click')"
     @contextmenu="emit('contextmenu', $event)"
     @mouseenter="handleMouseEnter"
     @mouseleave="handleMouseLeave"
   >
+    <span
+      v-if="selectionMode"
+      class="flex h-5 w-5 shrink-0 items-center justify-center self-center text-accent"
+      aria-hidden="true"
+    >
+      <PhCheckSquare v-if="selected" :size="19" weight="fill" />
+      <PhSquare v-else :size="19" />
+    </span>
     <!-- Image placeholder with lazy loading - hidden completely on error -->
     <div
       v-if="shouldShowImage && !imageFailed"
@@ -362,6 +377,10 @@ function handleImageError(event: Event) {
 
 .article-card.active {
   @apply bg-bg-tertiary border-l-accent;
+}
+
+.article-card.selected {
+  @apply bg-accent/10 border-l-accent;
 }
 
 .article-card.read h4 {
