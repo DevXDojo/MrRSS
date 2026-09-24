@@ -59,7 +59,12 @@ describe('full article loading', () => {
 
   it('coalesces manual clicks with an in-flight automatic extraction', async () => {
     let finish!: (value: unknown) => void;
-    const fetch = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    const fetch = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
     vi.stubGlobal('fetch', fetch);
     const f = fixture();
     await nextTick();

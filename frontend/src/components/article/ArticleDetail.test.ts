@@ -7,9 +7,13 @@ import ArticleToolbar from './ArticleToolbar.vue';
 vi.mock('@/composables/article/useArticleDetail', () => ({
   useArticleDetail: () => ({
     article: ref({ id: 1, url: 'https://example.org/article' }),
-    showContent: ref(false), articleContent: ref('<p>Feed content</p>'),
-    isLoadingContent: ref(false), hasPreviousArticle: ref(false), hasNextArticle: ref(false),
-    imageViewerSrc: ref(null), t: (key: string) => key,
+    showContent: ref(false),
+    articleContent: ref('<p>Feed content</p>'),
+    isLoadingContent: ref(false),
+    hasPreviousArticle: ref(false),
+    hasNextArticle: ref(false),
+    imageViewerSrc: ref(null),
+    t: (key: string) => key,
   }),
 }));
 

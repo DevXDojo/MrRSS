@@ -5,7 +5,9 @@ import { useResizablePanels } from './useResizablePanels';
 function setup() {
   let panels!: ReturnType<typeof useResizablePanels>;
   const wrapper = mount({
-    setup() { panels = useResizablePanels(); },
+    setup() {
+      panels = useResizablePanels();
+    },
     template: '<div />',
   });
   return { panels, wrapper };

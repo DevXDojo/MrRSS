@@ -174,17 +174,39 @@ export function isFontAvailable(fontName: string): boolean {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   if (!context) return false;
+  canvas.width = 200;
+  canvas.height = 48;
+
+  function glyphsDiffer(fallback: string): boolean {
+    // CJK faces often have identical advance widths. Compare their actual
+    // glyphs as well, otherwise an installed Chinese face can still be missed.
+    try {
+      const pixels = (family: string) => {
+        context!.clearRect(0, 0, canvas.width, canvas.height);
+        context!.font = `32px ${family}`;
+        context!.fillText('中文阅读', 0, 36);
+        return context!.getImageData(0, 0, canvas.width, canvas.height).data;
+      };
+      const baseline = pixels(fallback);
+      const candidate = pixels(`"${escapedName}", ${fallback}`);
+      return candidate.some((value, index) => value !== baseline[index]);
+    } catch {
+      // Some webviews restrict canvas pixel access. Custom names still work.
+      return false;
+    }
+  }
 
   // Chinese-only fonts can share Latin fallback glyphs. Compare CJK and Latin
   // samples against several generic families, including the system default.
   const escapedName = fontName.replace(/["\\]/g, '\\$&');
-  return ['sans-serif', 'serif', 'monospace'].some((fallback) =>
-    ['mmmmmmmmmmlli', '中文字体阅读测试，汉字排版。'].some((sample) => {
-      context.font = `100px ${fallback}`;
-      const baseline = context.measureText(sample).width;
-      context.font = `100px "${escapedName}", ${fallback}`;
-      return context.measureText(sample).width !== baseline;
-    })
+  return ['sans-serif', 'serif', 'monospace'].some(
+    (fallback) =>
+      ['mmmmmmmmmmlli', '中文字体阅读测试，汉字排版。'].some((sample) => {
+        context.font = `100px ${fallback}`;
+        const baseline = context.measureText(sample).width;
+        context.font = `100px "${escapedName}", ${fallback}`;
+        return context.measureText(sample).width !== baseline;
+      }) || glyphsDiffer(fallback)
   );
 }
 

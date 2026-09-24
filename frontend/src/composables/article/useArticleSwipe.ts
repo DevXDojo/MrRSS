@@ -12,9 +12,19 @@ interface Options {
 function canSwipe(event: Event): boolean {
   if (window.getSelection()?.toString()) return false;
   let element = event.target instanceof Element ? event.target : null;
-  if (!element || element.closest('a,button,input,textarea,select,[contenteditable]:not([contenteditable="false"]),audio,video,iframe,[role="slider"],pre,table')) return false;
+  if (
+    !element ||
+    element.closest(
+      'a,button,input,textarea,select,[contenteditable]:not([contenteditable="false"]),audio,video,iframe,[role="slider"],pre,table'
+    )
+  )
+    return false;
   while (element && element !== event.currentTarget) {
-    if (element.scrollWidth > element.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(element).overflowX)) return false;
+    if (
+      element.scrollWidth > element.clientWidth + 1 &&
+      /auto|scroll/.test(getComputedStyle(element).overflowX)
+    )
+      return false;
     element = element.parentElement;
   }
   return true;
@@ -26,7 +36,9 @@ export function useArticleSwipe(options: Options) {
   let wheelDistance = 0;
   let wheelHandled = false;
 
-  function cancel() { start = null; }
+  function cancel() {
+    start = null;
+  }
   watch(options.articleId, cancel, { flush: 'sync' });
 
   function touchstart(event: TouchEvent) {
@@ -61,13 +73,15 @@ export function useArticleSwipe(options: Options) {
   }
 
   function wheel(event: WheelEvent) {
-    if (!options.enabled() || event.ctrlKey || event.shiftKey || !canSwipe(event)) return;
+    if (event.ctrlKey || event.shiftKey || !canSwipe(event)) return;
     if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 2) return;
     if (event.timeStamp - wheelTime > 250) {
       wheelDistance = 0;
       wheelHandled = false;
     }
     wheelTime = event.timeStamp;
+    // Track inertia even while the next article is loading.
+    if (!options.enabled()) return;
     if (event.cancelable) event.preventDefault();
     if (wheelHandled) return;
     // A trackpad emits many events, including inertia after navigation. Consume

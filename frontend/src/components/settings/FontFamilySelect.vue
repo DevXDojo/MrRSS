@@ -79,10 +79,19 @@ const fontOptions = computed<SelectOptionGroup[]>(() => {
     groups.push({ label: t('setting.typography.fontMonospace'), options });
   }
 
-  if (props.modelValue && !groups.some((group) => group.options.some((option) => option.value === props.modelValue))) {
+  if (
+    props.modelValue &&
+    !groups.some((group) => group.options.some((option) => option.value === props.modelValue))
+  ) {
     groups.push({
       label: t('setting.typography.fontCustom'),
-      options: [{ value: props.modelValue, label: props.modelValue, style: { fontFamily: resolveFontFamily(props.modelValue) } }],
+      options: [
+        {
+          value: props.modelValue,
+          label: props.modelValue,
+          style: { fontFamily: resolveFontFamily(props.modelValue) },
+        },
+      ],
     });
   }
   return groups;

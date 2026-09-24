@@ -6,7 +6,7 @@ import BaseSelect from '@/components/common/BaseSelect.vue';
 import en from '@/i18n/locales/en';
 
 vi.mock('@/utils/fontDetector', async (original) => ({
-  ...await original<typeof import('@/utils/fontDetector')>(),
+  ...(await original<typeof import('@/utils/fontDetector')>()),
   getRecommendedFonts: () => ({ serif: [], sansSerif: [], monospace: [] }),
 }));
 

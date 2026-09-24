@@ -88,12 +88,8 @@ const {
 
 const { contextMenu, openContextMenu, handleContextMenuAction } = useContextMenu();
 
-const {
-  sidebarWidth,
-  articleListWidth,
-  startResizeArticleList,
-  setCompactMode,
-} = useResizablePanels();
+const { sidebarWidth, articleListWidth, startResizeArticleList, setCompactMode } =
+  useResizablePanels();
 
 // Use app updates composable
 const {

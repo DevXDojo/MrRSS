@@ -17,9 +17,10 @@ export function useResizablePanels() {
     try {
       const saved = localStorage.getItem(storageKey());
       const width = saved === null ? fallback : Number(saved);
-      articleListWidth.value = Number.isFinite(width) && width > 0
-        ? Math.min(compactMode.value ? 800 : 600, Math.max(compactMode.value ? 300 : 280, width))
-        : fallback;
+      articleListWidth.value =
+        Number.isFinite(width) && width > 0
+          ? Math.min(compactMode.value ? 800 : 600, Math.max(compactMode.value ? 300 : 280, width))
+          : fallback;
     } catch {
       articleListWidth.value = fallback;
     }
