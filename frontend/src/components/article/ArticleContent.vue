@@ -26,6 +26,7 @@ import { withLazyImages } from '@/utils/lazyImages';
 import { wrapOrphanedTextNodes } from '@/utils/translationParagraphs';
 import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
 import { useFullArticle } from '@/composables/article/useFullArticle';
+import { useArticleSwipe } from '@/composables/article/useArticleSwipe';
 import './ArticleContent.css';
 
 interface SummaryResult {
@@ -63,6 +64,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   retryLoadContent: [];
+  previous: [];
+  next: [];
 }>();
 
 const { t } = useI18n();
@@ -76,6 +79,12 @@ function handleRetryLoad() {
 const { settings: appSettings, fetchSettings } = useSettings();
 const store = useAppStore();
 const isChatPanelOpen = ref(false);
+const swipe = useArticleSwipe({
+  articleId: () => props.article.id,
+  enabled: () => props.showContent && !props.isLoadingContent && !isChatPanelOpen.value,
+  previous: () => emit('previous'),
+  next: () => emit('next'),
+});
 const articleScrollContainer = ref<HTMLElement | null>(null);
 const readingProgress = ref(0);
 const showBackToTop = ref(false);
@@ -1199,6 +1208,11 @@ onBeforeUnmount(() => {
       @click="handleContainerClick"
       @contextmenu="onTextContextMenu"
       @scroll="handleArticleScroll"
+      @touchstart.passive="swipe.touchstart"
+      @touchmove="swipe.touchmove"
+      @touchend="swipe.touchend"
+      @touchcancel="swipe.touchcancel"
+      @wheel="swipe.wheel"
     >
       <div
         class="max-w-3xl mx-auto bg-bg-primary [container-type:inline-size]"

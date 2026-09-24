@@ -354,6 +354,8 @@ function handleOverlayClick(e: MouseEvent) {
             :show-content="showContent"
             class="modal-prose-content"
             @retry-load-content="handleRetryLoadContent"
+            @previous="hasPreviousArticle && emit('previous')"
+            @next="hasNextArticle && emit('next')"
           />
         </div>
 

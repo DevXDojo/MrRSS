@@ -133,6 +133,8 @@ onBeforeUnmount(() => {
         :show-translations="showTranslations"
         :show-content="showContent"
         @retry-load-content="handleRetryLoadContent"
+        @previous="goToPreviousArticle"
+        @next="goToNextArticle"
       />
 
       <!-- Navigation buttons -->
