@@ -14,7 +14,7 @@ vars:
   BIN_DIR: "build/bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 5173}}'
   # Keep this version synchronized with github.com/wailsapp/wails/v3 in go.mod.
-  WAILS3: go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20
+  WAILS3: go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.23
 
 tasks:
   build:

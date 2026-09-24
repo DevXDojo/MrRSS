@@ -32,6 +32,16 @@ const COMMON_FONTS = {
     'LXGW WenKai Screen',
     'WenQuanYi Micro Hei',
     'WenQuanYi Zen Hei',
+    '微软雅黑',
+    '宋体',
+    '黑体',
+    '楷体',
+    '仿宋',
+    '等线',
+    '方正书宋',
+    '霞鹜文楷',
+    '思源黑体',
+    '思源宋体',
   ],
   // Japanese fonts
   japanese: [
@@ -164,21 +174,40 @@ export function isFontAvailable(fontName: string): boolean {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   if (!context) return false;
+  canvas.width = 200;
+  canvas.height = 48;
 
-  // Use a wide test text
-  const testText = 'mmmmmmmmmmlli';
+  function glyphsDiffer(fallback: string): boolean {
+    // CJK faces often have identical advance widths. Compare their actual
+    // glyphs as well, otherwise an installed Chinese face can still be missed.
+    try {
+      const pixels = (family: string) => {
+        context!.clearRect(0, 0, canvas.width, canvas.height);
+        context!.font = `32px ${family}`;
+        context!.fillText('中文阅读', 0, 36);
+        return context!.getImageData(0, 0, canvas.width, canvas.height).data;
+      };
+      const baseline = pixels(fallback);
+      const candidate = pixels(`"${escapedName}", ${fallback}`);
+      return candidate.some((value, index) => value !== baseline[index]);
+    } catch {
+      // Some webviews restrict canvas pixel access. Custom names still work.
+      return false;
+    }
+  }
 
-  // Set default font
-  const defaultFont = 'sans-serif';
-  context.font = `100px ${defaultFont}`;
-  const defaultWidth = context.measureText(testText).width;
-
-  // Test the candidate font
-  context.font = `100px "${fontName}", ${defaultFont}`;
-  const testWidth = context.measureText(testText).width;
-
-  // If widths are different, the font is available
-  return defaultWidth !== testWidth;
+  // Chinese-only fonts can share Latin fallback glyphs. Compare CJK and Latin
+  // samples against several generic families, including the system default.
+  const escapedName = fontName.replace(/["\\]/g, '\\$&');
+  return ['sans-serif', 'serif', 'monospace'].some(
+    (fallback) =>
+      ['mmmmmmmmmmlli', '中文字体阅读测试，汉字排版。'].some((sample) => {
+        context.font = `100px ${fallback}`;
+        const baseline = context.measureText(sample).width;
+        context.font = `100px "${escapedName}", ${fallback}`;
+        return context.measureText(sample).width !== baseline;
+      }) || glyphsDiffer(fallback)
+  );
 }
 
 /**
@@ -258,6 +287,11 @@ export function getRecommendedFonts(): RecommendedFonts {
     'Noto Serif CJK KR',
     'Source Han Serif',
     'LXGW WenKai',
+    '宋体',
+    '楷体',
+    '仿宋',
+    '方正书宋',
+    '霞鹜文楷',
   ];
 
   const knownSansSerif = [

@@ -1,5 +1,6 @@
 export const toolbarActions = [
   { id: 'view', label: 'article.action.viewOriginal' },
+  { id: 'readingMode', label: 'article.action.readingMode' },
   { id: 'translation', label: 'setting.reading.showTranslations' },
   { id: 'read', label: 'article.action.markAsRead' },
   { id: 'favorite', label: 'article.toolbar.addToFavorite' },
