@@ -47,6 +47,29 @@ function response(content: string) {
   return { ok: true, json: async () => ({ content }) };
 }
 describe('full article loading', () => {
+  it('reports manual extraction failures without replacing the current reader content', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    const f = fixture(false);
+    await f.result.fetchFullArticle();
+    expect(f.onError).toHaveBeenCalledTimes(1);
+    expect(f.onContent).not.toHaveBeenCalled();
+    expect(f.result.isFetchingFullArticle.value).toBe(false);
+    f.wrapper.unmount();
+  });
+
+  it('coalesces manual clicks with an in-flight automatic extraction', async () => {
+    let finish!: (value: unknown) => void;
+    const fetch = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    vi.stubGlobal('fetch', fetch);
+    const f = fixture();
+    await nextTick();
+    await f.result.fetchFullArticle();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    finish(response('<p>Clean text</p>'));
+    await flushPromises();
+    expect(f.onContent).toHaveBeenCalledWith('<p>Clean text</p>');
+    f.wrapper.unmount();
+  });
   it('loads empty RSS articles once and keeps full text when RSS loading changes', async () => {
     const fetch = vi.fn().mockResolvedValue(response('<p>Full article</p>'));
     vi.stubGlobal('fetch', fetch);

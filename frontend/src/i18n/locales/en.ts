@@ -96,6 +96,8 @@ const en: TranslationMessages = {
       unhideArticle: 'Unhide Article',
       viewArticle: 'View Article',
       viewContent: 'View Content',
+      readingMode: 'Reading Mode — extract clean article text',
+      readingModeRssOnly: 'Showing feed content. Enable full-text fetching in Settings → Reading to extract the original webpage.',
       viewImage: 'View Image',
       viewModeOriginal: 'View as Webpage',
       viewModeRendered: 'View as Rendered Content',

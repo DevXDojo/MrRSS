@@ -21,6 +21,8 @@ import {
   PhTranslate,
   PhArrowClockwise,
   PhSlidersHorizontal,
+  PhBookOpenText,
+  PhSpinnerGap,
 } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import { copyArticleLink, copyArticleTitle } from '@/utils/clipboard';
@@ -46,16 +48,21 @@ interface Props {
   showContent: boolean;
   showTranslations?: boolean;
   isModal?: boolean;
+  isLoadingContent?: boolean;
+  isReadingModeLoading?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
   showTranslations: true,
   isModal: false,
+  isLoadingContent: false,
+  isReadingModeLoading: false,
 });
 
 defineEmits<{
   close: [];
   toggleContentView: [];
+  readingMode: [];
   toggleRead: [];
   toggleFavorite: [];
   toggleReadLater: [];
@@ -110,6 +117,18 @@ async function copyTitle(article: Article) {
     </button>
     <div class="flex flex-wrap justify-end gap-1 sm:gap-2 ml-auto">
       <template v-for="action in visibleActions" :key="action.id">
+        <button
+          v-if="action.id === 'readingMode'"
+          class="action-btn disabled:opacity-50 disabled:cursor-not-allowed"
+          :title="t('article.action.readingMode')"
+          :aria-label="t('article.action.readingMode')"
+          :disabled="isLoadingContent || isReadingModeLoading"
+          :aria-busy="isReadingModeLoading"
+          @click="$emit('readingMode')"
+        >
+          <PhSpinnerGap v-if="isReadingModeLoading" :size="18" class="animate-spin sm:w-5 sm:h-5" />
+          <PhBookOpenText v-else :size="18" class="sm:w-5 sm:h-5" />
+        </button>
         <button
           v-if="action.id === 'view'"
           class="action-btn"

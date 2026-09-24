@@ -442,6 +442,16 @@ const { fullArticleContent, isFetchingFullArticle, fetchFullArticle } = useFullA
 });
 
 // Generate summary for the current article
+async function enterReadingMode() {
+  if (!appSettings.value.full_text_fetch_enabled) {
+    window.showToast(t('article.action.readingModeRssOnly'), 'info');
+    return;
+  }
+  if (!fullArticleContent.value) await fetchFullArticle();
+}
+
+defineExpose({ enterReadingMode, isFetchingFullArticle });
+
 async function generateSummary(article: Article, force: boolean = false) {
   if (!summaryEnabled.value || !article) {
     return;
