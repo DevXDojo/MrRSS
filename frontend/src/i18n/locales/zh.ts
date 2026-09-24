@@ -1044,6 +1044,8 @@ const zh: TranslationMessages = {
       fontSerifDefault: '默认衬线',
       fontSystem: '系统字体',
       fontSystemDefault: '系统默认',
+      fontCustom: '自定义本机字体',
+      fontCustomPlaceholder: '输入已安装字体的字体名称',
     },
     database: {
       dataDirectory: '数据目录',

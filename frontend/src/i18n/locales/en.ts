@@ -1062,6 +1062,8 @@ const en: TranslationMessages = {
       fontSerifDefault: 'Default Serif',
       fontSystem: 'System Font',
       fontSystemDefault: 'System Default',
+      fontCustom: 'Custom local font',
+      fontCustomPlaceholder: 'Installed font family name',
     },
     customization: {
       css: 'Custom CSS for Articles',

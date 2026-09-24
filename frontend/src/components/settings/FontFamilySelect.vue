@@ -3,9 +3,9 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseSelect from '@/components/common/BaseSelect.vue';
 import type { SelectOption, SelectOptionGroup } from '@/types/select';
-import { getRecommendedFonts } from '@/utils/fontDetector';
+import { getRecommendedFonts, resolveFontFamily } from '@/utils/fontDetector';
 
-defineProps<{
+const props = defineProps<{
   modelValue: string;
 }>();
 
@@ -43,7 +43,7 @@ const fontOptions = computed<SelectOptionGroup[]>(() => {
       ...availableFonts.value.serif.map((font) => ({
         value: font,
         label: font,
-        style: { fontFamily: `${font}, serif` },
+        style: { fontFamily: resolveFontFamily(font) },
       })),
     ];
     groups.push({ label: t('setting.typography.fontSerif'), options });
@@ -58,7 +58,7 @@ const fontOptions = computed<SelectOptionGroup[]>(() => {
       ...availableFonts.value.sansSerif.map((font) => ({
         value: font,
         label: font,
-        style: { fontFamily: `${font}, sans-serif` },
+        style: { fontFamily: resolveFontFamily(font) },
       })),
     ];
     groups.push({ label: t('setting.typography.fontSansSerif'), options });
@@ -73,12 +73,18 @@ const fontOptions = computed<SelectOptionGroup[]>(() => {
       ...availableFonts.value.monospace.map((font) => ({
         value: font,
         label: font,
-        style: { fontFamily: `${font}, monospace` },
+        style: { fontFamily: resolveFontFamily(font) },
       })),
     ];
     groups.push({ label: t('setting.typography.fontMonospace'), options });
   }
 
+  if (props.modelValue && !groups.some((group) => group.options.some((option) => option.value === props.modelValue))) {
+    groups.push({
+      label: t('setting.typography.fontCustom'),
+      options: [{ value: props.modelValue, label: props.modelValue, style: { fontFamily: resolveFontFamily(props.modelValue) } }],
+    });
+  }
   return groups;
 });
 
@@ -96,9 +102,12 @@ onMounted(() => {
     :model-value="modelValue"
     :options="fontOptions"
     :searchable="true"
+    :allow-custom-input="true"
+    :custom-input-placeholder="t('setting.typography.fontCustomPlaceholder')"
     width="w-36 sm:w-48"
     max-height="max-h-60"
     @update:model-value="emit('update:modelValue', $event)"
+    @custom-input="emit('update:modelValue', $event)"
   >
     <template #option="{ option }">
       <span :style="option.style">{{ option.label }}</span>

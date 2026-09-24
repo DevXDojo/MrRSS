@@ -32,6 +32,16 @@ const COMMON_FONTS = {
     'LXGW WenKai Screen',
     'WenQuanYi Micro Hei',
     'WenQuanYi Zen Hei',
+    '微软雅黑',
+    '宋体',
+    '黑体',
+    '楷体',
+    '仿宋',
+    '等线',
+    '方正书宋',
+    '霞鹜文楷',
+    '思源黑体',
+    '思源宋体',
   ],
   // Japanese fonts
   japanese: [
@@ -165,20 +175,17 @@ export function isFontAvailable(fontName: string): boolean {
   const context = canvas.getContext('2d');
   if (!context) return false;
 
-  // Use a wide test text
-  const testText = 'mmmmmmmmmmlli';
-
-  // Set default font
-  const defaultFont = 'sans-serif';
-  context.font = `100px ${defaultFont}`;
-  const defaultWidth = context.measureText(testText).width;
-
-  // Test the candidate font
-  context.font = `100px "${fontName}", ${defaultFont}`;
-  const testWidth = context.measureText(testText).width;
-
-  // If widths are different, the font is available
-  return defaultWidth !== testWidth;
+  // Chinese-only fonts can share Latin fallback glyphs. Compare CJK and Latin
+  // samples against several generic families, including the system default.
+  const escapedName = fontName.replace(/["\\]/g, '\\$&');
+  return ['sans-serif', 'serif', 'monospace'].some((fallback) =>
+    ['mmmmmmmmmmlli', '中文字体阅读测试，汉字排版。'].some((sample) => {
+      context.font = `100px ${fallback}`;
+      const baseline = context.measureText(sample).width;
+      context.font = `100px "${escapedName}", ${fallback}`;
+      return context.measureText(sample).width !== baseline;
+    })
+  );
 }
 
 /**
@@ -258,6 +265,11 @@ export function getRecommendedFonts(): RecommendedFonts {
     'Noto Serif CJK KR',
     'Source Han Serif',
     'LXGW WenKai',
+    '宋体',
+    '楷体',
+    '仿宋',
+    '方正书宋',
+    '霞鹜文楷',
   ];
 
   const knownSansSerif = [
