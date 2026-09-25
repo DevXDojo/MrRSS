@@ -382,6 +382,7 @@ const zh: TranslationMessages = {
       copiedToClipboard: '已复制到剪贴板',
       downloadComplete: '下载完成',
       downloadFailed: '下载失败',
+      openedInBrowser: '已在浏览器中打开',
     },
     pagination: {
       deleting: '删除中',

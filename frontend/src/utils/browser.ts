@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 /**
  * Opens a URL in the user's default web browser using Wails v3 Browser API.
  * This function calls the backend /api/browser/open endpoint which uses
@@ -32,11 +34,13 @@ export async function openInBrowser(url: string): Promise<void> {
     if (data.redirect) {
       window.open(data.redirect, '_blank');
     }
+
+    window.showToast(i18n.global.t('common.toast.openedInBrowser'), 'success');
   } catch (error) {
     console.error('Error opening URL in browser:', error);
     // Show user-friendly error message
     if (window.showToast) {
-      window.showToast('Failed to open URL in browser', 'error');
+      window.showToast(i18n.global.t('common.errors.failedToOpenLink'), 'error');
     }
   }
 }
