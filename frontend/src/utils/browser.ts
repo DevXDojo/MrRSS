@@ -6,8 +6,7 @@ import i18n from '@/i18n';
  * app.Browser.OpenURL() to open URLs securely.
  *
  * @param url - The URL to open (must be http or https)
- * @returns Promise that resolves when URL is successfully opened
- * @throws Error if URL is invalid or browser operation fails
+ * @returns Promise that resolves after reporting success or failure to the user
  */
 export async function openInBrowser(url: string): Promise<void> {
   if (!url) {
@@ -32,10 +31,17 @@ export async function openInBrowser(url: string): Promise<void> {
     // Check for redirect instruction (server mode)
     const data = await response.json();
     if (data.redirect) {
-      window.open(data.redirect, '_blank');
+      const target = new URL(data.redirect);
+      if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+        throw new Error('Unsupported browser URL');
+      }
+      const opened = window.open('about:blank', '_blank');
+      if (!opened) throw new Error('Browser popup was blocked');
+      opened.opener = null;
+      opened.location.href = target.href;
     }
 
-    window.showToast(i18n.global.t('common.toast.openedInBrowser'), 'success');
+    window.showToast?.(i18n.global.t('common.toast.openedInBrowser'), 'success');
   } catch (error) {
     console.error('Error opening URL in browser:', error);
     // Show user-friendly error message
