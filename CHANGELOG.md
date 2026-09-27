@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remember independently resized article-list widths for normal and compact layouts across restarts and layout switches. Validate saved widths and release resize state when the window loses focus. (#1222)
 - Detect Chinese-only and default system fonts more reliably, recognize common Chinese family names, and allow an installed font family name to be entered for both interface and article typography. (#1223)
-- Show localized feedback when opening links in the external browser, including article-summary links, and report blocked browser popups as failures. Thanks to @huiinyg-rusting.
+- Show localized feedback when opening links in the external browser, including article-summary links, and report blocked browser popups as failures. (@huiinyg-rusting)
 - Allow dragging the entire folder header in sidebar edit mode, and make the article-list footer mark the same complete scope as the toolbar while refreshing unread counts. Preserve unread state when requests fail. (#1228)
 - Reset the article list to the top when changing subscriptions or filters, and prevent upward scrolling or stale observers from marking articles as read. (#1228)
 - Honor saved article-list widths in medium-sized windows, resize from the actual displayed width, and widen scrollbars for easier dragging. (#1228)
