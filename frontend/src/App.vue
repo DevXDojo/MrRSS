@@ -520,7 +520,10 @@ function onFeedUpdated(): void {
   margin-right: -2px;
 }
 .reader-panes {
-  display: contents;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 @media (min-width: 768px) {
   .reader-panes.table-mode {

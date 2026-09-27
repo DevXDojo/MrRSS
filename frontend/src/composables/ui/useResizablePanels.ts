@@ -70,7 +70,12 @@ export function useResizablePanels() {
     isResizingArticleList.value = true;
     // Store initial mouse position and article list width
     initialMouseX.value = event.clientX;
-    initialArticleListWidth.value = articleListWidth.value;
+    const renderedWidth =
+      event.currentTarget instanceof HTMLElement
+        ? event.currentTarget.previousElementSibling?.getBoundingClientRect().width
+        : undefined;
+    initialArticleListWidth.value =
+      renderedWidth && renderedWidth > 0 ? renderedWidth : articleListWidth.value;
     previousCursor = document.body.style.cursor;
     previousSelect = document.body.style.userSelect;
     document.body.style.cursor = 'col-resize';

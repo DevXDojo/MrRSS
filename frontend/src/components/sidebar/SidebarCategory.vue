@@ -217,6 +217,9 @@ onUnmounted(() => {
     @drop.self.prevent="handleDrop"
   >
     <div
+      :draggable="isEditMode && !isUncategorized"
+      @dragstart="categoryDrag?.start(fullPath, $event)"
+      @dragend="categoryDrag?.end()"
       :class="[
         'category-header',
         isActive ? 'active' : '',
@@ -237,11 +240,8 @@ onUnmounted(() => {
       <span
         v-if="isEditMode && !isUncategorized"
         class="cursor-grab text-text-secondary mr-1"
-        draggable="true"
         :title="t('sidebar.order.dragCategory')"
         @click.stop
-        @dragstart="categoryDrag?.start(fullPath, $event)"
-        @dragend="categoryDrag?.end()"
       >
         <PhDotsSixVertical :size="16" />
       </span>
@@ -267,7 +267,9 @@ onUnmounted(() => {
         type="button"
         class="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
         :title="t(isOpen ? 'sidebar.categoryActions.collapse' : 'sidebar.categoryActions.expand')"
-        :aria-label="t(isOpen ? 'sidebar.categoryActions.collapse' : 'sidebar.categoryActions.expand')"
+        :aria-label="
+          t(isOpen ? 'sidebar.categoryActions.collapse' : 'sidebar.categoryActions.expand')
+        "
         @click.stop="handleCaretClick"
         @dblclick.stop
       >
