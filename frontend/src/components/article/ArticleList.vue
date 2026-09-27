@@ -39,6 +39,7 @@ import { useArticleActions } from '@/composables/article/useArticleActions';
 import { useArticleSelectionMenu } from '@/composables/article/useArticleSelectionMenu';
 import { useArticleListTransition } from '@/composables/article/useArticleListTransition';
 import { useArticleListWindow } from '@/composables/article/useArticleListWindow';
+import { useArticleListScrollReset } from '@/composables/article/useArticleListScrollReset';
 import { useShowPreviewImages } from '@/composables/ui/useShowPreviewImages';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseSettingsData } from '@/composables/core/useSettings.generated';
@@ -62,6 +63,7 @@ const temporarilyKeepArticles = ref<Set<number>>(new Set());
 const selectionMode = ref(false);
 const selectedArticleIds = ref<Set<number>>(new Set());
 const isApplyingSelection = ref(false);
+const isMarkingAllRead = ref(false);
 // Flag to control when scroll position should be restored
 const shouldRestoreScroll = ref(false);
 const pendingFeedArticleId = ref<number | null>(null);
@@ -69,6 +71,7 @@ const scrollReadElements = new Map<number, Element>();
 const scrollReadSeen = new Set<number>();
 const scrollReadPending = new Set<number>();
 let scrollReadObserver: IntersectionObserver | null = null;
+let scrollReadGeneration = 0;
 
 // Card mode modal state
 const showCardModal = ref(false);
@@ -407,6 +410,40 @@ const groupStarts = computed(() =>
   articleGroupStarts(displayedArticles.value, store.articleGroupBy)
 );
 
+const resettingListScroll = useArticleListScrollReset(
+  computed(() =>
+    JSON.stringify([
+      store.currentFeedId,
+      store.currentCategory,
+      store.currentFilter,
+      store.searchQuery,
+      store.showOnlyUnread,
+      activeFilters.value,
+      isAISearchActive.value,
+    ])
+  ),
+  computed(() => store.isLoading || isFilterLoading.value),
+  () => {
+    shouldRestoreScroll.value = false;
+    savedScrollTop.value = 0;
+    hasScrolledToBottom.value = false;
+    if (scrollThrottleTimer) clearTimeout(scrollThrottleTimer);
+    scrollThrottleTimer = null;
+    if (listRef.value) listRef.value.scrollTop = 0;
+    resetArticleListWindow();
+  },
+  () => {
+    scrollReadGeneration++;
+    scrollReadObserver?.disconnect();
+    scrollReadSeen.clear();
+    temporarilyKeepArticles.value.clear();
+  },
+  () => {
+    setupScrollReadObserver();
+    if (pendingFeedArticleId.value) void scrollPendingFeedArticleIntoView();
+  }
+);
+
 function groupLabel(article: Article): string {
   if (store.articleGroupBy === 'feed')
     return article.feed_title || t('article.list.grouping.unknownFeed');
@@ -420,6 +457,10 @@ async function markArticleAfterScroll(articleId: number): Promise<void> {
   const article = filteredArticles.value.find((item) => item.id === articleId);
   if (
     !settings.value.scroll_mark_as_read ||
+    resettingListScroll.value ||
+    showingPrevious.value ||
+    store.isLoading ||
+    isFilterLoading.value ||
     !article ||
     article.is_read ||
     article.is_read_later ||
@@ -447,17 +488,28 @@ async function markArticleAfterScroll(articleId: number): Promise<void> {
 
 function setupScrollReadObserver(): void {
   scrollReadObserver?.disconnect();
+  const generation = ++scrollReadGeneration;
+  scrollReadSeen.clear();
   if (!listRef.value || !('IntersectionObserver' in window)) return;
 
   scrollReadObserver = new IntersectionObserver(
     (entries) => {
+      if (
+        generation !== scrollReadGeneration ||
+        resettingListScroll.value ||
+        showingPrevious.value ||
+        store.isLoading ||
+        isFilterLoading.value
+      )
+        return;
       for (const entry of entries) {
         const articleId = Number((entry.target as HTMLElement).dataset.articleId);
         if (!articleId) continue;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
           scrollReadSeen.add(articleId);
         } else if (!entry.isIntersecting && scrollReadSeen.delete(articleId)) {
-          void markArticleAfterScroll(articleId);
+          const top = entry.rootBounds?.top ?? listRef.value?.getBoundingClientRect().top ?? 0;
+          if (entry.boundingClientRect.bottom <= top) void markArticleAfterScroll(articleId);
         }
       }
     },
@@ -896,11 +948,26 @@ function onListScroll(event: Event): void {
 }
 
 function handleScroll(e: Event): void {
+  if (
+    resettingListScroll.value ||
+    showingPrevious.value ||
+    store.isLoading ||
+    isFilterLoading.value
+  )
+    return;
   // Throttle scroll events to improve performance
   if (scrollThrottleTimer) return;
 
   scrollThrottleTimer = setTimeout(() => {
     scrollThrottleTimer = null;
+
+    if (
+      resettingListScroll.value ||
+      showingPrevious.value ||
+      store.isLoading ||
+      isFilterLoading.value
+    )
+      return;
 
     const target = e.target as HTMLElement;
     const { scrollTop, clientHeight, scrollHeight } = target;
@@ -948,60 +1015,72 @@ async function refreshArticles(): Promise<void> {
 }
 
 async function markAllAsRead(): Promise<void> {
-  const confirmed = settings.value.confirm_mark_as_read
-    ? await window.showConfirm({
-        title: t('article.action.markAllReadConfirmTitle'),
-        message: t('article.action.markAllReadConfirmMessage'),
-        confirmText: t('common.confirm'),
-        cancelText: t('common.cancel'),
-        isDanger: false,
-      })
-    : true;
-
-  if (!confirmed) {
+  if (isMarkingAllRead.value || showingPrevious.value || store.isLoading || isFilterLoading.value)
     return;
-  }
+  const feedId = store.currentFeedId ?? undefined;
+  const category = store.currentCategory ?? undefined;
+  const scopedIds =
+    activeFilters.value.length > 0 ||
+    isAISearchActive.value ||
+    store.currentFilter === 'favorites' ||
+    store.currentFilter === 'readLater'
+      ? filteredArticles.value.map((article) => article.id)
+      : null;
+  isMarkingAllRead.value = true;
+  try {
+    const confirmed = settings.value.confirm_mark_as_read
+      ? await window.showConfirm({
+          title: t('article.action.markAllReadConfirmTitle'),
+          message: t('article.action.markAllReadConfirmMessage'),
+          confirmText: t('common.confirm'),
+          cancelText: t('common.cancel'),
+          isDanger: false,
+        })
+      : true;
 
-  // If filters are active, mark only filtered articles as read
-  if (activeFilters.value.length > 0) {
-    try {
-      // Get IDs of filtered articles
-      const articleIds = filteredArticlesFromServer.value.map((a) => a.id);
-      if (articleIds.length === 0) {
-        window.showToast(t('article.action.noArticlesToMark'), 'info');
-        return;
+    if (!confirmed) {
+      return;
+    }
+
+    // If filters are active, mark only filtered articles as read
+    if (scopedIds !== null) {
+      try {
+        // Get IDs of filtered articles
+        const articleIds = scopedIds;
+        if (articleIds.length === 0) {
+          window.showToast(t('article.action.noArticlesToMark'), 'info');
+          return;
+        }
+
+        // Mark all filtered articles as read
+        for (let start = 0; start < articleIds.length; start += 5000) {
+          const ids = articleIds.slice(start, start + 5000);
+          const response = await fetch('/api/articles/read-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids, read: true }),
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          ids.forEach((id) => temporarilyKeepArticles.value.add(id));
+          updateSelectedReadState(new Set(ids), true);
+        }
+        await store.fetchUnreadCounts();
+        await store.fetchFilterCounts();
+        window.showToast(t('article.action.markedAllAsRead'), 'success');
+      } catch (e) {
+        console.error('Error marking filtered articles as read:', e);
+        await Promise.allSettled([store.fetchUnreadCounts(), store.fetchFilterCounts()]);
+        window.showToast(t('article.action.batchReadUpdateFailed'), 'error');
       }
-
-      // Mark all filtered articles as read
-      await Promise.all(
-        articleIds.map((id) => fetch(`/api/articles/read?id=${id}&read=true`, { method: 'POST' }))
-      );
-
-      articleIds.forEach((id) => temporarilyKeepArticles.value.add(id));
-      store.setFilteredArticlesFromServer(
-        filteredArticlesFromServer.value.map((article) => ({ ...article, is_read: true }))
-      );
-      store.articles = store.articles.map((article) =>
-        articleIds.includes(article.id) ? { ...article, is_read: true } : article
-      );
-      await store.fetchUnreadCounts();
-      await store.fetchFilterCounts();
-      window.showToast(t('article.action.markedAllAsRead'), 'success');
-    } catch (e) {
-      console.error('Error marking filtered articles as read:', e);
+    } else {
+      if (await store.markAllAsRead(feedId, feedId === undefined ? category : undefined)) {
+        window.showToast(t('article.action.markedAllAsRead'), 'success');
+      } else {
+        window.showToast(t('article.action.batchReadUpdateFailed'), 'error');
+      }
     }
-  } else {
-    // Use store's markAllAsRead which handles feed and category
-    const params: { feed_id?: number; category?: string } = {};
-
-    if (store.currentFeedId !== null) {
-      params.feed_id = store.currentFeedId;
-    } else if (store.currentCategory !== null) {
-      params.category = store.currentCategory;
-    }
-
-    await store.markAllAsRead(params.feed_id, params.category);
-    window.showToast(t('article.action.markedAllAsRead'), 'success');
+  } finally {
+    isMarkingAllRead.value = false;
   }
 }
 
@@ -1222,37 +1301,6 @@ async function reloadArticleOrder(): Promise<void> {
     resetArticleListWindow();
   }
 }
-
-// Mark all currently visible articles as read
-async function markAllVisibleAsRead(): Promise<void> {
-  const articleIds = filteredArticles.value.map((a) => a.id);
-
-  if (articleIds.length === 0) {
-    window.showToast(t('article.action.noArticlesToMark'), 'info');
-    return;
-  }
-
-  try {
-    await Promise.all(
-      articleIds.map((id) => fetch(`/api/articles/read?id=${id}&read=true`, { method: 'POST' }))
-    );
-
-    // Update local article states
-    filteredArticles.value.forEach((article) => {
-      article.is_read = true;
-    });
-
-    // Refresh counts
-    await store.fetchUnreadCounts();
-    await store.fetchFilterCounts();
-
-    // Show success message with count
-    const message = t('article.action.markedNArticlesAsRead', { count: articleIds.length });
-    window.showToast(message, 'success');
-  } catch (e) {
-    console.error('Error marking visible articles as read:', e);
-  }
-}
 </script>
 
 <template>
@@ -1284,6 +1332,7 @@ async function markAllVisibleAsRead(): Promise<void> {
           <button
             class="text-text-secondary hover:text-text-primary hover:bg-bg-tertiary p-1 sm:p-1.5 rounded transition-colors"
             :title="withShortcut(t('article.action.markAllRead'), 'markAllRead')"
+            :disabled="isMarkingAllRead || store.isLoading || isFilterLoading"
             @click="markAllAsRead"
           >
             <PhCheckCircle :size="18" class="sm:w-5 sm:h-5" />
@@ -1766,10 +1815,11 @@ async function markAllVisibleAsRead(): Promise<void> {
           <div v-if="shouldShowBottomMarkAllRead" class="mx-3 mb-3 pt-6 pb-3 text-center">
             <button
               class="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium"
-              @click="markAllVisibleAsRead"
+              :disabled="isMarkingAllRead"
+              @click="markAllAsRead"
             >
               <PhCheckCircle :size="18" />
-              <span>{{ t('article.list.markAllVisibleAsRead') }}</span>
+              <span>{{ t('article.action.markAllRead') }}</span>
             </button>
             <div class="text-xs text-text-secondary mt-2">
               {{ t('article.list.allArticlesLoaded') }}
@@ -1848,14 +1898,7 @@ async function markAllVisibleAsRead(): Promise<void> {
 }
 @media (min-width: 768px) {
   .article-list {
-    width: var(--article-list-width, 400px);
-  }
-}
-
-/* Responsive width for article list on medium screens */
-@media (max-width: 1400px) and (min-width: 768px) {
-  .article-list {
-    width: min(var(--article-list-width, 400px), 320px) !important;
+    width: min(var(--article-list-width, 400px), max(280px, calc(100% - 280px)));
   }
 }
 

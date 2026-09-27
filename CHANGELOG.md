@@ -5,6 +5,22 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.38] - 2026-09-27
+
+### Added
+
+- Navigate between articles with horizontal touch or trackpad gestures in the reader and card reading dialog. Preserve vertical scrolling, text selection, controls, and nested horizontal scrolling; limit each trackpad gesture to one article. (#1224)
+- Add a customizable Reading Mode toolbar button that switches from the original webpage to the reader and extracts clean article text using the existing full-text service. Respect the full-text setting, keep feed content on failure, and cancel stale requests when changing articles. (#1225)
+
+### Fixed
+
+- Remember independently resized article-list widths for normal and compact layouts across restarts and layout switches. Validate saved widths and release resize state when the window loses focus. (#1222)
+- Detect Chinese-only and default system fonts more reliably, recognize common Chinese family names, and allow an installed font family name to be entered for both interface and article typography. (#1223)
+- Show localized feedback when opening links in the external browser, including article-summary links, and report blocked browser popups as failures. (@huiinyg-rusting)
+- Allow dragging the entire folder header in sidebar edit mode, and make the article-list footer mark the same complete scope as the toolbar while refreshing unread counts. Preserve unread state when requests fail. (#1228)
+- Reset the article list to the top when changing subscriptions or filters, and prevent upward scrolling or stale observers from marking articles as read. (#1228)
+- Honor saved article-list widths in medium-sized windows, resize from the actual displayed width, and widen scrollbars for easier dragging. (#1228)
+
 ## [1.3.37] - 2026-09-21
 
 ### Added

@@ -9,6 +9,7 @@ describe('article toolbar preferences', () => {
       { id: 'read', visible: true },
     ]);
     expect(layout).toHaveLength(toolbarActions.length);
+    expect(layout).toContainEqual({ id: 'readingMode', visible: true });
   });
   it('ignores unknown IDs, duplicates, and malformed settings', () => {
     const layout = parseToolbarLayout(

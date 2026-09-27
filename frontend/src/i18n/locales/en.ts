@@ -96,6 +96,9 @@ const en: TranslationMessages = {
       unhideArticle: 'Unhide Article',
       viewArticle: 'View Article',
       viewContent: 'View Content',
+      readingMode: 'Reading Mode — extract clean article text',
+      readingModeRssOnly:
+        'Showing feed content. Enable full-text fetching in Settings → Reading to extract the original webpage.',
       viewImage: 'View Image',
       viewModeOriginal: 'View as Webpage',
       viewModeRendered: 'View as Rendered Content',
@@ -400,6 +403,7 @@ const en: TranslationMessages = {
       copiedToClipboard: 'Copied to clipboard',
       downloadComplete: 'Download complete',
       downloadFailed: 'Download failed',
+      openedInBrowser: 'Opened in browser',
     },
     pagination: {
       deleting: 'Deleting',
@@ -1062,6 +1066,8 @@ const en: TranslationMessages = {
       fontSerifDefault: 'Default Serif',
       fontSystem: 'System Font',
       fontSystemDefault: 'System Default',
+      fontCustom: 'Custom local font',
+      fontCustomPlaceholder: 'Installed font family name',
     },
     customization: {
       css: 'Custom CSS for Articles',

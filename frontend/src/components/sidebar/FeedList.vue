@@ -925,7 +925,7 @@ function handleFilterDragEnd() {
 }
 
 .sidebar-hover-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
 }
 
 .sidebar-hover-scrollbar::-webkit-scrollbar-button {

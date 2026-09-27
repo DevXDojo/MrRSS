@@ -151,7 +151,7 @@ export interface AppActions {
   loadMore: () => Promise<void>;
   fetchFeeds: () => Promise<void>;
   fetchUnreadCounts: () => Promise<void>;
-  markAllAsRead: (feedId?: number, category?: string) => Promise<void>;
+  markAllAsRead: (feedId?: number, category?: string) => Promise<boolean>;
   updateArticleSummary: (articleId: number, summary: string) => void;
   toggleTheme: () => void;
   setTheme: (preference: ThemePreference) => void;
@@ -511,7 +511,7 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function markAllAsRead(feedId?: number, category?: string): Promise<void> {
+  async function markAllAsRead(feedId?: number, category?: string): Promise<boolean> {
     try {
       const params = new URLSearchParams();
       if (feedId !== undefined) params.append('feed_id', String(feedId));
@@ -520,19 +520,22 @@ export const useAppStore = defineStore('app', () => {
       const url = params.toString()
         ? `/api/articles/mark-all-read?${params.toString()}`
         : '/api/articles/mark-all-read';
-      await fetch(url, { method: 'POST' });
+      const response = await fetch(url, { method: 'POST' });
+      if (!response.ok) return false;
       articles.value = articles.value.map((article) => {
         if (feedId !== undefined && article.feed_id !== feedId) return article;
         if (category !== undefined) {
           const feed = feedMap.value.get(article.feed_id);
-          if ((feed?.category || '') !== category) return article;
+          const path = feed?.category || '';
+          if (path !== category && !(category && path.startsWith(category + '/'))) return article;
         }
         return { ...article, is_read: true };
       });
       await fetchUnreadCounts();
       await fetchFilterCounts();
+      return true;
     } catch {
-      // Error handled silently
+      return false;
     }
   }
 

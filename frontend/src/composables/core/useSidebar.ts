@@ -241,8 +241,11 @@ export function useSidebar() {
         });
         if (!confirmed) return;
       }
-      await store.markAllAsRead(feed.id);
-      window.showToast(t('article.action.markedAllAsRead'), 'success');
+      if (await store.markAllAsRead(feed.id)) {
+        window.showToast(t('article.action.markedAllAsRead'), 'success');
+      } else {
+        window.showToast(t('article.action.batchReadUpdateFailed'), 'error');
+      }
     } else if (action === 'refreshFeed') {
       await fetch(`/api/feeds/refresh?id=${feed.id}`, { method: 'POST' });
       window.showToast(t('modal.feed.feedRefreshStarted'), 'success');

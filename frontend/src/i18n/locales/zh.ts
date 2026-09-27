@@ -90,6 +90,8 @@ const zh: TranslationMessages = {
       unhideArticle: '取消隐藏',
       viewArticle: '查看文章',
       viewContent: '查看内容',
+      readingMode: '阅读模式：提取纯净正文',
+      readingModeRssOnly: '已显示订阅源正文。如需提取原网页全文，请在设置 → 阅读中启用全文抓取。',
       viewImage: '查看图片',
       viewModeOriginal: '以网页查看',
       viewModeRendered: '以渲染查看',
@@ -382,6 +384,7 @@ const zh: TranslationMessages = {
       copiedToClipboard: '已复制到剪贴板',
       downloadComplete: '下载完成',
       downloadFailed: '下载失败',
+      openedInBrowser: '已在浏览器中打开',
     },
     pagination: {
       deleting: '删除中',
@@ -1044,6 +1047,8 @@ const zh: TranslationMessages = {
       fontSerifDefault: '默认衬线',
       fontSystem: '系统字体',
       fontSystemDefault: '系统默认',
+      fontCustom: '自定义本机字体',
+      fontCustomPlaceholder: '输入已安装字体的字体名称',
     },
     database: {
       dataDirectory: '数据目录',
