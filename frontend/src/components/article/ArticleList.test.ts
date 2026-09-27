@@ -52,6 +52,23 @@ async function setup() {
 }
 
 describe('article list bulk read and navigation', () => {
+  it('keeps favorites bulk-read within the displayed result set', async () => {
+    const f = await setup();
+    f.store.currentFilter = 'favorites';
+    await flushPromises();
+    const mark = vi.spyOn(f.store, 'markAllAsRead');
+    await f.wrapper.get(`button[title^="${en.article.action.markAllRead}"]`).trigger('click');
+    await flushPromises();
+    expect(mark).not.toHaveBeenCalled();
+    expect(f.fetch).toHaveBeenCalledWith(
+      '/api/articles/read-batch',
+      expect.objectContaining({
+        body: JSON.stringify({ ids: [1], read: true }),
+      })
+    );
+    f.wrapper.unmount();
+  });
+
   it('marks seen rows only when they leave above the viewport and ignores old observers', async () => {
     const observers: {
       callback: IntersectionObserverCallback;

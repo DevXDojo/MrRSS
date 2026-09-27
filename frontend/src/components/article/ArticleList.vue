@@ -1020,7 +1020,10 @@ async function markAllAsRead(): Promise<void> {
   const feedId = store.currentFeedId ?? undefined;
   const category = store.currentCategory ?? undefined;
   const scopedIds =
-    activeFilters.value.length > 0 || isAISearchActive.value
+    activeFilters.value.length > 0 ||
+    isAISearchActive.value ||
+    store.currentFilter === 'favorites' ||
+    store.currentFilter === 'readLater'
       ? filteredArticles.value.map((article) => article.id)
       : null;
   isMarkingAllRead.value = true;
