@@ -6,7 +6,8 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { shortcuts, shortcutsEnabled } from './shortcutBindings';
 import type { Article } from '@/types/models';
 
-vi.mock('vue-i18n', () => ({
+vi.mock('vue-i18n', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-i18n')>()),
   useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }),
 }));
 
