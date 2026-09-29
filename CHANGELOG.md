@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve responsive `img`/`source` image candidates in the original-page proxy and preserve a valid lead image when full-text extraction contains no images. (#1230, #1231, #1239)
+- Promote valid Discuz `zoomfile`/`file` attachments after existing lazy-image attributes in RSS content, full-text extraction, and original pages; preserve relative URLs, HTML entities, and already-proxied resources. (#1230, #1239)
+- Retry media GET requests rejected with HTTP 403 once without Referer, including redirects, within the same timeout. Never cache failed or incomplete downloads, and avoid duplicate retries after the fallback is exhausted. (#1230, #1239)
+
+### Changed
+
+- Update gofeed to 1.5.0 and align Wails, its frontend runtime, and the build CLI on beta.25. (#1232, #1234)
+- Refresh the locked frontend and website dependencies. (#1233, #1234)
+
 ## [1.3.38] - 2026-09-27
 
 ### Added
