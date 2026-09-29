@@ -113,6 +113,53 @@ func insecureSkipTLSVerifyEnabled() bool {
 	}
 }
 
+// DoWithRefererFallback retries a rejected media GET once without Referer. It
+// uses the request's context for both attempts and leaves the shared client and
+// original request headers unchanged. The caller owns the returned response.
+func DoWithRefererFallback(client *http.Client, req *http.Request) (*http.Response, bool, error) {
+	if err := req.Context().Err(); err != nil {
+		return nil, false, err
+	}
+	canRetry := req.Method == http.MethodGet && req.Header.Get("Referer") != ""
+	resp, err := client.Do(req)
+	if err != nil || !canRetry || resp.StatusCode != http.StatusForbidden {
+		return resp, false, err
+	}
+	// A media request has no body. Do not replay an unrelated GET with a body
+	// unless its caller provided a way to recreate it.
+	if req.Body != nil && req.Body != http.NoBody && req.GetBody == nil {
+		return resp, false, nil
+	}
+	_ = resp.Body.Close()
+	if err := req.Context().Err(); err != nil {
+		return nil, false, err
+	}
+
+	retryReq := req.Clone(req.Context())
+	retryReq.Header.Del("Referer")
+	if req.GetBody != nil {
+		retryReq.Body, err = req.GetBody()
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	retryClient := *client
+	retryClient.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		var err error
+		if client.CheckRedirect != nil {
+			err = client.CheckRedirect(next, via)
+		} else if len(via) >= 10 {
+			err = fmt.Errorf("stopped after 10 redirects")
+		}
+		// net/http synthesizes Referer on redirects, and a caller's redirect
+		// callback can set it too. Remove it after applying the original policy.
+		next.Header.Del("Referer")
+		return err
+	}
+	resp, err = retryClient.Do(retryReq)
+	return resp, true, err
+}
+
 // CreateHTTPClientWithUserAgent creates an HTTP client with custom User-Agent.
 func CreateHTTPClientWithUserAgent(proxyURL string, timeout time.Duration, userAgent string) (*http.Client, error) {
 	baseClient, err := CreateHTTPClient(proxyURL, timeout)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,12 +15,24 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"MrRSS/internal/utils/httputil"
 )
 
 // MediaCache handles caching of images and videos to work around anti-hotlinking
 type MediaCache struct {
 	cacheDir string
 }
+
+// MediaDownloadError distinguishes a failed upstream fetch from a cache storage
+// error, so callers do not repeat an already exhausted Referer fallback.
+type MediaDownloadError struct {
+	Err                      error
+	RefererFallbackAttempted bool
+}
+
+func (e *MediaDownloadError) Error() string { return e.Err.Error() }
+func (e *MediaDownloadError) Unwrap() error { return e.Err }
 
 // NewMediaCache creates a new media cache instance
 func NewMediaCache(cacheDir string) (*MediaCache, error) {
@@ -90,6 +103,7 @@ func (mc *MediaCache) Get(ctx context.Context, client *http.Client, url, referer
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to download media: %w", err)
 	}
+	cachedPath = mc.GetCachedPath(url)
 
 	// Determine better file extension from Content-Type if available
 	if contentType != "" {
@@ -100,8 +114,24 @@ func (mc *MediaCache) Get(ctx context.Context, client *http.Client, url, referer
 		}
 	}
 
-	// Save to cache
-	if err := os.WriteFile(cachedPath, data, 0644); err != nil {
+	// Publish only a complete file, just as DownloadToFile does.
+	tmpFile, err := os.CreateTemp(mc.cacheDir, "download-*")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create temporary cache file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	_, writeErr := tmpFile.Write(data)
+	closeErr := tmpFile.Close()
+	if writeErr != nil {
+		return nil, "", fmt.Errorf("failed to cache media: %w", writeErr)
+	}
+	if closeErr != nil {
+		return nil, "", fmt.Errorf("failed to finish cache file: %w", closeErr)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+	if err := os.Rename(tmpFile.Name(), cachedPath); err != nil {
 		return nil, "", fmt.Errorf("failed to cache media: %w", err)
 	}
 
@@ -140,14 +170,14 @@ func (mc *MediaCache) DownloadToFile(ctx context.Context, client *http.Client, u
 		return "", "", err
 	}
 
-	resp, err := client.Do(req)
+	resp, retried, err := httputil.DoWithRefererFallback(client, req)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to fetch media: %w", err)
+		return "", "", &MediaDownloadError{fmt.Errorf("failed to fetch media: %w", err), retried}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return "", "", &MediaDownloadError{fmt.Errorf("unexpected status code: %d", resp.StatusCode), retried}
 	}
 
 	tmpFile, err := os.CreateTemp(mc.cacheDir, "download-*")
@@ -155,18 +185,25 @@ func (mc *MediaCache) DownloadToFile(ctx context.Context, client *http.Client, u
 		return "", "", fmt.Errorf("failed to create temporary cache file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
 
 	written, copyErr := io.Copy(tmpFile, resp.Body)
 	closeErr := tmpFile.Close()
-	if copyErr != nil || closeErr != nil || written == 0 {
-		_ = os.Remove(tmpPath)
-		if copyErr != nil {
-			return "", "", fmt.Errorf("failed to stream media: %w", copyErr)
+	if copyErr != nil {
+		var pathErr *os.PathError
+		if errors.As(copyErr, &pathErr) {
+			return "", "", fmt.Errorf("failed to write cache file: %w", copyErr)
 		}
-		if closeErr != nil {
-			return "", "", fmt.Errorf("failed to finish cache file: %w", closeErr)
-		}
-		return "", "", fmt.Errorf("empty media response")
+		return "", "", &MediaDownloadError{fmt.Errorf("failed to stream media: %w", copyErr), retried}
+	}
+	if closeErr != nil {
+		return "", "", fmt.Errorf("failed to finish cache file: %w", closeErr)
+	}
+	if err := ctx.Err(); err != nil {
+		return "", "", &MediaDownloadError{err, retried}
+	}
+	if written == 0 || (resp.ContentLength >= 0 && written != resp.ContentLength) {
+		return "", "", &MediaDownloadError{fmt.Errorf("incomplete media response: received %d bytes, expected %d", written, resp.ContentLength), retried}
 	}
 
 	contentType := resp.Header.Get("Content-Type")
@@ -180,7 +217,6 @@ func (mc *MediaCache) DownloadToFile(ctx context.Context, client *http.Client, u
 	}
 
 	if err := os.Rename(tmpPath, finalPath); err != nil {
-		_ = os.Remove(tmpPath)
 		return "", "", fmt.Errorf("failed to store media in cache: %w", err)
 	}
 
@@ -229,19 +265,25 @@ func (mc *MediaCache) download(ctx context.Context, client *http.Client, url, re
 		return nil, "", err
 	}
 
-	resp, err := client.Do(req)
+	resp, retried, err := httputil.DoWithRefererFallback(client, req)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to fetch media: %w", err)
+		return nil, "", &MediaDownloadError{fmt.Errorf("failed to fetch media: %w", err), retried}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, "", &MediaDownloadError{fmt.Errorf("unexpected status code: %d", resp.StatusCode), retried}
 	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to read response body: %w", err)
+		return nil, "", &MediaDownloadError{fmt.Errorf("failed to read response body: %w", err), retried}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, "", &MediaDownloadError{err, retried}
+	}
+	if len(data) == 0 || (resp.ContentLength >= 0 && int64(len(data)) != resp.ContentLength) {
+		return nil, "", &MediaDownloadError{fmt.Errorf("incomplete media response: received %d bytes, expected %d", len(data), resp.ContentLength), retried}
 	}
 
 	contentType := resp.Header.Get("Content-Type")

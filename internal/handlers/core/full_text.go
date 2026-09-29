@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -120,13 +121,21 @@ func (h *Handler) FetchFullArticleContentContext(ctx context.Context, articleURL
 	}
 	extracted, extractErr := readability.FromReader(strings.NewReader(page), base)
 	var output bytes.Buffer
+	leadImageURL := ""
 	if extractErr == nil {
+		leadImageURL = extracted.ImageURL()
 		extractErr = extracted.RenderHTML(&output)
 	}
 	content := output.String()
 	if extractErr != nil || strings.TrimSpace(content) == "" {
 		// Explicit semantic article containers are a useful fallback for short pages.
 		content, _ = doc.Find("article,main,[role=main]").First().Html()
+	}
+	if strings.TrimSpace(leadImageURL) != "" && !strings.Contains(strings.ToLower(content), "<img") {
+		if imageURL, err := base.Parse(html.UnescapeString(strings.TrimSpace(leadImageURL))); err == nil &&
+			imageURL.Hostname() != "" && (imageURL.Scheme == "http" || imageURL.Scheme == "https") {
+			content = `<p><img src="` + html.EscapeString(imageURL.String()) + `" alt=""></p>` + content
+		}
 	}
 	content = textutil.PrepareArticleContent(content, base.String())
 	if strings.TrimSpace(content) == "" {
@@ -137,14 +146,13 @@ func (h *Handler) FetchFullArticleContentContext(ctx context.Context, articleURL
 
 func normalizeArticleImages(doc *goquery.Document, base *url.URL) {
 	doc.Find("img").Each(func(_ int, img *goquery.Selection) {
-		source := ""
-		for _, attr := range []string{"data-src", "data-original", "data-lazy-src", "data-actualsrc", "data-original-src", "src"} {
-			value := strings.TrimSpace(img.AttrOr(attr, ""))
-			if value != "" && !strings.HasPrefix(value, "data:") {
-				source = value
-				break
+		attributes := make(map[string]string, len(img.Get(0).Attr))
+		for _, attr := range img.Get(0).Attr {
+			if attr.Namespace == "" {
+				attributes[strings.ToLower(attr.Key)] = attr.Val
 			}
 		}
+		source := textutil.ResolveArticleImageSource(attributes, base)
 		if source == "" {
 			srcset := img.AttrOr("data-srcset", img.AttrOr("srcset", ""))
 			candidates := strings.Split(srcset, ",")
@@ -155,9 +163,14 @@ func normalizeArticleImages(doc *goquery.Document, base *url.URL) {
 				}
 			}
 		}
-		if resolved, err := base.Parse(source); source != "" && err == nil && (resolved.Scheme == "http" || resolved.Scheme == "https") {
+		if resolved, err := base.Parse(source); source != "" && err == nil && resolved.Hostname() != "" && (resolved.Scheme == "http" || resolved.Scheme == "https") {
 			img.SetAttr("src", resolved.String())
 			img.RemoveAttr("srcset").RemoveAttr("sizes").RemoveAttr("loading")
+			// Readability must not replace the selected source with another
+			// lazy attribute (for example a Discuz thumbnail on a lazy image).
+			for _, attr := range []string{"data-src", "data-original", "data-lazy-src", "data-actualsrc", "data-original-src", "data-srcset", "zoomfile", "file"} {
+				img.RemoveAttr(attr)
+			}
 		}
 	})
 }
