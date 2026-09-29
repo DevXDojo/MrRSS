@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -121,21 +120,13 @@ func (h *Handler) FetchFullArticleContentContext(ctx context.Context, articleURL
 	}
 	extracted, extractErr := readability.FromReader(strings.NewReader(page), base)
 	var output bytes.Buffer
-	leadImageURL := ""
 	if extractErr == nil {
-		leadImageURL = extracted.ImageURL()
 		extractErr = extracted.RenderHTML(&output)
 	}
 	content := output.String()
 	if extractErr != nil || strings.TrimSpace(content) == "" {
 		// Explicit semantic article containers are a useful fallback for short pages.
 		content, _ = doc.Find("article,main,[role=main]").First().Html()
-	}
-	if !strings.Contains(strings.ToLower(content), "<img") {
-		if imageURL, err := base.Parse(html.UnescapeString(strings.TrimSpace(leadImageURL))); err == nil &&
-			(imageURL.Scheme == "http" || imageURL.Scheme == "https") {
-			content = `<p><img src="` + html.EscapeString(imageURL.String()) + `" alt=""></p>` + content
-		}
 	}
 	content = textutil.PrepareArticleContent(content, base.String())
 	if strings.TrimSpace(content) == "" {
