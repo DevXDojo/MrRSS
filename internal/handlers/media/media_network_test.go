@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -116,5 +117,64 @@ func TestMediaProxyDisabledApplicationProxy(t *testing.T) {
 	HandleMediaProxy(h, rr, httptest.NewRequest(http.MethodGet, "/api/media/proxy?url="+url.QueryEscape(server.URL), nil).WithContext(ctx))
 	if rr.Code == http.StatusOK {
 		t.Fatal("cancelled download succeeded")
+	}
+}
+
+func TestMediaProxyRefererFallbackAndExhaustion(t *testing.T) {
+	for _, cacheEnabled := range []bool{false, true} {
+		for _, outcome := range []string{"first-success", "retry-success", "forbidden"} {
+			t.Run(fmt.Sprintf("cache=%t/%s", cacheEnabled, outcome), func(t *testing.T) {
+				tmp := t.TempDir()
+				t.Setenv("APPDATA", tmp)
+				t.Setenv("HOME", tmp)
+				t.Setenv("XDG_DATA_HOME", tmp)
+				h := setupHandler(t)
+				defer h.DB.Close()
+				if err := h.DB.SetSetting("media_cache_enabled", fmt.Sprint(cacheEnabled)); err != nil {
+					t.Fatal(err)
+				}
+				if err := h.DB.SetSetting("media_proxy_fallback", "true"); err != nil {
+					t.Fatal(err)
+				}
+				var requests atomic.Int32
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					n := requests.Add(1)
+					if n == 1 && r.Header.Get("Referer") == "" {
+						t.Error("first request lost original referer")
+					}
+					if outcome == "forbidden" || (outcome == "retry-success" && r.Header.Get("Referer") != "") {
+						w.WriteHeader(http.StatusForbidden)
+						return
+					}
+					w.Header().Set("Content-Type", "image/png")
+					_, _ = w.Write([]byte("image data"))
+				}))
+				defer server.Close()
+				address := "/api/media/proxy?url=" + url.QueryEscape(server.URL+"/photo.png") + "&referer=" + url.QueryEscape(server.URL+"/article")
+				rec := httptest.NewRecorder()
+				HandleMediaProxy(h, rec, httptest.NewRequest(http.MethodGet, address, nil))
+				wantStatus := http.StatusOK
+				wantRequests := int32(1)
+				if outcome != "first-success" {
+					wantRequests = 2
+				}
+				if outcome == "forbidden" {
+					wantStatus = http.StatusInternalServerError
+				}
+				if rec.Code != wantStatus || requests.Load() != wantRequests {
+					t.Fatalf("status=%d requests=%d, want status=%d requests=%d; %s", rec.Code, requests.Load(), wantStatus, wantRequests, rec.Body.String())
+				}
+				if wantStatus == http.StatusOK && (rec.Body.String() != "image data" || rec.Header().Get("Content-Type") != "image/png") {
+					t.Fatalf("invalid image response: %s", rec.Body.String())
+				}
+				if cacheEnabled && wantStatus == http.StatusOK {
+					cached := httptest.NewRecorder()
+					HandleMediaProxy(h, cached, httptest.NewRequest(http.MethodGet, address, nil))
+					if cached.Code != http.StatusOK || requests.Load() != wantRequests {
+						t.Fatal("second load did not use successful cache")
+					}
+				}
+			})
+		}
 	}
 }

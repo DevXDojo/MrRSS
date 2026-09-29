@@ -23,6 +23,9 @@ import (
 	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/utils/fileutil"
 	"MrRSS/internal/utils/httputil"
+	"MrRSS/internal/utils/textutil"
+
+	htmlparser "golang.org/x/net/html"
 )
 
 // validateMediaURL validates that the URL is HTTP/HTTPS and properly formatted
@@ -162,6 +165,9 @@ func getSmartReferer(imageURL, originalReferer string) string {
 // @Failure      500  {object}  map[string]string  "Internal server error"
 // @Router       /media/proxy [get]
 func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	r = r.WithContext(ctx)
 	if r.Method != http.MethodGet {
 		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
@@ -265,6 +271,11 @@ func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 						}
 						_ = file.Close()
 					}
+				}
+				var downloadErr *cache.MediaDownloadError
+				if errors.As(err, &downloadErr) && downloadErr.RefererFallbackAttempted {
+					response.Error(w, fmt.Errorf("failed to fetch media"), http.StatusInternalServerError)
+					return
 				}
 				log.Printf("Cache failed for %s: %v, trying fallback", mediaURL, err)
 			}
@@ -819,7 +830,7 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 
 	// First, convert lazy-loaded images to normal images
 	// This ensures images load immediately without waiting for lazy loading scripts
-	content = convertLazyImages(content)
+	content = convertLazyImages(content, baseURL)
 
 	// Then rewrite img src attributes (now including the converted lazy images)
 	content = rewriteAttribute(content, "img", "src", baseURL)
@@ -865,100 +876,82 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 	return []byte(content)
 }
 
-// convertLazyImages converts lazy-loaded images to normal images
-// For images with data-original or data-src attributes, move those URLs to src
-// This prevents lazy loading and ensures immediate display
-func convertLazyImages(content string) string {
-	// Match img tags with lazy loading attributes
-	// We need to match any img tag that contains data-original or data-src
-	// Use a two-step approach: find all img tags, then check if they have lazy attributes
-	re := regexp.MustCompile(`<img[^>]*>`)
-
-	return re.ReplaceAllStringFunc(content, func(match string) string {
-		// Check if this img tag has data-original or data-src attribute
-		// Try double quotes first: data-original="..."
-		doubleQuoteRe := regexp.MustCompile(`\s(data-original|data-src)\s*=\s*"([^"]*)"`)
-		doubleQuoteMatch := doubleQuoteRe.FindStringSubmatch(match)
-
-		var lazySrc, lazyQuote string
-
-		if len(doubleQuoteMatch) >= 3 {
-			// Found double-quoted attribute
-			lazySrc = doubleQuoteMatch[2]
-			lazyQuote = `"`
-		} else {
-			// Try single quotes: data-original='...'
-			singleQuoteRe := regexp.MustCompile(`\s(data-original|data-src)\s*=\s*'([^']*)'`)
-			singleQuoteMatch := singleQuoteRe.FindStringSubmatch(match)
-			if len(singleQuoteMatch) >= 3 {
-				lazySrc = singleQuoteMatch[2]
-				lazyQuote = `'`
-			} else {
-				// Try unquoted: data-original=...
-				unquotedRe := regexp.MustCompile(`\s(data-original|data-src)\s*=\s*([^\s>]+)`)
-				unquotedMatch := unquotedRe.FindStringSubmatch(match)
-				if len(unquotedMatch) >= 3 {
-					lazySrc = unquotedMatch[2]
-					lazyQuote = ""
-				} else {
-					// No lazy attribute found
-					return match
+// convertLazyImages resolves lazy image sources before rewriting resource URLs.
+// Keep Discuz attachment attributes proxied too, because its scripts may reuse them.
+func convertLazyImages(content, baseURL string) string {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return content
+	}
+	images := regexp.MustCompile(`(?is)<img\b[^>]*>`)
+	return images.ReplaceAllStringFunc(content, func(match string) string {
+		tokenizer := htmlparser.NewTokenizer(strings.NewReader(match))
+		kind := tokenizer.Next()
+		if kind != htmlparser.StartTagToken && kind != htmlparser.SelfClosingTagToken {
+			return match
+		}
+		token := tokenizer.Token()
+		attributes := make(map[string]string, len(token.Attr))
+		lazy := false
+		for _, attr := range token.Attr {
+			attributes[attr.Key] = attr.Val
+			switch attr.Key {
+			case "data-src", "data-original", "data-lazy-src", "data-actualsrc", "data-original-src", "zoomfile", "file":
+				lazy = true
+			}
+		}
+		if !lazy {
+			return match
+		}
+		source := textutil.ResolveArticleImageSource(attributes, base)
+		if source == "" {
+			return match
+		}
+		// A lazy attribute can already refer to our local proxy. Keep it local.
+		for _, value := range attributes {
+			if isLocalImageProxy(value) {
+				resolved, err := base.Parse(value)
+				if err == nil && resolved.String() == source {
+					source = value
+					break
 				}
 			}
 		}
-
-		// Build new img tag
-		var newTag strings.Builder
-		newTag.WriteString("<img ")
-
-		// Copy all attributes except src, data-original, data-src, and lazy class
-		// Parse attributes manually since Go regex has limitations
-		attrs := parseHTMLAttributes(match)
-
-		for _, attr := range attrs {
-			// Skip lazy loading attributes
-			if attr.Name == "data-original" || attr.Name == "data-src" {
+		attrs := make([]htmlparser.Attribute, 0, len(token.Attr)+1)
+		for _, attr := range token.Attr {
+			switch attr.Key {
+			case "src", "data-src", "data-original", "data-lazy-src", "data-actualsrc", "data-original-src":
 				continue
-			}
-
-			// Handle class attribute - remove "lazy" from it
-			if attr.Name == "class" {
-				// Remove "lazy" from class value
-				classValue := strings.ReplaceAll(attr.Value, "lazy", "")
-				classValue = strings.TrimSpace(classValue)
-				classValue = strings.ReplaceAll(classValue, "  ", " ")
-
-				if classValue != "" {
-					newTag.WriteString(fmt.Sprintf(`class="%s" `, classValue))
+			case "zoomfile", "file":
+				if isLocalImageProxy(attr.Val) {
+					attrs = append(attrs, attr)
+					continue
 				}
-				continue
+				// Tokenizer has already decoded entities; the resource helper expects HTML.
+				proxied, ok := proxyWebpageResourceURL(html.EscapeString(attr.Val), baseURL)
+				if !ok {
+					continue
+				}
+				attr.Val = proxied
+			case "class":
+				classes := strings.Fields(attr.Val)
+				kept := classes[:0]
+				for _, class := range classes {
+					if class != "lazy" {
+						kept = append(kept, class)
+					}
+				}
+				attr.Val = strings.Join(kept, " ")
 			}
-
-			// Skip the old src attribute, we'll add the new one
-			if attr.Name == "src" {
-				continue
-			}
-
-			// Copy other attributes (preserve original quote style)
-			if attr.Quote == "" {
-				newTag.WriteString(fmt.Sprintf(`%s=%s `, attr.Name, attr.Value))
-			} else {
-				newTag.WriteString(fmt.Sprintf(`%s=%s%s%s `, attr.Name, attr.Quote, attr.Value, attr.Quote))
-			}
+			attrs = append(attrs, attr)
 		}
-
-		// Add the new src attribute with the lazy-loaded image URL
-		if lazyQuote == "" {
-			newTag.WriteString(fmt.Sprintf(`src=%s`, lazySrc))
-		} else {
-			newTag.WriteString(fmt.Sprintf(`src=%s%s%s`, lazyQuote, lazySrc, lazyQuote))
-		}
-
-		// Close the tag
-		newTag.WriteString(">")
-
-		return newTag.String()
+		token.Attr = append(attrs, htmlparser.Attribute{Key: "src", Val: source})
+		return token.String()
 	})
+}
+
+func isLocalImageProxy(value string) bool {
+	return strings.HasPrefix(value, "/api/webpage/resource?") || strings.HasPrefix(value, "/api/media/proxy?")
 }
 
 // htmlAttribute represents a parsed HTML attribute
@@ -1144,7 +1137,7 @@ func proxyWebpageResourceURL(value, baseURL string) (string, bool) {
 
 	resolvedURL := resolveURL(value, baseURL)
 	parsedURL, err := url.Parse(resolvedURL)
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+	if err != nil || parsedURL.Hostname() == "" || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
 		return value, false
 	}
 	return fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
@@ -1814,7 +1807,7 @@ func proxyMediaDirectly(ctx context.Context, client *http.Client, mediaURL, refe
 	req.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
-	resp, err := client.Do(req)
+	resp, _, err := httputil.DoWithRefererFallback(client, req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch media: %w", err)
 	}
