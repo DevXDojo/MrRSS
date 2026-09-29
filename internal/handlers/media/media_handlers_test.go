@@ -1,11 +1,8 @@
 package media
 
 import (
-	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
-	"strings"
 	"testing"
 
 	"MrRSS/internal/database"
@@ -177,55 +174,6 @@ func TestProxyImagesInHTML_RelativeURLs(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestRewriteHTMLContent_ResponsiveImageCandidates(t *testing.T) {
-	baseURL := "https://example.com/news/article"
-	htmlContent := `<picture>
-<source srcSet="/_next/image?url=%2Fhero.jpg&amp;w=1280&amp;q=75 1x, https://cdn.example.com/hero.jpg 2x">
-<img src="/fallback.jpg" data-srcset="images/small.jpg 320w, images/large.jpg 1280w">
-</picture>`
-
-	result := string(rewriteHTMLContent([]byte(htmlContent), baseURL))
-	for _, descriptor := range []string{" 1x", " 2x", " 320w", " 1280w"} {
-		if !strings.Contains(result, descriptor) {
-			t.Errorf("missing srcset descriptor %q in %s", descriptor, result)
-		}
-	}
-	if strings.Contains(result, `srcSet="/_next/image`) || strings.Contains(result, `data-srcset="images/`) {
-		t.Fatalf("responsive image candidates were not proxied: %s", result)
-	}
-
-	encodedURLs := regexp.MustCompile(`url_b64=([A-Za-z0-9+/=]+)`).FindAllStringSubmatch(result, -1)
-	var decodedURLs []string
-	for _, match := range encodedURLs {
-		decoded, err := base64.StdEncoding.DecodeString(match[1])
-		if err != nil {
-			t.Fatalf("decode proxied URL: %v", err)
-		}
-		decodedURLs = append(decodedURLs, string(decoded))
-	}
-	joinedURLs := strings.Join(decodedURLs, "\n")
-	for _, expected := range []string{
-		"https://example.com/_next/image?url=%2Fhero.jpg&w=1280&q=75",
-		"https://cdn.example.com/hero.jpg",
-		"https://example.com/news/images/small.jpg",
-		"https://example.com/news/images/large.jpg",
-	} {
-		if !strings.Contains(joinedURLs, expected) {
-			t.Errorf("missing decoded candidate %q in %s", expected, joinedURLs)
-		}
-	}
-	if strings.Contains(joinedURLs, "&amp;") {
-		t.Fatalf("HTML entities leaked into proxied URLs: %s", joinedURLs)
-	}
-}
-
-func TestRewriteSrcsetAttribute_SkipsNonHTTPAndProxiedCandidates(t *testing.T) {
-	content := `<img srcset="data:image/png;base64,AAAA 1x, blob:https://example.com/id 2x, #poster 320w, /api/webpage/resource?url_b64=abc 640w">`
-	if got := rewriteSrcsetAttribute(content, "img", "srcset", "https://example.com/article"); got != content {
-		t.Fatalf("special srcset candidates changed:\nwant: %s\n got: %s", content, got)
 	}
 }
 

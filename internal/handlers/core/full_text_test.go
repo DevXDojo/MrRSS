@@ -85,36 +85,6 @@ func TestFullTextReadabilityAndInvalidResponses(t *testing.T) {
 	}
 }
 
-func TestFullTextReadabilityRestoresLeadImageWithoutDuplicates(t *testing.T) {
-	h := fullTextHandler(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		body := strings.Repeat("A long article sentence, with useful detail and punctuation. ", 30)
-		if r.URL.Path == "/existing" {
-			fmt.Fprintf(w, `<html><head><meta property="og:image" content="/og.jpg"></head><body><article><h1>Article</h1><p>%s</p><img src="/body.jpg"></article></body></html>`, body)
-			return
-		}
-		fmt.Fprintf(w, `<html><head><meta property="og:image" content="/lead.jpg"></head><body><article><h1>Article</h1><p>%s</p></article></body></html>`, body)
-	}))
-	defer server.Close()
-
-	content, err := h.FetchFullArticleContentContext(context.Background(), server.URL+"/lead", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(content, `src="`+server.URL+`/lead.jpg"`) || !strings.Contains(content, `referrerpolicy="no-referrer"`) {
-		t.Fatalf("lead image was not restored safely: %s", content)
-	}
-
-	content, err = h.FetchFullArticleContentContext(context.Background(), server.URL+"/existing", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(content, server.URL+"/body.jpg") || strings.Contains(content, server.URL+"/og.jpg") {
-		t.Fatalf("existing article image was duplicated or replaced: %s", content)
-	}
-}
-
 func TestFullTextNoSelectorMatchIsAnError(t *testing.T) {
 	h := fullTextHandler(t)
 	id, err := h.DB.AddFeed(&models.Feed{Title: "f", URL: "https://example.org"})

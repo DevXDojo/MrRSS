@@ -823,8 +823,6 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 
 	// Then rewrite img src attributes (now including the converted lazy images)
 	content = rewriteAttribute(content, "img", "src", baseURL)
-	content = rewriteSrcsetAttribute(content, "img", "srcset", baseURL)
-	content = rewriteSrcsetAttribute(content, "img", "data-srcset", baseURL)
 
 	// Rewrite iframe src attributes
 	content = rewriteAttribute(content, "iframe", "src", baseURL)
@@ -838,8 +836,6 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 
 	// Rewrite source src attributes (for video/audio)
 	content = rewriteAttribute(content, "source", "src", baseURL)
-	content = rewriteSrcsetAttribute(content, "source", "srcset", baseURL)
-	content = rewriteSrcsetAttribute(content, "source", "data-srcset", baseURL)
 
 	// Rewrite track src attributes
 	content = rewriteAttribute(content, "track", "src", baseURL)
@@ -1059,101 +1055,89 @@ func parseHTMLAttributes(tag string) []htmlAttribute {
 	return attrs
 }
 
-// rewriteAttribute rewrites a specific URL attribute in HTML tags.
+// rewriteAttribute rewrites a specific attribute in HTML tags
 func rewriteAttribute(content, tag, attr, baseURL string) string {
-	return rewriteAttributeValue(content, tag, attr, func(value string) (string, bool) {
-		return proxyWebpageResourceURL(value, baseURL)
-	})
-}
+	// Match all tags first
+	tagRe := regexp.MustCompile(fmt.Sprintf(`<%s[^>]*>`, tag))
 
-// rewriteSrcsetAttribute proxies every candidate URL while preserving its
-// density or width descriptor (for example, 2x or 640w).
-func rewriteSrcsetAttribute(content, tag, attr, baseURL string) string {
-	return rewriteAttributeValue(content, tag, attr, func(value string) (string, bool) {
-		var result strings.Builder
-		changed := false
-		for position := 0; position < len(value); {
-			prefixStart := position
-			for position < len(value) && (isHTMLSpace(value[position]) || value[position] == ',') {
-				position++
-			}
-			result.WriteString(value[prefixStart:position])
-			if position >= len(value) {
-				break
-			}
+	matchCount := 0
+	rewriteCount := 0
 
-			urlStart := position
-			isDataURL := strings.HasPrefix(strings.ToLower(value[position:]), "data:")
-			for position < len(value) && !isHTMLSpace(value[position]) && (isDataURL || value[position] != ',') {
-				position++
-			}
-			candidate := value[urlStart:position]
-			if proxied, ok := proxyWebpageResourceURL(candidate, baseURL); ok {
-				result.WriteString(proxied)
-				changed = true
+	result := tagRe.ReplaceAllStringFunc(content, func(match string) string {
+		matchCount++
+		// Try to find the attribute with double quotes
+		doubleQuoteRe := regexp.MustCompile(fmt.Sprintf(`\s%s\s*=\s*"([^"]*)"`, attr))
+		doubleQuoteMatch := doubleQuoteRe.FindStringSubmatch(match)
+
+		var urlValue, quote string
+
+		if len(doubleQuoteMatch) >= 2 {
+			// Found double-quoted attribute
+			urlValue = doubleQuoteMatch[1]
+			quote = `"`
+		} else {
+			// Try single quotes
+			singleQuoteRe := regexp.MustCompile(fmt.Sprintf(`\s%s\s*=\s*'([^']*)'`, attr))
+			singleQuoteMatch := singleQuoteRe.FindStringSubmatch(match)
+			if len(singleQuoteMatch) >= 2 {
+				urlValue = singleQuoteMatch[1]
+				quote = `'`
 			} else {
-				result.WriteString(candidate)
+				// Try unquoted
+				unquotedRe := regexp.MustCompile(fmt.Sprintf(`\s%s\s*=\s*([^\s>]+)`, attr))
+				unquotedMatch := unquotedRe.FindStringSubmatch(match)
+				if len(unquotedMatch) >= 2 {
+					urlValue = unquotedMatch[1]
+					quote = ""
+				} else {
+					// Attribute not found
+					return match
+				}
 			}
-
-			descriptorStart := position
-			for position < len(value) && value[position] != ',' {
-				position++
-			}
-			result.WriteString(value[descriptorStart:position])
 		}
-		return result.String(), changed
-	})
-}
 
-func rewriteAttributeValue(content, tag, attr string, rewrite func(string) (string, bool)) string {
-	tagRe := regexp.MustCompile(`(?i)<` + regexp.QuoteMeta(tag) + `\b[^>]*>`)
-	patterns := []*regexp.Regexp{
-		regexp.MustCompile(`(?i)\s+` + regexp.QuoteMeta(attr) + `\s*=\s*"([^"]*)"`),
-		regexp.MustCompile(`(?i)\s+` + regexp.QuoteMeta(attr) + `\s*=\s*'([^']*)'`),
-		regexp.MustCompile(`(?i)\s+` + regexp.QuoteMeta(attr) + `\s*=\s*([^\s>]+)`),
-	}
-
-	return tagRe.ReplaceAllStringFunc(content, func(match string) string {
-		for index, pattern := range patterns {
-			location := pattern.FindStringSubmatchIndex(match)
-			if len(location) < 4 {
-				continue
-			}
-			valueStart, valueEnd := location[2], location[3]
-			rewritten, changed := rewrite(match[valueStart:valueEnd])
-			if !changed {
-				return match
-			}
-			if index == len(patterns)-1 {
-				rewritten = `"` + rewritten + `"`
-			}
-			return match[:valueStart] + rewritten + match[valueEnd:]
+		// Skip data: URLs, blob: URLs, and already proxied URLs
+		if strings.HasPrefix(urlValue, "data:") ||
+			strings.HasPrefix(urlValue, "blob:") ||
+			strings.HasPrefix(urlValue, "/api/") ||
+			strings.HasPrefix(urlValue, "#") {
+			return match
 		}
-		return match
+
+		rewriteCount++
+		// if tag == "script" || tag == "link" {
+		// 	log.Printf("[%s Rewrite] Rewriting %s %d: %s", strings.ToUpper(tag), attr, rewriteCount, urlValue)
+		// }
+
+		// Resolve relative URLs
+		resolvedURL := resolveURL(urlValue, baseURL)
+
+		// Create proxied URL with base64 encoding
+		proxiedURL := fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
+			base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
+			base64.StdEncoding.EncodeToString([]byte(baseURL)))
+
+		// Replace the URL in the match
+		// Use regex to replace attribute value more reliably
+		if quote != "" {
+			// Quoted value - replace using regex for more flexibility
+			attrPattern := regexp.MustCompile(`(` + attr + `)\s*=\s*` + regexp.QuoteMeta(quote) + regexp.QuoteMeta(urlValue) + regexp.QuoteMeta(quote))
+			replacement := fmt.Sprintf(`%s=%s%s%s`, attr, quote, proxiedURL, quote)
+			return attrPattern.ReplaceAllString(match, replacement)
+		} else {
+			// Unquoted value - match until whitespace or > character
+			// We need to capture the delimiter (space or >) to preserve it
+			attrPattern := regexp.MustCompile(`(` + attr + `)\s*=\s*` + regexp.QuoteMeta(urlValue) + `([\s>])`)
+			replacement := fmt.Sprintf(`%s="%s"$2`, attr, proxiedURL)
+			return attrPattern.ReplaceAllString(match, replacement)
+		}
 	})
-}
 
-func proxyWebpageResourceURL(value, baseURL string) (string, bool) {
-	value = strings.TrimSpace(html.UnescapeString(value))
-	lowerValue := strings.ToLower(value)
-	if value == "" || strings.HasPrefix(lowerValue, "data:") ||
-		strings.HasPrefix(lowerValue, "blob:") || strings.HasPrefix(value, "#") ||
-		strings.HasPrefix(value, "/api/") || strings.Contains(value, "/api/webpage/resource?") {
-		return value, false
-	}
+	// if matchCount > 0 && (tag == "script" || tag == "link") {
+	// 	log.Printf("[%s Rewrite] Found %d %s tags, rewrote %d %s attributes", strings.ToUpper(tag), matchCount, tag, rewriteCount, attr)
+	// }
 
-	resolvedURL := resolveURL(value, baseURL)
-	parsedURL, err := url.Parse(resolvedURL)
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
-		return value, false
-	}
-	return fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
-		base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
-		base64.StdEncoding.EncodeToString([]byte(baseURL))), true
-}
-
-func isHTMLSpace(value byte) bool {
-	return value == ' ' || value == '\t' || value == '\n' || value == '\r' || value == '\f'
+	return result
 }
 
 // rewriteLinkHref rewrites href attributes in link tags
