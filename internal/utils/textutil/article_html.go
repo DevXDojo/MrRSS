@@ -13,6 +13,30 @@ var markdownBlock = regexp.MustCompile("(?m)^ {0,3}(#{1,6} |```|~~~|[-*+] |[0-9]
 var rasterDataImage = regexp.MustCompile(`(?i)^data:image/(png|gif|jpeg|webp|avif);base64,[a-z0-9+/=\r\n]+$`)
 var htmlElement = regexp.MustCompile(`(?i)<[a-z][a-z0-9]*(?:\s|/?>)`)
 
+// ResolveArticleImageSource selects the first valid HTTP(S) image source.
+// Attribute names must be lowercase and values must already be HTML-decoded.
+// Inline images are left to the caller, which can preserve the existing src.
+func ResolveArticleImageSource(attributes map[string]string, base *url.URL) string {
+	for _, key := range []string{"data-src", "data-original", "data-lazy-src", "data-actualsrc", "data-original-src", "zoomfile", "file", "src"} {
+		value := strings.TrimSpace(attributes[key])
+		if value == "" || strings.HasPrefix(value, "#") {
+			continue
+		}
+		source, err := url.Parse(value)
+		if err != nil {
+			continue
+		}
+		if base != nil {
+			source = base.ResolveReference(source)
+		}
+		if (source.Scheme != "http" && source.Scheme != "https") || source.Hostname() == "" {
+			continue
+		}
+		return source.String()
+	}
+	return ""
+}
+
 // PrepareArticleContent renders Markdown sources and normalizes safe reader HTML.
 // Existing HTML and pre/code examples remain HTML rather than being reinterpreted.
 func PrepareArticleContent(content, baseURL string) string {
@@ -24,16 +48,19 @@ func PrepareArticleContent(content, baseURL string) string {
 		return ""
 	}
 	doc.Find("script,style,link,meta,base,object,embed,form,input,button,textarea,select,svg,template").Remove()
+	base, _ := url.Parse(baseURL)
 	// Promote lazy image URLs in RSS HTML too, before removing source attributes.
 	doc.Find("img").Each(func(_ int, image *goquery.Selection) {
-		for _, key := range []string{"data-src", "data-original", "data-lazy-src", "data-actualsrc"} {
-			if value := strings.TrimSpace(image.AttrOr(key, "")); value != "" {
-				image.SetAttr("src", value)
-				break
+		attributes := make(map[string]string, len(image.Get(0).Attr))
+		for _, attr := range image.Get(0).Attr {
+			if attr.Namespace == "" {
+				attributes[strings.ToLower(attr.Key)] = attr.Val
 			}
 		}
+		if source := ResolveArticleImageSource(attributes, base); source != "" {
+			image.SetAttr("src", source)
+		}
 	})
-	base, _ := url.Parse(baseURL)
 	doc.Find("*").Each(func(_ int, sel *goquery.Selection) {
 		node := sel.Get(0)
 		if node.Type != html.ElementNode {

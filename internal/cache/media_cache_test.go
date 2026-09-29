@@ -3,14 +3,188 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"MrRSS/internal/utils/httputil"
 )
+
+func TestMediaCacheRefererFallback(t *testing.T) {
+	for _, inMemory := range []bool{false, true} {
+		for _, finalStatus := range []int{http.StatusOK, http.StatusForbidden, http.StatusNotFound} {
+			name := fmt.Sprintf("memory=%v/status=%d", inMemory, finalStatus)
+			t.Run(name, func(t *testing.T) {
+				dir := t.TempDir()
+				mc, err := NewMediaCache(dir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var calls atomic.Int32
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
+					if r.Header.Get("Referer") != "" && finalStatus != http.StatusNotFound {
+						w.WriteHeader(http.StatusForbidden)
+						return
+					}
+					w.Header().Set("Content-Type", "image/png")
+					w.WriteHeader(finalStatus)
+					_, _ = io.WriteString(w, "image")
+				}))
+				defer server.Close()
+				mediaURL := server.URL + "/image.png"
+				if inMemory {
+					_, _, err = mc.Get(context.Background(), server.Client(), mediaURL, "https://article.example")
+				} else {
+					_, _, err = mc.DownloadToFile(context.Background(), server.Client(), mediaURL, "https://article.example")
+				}
+				wantCalls := int32(2)
+				if finalStatus == http.StatusNotFound {
+					wantCalls = 1
+				}
+				if calls.Load() != wantCalls {
+					t.Fatalf("requests=%d want=%d", calls.Load(), wantCalls)
+				}
+				if finalStatus == http.StatusOK {
+					if err != nil {
+						t.Fatal(err)
+					}
+					data, contentType, err := mc.Get(context.Background(), server.Client(), mediaURL, "https://article.example")
+					if err != nil || string(data) != "image" || contentType != "image/png" || calls.Load() != wantCalls {
+						t.Fatalf("cache hit: data=%q type=%q err=%v requests=%d", data, contentType, err, calls.Load())
+					}
+				} else {
+					var downloadErr *MediaDownloadError
+					if !errors.As(err, &downloadErr) || downloadErr.RefererFallbackAttempted != (wantCalls == 2) {
+						t.Fatalf("download error lost retry state: %v", err)
+					}
+					entries, err := os.ReadDir(dir)
+					if err != nil || len(entries) != 0 {
+						t.Fatalf("failed download left files: %v, %v", entries, err)
+					}
+				}
+			})
+		}
+	}
+}
+
+type failingMediaBody struct {
+	data   string
+	err    error
+	cancel context.CancelFunc
+	closed bool
+}
+
+func (b *failingMediaBody) Read(p []byte) (int, error) {
+	if b.data != "" {
+		n := copy(p, b.data)
+		b.data = b.data[n:]
+		return n, nil
+	}
+	if b.cancel != nil {
+		b.cancel()
+	}
+	return 0, b.err
+}
+
+func (b *failingMediaBody) Close() error {
+	b.closed = true
+	return nil
+}
+
+func TestMediaCacheIncompleteOrCancelledBodyNeverCached(t *testing.T) {
+	for _, inMemory := range []bool{false, true} {
+		for _, mode := range []string{"short", "read failure", "cancelled", "empty"} {
+			t.Run(fmt.Sprintf("memory=%v/%s", inMemory, mode), func(t *testing.T) {
+				dir := t.TempDir()
+				mc, err := NewMediaCache(dir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				body := &failingMediaBody{data: "partial", err: io.EOF}
+				length := int64(10)
+				if mode == "read failure" {
+					body.err = io.ErrUnexpectedEOF
+				} else if mode == "cancelled" {
+					body.cancel = cancel
+					length = -1
+				} else if mode == "empty" {
+					body.data = ""
+					length = 0
+				}
+				calls := 0
+				client := &http.Client{Transport: httputil.RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+					calls++
+					if calls == 1 {
+						return &http.Response{StatusCode: 403, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("forbidden")), Request: req}, nil
+					}
+					return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"image/png"}}, Body: body, ContentLength: length, Request: req}, nil
+				})}
+				if inMemory {
+					_, _, err = mc.Get(ctx, client, "https://media.example/image.png", "https://article.example")
+				} else {
+					_, _, err = mc.DownloadToFile(ctx, client, "https://media.example/image.png", "https://article.example")
+				}
+				var downloadErr *MediaDownloadError
+				if !errors.As(err, &downloadErr) || !downloadErr.RefererFallbackAttempted || calls != 2 {
+					t.Fatalf("err=%v calls=%d", err, calls)
+				}
+				if mode == "cancelled" && !errors.Is(err, context.Canceled) {
+					t.Fatalf("cancellation lost: %v", err)
+				}
+				if !body.closed {
+					t.Fatal("failed response body was not closed")
+				}
+				entries, err := os.ReadDir(dir)
+				if err != nil || len(entries) != 0 {
+					t.Fatalf("incomplete download left files: %v, %v", entries, err)
+				}
+			})
+		}
+	}
+}
+
+func TestMediaCacheStorageErrorAllowsDirectFallback(t *testing.T) {
+	for _, inMemory := range []bool{false, true} {
+		t.Run(fmt.Sprintf("memory=%v", inMemory), func(t *testing.T) {
+			// A file in place of the cache directory makes cache storage fail
+			// deterministically, including when tests run as a privileged user.
+			cachePath := filepath.Join(t.TempDir(), "not-a-directory")
+			if err := os.WriteFile(cachePath, []byte("occupied"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			mc := &MediaCache{cacheDir: cachePath}
+			calls := 0
+			client := &http.Client{Transport: httputil.RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				code := 200
+				if calls == 1 {
+					code = 403
+				}
+				return &http.Response{StatusCode: code, Header: http.Header{"Content-Type": {"image/png"}}, Body: io.NopCloser(strings.NewReader("image")), ContentLength: 5, Request: req}, nil
+			})}
+			var err error
+			if inMemory {
+				_, _, err = mc.Get(context.Background(), client, "https://media.example/image.png", "https://article.example")
+			} else {
+				_, _, err = mc.DownloadToFile(context.Background(), client, "https://media.example/image.png", "https://article.example")
+			}
+			var downloadErr *MediaDownloadError
+			if err == nil || errors.As(err, &downloadErr) || calls != 2 {
+				t.Fatalf("storage error incorrectly prevents direct fallback: err=%v calls=%d", err, calls)
+			}
+		})
+	}
+}
 
 func TestMediaCacheCancelledDownloadDoesNotWriteFile(t *testing.T) {
 	mc, err := NewMediaCache(t.TempDir())
