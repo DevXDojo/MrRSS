@@ -2,8 +2,10 @@ package media
 
 import (
 	"encoding/base64"
+	"github.com/PuerkitoBio/goquery"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -241,4 +243,60 @@ func findInString(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestRewriteHTMLContentDiscuzAttachments(t *testing.T) {
+	base := "https://forum.example.org/thread-1.html"
+	input := `<IMG id="aimg_1" src="static/image/common/none.gif" zoomfile="//cdn.example.org/large.jpg?a=1&amp;b=2" file="/thumb.jpg" onclick="zoom(this,this.getAttribute('zoomfile'))"><img src="/none.gif" file="javascript:alert(1)" zoomfile="/real.jpg"><img src="/none.gif" file="/other.jpg" data-src="/preferred.jpg"><img src="/none.gif" zoomfile="https:///missing.jpg" file="/valid.jpg">`
+	result := rewriteHTMLContent([]byte(input), base)
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(result)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []string{"https://cdn.example.org/large.jpg?a=1&b=2", "https://forum.example.org/real.jpg", "https://forum.example.org/preferred.jpg", "https://forum.example.org/valid.jpg"}
+	if doc.Find("img").Length() != len(expected) {
+		t.Fatalf("unexpected image count: %s", result)
+	}
+	doc.Find("img").Each(func(i int, img *goquery.Selection) {
+		for _, attr := range []string{"src", "zoomfile", "file"} {
+			raw, exists := img.Attr(attr)
+			if !exists {
+				continue
+			}
+			parsed, err := url.Parse(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if parsed.Path != "/api/webpage/resource" {
+				t.Errorf("%s is not proxied: %s", attr, raw)
+				continue
+			}
+			decoded, err := base64.StdEncoding.DecodeString(parsed.Query().Get("url_b64"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if attr == "src" && string(decoded) != expected[i] {
+				t.Errorf("image %d src=%s, want %s", i, decoded, expected[i])
+			}
+			if strings.Contains(string(decoded), "none.gif") || strings.Contains(string(decoded), "javascript:") || strings.Contains(string(decoded), "missing.jpg") {
+				t.Errorf("invalid attachment source: %s", decoded)
+			}
+		}
+	})
+}
+
+func TestConvertLazyImagesKeepsExistingProxies(t *testing.T) {
+	proxy := "/api/webpage/resource?url_b64=" + base64.StdEncoding.EncodeToString([]byte("https://cdn.example.org/photo.jpg")) + "&referer_b64=" + base64.StdEncoding.EncodeToString([]byte("https://forum.example.org/thread"))
+	for _, input := range []string{`<img src="` + proxy + `" zoomfile="` + proxy + `" file="` + proxy + `">`, `<img src="/none.gif" zoomfile="` + proxy + `">`} {
+		output := convertLazyImages(input, "https://forum.example.org/thread")
+		output = convertLazyImages(output, "https://forum.example.org/thread")
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(output))
+		if err != nil {
+			t.Fatal(err)
+		}
+		img := doc.Find("img").First()
+		if img.AttrOr("src", "") != proxy || img.AttrOr("zoomfile", "") != proxy {
+			t.Errorf("local proxy changed on repeat: %s", output)
+		}
+	}
 }
