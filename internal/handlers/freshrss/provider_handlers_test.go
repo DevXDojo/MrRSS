@@ -33,6 +33,9 @@ func TestProviderStatusAndSyncBoundaries(t *testing.T) {
 		if body["last_sync_time"] != want {
 			t.Fatal("status used other provider settings")
 		}
+		if body["is_syncing"] != false {
+			t.Fatal("expected provider sync to be idle")
+		}
 	}
 	if err := db.SetSetting("freshrss_enabled", "true"); err != nil {
 		t.Fatal(err)
