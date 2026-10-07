@@ -5,6 +5,37 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.39] - 2026-10-07
+
+### Added
+
+- Expand or collapse the feed list with a configurable keyboard shortcut (`B` by default), including a shortcut hint on the sidebar button. (#1235)
+- Dismiss an unpinned feed list when clicking or focusing outside it, or when the application loses focus. (#1236)
+- Extract video enclosures and inline video sources, show generic videos in the multimedia gallery, and play them with native video controls while retaining YouTube and Bilibili embeds. (#1244)
+- Allow dragging rendered article images to desktop/file-manager targets using the WebView's image/file download drag support, with safe filenames and the existing media proxy. Availability depends on the platform WebView.
+
+### Fixed
+
+- Avoid reinstalling frontend dependencies during backend development rebuilds, preventing Windows file-lock errors while Vite is running.
+- Keep observing background refreshes and detect article saves between progress polls, updating the selected feed/category, articles, and unread counts without losing the current article. (#1229)
+- Refresh the interface when either Miniflux or FreshRSS finishes synchronization, repair the polling-state reference, and check sync HTTP responses. (#1242) (@HernandoR)
+- Recover empty reader content after feed refresh without restarting; invalidate stale frontend content and retain visible content if a background reload fails.
+- Preserve generated title translations during feed refresh and add regression coverage ensuring AI summaries, cached content, and chat history remain intact.
+- Avoid repeated automatic title translation after list refresh, retain skipped results, retry failed visible titles with backoff, and respect Google translation rate limits across title/content requests with bounded concurrency and localized feedback.
+- Keep rate-limited title, paragraph, and RSS-summary translations queued for automatic retry, prioritize the current article, and cancel obsolete work. Return cached/local reading results immediately during upstream outages, restore normal speed after recovery, and avoid labelling mixed-language articles as skipped.
+- Preserve HTTP 429 retry delays from translation providers and propagate AI/list translation throttling instead of storing partially untranslated results as successful translations.
+- Fail over between the two built-in Google translation endpoints when one returns HTTP 429, using the configured proxy and retaining the preferred endpoint. Keep cooldowns separate and never change hosts for custom endpoints.
+- Resolve responsive `img`/`source` image candidates in the original-page proxy and preserve a valid lead image when full-text extraction contains no images. (#1230, #1231, #1239)
+- Promote valid Discuz `zoomfile`/`file` attachments after existing lazy-image attributes in RSS content, full-text extraction, and original pages; preserve relative URLs, HTML entities, and already-proxied resources. (#1230, #1239)
+- Retry media GET requests rejected with HTTP 403 once without Referer, including redirects, within the same timeout. Never cache failed or incomplete downloads, and avoid duplicate retries after the fallback is exhausted. (#1230, #1239)
+
+### Changed
+
+- Restore the stable article viewport during bulk refresh: update progress and sidebar counts live, then publish new articles once on completion, avoiding repeated automatic translations of transient rows. Keep detecting short background refreshes between polls. (#1229)
+- Reduce refresh CPU and allocations by reusing Chinese conversion dictionaries and image extraction patterns and skipping video parsing for ordinary articles.
+- Update gofeed to 1.5.0 and align Wails, its frontend runtime, and the build CLI on beta.27. (#1232, #1234, #1245, #1246)
+- Refresh the locked Go, frontend, and website dependencies and apply compatible security updates to vulnerable npm transitive dependencies. (#1233, #1234, #1245, #1246, #1247)
+
 ## [1.3.38] - 2026-09-27
 
 ### Added

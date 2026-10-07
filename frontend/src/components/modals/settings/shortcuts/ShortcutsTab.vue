@@ -21,6 +21,7 @@ import {
   PhTray,
   PhArrowCounterClockwise,
   PhFunnel,
+  PhSidebar,
 } from '@phosphor-icons/vue';
 import ShortcutItem from './ShortcutItem.vue';
 import type { SettingsData } from '@/types/settings';
@@ -76,6 +77,7 @@ interface Shortcuts {
   markAllRead: string;
   openSettings: string;
   addFeed: string;
+  toggleFeedList: string;
   focusSearch: string;
   toggleFilter: string;
   toggleUnreadFilter: string;
@@ -108,6 +110,7 @@ const defaultShortcuts: Shortcuts = {
   markAllRead: 'Shift+a',
   openSettings: ',',
   addFeed: 'a',
+  toggleFeedList: 'b',
   focusSearch: '/',
   toggleFilter: 'f',
   toggleUnreadFilter: 'Alt+r',
@@ -182,6 +185,7 @@ const shortcutGroups = computed<Array<{ label: string; items: ShortcutItemData[]
       { key: 'markAllRead', label: t('article.action.markAllReadShortcut'), icon: PhCheckCircle },
       { key: 'openSettings', label: t('setting.shortcut.openSettingsShortcut'), icon: PhGear },
       { key: 'addFeed', label: t('setting.shortcut.addFeedShortcut'), icon: PhPlus },
+      { key: 'toggleFeedList', label: t('shortcut.toggle.feedList'), icon: PhSidebar },
       { key: 'focusSearch', label: t('setting.shortcut.focusFeedSearch'), icon: PhMagnifyingGlass },
       { key: 'toggleFilter', label: t('shortcut.toggle.filter'), icon: PhFunnel },
       { key: 'toggleUnreadFilter', label: t('shortcut.toggle.unreadFilter'), icon: PhCircle },

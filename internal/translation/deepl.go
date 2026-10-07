@@ -94,6 +94,9 @@ func (t *DeepLTranslator) Translate(text, targetLang string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if err := rateLimitResponse(resp); err != nil {
+		return "", err
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("deepl api returned status: %d", resp.StatusCode)
 	}
@@ -148,6 +151,9 @@ func (t *DeepLTranslator) translateWithDeeplx(text, targetLang string) (string, 
 	}
 	defer resp.Body.Close()
 
+	if err := rateLimitResponse(resp); err != nil {
+		return "", err
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("deeplx returned status: %d", resp.StatusCode)
 	}

@@ -16,6 +16,7 @@ import ThumbnailStrip from './ThumbnailStrip.vue';
 import { getProxiedMediaUrl, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { isYouTubeArticle, extractYouTubeVideoId } from '@/utils/youtube';
 import { isBilibiliArticle } from '@/utils/bilibili';
+import { isVideoArticle, safeVideoUrl } from '@/utils/video';
 
 interface Props {
   article: Article | null;
@@ -36,6 +37,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const onVideoError = () => window.showToast(t('article.videoPlayer.videoLoadError'), 'error');
 const { formatArticleDateTime } = useArticleDateFormat();
 
 // Track media cache setting
@@ -48,7 +50,7 @@ const isYouTube = computed(() => (props.article ? isYouTubeArticle(props.article
 const isBilibili = computed(() => (props.article ? isBilibiliArticle(props.article) : false));
 
 // Check if current article is any video (YouTube or Bilibili)
-const isVideo = computed(() => isYouTube.value || isBilibili.value);
+const isVideo = computed(() => isVideoArticle(props.article));
 
 // Get YouTube embed URL if applicable
 const youtubeEmbedUrl = computed(() => {
@@ -404,6 +406,18 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
           />
         </div>
       </div>
+
+      <video
+        v-else-if="isVideo"
+        :key="article?.id"
+        :src="safeVideoUrl(article?.video_url)"
+        :aria-label="article?.title"
+        class="w-full max-w-5xl max-h-[80vh] rounded-lg"
+        controls
+        playsinline
+        preload="metadata"
+        @error="onVideoError"
+      />
 
       <!-- Image viewer -->
       <div

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { PhYoutubeLogo, PhPlayCircle } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
 import { isYouTubeUrl } from '@/utils/youtube';
 import { isBilibiliUrl } from '@/utils/bilibili';
+import { safeVideoUrl } from '@/utils/video';
 
 interface Props {
   videoUrl: string;
@@ -14,8 +15,11 @@ const props = defineProps<Props>();
 
 const { t } = useI18n();
 
-const iframeRef = ref<HTMLIFrameElement | null>(null);
 const isLoading = ref(true);
+const videoSource = computed(() => safeVideoUrl(props.videoUrl));
+watch(videoSource, () => {
+  isLoading.value = true;
+});
 
 // Check if this is a YouTube video
 const isYouTube = computed(() => isYouTubeUrl(props.videoUrl));
@@ -27,7 +31,7 @@ const isBilibili = computed(() => isBilibiliUrl(props.videoUrl));
 const videoPlatform = computed(() => {
   if (isYouTube.value) return 'YouTube';
   if (isBilibili.value) return 'Bilibili';
-  return 'Video';
+  return t('article.videoPlayer.genericPlatform');
 });
 
 // Get video platform icon color
@@ -63,23 +67,9 @@ function openInNewTab() {
       window.open(props.videoUrl, '_blank');
     }
   } else {
-    window.open(props.videoUrl, '_blank');
+    if (videoSource.value) window.open(videoSource.value, '_blank', 'noopener,noreferrer');
   }
 }
-
-onMounted(() => {
-  if (iframeRef.value) {
-    iframeRef.value.addEventListener('load', onLoad);
-    iframeRef.value.addEventListener('error', onError);
-  }
-});
-
-onUnmounted(() => {
-  if (iframeRef.value) {
-    iframeRef.value.removeEventListener('load', onLoad);
-    iframeRef.value.removeEventListener('error', onError);
-  }
-});
 </script>
 
 <template>
@@ -106,8 +96,9 @@ onUnmounted(() => {
     <div class="relative w-full" style="padding-bottom: 56.25%">
       <!-- 16:9 Aspect Ratio -->
       <iframe
-        ref="iframeRef"
-        :src="videoUrl"
+        v-if="videoSource && (isYouTube || isBilibili)"
+        :key="videoSource"
+        :src="videoSource"
         :title="articleTitle"
         class="absolute top-0 left-0 w-full h-full border-none"
         allow="
@@ -120,15 +111,29 @@ onUnmounted(() => {
           web-share;
         "
         allowfullscreen
+        @load="onLoad"
+        @error="onError"
         :sandbox="
           isBilibili ? 'allow-forms allow-scripts allow-same-origin allow-presentation' : undefined
         "
       />
+      <video
+        v-else-if="videoSource"
+        :key="videoSource"
+        :src="videoSource"
+        :aria-label="articleTitle"
+        class="absolute inset-0 w-full h-full"
+        controls
+        playsinline
+        preload="metadata"
+        @loadedmetadata="onLoad"
+        @error="onError"
+      />
 
       <!-- Loading indicator -->
       <div
-        v-if="isLoading"
-        class="absolute inset-0 flex items-center justify-center bg-bg-tertiary"
+        v-if="isLoading && videoSource"
+        class="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-tertiary"
       >
         <div
           class="animate-spin rounded-full h-12 w-12 border-4 border-accent border-t-transparent"

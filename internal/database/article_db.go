@@ -29,7 +29,12 @@ func (db *DB) SaveArticle(article *models.Article) error {
 	// Generate unique_id for deduplication
 	uniqueID := urlutil.GenerateArticleUniqueID(article.Title, article.FeedID, article.PublishedAt, article.HasValidPublishedTime)
 	query := `INSERT OR IGNORE INTO articles (feed_id, title, url, image_url, audio_url, video_url, published_at, translated_title, is_read, is_favorite, is_hidden, is_read_later, summary, original_summary, unique_id, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := db.Exec(query, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, article.IsRead, article.IsFavorite, article.IsHidden, article.IsReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author)
+	result, err := db.Exec(query, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, article.IsRead, article.IsFavorite, article.IsHidden, article.IsReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author)
+	if err == nil {
+		if changed, countErr := result.RowsAffected(); countErr == nil && changed > 0 {
+			db.articleRevision.Add(1)
+		}
+	}
 	return err
 }
 
@@ -95,7 +100,7 @@ func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) 
 			audio_url = excluded.audio_url,
 			video_url = excluded.video_url,
 			published_at = CASE WHEN ? THEN excluded.published_at ELSE articles.published_at END,
-			translated_title = excluded.translated_title,
+			translated_title = COALESCE(NULLIF(excluded.translated_title, ''), articles.translated_title),
 			is_read = excluded.is_read,
 			is_favorite = excluded.is_favorite,
 			is_hidden = excluded.is_hidden,
@@ -186,6 +191,9 @@ func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) 
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
+	}
+	if len(articles) > 0 {
+		db.articleRevision.Add(1)
 	}
 	return nil
 }

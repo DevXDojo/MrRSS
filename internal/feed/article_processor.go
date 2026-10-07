@@ -2,6 +2,7 @@ package feed
 
 import (
 	"html"
+	"mime"
 	"net/url"
 	"regexp"
 	"strings"
@@ -12,6 +13,16 @@ import (
 
 	"github.com/mmcdole/gofeed"
 	nethtml "golang.org/x/net/html"
+)
+
+var (
+	imageTagPattern        = regexp.MustCompile(`(?i)<img\b[^>]*>`)
+	imageAttributePatterns = map[string]*regexp.Regexp{
+		"data-original": regexp.MustCompile(`(?i)\sdata-original\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))`),
+		"data-src":      regexp.MustCompile(`(?i)\sdata-src\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))`),
+		"src":           regexp.MustCompile(`(?i)\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))`),
+	}
+	bilibiliIframePattern = regexp.MustCompile(`(?s)<iframe[\s\S]+?src=["']([^"']*bilibili\.com/blackboard/html5mobileplayer\.html[^"']*)["']`)
 )
 
 // ExtractContent extracts content from an RSS item with the correct priority order.
@@ -63,7 +74,7 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 
 		imageURL := extractImageURL(item, feed.URL)
 		audioURL := extractAudioURL(item)
-		videoURL := extractVideoURL(item)
+		videoURL := extractVideoURL(item, feed.URL)
 
 		// Extract Media RSS content (YouTube feeds)
 		mediaTitle := extractMediaTitle(item)
@@ -163,6 +174,9 @@ func extractImageURL(item *gofeed.Item, feedURL string) string {
 }
 
 func extractVideoPosterURL(content, baseURL string) string {
+	if !hasVideoElement(content) {
+		return ""
+	}
 	tokens := nethtml.NewTokenizer(strings.NewReader(content))
 	for {
 		switch tokens.Next() {
@@ -233,12 +247,20 @@ func resolveRelativeURL(imageURL string, feedURL string) string {
 // This is used as a fallback when no image metadata is available in RSS/Atom feeds
 // It's exported so it can be used by FreshRSS sync and other modules
 func ExtractFirstImageURLFromHTML(htmlContent string) string {
-	urls := ExtractAllImageURLsFromHTML(htmlContent)
-	if len(urls) == 0 {
-		return ""
+	for htmlContent != "" {
+		loc := imageTagPattern.FindStringIndex(htmlContent)
+		if loc == nil {
+			return ""
+		}
+		tag := htmlContent[loc[0]:loc[1]]
+		for _, attr := range []string{"data-original", "data-src", "src"} {
+			if imageURL := extractHTMLAttribute(tag, attr); imageURL != "" {
+				return html.UnescapeString(imageURL)
+			}
+		}
+		htmlContent = htmlContent[loc[1]:]
 	}
-
-	return urls[0]
+	return ""
 }
 
 // ExtractAllImageURLsFromHTML extracts all image URLs from HTML content
@@ -251,9 +273,8 @@ func ExtractAllImageURLsFromHTML(htmlContent string) []string {
 
 	var urls []string
 	seen := make(map[string]struct{})
-	imgTagRe := regexp.MustCompile(`(?i)<img\b[^>]*>`)
 	attrNames := []string{"data-original", "data-src", "src"}
-	imgTags := imgTagRe.FindAllString(htmlContent, -1)
+	imgTags := imageTagPattern.FindAllString(htmlContent, -1)
 
 	for _, tag := range imgTags {
 		for _, attrName := range attrNames {
@@ -272,7 +293,10 @@ func ExtractAllImageURLsFromHTML(htmlContent string) []string {
 }
 
 func extractHTMLAttribute(tag string, attrName string) string {
-	re := regexp.MustCompile(`(?i)\s` + regexp.QuoteMeta(attrName) + `\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))`)
+	re := imageAttributePatterns[attrName]
+	if re == nil {
+		return ""
+	}
 	matches := re.FindStringSubmatch(tag)
 	for i := 1; i < len(matches); i++ {
 		if strings.TrimSpace(matches[i]) != "" {
@@ -295,8 +319,8 @@ func extractAudioURL(item *gofeed.Item) string {
 	return ""
 }
 
-// extractVideoURL extracts the video URL from a feed item (for YouTube and Bilibili videos)
-func extractVideoURL(item *gofeed.Item) string {
+// extractVideoURL prefers platform embeds, then video enclosures and HTML media.
+func extractVideoURL(item *gofeed.Item, feedURLs ...string) string {
 	// First check if this is a Bilibili video with iframe in content
 	// Some RSSHub feeds might include iframe in description/content with complete parameters (aid, cid, bvid)
 	// This should take priority over generating a simplified URL from the link
@@ -340,7 +364,84 @@ func extractVideoURL(item *gofeed.Item) string {
 		}
 	}
 
+	base := item.Link
+	if base == "" && len(feedURLs) > 0 {
+		base = feedURLs[0]
+	}
+	for _, enclosure := range item.Enclosures {
+		if enclosure == nil {
+			continue
+		}
+		mediaType, _, err := mime.ParseMediaType(enclosure.Type)
+		if err == nil && strings.HasPrefix(strings.ToLower(mediaType), "video/") {
+			if candidate := safeVideoURL(enclosure.URL, base); candidate != "" {
+				return candidate
+			}
+		}
+	}
+	// Parse HTML rather than matching attributes with regex; source elements are
+	// only media when nested inside a video (picture sources are images).
+	if !hasVideoElement(content) {
+		return ""
+	}
+	doc, err := nethtml.Parse(strings.NewReader(content))
+	if err == nil {
+		var find func(*nethtml.Node, bool) string
+		find = func(node *nethtml.Node, inVideo bool) string {
+			isVideo := node.Type == nethtml.ElementNode && node.Data == "video"
+			if isVideo || (inVideo && node.Type == nethtml.ElementNode && node.Data == "source") {
+				for _, attr := range node.Attr {
+					if attr.Key == "src" {
+						if candidate := safeVideoURL(attr.Val, base); candidate != "" {
+							return candidate
+						}
+					}
+				}
+			}
+			for child := node.FirstChild; child != nil; child = child.NextSibling {
+				if candidate := find(child, inVideo || isVideo); candidate != "" {
+					return candidate
+				}
+			}
+			return ""
+		}
+		return find(doc, false)
+	}
 	return ""
+}
+
+// Avoid constructing HTML trees or tokenizing ordinary non-video articles.
+// Match tag names case-insensitively without copying a potentially large body.
+func hasVideoElement(content string) bool {
+	for {
+		start := strings.IndexByte(content, '<')
+		if start < 0 {
+			return false
+		}
+		content = content[start+1:]
+		if len(content) >= 5 && strings.EqualFold(content[:5], "video") &&
+			(len(content) == 5 || strings.ContainsRune(" \t\r\n\f/>", rune(content[5]))) {
+			return true
+		}
+	}
+}
+
+func safeVideoURL(raw, base string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || raw == "" {
+		return ""
+	}
+	if !parsed.IsAbs() {
+		baseURL, err := url.Parse(base)
+		if err != nil {
+			return ""
+		}
+		parsed = baseURL.ResolveReference(parsed)
+	}
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" || parsed.User != nil {
+		return ""
+	}
+	return parsed.String()
 }
 
 // extractBilibiliVideoURL extracts Bilibili iframe URL from HTML content
@@ -352,8 +453,7 @@ func extractBilibiliVideoURL(content string) string {
 	// Look for Bilibili iframe in the content
 	// Pattern matches: <iframe src="https://www.bilibili.com/blackboard/html5mobileplayer.html?...">
 	// Use (?s) flag to make . match newlines, and use [\s\S] instead of . to match any character including newlines
-	re := regexp.MustCompile(`(?s)<iframe[\s\S]+?src=["']([^"']*bilibili\.com/blackboard/html5mobileplayer\.html[^"']*)["']`)
-	matches := re.FindStringSubmatch(content)
+	matches := bilibiliIframePattern.FindStringSubmatch(content)
 
 	if len(matches) > 1 {
 		// Unescape HTML entities (e.g., &amp; -> &)

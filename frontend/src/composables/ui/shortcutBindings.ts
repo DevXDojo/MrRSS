@@ -16,6 +16,7 @@ export interface KeyboardShortcuts {
   markAllRead: string;
   openSettings: string;
   addFeed: string;
+  toggleFeedList: string;
   focusSearch: string;
   toggleFilter: string;
   toggleUnreadFilter: string;
@@ -44,6 +45,7 @@ export const shortcuts = ref<KeyboardShortcuts>({
   markAllRead: 'Shift+a',
   openSettings: ',',
   addFeed: 'a',
+  toggleFeedList: 'b',
   focusSearch: '/',
   toggleFilter: 'f',
   toggleUnreadFilter: 'Alt+r',

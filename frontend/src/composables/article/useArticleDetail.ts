@@ -10,6 +10,7 @@ import {
 } from '@/utils/articleContentDom';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { loadArticleContent, invalidateArticleContent } from '@/utils/articleContentCache';
+import { setImageDragData } from '@/utils/imageDrag';
 
 type ViewMode = 'original' | 'rendered' | 'external';
 type RenderAction = 'showContent' | 'showOriginal' | null;
@@ -288,7 +289,7 @@ export function useArticleDetail() {
     }
   }
 
-  async function fetchArticleContent() {
+  async function fetchArticleContent(preserveExisting = false) {
     if (!article.value) return;
 
     const loadingArticleId = article.value.id;
@@ -298,7 +299,7 @@ export function useArticleDetail() {
     const isCurrent = () =>
       requestId === contentRequestId && store.currentArticleId === loadingArticleId;
     currentArticleId.value = loadingArticleId; // Track which article we're loading
-    isLoadingContent.value = true;
+    isLoadingContent.value = !preserveExisting || !articleContent.value;
 
     try {
       const data = await loadArticleContent(loadingArticleId, contentController.signal);
@@ -316,7 +317,7 @@ export function useArticleDetail() {
         content = proxyImagesInHtml(content, feedUrl);
       }
 
-      articleContent.value = content;
+      if (content || !preserveExisting) articleContent.value = content;
 
       // Only show loading animation for non-cached content
       if (!data.cached) {
@@ -326,7 +327,7 @@ export function useArticleDetail() {
     } catch (e) {
       if (!isCurrent()) return;
       console.error('Error fetching article content:', e);
-      articleContent.value = '';
+      if (!preserveExisting) articleContent.value = '';
     } finally {
       if (isCurrent()) {
         isLoadingContent.value = false;
@@ -335,6 +336,15 @@ export function useArticleDetail() {
   }
 
   // Handle retry loading content
+  const handleContentUpdated = (event: Event) => {
+    if (
+      (event as CustomEvent<{ recoveryOnly?: boolean }>).detail?.recoveryOnly &&
+      articleContent.value
+    )
+      return;
+    if (article.value) void fetchArticleContent(true);
+  };
+
   function handleRetryLoadContent() {
     if (article.value && showContent.value) {
       fetchArticleContent();
@@ -451,6 +461,10 @@ export function useArticleDetail() {
           // Ensure cloned image maintains pointer interaction styles
           newImg.style.cursor = 'pointer';
           newImg.style.pointerEvents = 'auto';
+          newImg.draggable = true;
+          newImg.addEventListener('dragstart', (event: DragEvent) => {
+            setImageDragData(event, newImg, article.value?.url);
+          });
 
           // Left click - open image viewer with all images from article
           newImg.addEventListener(
@@ -908,6 +922,7 @@ export function useArticleDetail() {
     window.addEventListener('render-article-content', handleRenderContent);
     window.addEventListener('explicit-render-action', handleExplicitRenderAction);
     window.addEventListener('toggle-content-view', handleToggleContentView);
+    window.addEventListener('article-content-updated', handleContentUpdated);
 
     // Load default view mode from settings
     try {
@@ -925,6 +940,7 @@ export function useArticleDetail() {
     window.removeEventListener('render-article-content', handleRenderContent);
     window.removeEventListener('explicit-render-action', handleExplicitRenderAction);
     window.removeEventListener('toggle-content-view', handleToggleContentView);
+    window.removeEventListener('article-content-updated', handleContentUpdated);
   });
 
   return {

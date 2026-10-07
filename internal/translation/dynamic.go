@@ -49,6 +49,21 @@ func (t *DynamicTranslator) Translate(text, targetLang string) (string, error) {
 	return t.TranslateContext(context.Background(), text, targetLang)
 }
 
+// LookupCachedTranslation reads the configured provider's cache without sending a request.
+func (t *DynamicTranslator) LookupCachedTranslation(ctx context.Context, text, targetLang string) (string, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return "", false, err
+	}
+	if t.cache == nil {
+		return "", false, nil
+	}
+	provider, err := t.getProvider()
+	if err != nil {
+		return "", false, err
+	}
+	return t.cache.GetCachedTranslation(hashText(text), targetLang, provider.Name())
+}
+
 func (t *DynamicTranslator) TranslateContext(ctx context.Context, text, targetLang string) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err

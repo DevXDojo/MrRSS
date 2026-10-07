@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -34,9 +35,14 @@ const (
 // DB wraps sql.DB with initialization state tracking.
 type DB struct {
 	*sql.DB
-	ready chan struct{}
-	once  sync.Once
+	ready           chan struct{}
+	once            sync.Once
+	articleRevision atomic.Uint64
 }
+
+// ArticleRevision changes after feed articles are successfully saved. It lets
+// clients notice background refreshes that finish between progress polls.
+func (db *DB) ArticleRevision() uint64 { return db.articleRevision.Load() }
 
 // NewDB creates a new database connection with optimized settings.
 func NewDB(dataSourceName string) (*DB, error) {

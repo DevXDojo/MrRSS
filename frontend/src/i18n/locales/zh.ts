@@ -238,9 +238,13 @@ const zh: TranslationMessages = {
       manualMode: '按需翻译',
       manualHint: '点击“翻译标题”，或按住 Ctrl（macOS 为 Command）点击某一段以翻译该段。',
       translatingTitle: '正在翻译标题…',
+      waiting: '翻译服务繁忙，将自动继续翻译，可先阅读原文。',
+      retryCountdown: '{seconds} 秒后重试。',
+      resuming: '正在逐步恢复翻译，优先翻译当前文章。',
       aiLimitReached: 'AI 使用量已达上限，正在使用免费替代方案。',
     },
     videoPlayer: {
+      genericPlatform: '视频',
       openInYouTube: '在 YouTube 中打开',
       videoLoadError: '加载视频失败，请尝试在 YouTube 中打开。',
       youtubeVideo: 'YouTube 视频',
@@ -940,7 +944,8 @@ const zh: TranslationMessages = {
       googleTranslateEndpoint: '谷歌翻译端点',
       googleTranslateEndpointAlternate: '备用 (clients5.google.com)',
       googleTranslateEndpointDefault: '默认 (translate.googleapis.com)',
-      googleTranslateEndpointDesc: '选择要使用的谷歌翻译 API 端点',
+      googleTranslateEndpointDesc:
+        '选择优先使用的谷歌翻译端点。该端点限流时，会沿用当前代理尝试另一个内置谷歌端点。',
       localAlgorithm: '本地算法',
       noSummaryAvailable: '摘要不可用',
       regenerateSummary: '重新生成',
@@ -1552,6 +1557,7 @@ const zh: TranslationMessages = {
     },
     pressKey: '按下按键...',
     toggle: {
+      feedList: '展开 / 折叠订阅源列表',
       contentView: '内容视图',
       favoritesFilter: '切换收藏过滤',
       filter: '切换文章过滤器',

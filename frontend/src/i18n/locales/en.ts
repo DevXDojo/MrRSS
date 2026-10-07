@@ -248,9 +248,14 @@ const en: TranslationMessages = {
       manualHint:
         'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
       translatingTitle: 'Translating title...',
+      waiting:
+        'Translation service is busy. Translation will resume automatically; keep reading the original.',
+      retryCountdown: 'Retrying in {seconds}s.',
+      resuming: 'Resuming translation gradually, with the current article first.',
       aiLimitReached: 'AI usage limit reached. Using free alternatives.',
     },
     videoPlayer: {
+      genericPlatform: 'Video',
       openInYouTube: 'Open in YouTube',
       videoLoadError: 'Failed to load video. Please try opening it in the original platform.',
       youtubeVideo: 'YouTube Video',
@@ -976,7 +981,8 @@ const en: TranslationMessages = {
       googleTranslateEndpoint: 'Google Translate Endpoint',
       googleTranslateEndpointAlternate: 'Alternate (clients5.google.com)',
       googleTranslateEndpointDefault: 'Default (translate.googleapis.com)',
-      googleTranslateEndpointDesc: 'Select the Google Translate API endpoint to use',
+      googleTranslateEndpointDesc:
+        'Select the preferred Google Translate endpoint. If it is rate-limited, the other built-in Google endpoint is tried using the same proxy.',
       localAlgorithm: 'Local Algorithm',
       noSummaryAvailable: 'Summary not available',
       regenerateSummary: 'Regenerate',
@@ -1614,6 +1620,7 @@ const en: TranslationMessages = {
     },
     pressKey: 'Press key...',
     toggle: {
+      feedList: 'Expand / Collapse Feed List',
       contentView: 'Content View',
       favoritesFilter: 'Toggle Favorites Filter',
       filter: 'Toggle Article Filter',

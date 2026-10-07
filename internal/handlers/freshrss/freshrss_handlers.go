@@ -197,6 +197,7 @@ func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 	// Get last sync time from settings
 	lastSyncStr, _ := h.DB.GetSetting(requestProvider(r) + "_last_sync_time")
+	provider := requestProvider(r)
 	var lastSyncTime *time.Time
 	if lastSyncStr != "" {
 		if ts, err := time.Parse(time.RFC3339, lastSyncStr); err == nil {
@@ -208,5 +209,11 @@ func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		"pending_changes": pendingCount,
 		"failed_items":    len(failedItems),
 		"last_sync_time":  lastSyncTime,
+		"is_syncing":      isSyncRunning(h.DB, provider),
 	})
+}
+
+func isSyncRunning(db *database.DB, provider string) bool {
+	_, running := activeSyncs.Load(syncKey{db: db, provider: provider})
+	return running
 }

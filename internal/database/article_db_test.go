@@ -571,6 +571,12 @@ func TestSaveArticlesUpdatePreservesRelatedData(t *testing.T) {
 	if err := db.SetArticleContent(articleID, "cached content"); err != nil {
 		t.Fatalf("SetArticleContent error: %v", err)
 	}
+	if err := db.UpdateArticleSummary(articleID, "Generated AI summary"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateArticleTranslation(articleID, "Translated title"); err != nil {
+		t.Fatal(err)
+	}
 	sessionID, err := db.CreateChatSession(articleID, "Existing chat")
 	if err != nil {
 		t.Fatalf("CreateChatSession error: %v", err)
@@ -594,6 +600,13 @@ func TestSaveArticlesUpdatePreservesRelatedData(t *testing.T) {
 	}
 	if updatedURL != article.URL {
 		t.Fatalf("article URL = %q, want %q", updatedURL, article.URL)
+	}
+	var summary, translatedTitle string
+	if err := db.QueryRow(`SELECT summary, translated_title FROM articles WHERE id = ?`, articleID).Scan(&summary, &translatedTitle); err != nil {
+		t.Fatal(err)
+	}
+	if summary != "Generated AI summary" || translatedTitle != "Translated title" {
+		t.Fatalf("refresh erased generated data: summary=%q title=%q", summary, translatedTitle)
 	}
 
 	content, found, err := db.GetArticleContent(articleID)
