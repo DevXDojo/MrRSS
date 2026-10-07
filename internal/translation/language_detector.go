@@ -17,6 +17,11 @@ type LanguageDetector struct{}
 var (
 	languageDetectorInstance *LanguageDetector
 	languageDetectorOnce     sync.Once
+	// Convert only reads dictionaries; reuse them instead of rebuilding for
+	// every title and paragraph, including translations that will be skipped.
+	traditionalToSimplified = sync.OnceValues(func() (*opencc.OpenCC, error) {
+		return opencc.New("t2s")
+	})
 )
 
 // GetLanguageDetector returns the singleton language detector instance
@@ -296,7 +301,7 @@ func detectChineseVariant(text string) string {
 
 	// Use OpenCC to convert Traditional to Simplified
 	// If the text changes after conversion, it was Traditional
-	t2s, err := opencc.New("t2s")
+	t2s, err := traditionalToSimplified()
 	if err != nil {
 		// If OpenCC fails, fallback to Simplified
 		return "zh"

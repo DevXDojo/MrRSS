@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
 type GoogleFreeTranslator struct {
-	client *http.Client
-	db     DBInterface
+	client  *http.Client
+	db      DBInterface
+	mu      sync.Mutex
+	retryAt time.Time
 }
 
 // NewGoogleFreeTranslator creates a new Google Free Translator
@@ -44,6 +47,15 @@ func (t *GoogleFreeTranslator) Translate(text, targetLang string) (string, error
 func (t *GoogleFreeTranslator) TranslateContext(ctx context.Context, text, targetLang string) (string, error) {
 	if text == "" {
 		return "", nil
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	t.mu.Lock()
+	delay := time.Until(t.retryAt)
+	t.mu.Unlock()
+	if delay > 0 {
+		return "", &RateLimitError{RetryAfter: delay}
 	}
 
 	// Get the configured endpoint, default to translate.googleapis.com
@@ -95,6 +107,15 @@ func (t *GoogleFreeTranslator) TranslateContext(ctx context.Context, text, targe
 		return "", err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		delay := translationRetryDelay(resp.Header.Get("Retry-After"))
+		t.mu.Lock()
+		if deadline := time.Now().Add(delay); deadline.After(t.retryAt) {
+			t.retryAt = deadline
+		}
+		t.mu.Unlock()
+		return "", &RateLimitError{RetryAfter: delay}
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("translation api returned status: %d", resp.StatusCode)

@@ -64,4 +64,46 @@ describe('background refresh observation', () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+  it('coalesces bulk refresh updates while keeping progress responsive and flushes completion', async () => {
+    let revision = 0;
+    let running = true;
+    const settingsEvent = vi.fn();
+    const contentEvent = vi.fn();
+    window.addEventListener('settings-updated', settingsEvent);
+    window.addEventListener('article-content-updated', contentEvent);
+    const fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify(
+            url === '/api/progress'
+              ? { is_running: running, article_revision: revision++ }
+              : url === '/api/feeds' || url.startsWith('/api/articles?')
+                ? []
+                : {}
+          )
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const store = useAppStore();
+    store.pollProgress();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/progress')).toHaveLength(7);
+    expect(fetchMock.mock.calls.filter(([url]) => url.startsWith('/api/articles?'))).toHaveLength(
+      2
+    );
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === '/api/articles/unread-counts')
+    ).toHaveLength(2);
+    expect(settingsEvent).not.toHaveBeenCalled();
+    expect(contentEvent.mock.calls.every(([event]) => event.detail.recoveryOnly)).toBe(true);
+    running = false;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(fetchMock.mock.calls.filter(([url]) => url.startsWith('/api/articles?'))).toHaveLength(
+      3
+    );
+    expect(settingsEvent).toHaveBeenCalledTimes(1);
+    expect(contentEvent.mock.lastCall?.[0].detail.recoveryOnly).toBe(false);
+    window.removeEventListener('settings-updated', settingsEvent);
+    window.removeEventListener('article-content-updated', contentEvent);
+  });
 });

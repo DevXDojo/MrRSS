@@ -758,6 +758,8 @@ export const useAppStore = defineStore('app', () => {
   let progressTimer: ReturnType<typeof setTimeout> | null = null;
   let progressController: AbortController | null = null;
   let lastArticleRevision: number | null = null;
+  let displayedArticleRevision: number | null = null;
+  let lastRefreshDataAt = -Infinity;
 
   function stopProgressPolling(): void {
     progressController?.abort();
@@ -789,15 +791,22 @@ export const useAppStore = defineStore('app', () => {
         };
         if (active) await fetchTaskDetails();
         const revision = typeof data.article_revision === 'number' ? data.article_revision : null;
-        const changed =
-          revision !== null && lastArticleRevision !== null && revision !== lastArticleRevision;
+        if (lastArticleRevision === null) displayedArticleRevision = revision;
+        const changed = revision !== null && revision !== displayedArticleRevision;
         lastArticleRevision = revision;
-        if (changed || (wasRunning && !active)) {
-          clearArticleContentCache();
-          await Promise.all([fetchFeeds(), fetchArticles(false, true), fetchUnreadCounts()]);
+        const completed = wasRunning && !active;
+        if (completed || (changed && (!active || Date.now() - lastRefreshDataAt >= 1500))) {
+          // Progress stays responsive at 500ms; coalesce expensive list/count
+          // updates during bulk refresh and always flush the final revision.
+          lastRefreshDataAt = Date.now();
+          displayedArticleRevision = revision;
+          await Promise.all([fetchFeeds(), fetchArticles(false, true)]);
           if (!controller.signal.aborted) {
-            window.dispatchEvent(new CustomEvent('settings-updated'));
-            window.dispatchEvent(new CustomEvent('article-content-updated'));
+            if (!active) clearArticleContentCache();
+            window.dispatchEvent(
+              new CustomEvent('article-content-updated', { detail: { recoveryOnly: active } })
+            );
+            if (completed) window.dispatchEvent(new CustomEvent('settings-updated'));
           }
           if (wasRunning && !active) void checkForAppUpdates();
         }
@@ -846,7 +855,7 @@ export const useAppStore = defineStore('app', () => {
             lastTimes.set(provider, { time, isSyncing });
           }
           if (changed && !controller.signal.aborted)
-            await Promise.all([fetchFeeds(), fetchArticles(false, true), fetchUnreadCounts()]);
+            await Promise.all([fetchFeeds(), fetchArticles(false, true)]);
         } catch {
           /* Retry on the next interval, unless stopped. */
         } finally {

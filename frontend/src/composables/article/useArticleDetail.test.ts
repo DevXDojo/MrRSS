@@ -50,6 +50,12 @@ describe('reader content after feed refresh', () => {
     window.dispatchEvent(new CustomEvent('article-content-updated'));
     await flushPromises();
     expect(detail.articleContent.value).toBe(body);
+    const callsBefore = vi.mocked(fetch).mock.calls.length;
+    window.dispatchEvent(
+      new CustomEvent('article-content-updated', { detail: { recoveryOnly: true } })
+    );
+    await flushPromises();
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(callsBefore);
     clearArticleContentCache();
     fail = true;
     window.dispatchEvent(new CustomEvent('article-content-updated'));

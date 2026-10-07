@@ -11,6 +11,8 @@ func TestGenericVideoExtraction(t *testing.T) {
 		{"relative enclosure", "", "video/webm", "/a.webm", "https://example.org/a.webm"},
 		{"inline video", `<video src="/v.mp4?x=1&amp;y=2"></video>`, "", "", "https://example.org/v.mp4?x=1&y=2"},
 		{"source", `<video><source src="v.webm"></video>`, "", "", "https://example.org/posts/v.webm"},
+		{"uppercase video", "<VIDEO\nSRC=\"/v.mp4\"></VIDEO>", "", "", "https://example.org/v.mp4"},
+		{"similarly named element", `<videographer src="/v.mp4"></videographer>`, "", "", ""},
 		{"picture source", `<picture><source src="cover.webp"></picture>`, "", "", ""},
 		{"unsafe enclosure fallback", `<video src="/good.mp4"></video>`, "video/mp4", "javascript:alert(1)", "https://example.org/good.mp4"},
 		{"unsafe HTML", `<video src="file:///secret"></video>`, "", "", ""},

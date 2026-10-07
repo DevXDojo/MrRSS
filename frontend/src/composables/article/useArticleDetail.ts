@@ -299,7 +299,7 @@ export function useArticleDetail() {
     const isCurrent = () =>
       requestId === contentRequestId && store.currentArticleId === loadingArticleId;
     currentArticleId.value = loadingArticleId; // Track which article we're loading
-    isLoadingContent.value = true;
+    isLoadingContent.value = !preserveExisting || !articleContent.value;
 
     try {
       const data = await loadArticleContent(loadingArticleId, contentController.signal);
@@ -336,7 +336,12 @@ export function useArticleDetail() {
   }
 
   // Handle retry loading content
-  const handleContentUpdated = () => {
+  const handleContentUpdated = (event: Event) => {
+    if (
+      (event as CustomEvent<{ recoveryOnly?: boolean }>).detail?.recoveryOnly &&
+      articleContent.value
+    )
+      return;
     if (article.value) void fetchArticleContent(true);
   };
 

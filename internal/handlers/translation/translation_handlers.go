@@ -2,6 +2,7 @@ package translation
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
@@ -135,7 +136,7 @@ func HandleTranslateArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 	}
 
 	if translateErr != nil {
-		response.Error(w, translateErr, http.StatusInternalServerError)
+		translationError(w, translateErr)
 		return
 	}
 
@@ -167,6 +168,16 @@ func HandleTranslateArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		"limit_reached":    limitReached,
 		"skipped":          false, // Translation was performed
 	})
+}
+
+func translationError(w http.ResponseWriter, err error) {
+	var limited *translation.RateLimitError
+	if errors.As(err, &limited) {
+		w.Header().Set("Retry-After", limited.RetryAfterHeader())
+		response.Error(w, limited, http.StatusTooManyRequests)
+		return
+	}
+	response.Error(w, err, http.StatusInternalServerError)
 }
 
 // HandleClearTranslations clears all translated titles from the database.
@@ -289,7 +300,7 @@ func HandleTranslateText(h *core.Handler, w http.ResponseWriter, r *http.Request
 
 	if err != nil {
 		log.Printf("Error translating text: %v", err)
-		response.Error(w, err, http.StatusInternalServerError)
+		translationError(w, err)
 		return
 	}
 

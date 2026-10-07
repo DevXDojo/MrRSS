@@ -347,6 +347,7 @@ const zh: TranslationMessages = {
       translating: '翻译失败。请检查网络连接和翻译设置。',
       translatingContent: '内容翻译失败',
       translatingTitle: '文章标题翻译失败',
+      translationRateLimited: '翻译服务请求过多，已暂停请求，稍后可重试。',
       unknownError: '发生未知错误',
     },
     findInPage: {

@@ -366,6 +366,8 @@ const en: TranslationMessages = {
         'Translation failed. Please check your network connection and translation settings.',
       translatingContent: 'Failed to translate content',
       translatingTitle: 'Failed to translate article title',
+      translationRateLimited:
+        'Translation service rate limit reached. Requests are paused; retry later.',
       unknownError: 'Unknown error occurred',
     },
     findInPage: {

@@ -13,6 +13,7 @@ import ArticleChatButton from './ArticleChatButton.vue';
 import ArticleChatPanel from './ArticleChatPanel.vue';
 import { useArticleSummary } from '@/composables/article/useArticleSummary';
 import { useArticleTranslation } from '@/composables/article/useArticleTranslation';
+import { requestTranslation, notifyTranslationError } from '@/utils/translationRequest';
 import { useArticleRendering } from '@/composables/article/useArticleRendering';
 import {
   extractTextWithPlaceholders,
@@ -346,11 +347,11 @@ async function translateText(
   };
 
   try {
-    const res = await fetch('/api/articles/translate-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+    const res = await requestTranslation(
+      '/api/articles/translate-text',
+      requestBody,
+      requestIsCurrent
+    );
 
     if (res.ok) {
       const data = await res.json();
@@ -372,10 +373,17 @@ async function translateText(
         failed: false,
       };
     } else {
-      if (requestIsCurrent()) window.showToast(t('common.errors.translatingContent'), 'error');
+      if (requestIsCurrent())
+        notifyTranslationError(
+          t(
+            res.status === 429
+              ? 'common.errors.translationRateLimited'
+              : 'common.errors.translatingContent'
+          )
+        );
     }
   } catch {
-    if (requestIsCurrent()) window.showToast(t('common.errors.translating'), 'error');
+    if (requestIsCurrent()) notifyTranslationError(t('common.errors.translating'));
   }
   return { text: '', html: '', failed: true };
 }

@@ -20,12 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refresh the interface when either Miniflux or FreshRSS finishes synchronization, repair the polling-state reference, and check sync HTTP responses. (#1242) (@HernandoR)
 - Recover empty reader content after feed refresh without restarting; invalidate stale frontend content and retain visible content if a background reload fails.
 - Preserve generated title translations during feed refresh and add regression coverage ensuring AI summaries, cached content, and chat history remain intact.
+- Avoid repeated automatic title translation after list refresh, retain skipped results, retry failed visible titles with backoff, and respect Google translation rate limits across title/content requests with bounded concurrency and localized feedback.
 - Resolve responsive `img`/`source` image candidates in the original-page proxy and preserve a valid lead image when full-text extraction contains no images. (#1230, #1231, #1239)
 - Promote valid Discuz `zoomfile`/`file` attachments after existing lazy-image attributes in RSS content, full-text extraction, and original pages; preserve relative URLs, HTML entities, and already-proxied resources. (#1230, #1239)
 - Retry media GET requests rejected with HTTP 403 once without Referer, including redirects, within the same timeout. Never cache failed or incomplete downloads, and avoid duplicate retries after the fallback is exhausted. (#1230, #1239)
 
 ### Changed
 
+- Reduce refresh CPU and allocations by reusing Chinese conversion dictionaries and image extraction patterns, skipping video parsing for ordinary articles, and coalescing list/count updates while preserving live progress and final content recovery.
 - Update gofeed to 1.5.0 and align Wails, its frontend runtime, and the build CLI on beta.27. (#1232, #1234, #1245, #1246)
 - Refresh the locked Go, frontend, and website dependencies and apply compatible security updates to vulnerable npm transitive dependencies. (#1233, #1234, #1245, #1246, #1247)
 
