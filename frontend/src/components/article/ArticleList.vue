@@ -19,6 +19,7 @@ import {
 } from '@phosphor-icons/vue';
 import ArticleFilterModal from '../modals/filter/ArticleFilterModal.vue';
 import ArticleListMoreMenu from './ArticleListMoreMenu.vue';
+import TranslationQueueStatus from './parts/TranslationQueueStatus.vue';
 import ReadingReportModal from './ReadingReportModal.vue';
 import {
   articleGroupStarts,
@@ -1552,6 +1553,8 @@ async function reloadArticleOrder(): Promise<void> {
     </div>
 
     <!-- AI Search Bar -->
+    <TranslationQueueStatus v-if="translationSettings.enabled" class="px-3 py-2" />
+
     <AISearchBar
       v-if="isAISearchEnabled"
       @search="handleAISearchResults"

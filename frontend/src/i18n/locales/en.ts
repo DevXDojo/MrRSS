@@ -248,6 +248,10 @@ const en: TranslationMessages = {
       manualHint:
         'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
       translatingTitle: 'Translating title...',
+      waiting:
+        'Translation service is busy. Translation will resume automatically; keep reading the original.',
+      retryCountdown: 'Retrying in {seconds}s.',
+      resuming: 'Resuming translation gradually, with the current article first.',
       aiLimitReached: 'AI usage limit reached. Using free alternatives.',
     },
     videoPlayer: {
@@ -366,8 +370,6 @@ const en: TranslationMessages = {
         'Translation failed. Please check your network connection and translation settings.',
       translatingContent: 'Failed to translate content',
       translatingTitle: 'Failed to translate article title',
-      translationRateLimited:
-        'Translation service rate limit reached. Requests are paused; retry later.',
       unknownError: 'Unknown error occurred',
     },
     findInPage: {

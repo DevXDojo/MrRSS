@@ -85,6 +85,9 @@ func (t *BaiduTranslator) Translate(text, targetLang string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if err := rateLimitResponse(resp); err != nil {
+		return "", err
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("baidu api returned status: %d", resp.StatusCode)
 	}

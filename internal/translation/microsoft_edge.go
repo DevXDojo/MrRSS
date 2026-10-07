@@ -106,6 +106,10 @@ func (p *edgeProvider) translateChunk(ctx context.Context, text, targetLang stri
 			}
 			return "", fmt.Errorf("Microsoft Edge translation authorization expired (HTTP 401)")
 		}
+		if err := rateLimitResponse(resp); err != nil {
+			resp.Body.Close()
+			return "", err
+		}
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
 			return "", fmt.Errorf("Microsoft Edge translation returned HTTP %d", resp.StatusCode)
@@ -148,6 +152,9 @@ func (p *edgeProvider) ensureToken(ctx context.Context) error {
 		return fmt.Errorf("request Microsoft Edge translation token: %w", err)
 	}
 	defer resp.Body.Close()
+	if err := rateLimitResponse(resp); err != nil {
+		return err
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Microsoft Edge translation authorization returned HTTP %d", resp.StatusCode)
 	}

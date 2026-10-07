@@ -238,6 +238,9 @@ const zh: TranslationMessages = {
       manualMode: '按需翻译',
       manualHint: '点击“翻译标题”，或按住 Ctrl（macOS 为 Command）点击某一段以翻译该段。',
       translatingTitle: '正在翻译标题…',
+      waiting: '翻译服务繁忙，将自动继续翻译，可先阅读原文。',
+      retryCountdown: '{seconds} 秒后重试。',
+      resuming: '正在逐步恢复翻译，优先翻译当前文章。',
       aiLimitReached: 'AI 使用量已达上限，正在使用免费替代方案。',
     },
     videoPlayer: {
@@ -347,7 +350,6 @@ const zh: TranslationMessages = {
       translating: '翻译失败。请检查网络连接和翻译设置。',
       translatingContent: '内容翻译失败',
       translatingTitle: '文章标题翻译失败',
-      translationRateLimited: '翻译服务请求过多，已暂停请求，稍后可重试。',
       unknownError: '发生未知错误',
     },
     findInPage: {

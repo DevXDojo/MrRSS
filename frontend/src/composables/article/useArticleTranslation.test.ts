@@ -89,4 +89,48 @@ describe('automatic title translation during refresh', () => {
     await translation.translateArticle({ id: 1, title: 'Updated title' } as Article, true);
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it('keeps a rate-limited title pending across refreshes and fills the latest article object', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { 'Retry-After': '2' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ translated_title: '标题' })));
+    vi.stubGlobal('fetch', fetchMock);
+    translation.setupIntersectionObserver(root, [article()]);
+    await vi.advanceTimersByTimeAsync(0);
+    enter();
+    await vi.advanceTimersByTimeAsync(0);
+    const refreshed = article();
+    translation.setupIntersectionObserver(root, [refreshed]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(translation.translatingArticles.value.has(1)).toBe(true);
+    expect(window.showToast).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(refreshed.translated_title).toBe('标题');
+    expect(translation.translatingArticles.value.size).toBe(0);
+  });
+
+  it('releases a waiting title offscreen and translates it when it becomes visible again', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { 'Retry-After': '2' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ translated_title: '标题' })));
+    vi.stubGlobal('fetch', fetchMock);
+    const item = article();
+    translation.setupIntersectionObserver(root, [item]);
+    await vi.advanceTimersByTimeAsync(0);
+    enter();
+    await vi.advanceTimersByTimeAsync(0);
+    callback(
+      [{ target: row, isIntersecting: false } as IntersectionObserverEntry],
+      {} as IntersectionObserver
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(translation.translatingArticles.value.size).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    enter();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(item.translated_title).toBe('标题');
+  });
 });

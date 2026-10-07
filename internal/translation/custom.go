@@ -91,6 +91,9 @@ func (t *CustomTranslator) Translate(text, targetLang string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if err := rateLimitResponse(resp); err != nil {
+		return "", err
+	}
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

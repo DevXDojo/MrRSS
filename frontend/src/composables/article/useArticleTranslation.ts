@@ -167,7 +167,12 @@ export function useArticleTranslation() {
       !disposed &&
       translationSettings.value.enabled &&
       revision === settingsRevision &&
-      key === keyFor(article);
+      key === keyFor(article) &&
+      (!automatic ||
+        !observer ||
+        (visible.has(article.id) &&
+          currentArticles.has(article.id) &&
+          keyFor(currentArticles.get(article.id)!) === key));
     const previous = attempts.get(key);
     if (automatic && previous) {
       if (previous.title !== undefined) {
@@ -186,8 +191,13 @@ export function useArticleTranslation() {
         target_language: translationSettings.value.targetLang,
       };
 
-      const res = await requestTranslation('/api/articles/translate', requestBody, isCurrent);
-      if (!isCurrent()) return;
+      const res = await requestTranslation(
+        '/api/articles/translate',
+        requestBody,
+        isCurrent,
+        automatic ? 'background' : 'interactive'
+      );
+      if (!isCurrent() || res.status === 204) return;
 
       if (res.ok) {
         const data = await res.json();
@@ -220,13 +230,7 @@ export function useArticleTranslation() {
               Math.min(300000, 30000 * 2 ** Math.min(failures - 1, 4))
             ),
         });
-        notifyTranslationError(
-          t(
-            res.status === 429
-              ? 'common.errors.translationRateLimited'
-              : 'common.errors.translatingTitle'
-          )
-        );
+        notifyTranslationError(t('common.errors.translatingTitle'));
       }
     } catch {
       if (isCurrent()) {
@@ -240,6 +244,7 @@ export function useArticleTranslation() {
     } finally {
       translatingArticles.value.delete(article.id);
       while (attempts.size > 512) attempts.delete(attempts.keys().next().value!);
+      if (!isCurrent()) translateVisible();
       scheduleRetry();
     }
   }

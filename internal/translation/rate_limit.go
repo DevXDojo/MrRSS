@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,6 +11,19 @@ import (
 
 // RateLimitError preserves a provider's retry delay across the HTTP API.
 type RateLimitError struct{ RetryAfter time.Duration }
+
+// IsRateLimited distinguishes transient throttling from other provider failures.
+func IsRateLimited(err error) bool {
+	var limited *RateLimitError
+	return errors.As(err, &limited)
+}
+
+func rateLimitResponse(resp *http.Response) error {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return &RateLimitError{RetryAfter: translationRetryDelay(resp.Header.Get("Retry-After"))}
+	}
+	return nil
+}
 
 func (e *RateLimitError) Error() string { return "translation service rate limit reached; retry later" }
 

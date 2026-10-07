@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -87,6 +88,11 @@ func (t *AITranslator) recreateClient() {
 // Translate translates text to the target language using an OpenAI-compatible API.
 // Automatically detects and adapts to different API formats (Gemini, OpenAI, Ollama).
 func (t *AITranslator) Translate(text, targetLang string) (string, error) {
+	return t.TranslateContext(context.Background(), text, targetLang)
+}
+
+// TranslateContext allows abandoned reader work to cancel its AI request.
+func (t *AITranslator) TranslateContext(ctx context.Context, text, targetLang string) (string, error) {
 	if text == "" {
 		return "", nil
 	}
@@ -101,8 +107,14 @@ func (t *AITranslator) Translate(text, targetLang string) (string, error) {
 	userPrompt := fmt.Sprintf("Translate to %s:\n%s", langName, text)
 
 	// Use the universal client which handles format detection automatically
-	result, err := t.client.RequestWithThinking(systemPrompt, userPrompt)
+	result, err := t.client.RequestWithConfigContext(ctx, ai.RequestConfig{
+		Model: t.Model, SystemPrompt: systemPrompt, UserPrompt: userPrompt,
+		Temperature: 0.3, MaxTokens: 2048,
+	})
 	if err != nil {
+		if ai.ClassifyUserFacingError(err).Code == ai.ErrorCodeRateLimited {
+			return "", &RateLimitError{RetryAfter: time.Minute}
+		}
 		return "", err
 	}
 
