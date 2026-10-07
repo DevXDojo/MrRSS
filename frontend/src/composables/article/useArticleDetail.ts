@@ -10,6 +10,7 @@ import {
 } from '@/utils/articleContentDom';
 import { proxyImagesInHtml, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { loadArticleContent, invalidateArticleContent } from '@/utils/articleContentCache';
+import { setImageDragData } from '@/utils/imageDrag';
 
 type ViewMode = 'original' | 'rendered' | 'external';
 type RenderAction = 'showContent' | 'showOriginal' | null;
@@ -455,6 +456,10 @@ export function useArticleDetail() {
           // Ensure cloned image maintains pointer interaction styles
           newImg.style.cursor = 'pointer';
           newImg.style.pointerEvents = 'auto';
+          newImg.draggable = true;
+          newImg.addEventListener('dragstart', (event: DragEvent) => {
+            setImageDragData(event, newImg, article.value?.url);
+          });
 
           // Left click - open image viewer with all images from article
           newImg.addEventListener(

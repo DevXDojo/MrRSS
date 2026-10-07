@@ -84,6 +84,12 @@ img {
   pointer-events: none;
 }
 
+/* Article images can be dragged out to save, while UI icons stay fixed. */
+[data-article-content] .prose-content img {
+  -webkit-user-drag: element;
+  pointer-events: auto;
+}
+
 /* Allow selection for input fields, textareas, and content that should be selectable */
 input,
 textarea,
