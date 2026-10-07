@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 func fullTextHandler(t *testing.T) *Handler {
@@ -83,6 +86,99 @@ func TestFullTextReadabilityAndInvalidResponses(t *testing.T) {
 	if _, err := h.FetchFullArticleContentContext(ctx, server.URL, nil); err == nil {
 		t.Fatal("canceled fetch succeeded")
 	}
+}
+
+func TestFullTextReadabilityRestoresLeadImageWithoutDuplicates(t *testing.T) {
+	h := fullTextHandler(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		body := strings.Repeat("A long article sentence, with useful detail and punctuation. ", 30)
+		if r.URL.Path == "/existing" {
+			fmt.Fprintf(w, `<html><head><meta property="og:image" content="/og.jpg"></head><body><article><h1>Article</h1><p>%s</p><img src="/body.jpg"></article></body></html>`, body)
+			return
+		}
+		if r.URL.Path == "/no-lead" {
+			fmt.Fprintf(w, `<html><body><article><h1>Article</h1><p>%s</p></article></body></html>`, body)
+			return
+		}
+		fmt.Fprintf(w, `<html><head><meta property="og:image" content="/lead.jpg"></head><body><article><h1>Article</h1><p>%s</p></article></body></html>`, body)
+	}))
+	defer server.Close()
+
+	content, err := h.FetchFullArticleContentContext(context.Background(), server.URL+"/lead", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(content, `src="`+server.URL+`/lead.jpg"`) || !strings.Contains(content, `referrerpolicy="no-referrer"`) {
+		t.Fatalf("lead image was not restored safely: %s", content)
+	}
+
+	content, err = h.FetchFullArticleContentContext(context.Background(), server.URL+"/existing", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(content, server.URL+"/body.jpg") || strings.Contains(content, server.URL+"/og.jpg") {
+		t.Fatalf("existing article image was duplicated or replaced: %s", content)
+	}
+	content, err = h.FetchFullArticleContentContext(context.Background(), server.URL+"/no-lead", nil)
+	if err != nil || strings.Contains(content, "<img") {
+		t.Fatalf("article without a lead image must not use its own URL as an image: %s (%v)", content, err)
+	}
+}
+
+func TestFullTextReadabilityPromotesDiscuzImages(t *testing.T) {
+	h := fullTextHandler(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<html><head><title>Forum article</title><base href="/news/"></head><body><article><h1>Forum article</h1><p>%s</p><ignore_js_op><img class="lazy" style="cursor:pointer" id="aimg_5366234" src="static/image/common/none.gif" onclick="zoom(this, this.getAttribute('zoomfile'))" zoomfile="https://att.huarenjie.com/attachment/forum/202609/29/004010ve8fzabf4ee88kua.jpg" file="https://att.huarenjie.com/attachment/forum/202609/29/004010ve8fzabf4ee88kua.jpg.thumb.jpg"></ignore_js_op><ignore_js_op><img id="aimg_5366235" src="static/image/common/none.gif" data-src="java&#x73;cript:alert(1)" zoomfile="../full.jpg?size=large&amp;type=image" file="/thumb.jpg"></ignore_js_op></article></body></html>`, strings.Repeat("An article with useful details and punctuation, describing a local event. ", 30))
+	}))
+	defer server.Close()
+	content, err := h.FetchFullArticleContentContext(context.Background(), server.URL+"/article", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"https://att.huarenjie.com/attachment/forum/202609/29/004010ve8fzabf4ee88kua.jpg",
+		server.URL + "/full.jpg?size=large&type=image",
+	}
+	if doc.Find("img").Length() != len(want) {
+		t.Fatalf("expected both Discuz attachments: %s", content)
+	}
+	doc.Find("img").Each(func(i int, image *goquery.Selection) {
+		if image.AttrOr("src", "") != want[i] || image.AttrOr("referrerpolicy", "") != "no-referrer" {
+			t.Errorf("unexpected image %d: %s", i, content)
+		}
+	})
+	for _, unwanted := range []string{"none.gif", "thumb.jpg", "zoomfile", "javascript:", "onclick"} {
+		if strings.Contains(content, unwanted) {
+			t.Errorf("unexpected %q in full text: %s", unwanted, content)
+		}
+	}
+}
+
+func TestNormalizeArticleImagesPreservesOrdinaryAndSrcsetSources(t *testing.T) {
+	base, _ := url.Parse("https://example.org/news/article")
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(`<img src="/ordinary.jpg" srcset="/larger.jpg 2x"><img src="data:image/png;base64,aGVsbG8="><img data-src="javascript:alert(1)" srcset="small.jpg 320w, large.jpg 1000w"><img data-srcset="small.jpg 1x, large.jpg 2x"><img data-src="/data.jpg" zoomfile="/full.jpg" file="/thumb.jpg" class="lazy">`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	normalizeArticleImages(doc, base)
+	want := []string{
+		"https://example.org/ordinary.jpg",
+		"data:image/png;base64,aGVsbG8=",
+		"https://example.org/news/large.jpg",
+		"https://example.org/news/large.jpg",
+		"https://example.org/data.jpg",
+	}
+	doc.Find("img").Each(func(i int, image *goquery.Selection) {
+		if got := image.AttrOr("src", ""); got != want[i] {
+			t.Errorf("image %d: got %q, want %q", i, got, want[i])
+		}
+	})
 }
 
 func TestFullTextNoSelectorMatchIsAnError(t *testing.T) {
