@@ -36,6 +36,17 @@ func TestProviderStatusAndSyncBoundaries(t *testing.T) {
 		if body["is_syncing"] != false {
 			t.Fatal("expected provider sync to be idle")
 		}
+		key := syncKey{db: db, provider: provider}
+		activeSyncs.Store(key, true)
+		w = httptest.NewRecorder()
+		HandleSyncStatus(h, w, httptest.NewRequest(http.MethodGet, "/api/"+provider+"/status", nil))
+		activeSyncs.Delete(key)
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body["is_syncing"] != true || isSyncRunning(db, map[string]string{"freshrss": "miniflux", "miniflux": "freshrss"}[provider]) {
+			t.Fatal("running sync status must be scoped to its provider")
+		}
 	}
 	if err := db.SetSetting("freshrss_enabled", "true"); err != nil {
 		t.Fatal(err)

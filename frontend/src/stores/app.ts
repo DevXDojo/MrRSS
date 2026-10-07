@@ -820,7 +820,7 @@ export const useAppStore = defineStore('app', () => {
     stopFreshRSSStatusPolling();
     const controller = new AbortController();
     readerPollController = controller;
-    const lastTimes = lastReaderSyncTimes;
+    const lastTimes = lastReaderSyncStates;
     let polling = false;
     try {
       const res = await fetch('/api/settings', { signal: controller.signal });
