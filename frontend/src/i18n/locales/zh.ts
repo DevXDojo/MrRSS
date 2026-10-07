@@ -944,7 +944,8 @@ const zh: TranslationMessages = {
       googleTranslateEndpoint: '谷歌翻译端点',
       googleTranslateEndpointAlternate: '备用 (clients5.google.com)',
       googleTranslateEndpointDefault: '默认 (translate.googleapis.com)',
-      googleTranslateEndpointDesc: '选择要使用的谷歌翻译 API 端点',
+      googleTranslateEndpointDesc:
+        '选择优先使用的谷歌翻译端点。该端点限流时，会沿用当前代理尝试另一个内置谷歌端点。',
       localAlgorithm: '本地算法',
       noSummaryAvailable: '摘要不可用',
       regenerateSummary: '重新生成',

@@ -3,6 +3,7 @@ package translation
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,7 +16,7 @@ type GoogleFreeTranslator struct {
 	client  *http.Client
 	db      DBInterface
 	mu      sync.Mutex
-	retryAt time.Time
+	retryAt map[string]time.Time
 }
 
 // NewGoogleFreeTranslator creates a new Google Free Translator
@@ -51,13 +52,6 @@ func (t *GoogleFreeTranslator) TranslateContext(ctx context.Context, text, targe
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	t.mu.Lock()
-	delay := time.Until(t.retryAt)
-	t.mu.Unlock()
-	if delay > 0 {
-		return "", &RateLimitError{RetryAfter: delay}
-	}
-
 	// Get the configured endpoint, default to translate.googleapis.com
 	endpoint := "translate.googleapis.com"
 	if t.db != nil {
@@ -65,6 +59,41 @@ func (t *GoogleFreeTranslator) TranslateContext(ctx context.Context, text, targe
 			endpoint = configuredEndpoint
 		}
 	}
+
+	// Both built-in endpoints belong to the configured Google provider. Keep
+	// the user's preferred endpoint first and reuse the same proxy-aware client.
+	// Custom endpoints never send content to another host as a fallback.
+	endpoints := []string{endpoint}
+	switch endpoint {
+	case "translate.googleapis.com":
+		endpoints = append(endpoints, "clients5.google.com")
+	case "clients5.google.com":
+		endpoints = append(endpoints, "translate.googleapis.com")
+	}
+	var shortestDelay time.Duration
+	for _, candidate := range endpoints {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		t.mu.Lock()
+		delay := time.Until(t.retryAt[candidate])
+		t.mu.Unlock()
+		if delay <= 0 {
+			translated, err := t.translateEndpoint(ctx, text, targetLang, candidate)
+			var limited *RateLimitError
+			if !errors.As(err, &limited) {
+				return translated, err
+			}
+			delay = limited.RetryAfter
+		}
+		if shortestDelay == 0 || delay < shortestDelay {
+			shortestDelay = delay
+		}
+	}
+	return "", &RateLimitError{RetryAfter: shortestDelay}
+}
+
+func (t *GoogleFreeTranslator) translateEndpoint(ctx context.Context, text, targetLang, endpoint string) (string, error) {
 
 	// Determine which client parameter and path to use based on endpoint
 	var baseURL string
@@ -110,8 +139,11 @@ func (t *GoogleFreeTranslator) TranslateContext(ctx context.Context, text, targe
 	if resp.StatusCode == http.StatusTooManyRequests {
 		delay := translationRetryDelay(resp.Header.Get("Retry-After"))
 		t.mu.Lock()
-		if deadline := time.Now().Add(delay); deadline.After(t.retryAt) {
-			t.retryAt = deadline
+		if t.retryAt == nil {
+			t.retryAt = make(map[string]time.Time)
+		}
+		if deadline := time.Now().Add(delay); deadline.After(t.retryAt[endpoint]) {
+			t.retryAt[endpoint] = deadline
 		}
 		t.mu.Unlock()
 		return "", &RateLimitError{RetryAfter: delay}

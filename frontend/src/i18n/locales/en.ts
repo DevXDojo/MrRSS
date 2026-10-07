@@ -981,7 +981,8 @@ const en: TranslationMessages = {
       googleTranslateEndpoint: 'Google Translate Endpoint',
       googleTranslateEndpointAlternate: 'Alternate (clients5.google.com)',
       googleTranslateEndpointDefault: 'Default (translate.googleapis.com)',
-      googleTranslateEndpointDesc: 'Select the Google Translate API endpoint to use',
+      googleTranslateEndpointDesc:
+        'Select the preferred Google Translate endpoint. If it is rate-limited, the other built-in Google endpoint is tried using the same proxy.',
       localAlgorithm: 'Local Algorithm',
       noSummaryAvailable: 'Summary not available',
       regenerateSummary: 'Regenerate',

@@ -130,12 +130,12 @@ func TestGoogleRateLimitCooldown(t *testing.T) {
 			t.Fatalf("expected provider retry delay, got %v", err)
 		}
 	}
-	if calls != 1 {
+	if calls != 2 {
 		t.Fatalf("provider was contacted %d times during cooldown", calls)
 	}
-	translator.retryAt = time.Now().Add(-time.Second)
+	translator.retryAt["translate.googleapis.com"] = time.Now().Add(-time.Second)
 	_, _ = translator.Translate("Hello", "zh")
-	if calls != 2 {
+	if calls != 3 {
 		t.Fatal("translation did not resume after cooldown")
 	}
 }
