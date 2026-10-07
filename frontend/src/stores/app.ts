@@ -759,7 +759,6 @@ export const useAppStore = defineStore('app', () => {
   let progressController: AbortController | null = null;
   let lastArticleRevision: number | null = null;
   let displayedArticleRevision: number | null = null;
-  let lastRefreshDataAt = -Infinity;
 
   function stopProgressPolling(): void {
     progressController?.abort();
@@ -780,6 +779,9 @@ export const useAppStore = defineStore('app', () => {
         const data: FeedProgressResponse = await res.json();
         if (controller.signal.aborted) return;
         const wasRunning = refreshProgress.value.isRunning;
+        const previousTasks =
+          (refreshProgress.value.pool_task_count ?? 0) +
+          (refreshProgress.value.queue_task_count ?? 0);
         active = data.is_running === true;
         refreshProgress.value = {
           ...refreshProgress.value,
@@ -795,10 +797,10 @@ export const useAppStore = defineStore('app', () => {
         const changed = revision !== null && revision !== displayedArticleRevision;
         lastArticleRevision = revision;
         const completed = wasRunning && !active;
-        if (completed || (changed && (!active || Date.now() - lastRefreshDataAt >= 1500))) {
-          // Progress stays responsive at 500ms; coalesce expensive list/count
-          // updates during bulk refresh and always flush the final revision.
-          lastRefreshDataAt = Date.now();
+        if (completed || (changed && !active)) {
+          // Publish the finished batch once, as before background polling was added.
+          // Replacing the viewport for each saved feed starts translations of rows
+          // that the next batch immediately replaces, interrupting ongoing reading.
           displayedArticleRevision = revision;
           await Promise.all([fetchFeeds(), fetchArticles(false, true)]);
           if (!controller.signal.aborted) {
@@ -809,6 +811,13 @@ export const useAppStore = defineStore('app', () => {
             if (completed) window.dispatchEvent(new CustomEvent('settings-updated'));
           }
           if (wasRunning && !active) void checkForAppUpdates();
+        } else if (
+          active &&
+          (data.pool_task_count ?? 0) + (data.queue_task_count ?? 0) < previousTasks
+        ) {
+          // Completed feeds can update sidebar counts/errors without replacing
+          // the article viewport or restarting its automatic translations.
+          await fetchFeeds();
         }
       } catch {
         // A temporary failure must not stop observing future background refreshes.

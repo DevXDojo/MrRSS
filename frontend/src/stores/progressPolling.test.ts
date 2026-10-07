@@ -64,7 +64,7 @@ describe('background refresh observation', () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
-  it('coalesces bulk refresh updates while keeping progress responsive and flushes completion', async () => {
+  it('keeps the reading viewport stable during bulk refresh and publishes the finished batch once', async () => {
     let revision = 0;
     let running = true;
     const settingsEvent = vi.fn();
@@ -85,25 +85,64 @@ describe('background refresh observation', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
     const store = useAppStore();
+    store.articles = [
+      { id: 5, title: 'Selected', translated_title: '已翻译' } as import('@/types/models').Article,
+    ];
+    store.currentArticleId = 5;
+    const visibleArticles = store.articles;
     store.pollProgress();
-    await vi.advanceTimersByTimeAsync(3000);
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/progress')).toHaveLength(7);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/progress')).toHaveLength(61);
     expect(fetchMock.mock.calls.filter(([url]) => url.startsWith('/api/articles?'))).toHaveLength(
-      2
+      0
     );
+    expect(store.articles).toBe(visibleArticles);
+    expect(store.articles[0].translated_title).toBe('已翻译');
     expect(
       fetchMock.mock.calls.filter(([url]) => url === '/api/articles/unread-counts')
-    ).toHaveLength(2);
+    ).toHaveLength(0);
     expect(settingsEvent).not.toHaveBeenCalled();
-    expect(contentEvent.mock.calls.every(([event]) => event.detail.recoveryOnly)).toBe(true);
+    expect(contentEvent).not.toHaveBeenCalled();
     running = false;
     await vi.advanceTimersByTimeAsync(500);
     expect(fetchMock.mock.calls.filter(([url]) => url.startsWith('/api/articles?'))).toHaveLength(
-      3
+      1
     );
+    expect(store.currentArticleId).toBe(5);
     expect(settingsEvent).toHaveBeenCalledTimes(1);
     expect(contentEvent.mock.lastCall?.[0].detail.recoveryOnly).toBe(false);
     window.removeEventListener('settings-updated', settingsEvent);
     window.removeEventListener('article-content-updated', contentEvent);
+  });
+
+  it('updates completed-feed counts without replacing the article viewport', async () => {
+    let tasks = 10;
+    const store = useAppStore();
+    store.articles = [{ id: 5, title: 'Reading' } as import('@/types/models').Article];
+    const visibleArticles = store.articles;
+    const fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify(
+            url === '/api/progress'
+              ? { is_running: true, article_revision: 1, pool_task_count: tasks }
+              : url === '/api/feeds'
+                ? []
+                : {}
+          )
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    store.pollProgress();
+    await vi.advanceTimersByTimeAsync(0);
+    tasks = 9;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === '/api/articles/unread-counts')
+    ).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([url]) => url.startsWith('/api/articles?'))).toHaveLength(
+      0
+    );
+    expect(store.articles).toBe(visibleArticles);
   });
 });

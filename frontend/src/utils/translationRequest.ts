@@ -9,6 +9,8 @@ interface TranslationJob {
   reject: (error: unknown) => void;
   controller: AbortController;
   revision: number;
+  cacheProbe: boolean;
+  network: boolean;
 }
 
 const queue: TranslationJob[] = [];
@@ -16,8 +18,6 @@ const active = new Set<TranslationJob>();
 const state = shallowRef({ pending: 0, retryAt: 0, recovering: false });
 export const translationQueue = readonly(state);
 let retryAt = 0;
-let nextStartAt = 0;
-let recoveryDelay = 0;
 let needsProbe = false;
 let consecutiveLimits = 0;
 let revision = 0;
@@ -29,7 +29,7 @@ function updateState(): void {
   state.value = {
     pending: queue.length + active.size,
     retryAt,
-    recovering: recoveryDelay > 0,
+    recovering: needsProbe,
   };
 }
 
@@ -42,22 +42,26 @@ function retryDelay(header: string | null): number {
     : Math.min(300000, 60000 * 2 ** Math.min(consecutiveLimits - 1, 3));
 }
 
-async function run(job: TranslationJob): Promise<void> {
+async function run(job: TranslationJob, cacheOnly: boolean): Promise<void> {
   const limitRevisionAtStart = limitRevision;
+  job.cacheProbe = false;
+  job.network = !cacheOnly;
   try {
     const response = await fetch(job.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(job.body),
+      body: JSON.stringify(cacheOnly ? { ...job.body, cache_only: true } : job.body),
       signal: job.controller.signal,
     });
     if (!job.isCurrent() || job.revision !== revision) {
       void response.body?.cancel();
       job.resolve(new Response(null, { status: 204 }));
+    } else if (cacheOnly && response.status === 202) {
+      void response.body?.cancel();
+      queue.push(job);
     } else if (response.status === 429) {
       if (Date.now() >= retryAt) {
         consecutiveLimits++;
-        recoveryDelay = Math.min(10000, Math.max(1000, recoveryDelay * 2));
       }
       limitRevision++;
       retryAt = Math.max(retryAt, Date.now() + retryDelay(response.headers.get('Retry-After')));
@@ -66,9 +70,10 @@ async function run(job: TranslationJob): Promise<void> {
       // Keep the same promise pending: callers continue the same title/paragraph.
       queue.push(job);
     } else {
-      if (response.ok && limitRevisionAtStart === limitRevision) {
+      if (!cacheOnly && response.ok && limitRevisionAtStart === limitRevision) {
         needsProbe = false;
         consecutiveLimits = 0;
+        retryAt = 0;
       }
       job.resolve(response);
     }
@@ -96,19 +101,27 @@ function pump(): void {
     if (!job.isCurrent() || job.revision !== revision) job.controller.abort();
   }
 
-  const limit = needsProbe ? 1 : 3;
-  while (queue.length && active.size < limit && Date.now() >= Math.max(retryAt, nextStartAt)) {
-    // Reading and explicit translation take precedence over list prefetches.
-    const interactive = queue.findIndex((job) => job.priority === 'interactive');
-    const job = queue.splice(interactive < 0 ? 0 : interactive, 1)[0];
+  while (queue.length && active.size < 6) {
+    const networkReady =
+      Date.now() >= retryAt && (!needsProbe || ![...active].some((job) => job.network));
+    // Local results do not depend on provider availability. A new selection can
+    // use them immediately even if an earlier title was rate-limited upstream.
+    // Background title requests must not occupy the reader's slots. Before the
+    // shared queue, opening an article never waited for the list's HTTP calls.
+    const eligible = (job: TranslationJob) =>
+      (job.cacheProbe || networkReady) &&
+      [...active].filter((running) => running.priority === job.priority).length < 3;
+    let index = queue.findIndex((job) => job.priority === 'interactive' && eligible(job));
+    if (index < 0) index = queue.findIndex(eligible);
+    if (index < 0) break;
+    const job = queue.splice(index, 1)[0];
     active.add(job);
-    nextStartAt = Date.now() + recoveryDelay;
-    void run(job);
+    void run(job, job.cacheProbe);
   }
   updateState();
   // One timer checks cancellation and wakes the queue; no per-request retry loops.
   if (queue.length || active.size) {
-    const delay = Math.max(1, Math.max(retryAt, nextStartAt) - Date.now());
+    const delay = Math.max(1, retryAt - Date.now());
     timer = setTimeout(pump, Math.min(1000, delay > 1 ? delay : 1000));
   }
 }
@@ -117,8 +130,6 @@ function pump(): void {
 export function resetTranslationCooldown(): void {
   revision++;
   retryAt = 0;
-  nextStartAt = 0;
-  recoveryDelay = 0;
   needsProbe = false;
   consecutiveLimits = 0;
   lastErrorToast = -Infinity;
@@ -141,6 +152,8 @@ export function requestTranslation(
       reject,
       controller: new AbortController(),
       revision,
+      cacheProbe: priority === 'interactive' && needsProbe,
+      network: false,
     });
     pump();
   });

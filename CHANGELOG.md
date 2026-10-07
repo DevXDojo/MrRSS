@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recover empty reader content after feed refresh without restarting; invalidate stale frontend content and retain visible content if a background reload fails.
 - Preserve generated title translations during feed refresh and add regression coverage ensuring AI summaries, cached content, and chat history remain intact.
 - Avoid repeated automatic title translation after list refresh, retain skipped results, retry failed visible titles with backoff, and respect Google translation rate limits across title/content requests with bounded concurrency and localized feedback.
-- Keep rate-limited title, paragraph, and RSS-summary translations queued for automatic retry, show a localized waiting countdown, prioritize the current article, and resume requests gradually without losing existing text. Cancel obsolete work and avoid labelling mixed-language articles as skipped.
+- Keep rate-limited title, paragraph, and RSS-summary translations queued for automatic retry, prioritize the current article, and cancel obsolete work. Return cached/local reading results immediately during upstream outages, restore normal speed after recovery, and avoid labelling mixed-language articles as skipped.
 - Preserve HTTP 429 retry delays from translation providers and propagate AI/list translation throttling instead of storing partially untranslated results as successful translations.
 - Resolve responsive `img`/`source` image candidates in the original-page proxy and preserve a valid lead image when full-text extraction contains no images. (#1230, #1231, #1239)
 - Promote valid Discuz `zoomfile`/`file` attachments after existing lazy-image attributes in RSS content, full-text extraction, and original pages; preserve relative URLs, HTML entities, and already-proxied resources. (#1230, #1239)
@@ -30,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Reduce refresh CPU and allocations by reusing Chinese conversion dictionaries and image extraction patterns, skipping video parsing for ordinary articles, and coalescing list/count updates while preserving live progress and final content recovery.
+- Restore the stable article viewport during bulk refresh: update progress and sidebar counts live, then publish new articles once on completion, avoiding repeated automatic translations of transient rows. Keep detecting short background refreshes between polls. (#1229)
+- Reduce refresh CPU and allocations by reusing Chinese conversion dictionaries and image extraction patterns and skipping video parsing for ordinary articles.
 - Update gofeed to 1.5.0 and align Wails, its frontend runtime, and the build CLI on beta.27. (#1232, #1234, #1245, #1246)
 - Refresh the locked Go, frontend, and website dependencies and apply compatible security updates to vulnerable npm transitive dependencies. (#1233, #1234, #1245, #1246, #1247)
 

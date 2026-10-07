@@ -49,6 +49,7 @@ func HandleTranslateArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 		ArticleID  int64  `json:"article_id"`
 		Title      string `json:"title"`
 		TargetLang string `json:"target_language"`
+		CacheOnly  bool   `json:"cache_only"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -93,6 +94,26 @@ func HandleTranslateArticle(h *core.Handler, w http.ResponseWriter, r *http.Requ
 			"skipped":          true, // Indicate translation was skipped
 			"reason":           "already_target_language",
 		})
+		return
+	}
+
+	if req.CacheOnly {
+		cached, found, err := translation.LookupCachedMarkdown(r.Context(), h.Translator, req.Title, req.TargetLang)
+		if err != nil {
+			translationError(w, err)
+			return
+		}
+		if !found {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			response.JSON(w, map[string]bool{"cache_miss": true})
+			return
+		}
+		if err := h.DB.UpdateArticleTranslation(req.ArticleID, cached); err != nil {
+			translationError(w, err)
+			return
+		}
+		response.JSON(w, map[string]interface{}{"translated_title": cached, "cached": true})
 		return
 	}
 
@@ -229,6 +250,7 @@ func HandleTranslateText(h *core.Handler, w http.ResponseWriter, r *http.Request
 		Text       string `json:"text"`
 		TargetLang string `json:"target_language"`
 		Force      bool   `json:"force"`
+		CacheOnly  bool   `json:"cache_only"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -257,6 +279,24 @@ func HandleTranslateText(h *core.Handler, w http.ResponseWriter, r *http.Request
 			"html":            htmlText,
 			"skipped":         "true", // Indicate translation was skipped
 			"reason":          "already_target_language",
+		})
+		return
+	}
+
+	if req.CacheOnly {
+		cached, found, err := translation.LookupCachedMarkdown(r.Context(), h.Translator, req.Text, req.TargetLang)
+		if err != nil {
+			translationError(w, err)
+			return
+		}
+		if !found {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			response.JSON(w, map[string]bool{"cache_miss": true})
+			return
+		}
+		response.JSON(w, map[string]interface{}{
+			"translated_text": cached, "html": textutil.ConvertMarkdownToHTML(cached), "cached": true,
 		})
 		return
 	}
