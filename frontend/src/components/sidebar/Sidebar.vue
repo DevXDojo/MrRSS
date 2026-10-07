@@ -14,6 +14,7 @@ const emit = defineEmits<{
 }>();
 
 const isFeedListPinned = ref(localStorage.getItem('FeedListPinned') !== 'false');
+const sidebarRoot = ref<HTMLElement | null>(null);
 watch(isFeedListPinned, (pinned) => {
   localStorage.setItem('FeedListPinned', String(pinned));
 });
@@ -38,12 +39,27 @@ function handleUnpinFeedList() {
 const emitShowAddFeed = () => window.dispatchEvent(new CustomEvent('show-add-feed'));
 const emitShowSettings = () => window.dispatchEvent(new CustomEvent('show-settings'));
 const toggleFeedList = () => emit('toggle');
-onMounted(() => window.addEventListener('toggle-feed-list', toggleFeedList));
-onUnmounted(() => window.removeEventListener('toggle-feed-list', toggleFeedList));
+function collapseFloatingFeedList(event?: Event) {
+  if (isFeedListPinned.value || !props.isOpen) return;
+  if (event?.target instanceof Node && sidebarRoot.value?.contains(event.target)) return;
+  handleFeedListCollapse();
+}
+onMounted(() => {
+  window.addEventListener('toggle-feed-list', toggleFeedList);
+  document.addEventListener('pointerdown', collapseFloatingFeedList, true);
+  document.addEventListener('focusin', collapseFloatingFeedList);
+  window.addEventListener('blur', collapseFloatingFeedList);
+});
+onUnmounted(() => {
+  window.removeEventListener('toggle-feed-list', toggleFeedList);
+  document.removeEventListener('pointerdown', collapseFloatingFeedList, true);
+  document.removeEventListener('focusin', collapseFloatingFeedList);
+  window.removeEventListener('blur', collapseFloatingFeedList);
+});
 </script>
 
 <template>
-  <div class="compact-sidebar-wrapper flex h-full relative">
+  <div ref="sidebarRoot" class="compact-sidebar-wrapper flex h-full relative">
     <div class="sidebar-toggle-container">
       <ActivityBar
         :is-feed-list-expanded="isOpen"
