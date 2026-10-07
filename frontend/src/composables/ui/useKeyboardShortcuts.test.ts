@@ -44,6 +44,25 @@ function pressReadLater(): void {
 }
 
 describe('read-later keyboard shortcut', () => {
+  it('toggles the feed list and respects disabled shortcuts and text inputs', () => {
+    const { wrapper } = setup(true);
+    const toggle = vi.fn();
+    window.addEventListener('toggle-feed-list', toggle);
+    const press = (target: HTMLElement) => target.dispatchEvent(
+      new KeyboardEvent('keydown', { key: shortcuts.value.toggleFeedList, bubbles: true })
+    );
+    press(document.body);
+    expect(toggle).toHaveBeenCalledOnce();
+    const input = document.createElement('input');
+    document.body.append(input);
+    press(input);
+    shortcutsEnabled.value = false;
+    press(document.body);
+    expect(toggle).toHaveBeenCalledOnce();
+    input.remove();
+    window.removeEventListener('toggle-feed-list', toggle);
+    wrapper.unmount();
+  });
   it.each([true, false])(
     'preserves reading state (%s) and updates counts on success',
     async (isRead) => {

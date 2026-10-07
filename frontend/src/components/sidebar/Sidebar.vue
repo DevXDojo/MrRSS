@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import ActivityBar from './ActivityBar.vue';
 import FeedList from './FeedList.vue';
 
@@ -37,6 +37,9 @@ function handleUnpinFeedList() {
 
 const emitShowAddFeed = () => window.dispatchEvent(new CustomEvent('show-add-feed'));
 const emitShowSettings = () => window.dispatchEvent(new CustomEvent('show-settings'));
+const toggleFeedList = () => emit('toggle');
+onMounted(() => window.addEventListener('toggle-feed-list', toggleFeedList));
+onUnmounted(() => window.removeEventListener('toggle-feed-list', toggleFeedList));
 </script>
 
 <template>

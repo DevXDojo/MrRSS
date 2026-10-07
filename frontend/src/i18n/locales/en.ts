@@ -1614,6 +1614,7 @@ const en: TranslationMessages = {
     },
     pressKey: 'Press key...',
     toggle: {
+      feedList: 'Expand / Collapse Feed List',
       contentView: 'Content View',
       favoritesFilter: 'Toggle Favorites Filter',
       filter: 'Toggle Article Filter',

@@ -1552,6 +1552,7 @@ const zh: TranslationMessages = {
     },
     pressKey: '按下按键...',
     toggle: {
+      feedList: '展开 / 折叠订阅源列表',
       contentView: '内容视图',
       favoritesFilter: '切换收藏过滤',
       filter: '切换文章过滤器',

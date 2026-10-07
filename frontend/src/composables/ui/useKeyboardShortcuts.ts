@@ -356,6 +356,9 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
       case 'addFeed':
         callbacks.onAddFeed();
         break;
+      case 'toggleFeedList':
+        window.dispatchEvent(new CustomEvent('toggle-feed-list'));
+        break;
       case 'focusSearch':
         focusSearchInput();
         break;
