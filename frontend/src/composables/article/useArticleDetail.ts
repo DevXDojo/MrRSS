@@ -288,7 +288,7 @@ export function useArticleDetail() {
     }
   }
 
-  async function fetchArticleContent() {
+  async function fetchArticleContent(preserveExisting = false) {
     if (!article.value) return;
 
     const loadingArticleId = article.value.id;
@@ -316,7 +316,7 @@ export function useArticleDetail() {
         content = proxyImagesInHtml(content, feedUrl);
       }
 
-      articleContent.value = content;
+      if (content || !preserveExisting) articleContent.value = content;
 
       // Only show loading animation for non-cached content
       if (!data.cached) {
@@ -326,7 +326,7 @@ export function useArticleDetail() {
     } catch (e) {
       if (!isCurrent()) return;
       console.error('Error fetching article content:', e);
-      articleContent.value = '';
+      if (!preserveExisting) articleContent.value = '';
     } finally {
       if (isCurrent()) {
         isLoadingContent.value = false;
@@ -335,6 +335,10 @@ export function useArticleDetail() {
   }
 
   // Handle retry loading content
+  const handleContentUpdated = () => {
+    if (article.value) void fetchArticleContent(true);
+  };
+
   function handleRetryLoadContent() {
     if (article.value && showContent.value) {
       fetchArticleContent();
@@ -908,6 +912,7 @@ export function useArticleDetail() {
     window.addEventListener('render-article-content', handleRenderContent);
     window.addEventListener('explicit-render-action', handleExplicitRenderAction);
     window.addEventListener('toggle-content-view', handleToggleContentView);
+    window.addEventListener('article-content-updated', handleContentUpdated);
 
     // Load default view mode from settings
     try {
@@ -925,6 +930,7 @@ export function useArticleDetail() {
     window.removeEventListener('render-article-content', handleRenderContent);
     window.removeEventListener('explicit-render-action', handleExplicitRenderAction);
     window.removeEventListener('toggle-content-view', handleToggleContentView);
+    window.removeEventListener('article-content-updated', handleContentUpdated);
   });
 
   return {
