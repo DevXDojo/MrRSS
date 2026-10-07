@@ -184,7 +184,9 @@ const { formatArticleDate: formatDate, formatArticleDateTime } = useArticleDateF
         </p>
         <div class="flex items-center justify-between text-xs text-white/80">
           <span class="truncate flex-1">{{ article.feed_title }}</span>
-          <span class="ml-2 shrink-0" :title="formatArticleDateTime(article.published_at)">{{ formatDate(article.published_at) }}</span>
+          <span class="ml-2 shrink-0" :title="formatArticleDateTime(article.published_at)">{{
+            formatDate(article.published_at)
+          }}</span>
         </div>
       </div>
     </div>
@@ -196,7 +198,9 @@ const { formatArticleDate: formatDate, formatArticleDateTime } = useArticleDateF
       </p>
       <div class="flex items-center justify-between text-xs text-text-secondary">
         <span class="truncate flex-1">{{ article.feed_title }}</span>
-        <span class="ml-2 shrink-0" :title="formatArticleDateTime(article.published_at)">{{ formatDate(article.published_at) }}</span>
+        <span class="ml-2 shrink-0" :title="formatArticleDateTime(article.published_at)">{{
+          formatDate(article.published_at)
+        }}</span>
       </div>
     </div>
   </div>

@@ -1,6 +1,14 @@
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
-import type { Article, Feed, Tag, UnreadCounts, RefreshProgress } from '@/types/models';
+import type {
+  Article,
+  Feed,
+  Tag,
+  UnreadCounts,
+  RefreshProgress,
+  FeedProgressResponse,
+  ReaderSyncStatus,
+} from '@/types/models';
 import type { FilterCondition } from '@/types/filter';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseArticleGroupBy, type ArticleGroupBy } from '@/utils/articleGrouping';
@@ -767,7 +775,7 @@ export const useAppStore = defineStore('app', () => {
       try {
         const res = await fetch('/api/progress', { signal: controller.signal });
         if (!res.ok) throw new Error(`Progress API returned ${res.status}`);
-        const data = await res.json();
+        const data: FeedProgressResponse = await res.json();
         if (controller.signal.aborted) return;
         const wasRunning = refreshProgress.value.isRunning;
         active = data.is_running === true;
@@ -781,7 +789,8 @@ export const useAppStore = defineStore('app', () => {
         };
         if (active) await fetchTaskDetails();
         const revision = typeof data.article_revision === 'number' ? data.article_revision : null;
-        const changed = revision !== null && lastArticleRevision !== null && revision !== lastArticleRevision;
+        const changed =
+          revision !== null && lastArticleRevision !== null && revision !== lastArticleRevision;
         lastArticleRevision = revision;
         if (changed || (wasRunning && !active)) {
           clearArticleContentCache();
@@ -827,14 +836,11 @@ export const useAppStore = defineStore('app', () => {
           for (const provider of providers) {
             const status = await fetch(`/api/${provider}/status`, { signal: controller.signal });
             if (!status.ok) continue;
-            const data = await status.json();
+            const data: ReaderSyncStatus = await status.json();
             const time: string | null = data.last_sync_time;
             const isSyncing = data.is_syncing === true;
             const previous = lastTimes.get(provider);
-            if (
-              previous &&
-              (previous.time !== time || (previous.isSyncing && !isSyncing))
-            ) {
+            if (previous && (previous.time !== time || (previous.isSyncing && !isSyncing))) {
               changed = true;
             }
             lastTimes.set(provider, { time, isSyncing });

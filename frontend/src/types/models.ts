@@ -102,6 +102,20 @@ export interface RefreshProgress {
   queue_tasks?: QueueTaskInfo[]; // Detailed queue task information (max 3)
 }
 
+export interface FeedProgressResponse {
+  is_running: boolean;
+  article_revision?: number;
+  errors?: Record<number, string>;
+  pool_task_count?: number;
+  article_click_count?: number;
+  queue_task_count?: number;
+}
+
+export interface ReaderSyncStatus {
+  last_sync_time: string | null;
+  is_syncing: boolean;
+}
+
 export interface PoolTaskInfo {
   feed_id: number;
   feed_title: string;

@@ -48,9 +48,10 @@ describe('read-later keyboard shortcut', () => {
     const { wrapper } = setup(true);
     const toggle = vi.fn();
     window.addEventListener('toggle-feed-list', toggle);
-    const press = (target: HTMLElement) => target.dispatchEvent(
-      new KeyboardEvent('keydown', { key: shortcuts.value.toggleFeedList, bubbles: true })
-    );
+    const press = (target: HTMLElement) =>
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key: shortcuts.value.toggleFeedList, bubbles: true })
+      );
     press(document.body);
     expect(toggle).toHaveBeenCalledOnce();
     const input = document.createElement('input');

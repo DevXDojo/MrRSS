@@ -25,9 +25,14 @@ export function isBilibiliUrl(url: string | undefined): boolean {
   if (!url) return false;
   try {
     const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol) ||
-        !(parsed.hostname === 'bilibili.com' || parsed.hostname.endsWith('.bilibili.com'))) return false;
-  } catch { return false; }
+    if (
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      !(parsed.hostname === 'bilibili.com' || parsed.hostname.endsWith('.bilibili.com'))
+    )
+      return false;
+  } catch {
+    return false;
+  }
 
   return BILIBILI_URL_PATTERNS.some((pattern) => pattern.test(url));
 }

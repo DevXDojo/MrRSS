@@ -17,7 +17,9 @@ const { t } = useI18n();
 
 const isLoading = ref(true);
 const videoSource = computed(() => safeVideoUrl(props.videoUrl));
-watch(videoSource, () => { isLoading.value = true; });
+watch(videoSource, () => {
+  isLoading.value = true;
+});
 
 // Check if this is a YouTube video
 const isYouTube = computed(() => isYouTubeUrl(props.videoUrl));
@@ -68,7 +70,6 @@ function openInNewTab() {
     if (videoSource.value) window.open(videoSource.value, '_blank', 'noopener,noreferrer');
   }
 }
-
 </script>
 
 <template>

@@ -24,10 +24,14 @@ describe('reader sync polling', () => {
       }
       for (const provider of ['freshrss', 'miniflux'] as const) {
         if (url === `/api/${provider}/status`) {
-          return new Response(JSON.stringify({ last_sync_time: null, is_syncing: states[provider] }));
+          return new Response(
+            JSON.stringify({ last_sync_time: null, is_syncing: states[provider] })
+          );
         }
       }
-      return new Response(JSON.stringify(url.startsWith('/api/articles?') || url === '/api/feeds' ? [] : {}));
+      return new Response(
+        JSON.stringify(url.startsWith('/api/articles?') || url === '/api/feeds' ? [] : {})
+      );
     });
     vi.stubGlobal('fetch', fetchMock);
     await store.startFreshRSSStatusPolling();

@@ -6,10 +6,19 @@ import { useAppStore } from '@/stores/app';
 import { clearArticleContentCache } from '@/utils/articleContentCache';
 import type { Article } from '@/types/models';
 
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }) }));
-vi.mock('@/utils/mediaProxy', () => ({ isMediaCacheEnabled: async () => false, proxyImagesInHtml: (html: string) => html }));
+vi.mock('vue-i18n', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-i18n')>()),
+  useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }),
+}));
+vi.mock('@/utils/mediaProxy', () => ({
+  isMediaCacheEnabled: async () => false,
+  proxyImagesInHtml: (html: string) => html,
+}));
 
-beforeEach(() => { setActivePinia(createPinia()); clearArticleContentCache(); });
+beforeEach(() => {
+  setActivePinia(createPinia());
+  clearArticleContentCache();
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe('reader content after feed refresh', () => {
@@ -19,11 +28,22 @@ describe('reader content after feed refresh', () => {
     store.currentArticleId = 1;
     let body = '';
     let fail = false;
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.startsWith('/api/articles/content')
-      ? new Response(JSON.stringify({ content: body }), { status: fail ? 503 : 200 })
-      : new Response('{}')));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url.startsWith('/api/articles/content')
+          ? new Response(JSON.stringify({ content: body }), { status: fail ? 503 : 200 })
+          : new Response('{}')
+      )
+    );
     let detail!: ReturnType<typeof useArticleDetail>;
-    const wrapper = mount({ setup() { detail = useArticleDetail(); return {}; }, template: '<div />' });
+    const wrapper = mount({
+      setup() {
+        detail = useArticleDetail();
+        return {};
+      },
+      template: '<div />',
+    });
     await flushPromises();
     expect(detail.articleContent.value).toBe('');
     body = '<p>Recovered</p>';
