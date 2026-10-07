@@ -100,7 +100,7 @@ func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) 
 			audio_url = excluded.audio_url,
 			video_url = excluded.video_url,
 			published_at = CASE WHEN ? THEN excluded.published_at ELSE articles.published_at END,
-			translated_title = excluded.translated_title,
+			translated_title = COALESCE(NULLIF(excluded.translated_title, ''), articles.translated_title),
 			is_read = excluded.is_read,
 			is_favorite = excluded.is_favorite,
 			is_hidden = excluded.is_hidden,
