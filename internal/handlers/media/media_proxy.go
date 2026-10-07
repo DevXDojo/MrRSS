@@ -23,6 +23,9 @@ import (
 	"MrRSS/internal/handlers/response"
 	"MrRSS/internal/utils/fileutil"
 	"MrRSS/internal/utils/httputil"
+	"MrRSS/internal/utils/textutil"
+
+	htmlparser "golang.org/x/net/html"
 )
 
 // validateMediaURL validates that the URL is HTTP/HTTPS and properly formatted
@@ -162,6 +165,9 @@ func getSmartReferer(imageURL, originalReferer string) string {
 // @Failure      500  {object}  map[string]string  "Internal server error"
 // @Router       /media/proxy [get]
 func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	r = r.WithContext(ctx)
 	if r.Method != http.MethodGet {
 		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
@@ -265,6 +271,11 @@ func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 						}
 						_ = file.Close()
 					}
+				}
+				var downloadErr *cache.MediaDownloadError
+				if errors.As(err, &downloadErr) && downloadErr.RefererFallbackAttempted {
+					response.Error(w, fmt.Errorf("failed to fetch media"), http.StatusInternalServerError)
+					return
 				}
 				log.Printf("Cache failed for %s: %v, trying fallback", mediaURL, err)
 			}
@@ -819,10 +830,12 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 
 	// First, convert lazy-loaded images to normal images
 	// This ensures images load immediately without waiting for lazy loading scripts
-	content = convertLazyImages(content)
+	content = convertLazyImages(content, baseURL)
 
 	// Then rewrite img src attributes (now including the converted lazy images)
 	content = rewriteAttribute(content, "img", "src", baseURL)
+	content = rewriteSrcsetAttribute(content, "img", "srcset", baseURL)
+	content = rewriteSrcsetAttribute(content, "img", "data-srcset", baseURL)
 
 	// Rewrite iframe src attributes
 	content = rewriteAttribute(content, "iframe", "src", baseURL)
@@ -836,6 +849,8 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 
 	// Rewrite source src attributes (for video/audio)
 	content = rewriteAttribute(content, "source", "src", baseURL)
+	content = rewriteSrcsetAttribute(content, "source", "srcset", baseURL)
+	content = rewriteSrcsetAttribute(content, "source", "data-srcset", baseURL)
 
 	// Rewrite track src attributes
 	content = rewriteAttribute(content, "track", "src", baseURL)
@@ -861,100 +876,82 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 	return []byte(content)
 }
 
-// convertLazyImages converts lazy-loaded images to normal images
-// For images with data-original or data-src attributes, move those URLs to src
-// This prevents lazy loading and ensures immediate display
-func convertLazyImages(content string) string {
-	// Match img tags with lazy loading attributes
-	// We need to match any img tag that contains data-original or data-src
-	// Use a two-step approach: find all img tags, then check if they have lazy attributes
-	re := regexp.MustCompile(`<img[^>]*>`)
-
-	return re.ReplaceAllStringFunc(content, func(match string) string {
-		// Check if this img tag has data-original or data-src attribute
-		// Try double quotes first: data-original="..."
-		doubleQuoteRe := regexp.MustCompile(`\s(data-original|data-src)\s*=\s*"([^"]*)"`)
-		doubleQuoteMatch := doubleQuoteRe.FindStringSubmatch(match)
-
-		var lazySrc, lazyQuote string
-
-		if len(doubleQuoteMatch) >= 3 {
-			// Found double-quoted attribute
-			lazySrc = doubleQuoteMatch[2]
-			lazyQuote = `"`
-		} else {
-			// Try single quotes: data-original='...'
-			singleQuoteRe := regexp.MustCompile(`\s(data-original|data-src)\s*=\s*'([^']*)'`)
-			singleQuoteMatch := singleQuoteRe.FindStringSubmatch(match)
-			if len(singleQuoteMatch) >= 3 {
-				lazySrc = singleQuoteMatch[2]
-				lazyQuote = `'`
-			} else {
-				// Try unquoted: data-original=...
-				unquotedRe := regexp.MustCompile(`\s(data-original|data-src)\s*=\s*([^\s>]+)`)
-				unquotedMatch := unquotedRe.FindStringSubmatch(match)
-				if len(unquotedMatch) >= 3 {
-					lazySrc = unquotedMatch[2]
-					lazyQuote = ""
-				} else {
-					// No lazy attribute found
-					return match
+// convertLazyImages resolves lazy image sources before rewriting resource URLs.
+// Keep Discuz attachment attributes proxied too, because its scripts may reuse them.
+func convertLazyImages(content, baseURL string) string {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return content
+	}
+	images := regexp.MustCompile(`(?is)<img\b[^>]*>`)
+	return images.ReplaceAllStringFunc(content, func(match string) string {
+		tokenizer := htmlparser.NewTokenizer(strings.NewReader(match))
+		kind := tokenizer.Next()
+		if kind != htmlparser.StartTagToken && kind != htmlparser.SelfClosingTagToken {
+			return match
+		}
+		token := tokenizer.Token()
+		attributes := make(map[string]string, len(token.Attr))
+		lazy := false
+		for _, attr := range token.Attr {
+			attributes[attr.Key] = attr.Val
+			switch attr.Key {
+			case "data-src", "data-original", "data-lazy-src", "data-actualsrc", "data-original-src", "zoomfile", "file":
+				lazy = true
+			}
+		}
+		if !lazy {
+			return match
+		}
+		source := textutil.ResolveArticleImageSource(attributes, base)
+		if source == "" {
+			return match
+		}
+		// A lazy attribute can already refer to our local proxy. Keep it local.
+		for _, value := range attributes {
+			if isLocalImageProxy(value) {
+				resolved, err := base.Parse(value)
+				if err == nil && resolved.String() == source {
+					source = value
+					break
 				}
 			}
 		}
-
-		// Build new img tag
-		var newTag strings.Builder
-		newTag.WriteString("<img ")
-
-		// Copy all attributes except src, data-original, data-src, and lazy class
-		// Parse attributes manually since Go regex has limitations
-		attrs := parseHTMLAttributes(match)
-
-		for _, attr := range attrs {
-			// Skip lazy loading attributes
-			if attr.Name == "data-original" || attr.Name == "data-src" {
+		attrs := make([]htmlparser.Attribute, 0, len(token.Attr)+1)
+		for _, attr := range token.Attr {
+			switch attr.Key {
+			case "src", "data-src", "data-original", "data-lazy-src", "data-actualsrc", "data-original-src":
 				continue
-			}
-
-			// Handle class attribute - remove "lazy" from it
-			if attr.Name == "class" {
-				// Remove "lazy" from class value
-				classValue := strings.ReplaceAll(attr.Value, "lazy", "")
-				classValue = strings.TrimSpace(classValue)
-				classValue = strings.ReplaceAll(classValue, "  ", " ")
-
-				if classValue != "" {
-					newTag.WriteString(fmt.Sprintf(`class="%s" `, classValue))
+			case "zoomfile", "file":
+				if isLocalImageProxy(attr.Val) {
+					attrs = append(attrs, attr)
+					continue
 				}
-				continue
+				// Tokenizer has already decoded entities; the resource helper expects HTML.
+				proxied, ok := proxyWebpageResourceURL(html.EscapeString(attr.Val), baseURL)
+				if !ok {
+					continue
+				}
+				attr.Val = proxied
+			case "class":
+				classes := strings.Fields(attr.Val)
+				kept := classes[:0]
+				for _, class := range classes {
+					if class != "lazy" {
+						kept = append(kept, class)
+					}
+				}
+				attr.Val = strings.Join(kept, " ")
 			}
-
-			// Skip the old src attribute, we'll add the new one
-			if attr.Name == "src" {
-				continue
-			}
-
-			// Copy other attributes (preserve original quote style)
-			if attr.Quote == "" {
-				newTag.WriteString(fmt.Sprintf(`%s=%s `, attr.Name, attr.Value))
-			} else {
-				newTag.WriteString(fmt.Sprintf(`%s=%s%s%s `, attr.Name, attr.Quote, attr.Value, attr.Quote))
-			}
+			attrs = append(attrs, attr)
 		}
-
-		// Add the new src attribute with the lazy-loaded image URL
-		if lazyQuote == "" {
-			newTag.WriteString(fmt.Sprintf(`src=%s`, lazySrc))
-		} else {
-			newTag.WriteString(fmt.Sprintf(`src=%s%s%s`, lazyQuote, lazySrc, lazyQuote))
-		}
-
-		// Close the tag
-		newTag.WriteString(">")
-
-		return newTag.String()
+		token.Attr = append(attrs, htmlparser.Attribute{Key: "src", Val: source})
+		return token.String()
 	})
+}
+
+func isLocalImageProxy(value string) bool {
+	return strings.HasPrefix(value, "/api/webpage/resource?") || strings.HasPrefix(value, "/api/media/proxy?")
 }
 
 // htmlAttribute represents a parsed HTML attribute
@@ -1055,89 +1052,101 @@ func parseHTMLAttributes(tag string) []htmlAttribute {
 	return attrs
 }
 
-// rewriteAttribute rewrites a specific attribute in HTML tags
+// rewriteAttribute rewrites a specific URL attribute in HTML tags.
 func rewriteAttribute(content, tag, attr, baseURL string) string {
-	// Match all tags first
-	tagRe := regexp.MustCompile(fmt.Sprintf(`<%s[^>]*>`, tag))
-
-	matchCount := 0
-	rewriteCount := 0
-
-	result := tagRe.ReplaceAllStringFunc(content, func(match string) string {
-		matchCount++
-		// Try to find the attribute with double quotes
-		doubleQuoteRe := regexp.MustCompile(fmt.Sprintf(`\s%s\s*=\s*"([^"]*)"`, attr))
-		doubleQuoteMatch := doubleQuoteRe.FindStringSubmatch(match)
-
-		var urlValue, quote string
-
-		if len(doubleQuoteMatch) >= 2 {
-			// Found double-quoted attribute
-			urlValue = doubleQuoteMatch[1]
-			quote = `"`
-		} else {
-			// Try single quotes
-			singleQuoteRe := regexp.MustCompile(fmt.Sprintf(`\s%s\s*=\s*'([^']*)'`, attr))
-			singleQuoteMatch := singleQuoteRe.FindStringSubmatch(match)
-			if len(singleQuoteMatch) >= 2 {
-				urlValue = singleQuoteMatch[1]
-				quote = `'`
-			} else {
-				// Try unquoted
-				unquotedRe := regexp.MustCompile(fmt.Sprintf(`\s%s\s*=\s*([^\s>]+)`, attr))
-				unquotedMatch := unquotedRe.FindStringSubmatch(match)
-				if len(unquotedMatch) >= 2 {
-					urlValue = unquotedMatch[1]
-					quote = ""
-				} else {
-					// Attribute not found
-					return match
-				}
-			}
-		}
-
-		// Skip data: URLs, blob: URLs, and already proxied URLs
-		if strings.HasPrefix(urlValue, "data:") ||
-			strings.HasPrefix(urlValue, "blob:") ||
-			strings.HasPrefix(urlValue, "/api/") ||
-			strings.HasPrefix(urlValue, "#") {
-			return match
-		}
-
-		rewriteCount++
-		// if tag == "script" || tag == "link" {
-		// 	log.Printf("[%s Rewrite] Rewriting %s %d: %s", strings.ToUpper(tag), attr, rewriteCount, urlValue)
-		// }
-
-		// Resolve relative URLs
-		resolvedURL := resolveURL(urlValue, baseURL)
-
-		// Create proxied URL with base64 encoding
-		proxiedURL := fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
-			base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
-			base64.StdEncoding.EncodeToString([]byte(baseURL)))
-
-		// Replace the URL in the match
-		// Use regex to replace attribute value more reliably
-		if quote != "" {
-			// Quoted value - replace using regex for more flexibility
-			attrPattern := regexp.MustCompile(`(` + attr + `)\s*=\s*` + regexp.QuoteMeta(quote) + regexp.QuoteMeta(urlValue) + regexp.QuoteMeta(quote))
-			replacement := fmt.Sprintf(`%s=%s%s%s`, attr, quote, proxiedURL, quote)
-			return attrPattern.ReplaceAllString(match, replacement)
-		} else {
-			// Unquoted value - match until whitespace or > character
-			// We need to capture the delimiter (space or >) to preserve it
-			attrPattern := regexp.MustCompile(`(` + attr + `)\s*=\s*` + regexp.QuoteMeta(urlValue) + `([\s>])`)
-			replacement := fmt.Sprintf(`%s="%s"$2`, attr, proxiedURL)
-			return attrPattern.ReplaceAllString(match, replacement)
-		}
+	return rewriteAttributeValue(content, tag, attr, func(value string) (string, bool) {
+		return proxyWebpageResourceURL(value, baseURL)
 	})
+}
 
-	// if matchCount > 0 && (tag == "script" || tag == "link") {
-	// 	log.Printf("[%s Rewrite] Found %d %s tags, rewrote %d %s attributes", strings.ToUpper(tag), matchCount, tag, rewriteCount, attr)
-	// }
+// rewriteSrcsetAttribute proxies every candidate URL while preserving its
+// density or width descriptor (for example, 2x or 640w).
+func rewriteSrcsetAttribute(content, tag, attr, baseURL string) string {
+	return rewriteAttributeValue(content, tag, attr, func(value string) (string, bool) {
+		var result strings.Builder
+		changed := false
+		for position := 0; position < len(value); {
+			prefixStart := position
+			for position < len(value) && (isHTMLSpace(value[position]) || value[position] == ',') {
+				position++
+			}
+			result.WriteString(value[prefixStart:position])
+			if position >= len(value) {
+				break
+			}
 
-	return result
+			urlStart := position
+			isDataURL := strings.HasPrefix(strings.ToLower(value[position:]), "data:")
+			for position < len(value) && !isHTMLSpace(value[position]) && (isDataURL || value[position] != ',') {
+				position++
+			}
+			candidate := value[urlStart:position]
+			if proxied, ok := proxyWebpageResourceURL(candidate, baseURL); ok {
+				result.WriteString(proxied)
+				changed = true
+			} else {
+				result.WriteString(candidate)
+			}
+
+			descriptorStart := position
+			for position < len(value) && value[position] != ',' {
+				position++
+			}
+			result.WriteString(value[descriptorStart:position])
+		}
+		return result.String(), changed
+	})
+}
+
+func rewriteAttributeValue(content, tag, attr string, rewrite func(string) (string, bool)) string {
+	tagRe := regexp.MustCompile(`(?i)<` + regexp.QuoteMeta(tag) + `\b[^>]*>`)
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)\s+` + regexp.QuoteMeta(attr) + `\s*=\s*"([^"]*)"`),
+		regexp.MustCompile(`(?i)\s+` + regexp.QuoteMeta(attr) + `\s*=\s*'([^']*)'`),
+		regexp.MustCompile(`(?i)\s+` + regexp.QuoteMeta(attr) + `\s*=\s*([^\s>]+)`),
+	}
+
+	return tagRe.ReplaceAllStringFunc(content, func(match string) string {
+		for index, pattern := range patterns {
+			location := pattern.FindStringSubmatchIndex(match)
+			if len(location) < 4 {
+				continue
+			}
+			valueStart, valueEnd := location[2], location[3]
+			rewritten, changed := rewrite(match[valueStart:valueEnd])
+			if !changed {
+				return match
+			}
+			if index == len(patterns)-1 {
+				rewritten = `"` + rewritten + `"`
+			}
+			return match[:valueStart] + rewritten + match[valueEnd:]
+		}
+		return match
+	})
+}
+
+func proxyWebpageResourceURL(value, baseURL string) (string, bool) {
+	value = strings.TrimSpace(html.UnescapeString(value))
+	lowerValue := strings.ToLower(value)
+	if value == "" || strings.HasPrefix(lowerValue, "data:") ||
+		strings.HasPrefix(lowerValue, "blob:") || strings.HasPrefix(value, "#") ||
+		strings.HasPrefix(value, "/api/") || strings.Contains(value, "/api/webpage/resource?") {
+		return value, false
+	}
+
+	resolvedURL := resolveURL(value, baseURL)
+	parsedURL, err := url.Parse(resolvedURL)
+	if err != nil || parsedURL.Hostname() == "" || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return value, false
+	}
+	return fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
+		base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
+		base64.StdEncoding.EncodeToString([]byte(baseURL))), true
+}
+
+func isHTMLSpace(value byte) bool {
+	return value == ' ' || value == '\t' || value == '\n' || value == '\r' || value == '\f'
 }
 
 // rewriteLinkHref rewrites href attributes in link tags
@@ -1798,7 +1807,7 @@ func proxyMediaDirectly(ctx context.Context, client *http.Client, mediaURL, refe
 	req.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
-	resp, err := client.Do(req)
+	resp, _, err := httputil.DoWithRefererFallback(client, req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch media: %w", err)
 	}
