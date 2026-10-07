@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Avoid reinstalling frontend dependencies during backend development rebuilds, preventing Windows file-lock errors while Vite is running.
 - Keep observing background refreshes and detect article saves between progress polls, updating the selected feed/category, articles, and unread counts without losing the current article. (#1229)
 - Refresh the interface when either Miniflux or FreshRSS finishes synchronization, repair the polling-state reference, and check sync HTTP responses. (#1242) (@HernandoR)
 - Recover empty reader content after feed refresh without restarting; invalidate stale frontend content and retain visible content if a background reload fails.
