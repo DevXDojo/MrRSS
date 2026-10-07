@@ -678,10 +678,13 @@ export const useAppStore = defineStore('app', () => {
       for (const provider of ['freshrss', 'miniflux'] as const) {
         if (!settingsRef.value[`${provider}_enabled`]) continue;
         try {
-          await fetch(`/api/${provider}/sync`, { method: 'POST' });
+          const syncRes = await fetch(`/api/${provider}/sync`, { method: 'POST' });
+          if (!syncRes.ok) {
+            throw new Error(`${provider} sync API returned ${syncRes.status}`);
+          }
         } catch (e) {
-          // If FreshRSS sync fails, it's okay - just log it
-          console.log('FreshRSS sync failed:', e);
+          // Reader sync is independent from the standard feed refresh.
+          console.log(`${provider} sync failed:`, e);
         }
       }
 
@@ -812,12 +815,12 @@ export const useAppStore = defineStore('app', () => {
   // Track each reader separately so the first completed sync refreshes the UI too.
   let freshrssPollInterval: ReturnType<typeof setInterval> | null = null;
   let readerPollController: AbortController | null = null;
-  const lastReaderSyncTimes = new Map<string, string | null>();
+  const lastReaderSyncStates = new Map<string, { time: string | null; isSyncing: boolean }>();
   async function startFreshRSSStatusPolling(): Promise<void> {
     stopFreshRSSStatusPolling();
     const controller = new AbortController();
     readerPollController = controller;
-    const lastTimes = lastReaderSyncTimes;
+    const lastTimes = lastReaderSyncStates;
     let polling = false;
     try {
       const res = await fetch('/api/settings', { signal: controller.signal });
@@ -835,9 +838,17 @@ export const useAppStore = defineStore('app', () => {
           for (const provider of providers) {
             const status = await fetch(`/api/${provider}/status`, { signal: controller.signal });
             if (!status.ok) continue;
-            const time: string | null = (await status.json()).last_sync_time;
-            if (lastTimes.has(provider) && lastTimes.get(provider) !== time) changed = true;
-            lastTimes.set(provider, time);
+            const data = await status.json();
+            const time: string | null = data.last_sync_time;
+            const isSyncing = data.is_syncing === true;
+            const previous = lastTimes.get(provider);
+            if (
+              previous &&
+              (previous.time !== time || (previous.isSyncing && !isSyncing))
+            ) {
+              changed = true;
+            }
+            lastTimes.set(provider, { time, isSyncing });
           }
           if (changed && !controller.signal.aborted)
             await Promise.all([fetchFeeds(), fetchArticles(false, true), fetchUnreadCounts()]);
