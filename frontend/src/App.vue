@@ -48,6 +48,8 @@ watchEffect(() => {
 
 onUnmounted(() => {
   store.startAutoRefresh(0);
+  store.stopProgressPolling();
+  store.stopFreshRSSStatusPolling();
   const rootStyle = document.documentElement.style;
   rootStyle.removeProperty('--ui-font-family');
   rootStyle.removeProperty('--ui-font-size');
@@ -133,6 +135,8 @@ onMounted(async () => {
 
   // Initialize theme system immediately (lightweight)
   store.initTheme();
+  store.pollProgress();
+  void store.startFreshRSSStatusPolling();
 
   // Load remaining settings (theme and other settings are already loaded in main.ts)
   let updateInterval = 10;

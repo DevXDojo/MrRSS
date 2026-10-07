@@ -4,6 +4,7 @@ import type { Article, Feed, Tag, UnreadCounts, RefreshProgress } from '@/types/
 import type { FilterCondition } from '@/types/filter';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseArticleGroupBy, type ArticleGroupBy } from '@/utils/articleGrouping';
+import { clearArticleContentCache } from '@/utils/articleContentCache';
 
 export function preserveSelectedArticle<T extends { id: number }>(
   freshArticles: T[],
@@ -746,70 +747,58 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  function pollProgress(): void {
-    // Track previous pool/queue counts to detect task completion
-    let previousPoolCount = 0;
-    let previousQueueCount = 0;
+  let progressTimer: ReturnType<typeof setTimeout> | null = null;
+  let progressController: AbortController | null = null;
+  let lastArticleRevision: number | null = null;
 
-    const interval = setInterval(async () => {
+  function stopProgressPolling(): void {
+    progressController?.abort();
+    progressController = null;
+    if (progressTimer) clearTimeout(progressTimer);
+    progressTimer = null;
+  }
+
+  function pollProgress(): void {
+    if (progressController) return;
+    const controller = new AbortController();
+    progressController = controller;
+    const poll = async () => {
+      let active = false;
       try {
-        const res = await fetch('/api/progress');
-        if (!res.ok) {
-          throw new Error(`Progress API returned ${res.status}: ${res.statusText}`);
-        }
+        const res = await fetch('/api/progress', { signal: controller.signal });
+        if (!res.ok) throw new Error(`Progress API returned ${res.status}`);
         const data = await res.json();
+        if (controller.signal.aborted) return;
+        const wasRunning = refreshProgress.value.isRunning;
+        active = data.is_running === true;
         refreshProgress.value = {
-          ...refreshProgress.value, // Preserve existing pool_tasks and queue_tasks
-          isRunning: data.is_running,
+          ...refreshProgress.value,
+          isRunning: active,
           errors: data.errors,
           pool_task_count: data.pool_task_count ?? 0,
           article_click_count: data.article_click_count ?? 0,
           queue_task_count: data.queue_task_count ?? 0,
         };
-
-        // Fetch task details if refresh is running
-        if (data.is_running && (data.pool_task_count > 0 || data.queue_task_count > 0)) {
-          await fetchTaskDetails();
-        }
-
-        // Detect task completion and update unread counts immediately
-        const currentPoolCount = data.pool_task_count ?? 0;
-        const currentQueueCount = data.queue_task_count ?? 0;
-        const totalTasks = currentPoolCount + currentQueueCount;
-        const previousTotal = previousPoolCount + previousQueueCount;
-
-        // If task count decreased, tasks completed - update unread counts
-        if (totalTasks < previousTotal && previousTotal > 0) {
-          fetchUnreadCounts();
-          fetchFeeds(); // Also update feeds to refresh error marks
-        }
-
-        // Update previous counts
-        previousPoolCount = currentPoolCount;
-        previousQueueCount = currentQueueCount;
-
-        if (!data.is_running) {
-          clearInterval(interval);
-          fetchFeeds();
-          fetchArticles(false, true);
-          fetchUnreadCounts();
-
-          // Notify components that settings have been updated (e.g., last_article_update)
-          // This triggers components using useSettings() to refresh their settings
-          window.dispatchEvent(new CustomEvent('settings-updated'));
-
-          // Note: We no longer show error toasts for failed feeds
-          // Users can see error status in the feed list sidebar
-
-          // Check for app updates after initial refresh completes
-
-          checkForAppUpdates();
+        if (active) await fetchTaskDetails();
+        const revision = typeof data.article_revision === 'number' ? data.article_revision : null;
+        const changed = revision !== null && lastArticleRevision !== null && revision !== lastArticleRevision;
+        lastArticleRevision = revision;
+        if (changed || (wasRunning && !active)) {
+          clearArticleContentCache();
+          await Promise.all([fetchFeeds(), fetchArticles(false, true), fetchUnreadCounts()]);
+          if (!controller.signal.aborted) {
+            window.dispatchEvent(new CustomEvent('settings-updated'));
+            window.dispatchEvent(new CustomEvent('article-content-updated'));
+          }
+          if (wasRunning && !active) void checkForAppUpdates();
         }
       } catch {
-        clearInterval(interval);
-        refreshProgress.value.isRunning = false;
+        // A temporary failure must not stop observing future background refreshes.
+      } finally {
+        if (!controller.signal.aborted) progressTimer = setTimeout(poll, active ? 500 : 5000);
       }
-    }, 500);
+    };
+    void poll();
   }
 
   // Track each reader separately so the first completed sync refreshes the UI too.
@@ -1053,6 +1042,7 @@ export const useAppStore = defineStore('app', () => {
     initTheme,
     refreshFeeds,
     pollProgress,
+    stopProgressPolling,
     startFreshRSSStatusPolling,
     stopFreshRSSStatusPolling,
     checkForAppUpdates,

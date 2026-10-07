@@ -9,9 +9,10 @@ type Progress struct {
 // ProgressWithStats extends Progress with runtime statistics
 type ProgressWithStats struct {
 	Progress
-	PoolTaskCount     int `json:"pool_task_count"`     // Tasks in pool
-	ArticleClickCount int `json:"article_click_count"` // Article click triggered tasks
-	QueueTaskCount    int `json:"queue_task_count"`    // Tasks in queue
+	ArticleRevision   uint64 `json:"article_revision"`
+	PoolTaskCount     int    `json:"pool_task_count"`     // Tasks in pool
+	ArticleClickCount int    `json:"article_click_count"` // Article click triggered tasks
+	QueueTaskCount    int    `json:"queue_task_count"`    // Tasks in queue
 }
 
 // GetProgress returns the current progress of the feed fetching operation
@@ -27,6 +28,7 @@ func (f *Fetcher) GetProgressWithStats() ProgressWithStats {
 
 	return ProgressWithStats{
 		Progress:          progress,
+		ArticleRevision:   f.db.ArticleRevision(),
 		PoolTaskCount:     stats.PoolTaskCount,
 		ArticleClickCount: stats.ArticleClickCount,
 		QueueTaskCount:    stats.QueueTaskCount,
