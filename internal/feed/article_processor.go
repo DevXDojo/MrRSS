@@ -2,6 +2,7 @@ package feed
 
 import (
 	"html"
+	"mime"
 	"net/url"
 	"regexp"
 	"strings"
@@ -63,7 +64,7 @@ func (f *Fetcher) processArticles(feed models.Feed, items []*gofeed.Item) []*Art
 
 		imageURL := extractImageURL(item, feed.URL)
 		audioURL := extractAudioURL(item)
-		videoURL := extractVideoURL(item)
+		videoURL := extractVideoURL(item, feed.URL)
 
 		// Extract Media RSS content (YouTube feeds)
 		mediaTitle := extractMediaTitle(item)
@@ -295,8 +296,8 @@ func extractAudioURL(item *gofeed.Item) string {
 	return ""
 }
 
-// extractVideoURL extracts the video URL from a feed item (for YouTube and Bilibili videos)
-func extractVideoURL(item *gofeed.Item) string {
+// extractVideoURL prefers platform embeds, then video enclosures and HTML media.
+func extractVideoURL(item *gofeed.Item, feedURLs ...string) string {
 	// First check if this is a Bilibili video with iframe in content
 	// Some RSSHub feeds might include iframe in description/content with complete parameters (aid, cid, bvid)
 	// This should take priority over generating a simplified URL from the link
@@ -340,7 +341,65 @@ func extractVideoURL(item *gofeed.Item) string {
 		}
 	}
 
+	base := item.Link
+	if base == "" && len(feedURLs) > 0 {
+		base = feedURLs[0]
+	}
+	for _, enclosure := range item.Enclosures {
+		if enclosure == nil {
+			continue
+		}
+		mediaType, _, err := mime.ParseMediaType(enclosure.Type)
+		if err == nil && strings.HasPrefix(strings.ToLower(mediaType), "video/") {
+			if candidate := safeVideoURL(enclosure.URL, base); candidate != "" {
+				return candidate
+			}
+		}
+	}
+	// Parse HTML rather than matching attributes with regex; source elements are
+	// only media when nested inside a video (picture sources are images).
+	doc, err := nethtml.Parse(strings.NewReader(content))
+	if err == nil {
+		var find func(*nethtml.Node, bool) string
+		find = func(node *nethtml.Node, inVideo bool) string {
+			isVideo := node.Type == nethtml.ElementNode && node.Data == "video"
+			if isVideo || (inVideo && node.Type == nethtml.ElementNode && node.Data == "source") {
+				for _, attr := range node.Attr {
+					if attr.Key == "src" {
+						if candidate := safeVideoURL(attr.Val, base); candidate != "" {
+							return candidate
+						}
+					}
+				}
+			}
+			for child := node.FirstChild; child != nil; child = child.NextSibling {
+				if candidate := find(child, inVideo || isVideo); candidate != "" {
+					return candidate
+				}
+			}
+			return ""
+		}
+		return find(doc, false)
+	}
 	return ""
+}
+
+func safeVideoURL(raw, base string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || raw == "" {
+		return ""
+	}
+	if !parsed.IsAbs() {
+		baseURL, err := url.Parse(base)
+		if err != nil {
+			return ""
+		}
+		parsed = baseURL.ResolveReference(parsed)
+	}
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" || parsed.User != nil {
+		return ""
+	}
+	return parsed.String()
 }
 
 // extractBilibiliVideoURL extracts Bilibili iframe URL from HTML content

@@ -9,6 +9,11 @@
  */
 export function isYouTubeUrl(url: string | undefined): boolean {
   if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol) ||
+        !['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'].includes(parsed.hostname)) return false;
+  } catch { return false; }
 
   const patterns = [/youtube\.com\/watch\?v=/i, /youtu\.be\//i, /youtube\.com\/embed\//i];
 

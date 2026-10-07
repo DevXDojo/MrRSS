@@ -7,6 +7,7 @@ import type { Article } from '@/types/models';
 import { getProxiedMediaUrl } from '@/utils/mediaProxy';
 import { isYouTubeArticle, extractYouTubeVideoId, getYouTubeThumbnailUrl } from '@/utils/youtube';
 import { isBilibiliArticle } from '@/utils/bilibili';
+import { isVideoArticle } from '@/utils/video';
 
 interface Props {
   article: Article;
@@ -38,7 +39,7 @@ const isBilibili = computed(() => isBilibiliArticle(props.article));
 /**
  * Check if this article has any video (YouTube or Bilibili)
  */
-const isVideo = computed(() => isYouTube.value || isBilibili.value);
+const isVideo = computed(() => isVideoArticle(props.article));
 
 /**
  * Get platform badge icon path
