@@ -153,6 +153,7 @@ func main() {
 
 	fetcher := feed.NewFetcher(db)
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
+	configureAdvertisements(h)
 
 	// API Routes
 	log.Println("Setting up API routes...")

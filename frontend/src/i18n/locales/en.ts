@@ -801,6 +801,14 @@ const en: TranslationMessages = {
     },
   },
   setting: {
+    advertisement: {
+      label: 'Partner offer · Advertisement',
+      coupon: 'Discount code',
+      discount: 'Enter this code with the partner to receive the advertised discount.',
+      visit: 'Explore AI API offer',
+      snooze: 'Hide offers for one week',
+      saveFailed: 'Could not save your preference. Please try again.',
+    },
     search: {
       clear: 'Clear settings search',
       noResults: 'No matching settings',

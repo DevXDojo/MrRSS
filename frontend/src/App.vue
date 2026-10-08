@@ -15,6 +15,8 @@ import ConfirmDialog from './components/modals/common/ConfirmDialog.vue';
 import InputDialog from './components/modals/common/InputDialog.vue';
 import MultiSelectDialog from './components/modals/common/MultiSelectDialog.vue';
 import Toast from './components/common/Toast.vue';
+import PartnerAdvertisement from './components/common/PartnerAdvertisement.vue';
+import { useAdvertisementsStore } from './stores/advertisements';
 import { onMounted, onUnmounted, ref, computed, watch, watchEffect } from 'vue';
 import { useNotifications } from './composables/ui/useNotifications';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
@@ -30,6 +32,7 @@ import type { Feed } from './types/models';
 import type { TabName } from './types/settings';
 
 const store = useAppStore();
+const advertisements = useAdvertisementsStore();
 const { t } = useI18n();
 const { settings } = useSettings();
 useCustomCSS(() => settings.value.custom_css_file);
@@ -47,6 +50,7 @@ watchEffect(() => {
 });
 
 onUnmounted(() => {
+  advertisements.stop();
   store.startAutoRefresh(0);
   store.stopProgressPolling();
   store.stopFreshRSSStatusPolling();
@@ -132,6 +136,7 @@ const { shortcuts, shortcutsEnabled } = useKeyboardShortcuts({
 onMounted(async () => {
   // Install global notification handlers
   installGlobalHandlers();
+  advertisements.start();
 
   // Initialize theme system immediately (lightweight)
   store.initTheme();
@@ -389,6 +394,12 @@ function onFeedUpdated(): void {
       aria-hidden="true"
     ></div>
 
+    <PartnerAdvertisement
+      v-if="!showSettings && !advertisements.popupDismissed && advertisements.visibleAds.length"
+      :ad="advertisements.visibleAds[0]"
+      popup
+      class="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto"
+    />
     <AddFeedModal v-if="showAddFeed" @close="showAddFeed = false" @added="onFeedAdded" />
     <EditFeedModal
       v-if="showEditFeed && feedToEdit"

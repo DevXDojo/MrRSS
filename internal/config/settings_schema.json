@@ -4,6 +4,13 @@
     "description": "Settings schema definition - add new settings here only!"
   },
   "settings": {
+    "ads_snoozed_until": {
+      "type": "string",
+      "default": "0",
+      "category": "internal",
+      "encrypted": false,
+      "frontend_key": "ads_snoozed_until"
+    },
     "data_directory": {
       "type": "string",
       "default": "",

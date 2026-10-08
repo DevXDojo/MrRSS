@@ -5,6 +5,10 @@ import { useSettingsAutoSave } from '@/composables/core/useSettingsAutoSave';
 import ApplicationSettings from './ApplicationSettings.vue';
 import UpdateSettings from './UpdateSettings.vue';
 import DataManagementSettings from './DataManagementSettings.vue';
+import PartnerAdvertisement from '@/components/common/PartnerAdvertisement.vue';
+import { useAdvertisementsStore } from '@/stores/advertisements';
+
+const advertisements = useAdvertisementsStore();
 
 interface Props {
   settings: SettingsData;
@@ -37,6 +41,7 @@ function handleUpdateSettings(updatedSettings: SettingsData) {
     <UpdateSettings :settings="settings" @update:settings="handleUpdateSettings" />
 
     <DataManagementSettings :settings="settings" @update:settings="handleUpdateSettings" />
+    <PartnerAdvertisement v-for="ad in advertisements.visibleAds" :key="ad.id" :ad="ad" />
   </div>
 </template>
 

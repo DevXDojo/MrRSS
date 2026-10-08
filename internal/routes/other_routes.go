@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"MrRSS/internal/handlers/advertisement"
 	"MrRSS/internal/handlers/article"
 	browser "MrRSS/internal/handlers/browser"
 	"MrRSS/internal/handlers/core"
@@ -18,6 +19,8 @@ import (
 
 // registerOtherRoutes registers all other miscellaneous routes
 func registerOtherRoutes(mux *http.ServeMux, h *core.Handler) {
+	mux.HandleFunc("/api/ads", func(w http.ResponseWriter, r *http.Request) { advertisement.HandleAds(h, w, r) })
+	mux.HandleFunc("/api/ads/snooze", func(w http.ResponseWriter, r *http.Request) { advertisement.HandleSnooze(h, w, r) })
 	// Refresh and progress
 	mux.HandleFunc("/api/refresh", func(w http.ResponseWriter, r *http.Request) { article.HandleRefresh(h, w, r) })
 	mux.HandleFunc("/api/progress", func(w http.ResponseWriter, r *http.Request) { article.HandleProgress(h, w, r) })

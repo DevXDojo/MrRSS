@@ -17,6 +17,7 @@ type SettingDef struct {
 // AllSettings returns all setting definitions in alphabetical order by key.
 // This is the single source of truth for all settings.
 var AllSettings = []SettingDef{
+	{Key: "ads_snoozed_until", Encrypted: false},
 	{Key: "ai_api_key", Encrypted: true},
 	{Key: "ai_chat_enabled", Encrypted: false},
 	{Key: "ai_chat_profile_id", Encrypted: false},
