@@ -5,7 +5,7 @@ export function extractVersion(markdown, version) {
   const lines = markdown.split(/\r?\n/);
   const start = lines.findIndex((line) => line.startsWith(`## [${version}]`));
   if (start < 0) return '';
-  const next = lines.findIndex((line, index) => index > start && line.startsWith('## ['));
+  const next = lines.findIndex((line, index) => index > start && line.startsWith('## '));
   return lines.slice(start + 1, next < 0 ? undefined : next).join('\n').trim();
 }
 

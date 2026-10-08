@@ -13,3 +13,11 @@ test('includes Chinese when available and supports older English-only releases',
   assert.equal(releaseNotes('## [1.3.39]\nOld', '', '1.3.39'), 'Old\n');
   assert.equal(releaseNotes('', '', '1.3.40'), 'Release version 1.3.40\n');
 });
+
+test('excludes general release guidance after the oldest version in both languages', () => {
+  const en = '## [1.1.0]\n\n### Added\n\n- First release\n\n---\n\n## Release Notes\nGeneral guidance';
+  const zh = '## [1.1.0]\n\n### 新增\n\n- 首次发布\n\n---\n\n## 发布说明\n通用说明';
+  const notes = releaseNotes(en, zh, '1.1.0');
+  assert.ok(notes.includes('First release') && notes.includes('首次发布'));
+  assert.ok(!notes.includes('General guidance') && !notes.includes('通用说明'));
+});
