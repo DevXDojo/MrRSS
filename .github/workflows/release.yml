@@ -63,6 +63,11 @@ jobs:
           git push origin ${{ steps.get_version.outputs.tag }}
           git push origin HEAD:${{ github.ref_name }}
 
+      - name: Set up Node.js for release notes
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
       - name: Generate changelog
         id: changelog
         run: |
