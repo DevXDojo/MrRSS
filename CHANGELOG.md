@@ -2,10 +2,25 @@
 
 All notable changes to MrRSS will be documented in this file.
 
+中文更新日志见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。Release announcements include both English and Chinese.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.40] - 2026-10-08
+
+### Added
+
+- Provide a Chinese changelog, including v1.3.39, and publish English and Chinese notes together on GitHub Releases. (#1250)
+- Prepare partner AI API advertisements with a discount code, a reader popup and Settings → General cards, external navigation, session dismissal and a persistent seven-day snooze. Ship with no active ads. Fetch the root `ads.json` from GitHub through the configured proxy, cache valid updates atomically, and retain offline/bundled fallback data. Support multiple ads, localized text, content blocks and compatible fallback fields; preserve unknown fields for future formats without executing remote HTML or scripts.
+
+### Fixed
+
+- Export `type="rss"` for OPML categories and ordinary feeds so readers such as Feedbro can import subscriptions, while preserving custom XPath feed metadata. (#1249)
+
+### Changed
+
+- Check anonymously accessible manifests after Docker publication and document GHCR package visibility requirements. Package administrators still need to set the existing package to Public; publishing successfully does not automatically change its visibility. (#1251)
 
 ## [1.3.39] - 2026-10-07
 
