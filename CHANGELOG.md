@@ -17,10 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Export `type="rss"` for OPML categories and ordinary feeds so readers such as Feedbro can import subscriptions, while preserving custom XPath feed metadata. (#1249)
+- Restore anonymous access to the GHCR container package by enabling Public visibility; verify both the reported v1.3.36 image and the latest image without account credentials. (#1251)
 
 ### Changed
 
-- Check anonymously accessible manifests after Docker publication and document GHCR package visibility requirements. Package administrators still need to set the existing package to Public; publishing successfully does not automatically change its visibility. (#1251)
+- Check anonymously accessible manifests after Docker publication and document GHCR package visibility requirements so authenticated pushes cannot mask private images. (#1251)
 
 ## [1.3.39] - 2026-10-07
 
