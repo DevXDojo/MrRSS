@@ -2,9 +2,36 @@ package opml
 
 import (
 	"MrRSS/internal/models"
+	"encoding/xml"
 	"strings"
 	"testing"
 )
+
+func TestGenerateCompatibleOutlineTypes(t *testing.T) {
+	feeds := []models.Feed{
+		{Title: "RSS", URL: "https://example.com/rss", Category: "Tech/News"},
+		{Title: "XPath", URL: "https://example.com/page", Type: "HTML+XPath", XPathItem: "//article"},
+	}
+	data, err := Generate(feeds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc OPML
+	if err := xml.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	folder := doc.Body.Outlines[0]
+	if folder.Type != "rss" || folder.Outlines[0].Type != "rss" || folder.Outlines[0].Outlines[0].Type != "rss" {
+		t.Fatalf("folder/feed types are not compatible: %s", data)
+	}
+	if doc.Body.Outlines[1].Type != "HTML+XPath" || doc.Body.Outlines[1].XPathItem != "//article" {
+		t.Fatal("custom feed metadata was changed")
+	}
+	roundtrip, err := Parse(strings.NewReader(string(data)))
+	if err != nil || len(roundtrip) != 2 || roundtrip[0].Category != "Tech/News" {
+		t.Fatalf("round trip lost feeds/categories: %#v, %v", roundtrip, err)
+	}
+}
 
 func TestParse(t *testing.T) {
 	xmlData := `
