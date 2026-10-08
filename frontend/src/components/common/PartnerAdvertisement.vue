@@ -21,7 +21,7 @@ async function snooze() {
 
 <template>
   <aside
-    class="partner-ad relative overflow-hidden rounded-2xl border p-4 sm:p-5 text-text-primary shadow-lg"
+    class="partner-ad overflow-hidden rounded-2xl border p-4 sm:p-5 text-text-primary shadow-lg"
     :aria-label="t('setting.advertisement.label')"
   >
     <div class="relative flex items-start justify-between gap-3">
