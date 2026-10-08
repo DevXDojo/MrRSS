@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Provide a Chinese changelog, including v1.3.39, and publish English and Chinese notes together on GitHub Releases. (#1250)
-- Prepare partner AI API advertisements with a discount code, a reader popup and Settings → General cards, external navigation, session dismissal and a persistent seven-day snooze. Ship with no active ads. Fetch the root `ads.json` from GitHub through the configured proxy, cache valid updates atomically, and retain offline/bundled fallback data. Support multiple ads, localized text, content blocks and compatible fallback fields; preserve unknown fields for future formats without executing remote HTML or scripts.
+- Prepare partner AI API advertisements with a discount code, a reader popup and cards at the top of every Settings tab, external navigation, session dismissal and a persistent seven-day snooze. Ship with no active ads. Fetch the root `ads.json` from GitHub through the configured proxy, cache valid updates atomically, and retain offline/bundled fallback data. Support multiple ads, localized text, content blocks and compatible fallback fields; preserve unknown fields for future formats without executing remote HTML or scripts.
 
 ### Fixed
 

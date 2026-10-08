@@ -44,9 +44,9 @@ The example is for editing/testing; it is not an active partner or a real discou
 
 ## Display and preferences / 展示与偏好
 
-The first valid ad appears in the reader's lower-right popup; all valid ads appear at the bottom of **Settings → General**. The popup is hidden while Settings is open. Closing the popup hides it for the current session; the settings cards remain available. **Hide offers for one week** suppresses both locations for seven days and persists in the local database (`ads_snoozed_until`), including across restarts and advertisement changes. In server mode this preference is shared by users of that server database.
+The first valid ad appears in the reader's lower-right popup; all valid ads appear above the content of **every Settings tab**. Selecting a tab scrolls its content to the top so the offers are visible. The popup is hidden while Settings is open. Closing the popup hides it for the current session; the settings cards remain available. **Hide offers for one week** suppresses both locations for seven days and persists in the local database (`ads_snoozed_until`), including across restarts and advertisement changes. In server mode this preference is shared by users of that server database.
 
-首条有效广告显示在主界面右下角；全部有效广告显示在**设置 → 通用**底部。设置打开时隐藏主界面弹窗。关闭弹窗只影响当前会话，设置卡片仍可查看；“一周内不再提醒”会同时隐藏两处广告，并在本地数据库保存七天的期限，重启或更换广告不影响期限。server 模式下使用同一数据库的用户共享该偏好。
+首条有效广告显示在主界面右下角；全部有效广告显示在**设置的每个 tab** 内容最上方。点击切换 tab 时内容滚动到顶部，方便查看广告。设置打开时隐藏主界面弹窗。关闭弹窗只影响当前会话，设置卡片仍可查看；“一周内不再提醒”会同时隐藏两处广告，并在本地数据库保存七天的期限，重启或更换广告不影响期限。server 模式下使用同一数据库的用户共享该偏好。
 
 For manual UI testing before publishing a real offer, block access to the source URL (or disconnect the network), put the sample in the configured data directory's `ads.json`, and restart. Test light/dark themes, narrow windows, both display locations, external navigation, session close, snooze/restart and unsupported blocks with fallback. Remove the sample afterwards. With network access, a successful remote configuration intentionally supersedes local test data.
 

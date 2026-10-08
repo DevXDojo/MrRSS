@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useAppStore } from '@/stores/app';
+import { useAdvertisementsStore } from '@/stores/advertisements';
+import PartnerAdvertisement from '@/components/common/PartnerAdvertisement.vue';
 import { useI18n } from 'vue-i18n';
 import { computed, nextTick, ref, onMounted, watch, type Component, type Ref } from 'vue';
 import GeneralTab from './settings/general/GeneralTab.vue';
@@ -39,6 +41,7 @@ import { useModalClose, LARGE_MODAL_Z_INDEX } from '@/composables/ui/useModalClo
 import { settingsSearchKeys } from '@/config/settingsSearch';
 
 const store = useAppStore();
+const advertisements = useAdvertisementsStore();
 const { t } = useI18n();
 
 interface Props {
@@ -196,9 +199,11 @@ const settingsSearchResults = computed<SettingsSearchResult[]>(() => {
     .map(({ rank: _rank, ...result }) => result);
 });
 
-function selectSettingsTab(tab: TabName) {
+async function selectSettingsTab(tab: TabName) {
   activeTab.value = tab;
   clearSettingsSearch();
+  await nextTick();
+  settingsContentRef.value?.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 async function selectSettingsSearchResult(result: SettingsSearchResult) {
@@ -408,6 +413,9 @@ function handleDiscoverAll() {
           class="settings-content flex-1 overflow-y-scroll p-3 sm:p-6 min-h-0 scroll-smooth overscroll-contain"
           data-settings-content
         >
+          <div v-if="advertisements.visibleAds.length" class="mb-4 space-y-4 sm:mb-6 sm:space-y-6">
+            <PartnerAdvertisement v-for="ad in advertisements.visibleAds" :key="ad.id" :ad="ad" />
+          </div>
           <GeneralTab
             v-if="activeTab === 'general'"
             :settings="settings"
