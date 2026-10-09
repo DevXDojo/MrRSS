@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fix short Chinese title detection and handle pure Chinese script conversion locally with Google selected, avoiding unnecessary translation failures. (#1248)
 - Fix OPML import compatibility with Feedbro and other readers while preserving XPath metadata. (#1249)
 - Make GHCR images publicly accessible. (#1251)
 

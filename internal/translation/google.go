@@ -52,6 +52,9 @@ func (t *GoogleFreeTranslator) TranslateContext(ctx context.Context, text, targe
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
+	if converted, handled, err := convertChineseScript(text, targetLang); handled {
+		return converted, err
+	}
 	// Get the configured endpoint, default to translate.googleapis.com
 	endpoint := "translate.googleapis.com"
 	if t.db != nil {

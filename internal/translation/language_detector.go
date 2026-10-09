@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"html"
 	"strings"
 	"sync"
 	"unicode"
@@ -47,12 +48,9 @@ func (ld *LanguageDetector) DetectLanguage(text string) string {
 	}
 
 	// Remove HTML tags if present
-	cleanText := removeHTMLTags(text)
-	textForDetection := text
-
-	// Only use cleaned text if it's significantly different and has enough content
-	if len(cleanText) > 10 && len(cleanText) < len(text) {
-		textForDetection = cleanText
+	textForDetection := strings.TrimSpace(html.UnescapeString(removeHTMLTags(text)))
+	if textForDetection == "" {
+		return ""
 	}
 
 	// Detect language with options
@@ -78,6 +76,11 @@ func (ld *LanguageDetector) DetectLanguage(text string) string {
 		return isoCode
 	}
 
+	// Short Chinese labels can have low statistical confidence. Their script
+	// is still identifiable without sending already-Chinese text upstream.
+	if isChineseScriptText(textForDetection) {
+		return detectChineseVariant(textForDetection)
+	}
 	return ""
 }
 
@@ -87,6 +90,9 @@ func (ld *LanguageDetector) DetectLanguage(text string) string {
 // - Detected language differs from target language
 // Returns false if text is already in target language
 func (ld *LanguageDetector) ShouldTranslate(text, targetLang string) bool {
+	if converted, handled, err := convertChineseScript(text, targetLang); handled && err == nil {
+		return converted != text
+	}
 	detectedLang := ld.DetectLanguage(text)
 
 	// If detection failed, assume translation is needed (fallback behavior)
@@ -110,6 +116,11 @@ func (ld *LanguageDetector) ShouldTranslate(text, targetLang string) bool {
 func (ld *LanguageDetector) ShouldTranslateFullText(text, targetLang string) bool {
 	if text == "" {
 		return true
+	}
+	// A mostly Simplified article can still contain Traditional paragraphs.
+	// Script conversion is local, so convert all variants rather than sampling.
+	if converted, handled, err := convertChineseScript(text, targetLang); handled && err == nil {
+		return converted != text
 	}
 
 	// Clean text and split into paragraphs
@@ -294,8 +305,8 @@ func detectChineseVariant(text string) string {
 		}
 	}
 
-	// If we don't have enough Chinese characters, default to Simplified
-	if chineseCharCount < 10 {
+	// Even a two-character title can require conversion.
+	if chineseCharCount == 0 {
 		return "zh"
 	}
 
