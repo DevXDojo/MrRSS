@@ -770,6 +770,14 @@ const zh: TranslationMessages = {
     },
   },
   setting: {
+    advertisement: {
+      label: '合作推荐 · 广告',
+      coupon: '专属优惠码',
+      discount: '在合作中转站填入此优惠码，即可享受广告中说明的折扣。',
+      visit: '了解 AI API 优惠',
+      snooze: '一周内不再提醒',
+      saveFailed: '未能保存免提醒设置，请重试。',
+    },
     search: {
       clear: '清除设置搜索',
       noResults: '没有匹配的设置',

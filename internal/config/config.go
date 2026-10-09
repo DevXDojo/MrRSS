@@ -18,6 +18,7 @@ var defaultsJSON []byte
 
 // Defaults holds all default settings values
 type Defaults struct {
+	AdsSnoozedUntil               string `json:"ads_snoozed_until"`
 	AIAPIKey                      string `json:"ai_api_key"`
 	AIChatEnabled                 bool   `json:"ai_chat_enabled"`
 	AIChatProfileId               string `json:"ai_chat_profile_id"`
@@ -182,6 +183,8 @@ func Get() Defaults {
 // GetString returns a setting default as a string
 func GetString(key string) string {
 	switch key {
+	case "ads_snoozed_until":
+		return defaults.AdsSnoozedUntil
 	case "ai_api_key":
 		return defaults.AIAPIKey
 	case "ai_chat_enabled":

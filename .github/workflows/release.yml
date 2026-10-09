@@ -63,40 +63,17 @@ jobs:
           git push origin ${{ steps.get_version.outputs.tag }}
           git push origin HEAD:${{ github.ref_name }}
 
+      - name: Set up Node.js for release notes
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
       - name: Generate changelog
         id: changelog
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
 
-          # Extract changelog for this version from CHANGELOG.md
-          if [ -f "CHANGELOG.md" ]; then
-            # Find the section for this version
-            # Match pattern like "## [1.1.3] - 2025-11-22"
-            awk -v ver="$VERSION" '
-              BEGIN { found=0; print_section=0 }
-              /^## \[/ {
-                if (print_section) exit
-                if ($0 ~ "\\[" ver "\\]") {
-                  found=1
-                  print_section=1
-                  next
-                }
-              }
-              print_section && /^## \[/ { exit }
-              print_section { print }
-              END {
-                if (!found) {
-                  print "## What'\''s Changed"
-                  print ""
-                  print "* Release version " ver
-                }
-              }
-            ' CHANGELOG.md > RELEASE_NOTES.md
-          else
-            # Fallback to git log if CHANGELOG.md doesn't exist
-            echo "## What's Changed" > RELEASE_NOTES.md
-            git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty=format:"* %s (%h)" >> RELEASE_NOTES.md || echo "* Initial release" >> RELEASE_NOTES.md
-          fi
+          node scripts/release-notes.mjs "$VERSION"
 
           # Show what we extracted for debugging
           echo "=== Generated Release Notes ==="

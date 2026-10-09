@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"MrRSS/internal/advertisement"
 	"MrRSS/internal/ai"
 	"MrRSS/internal/cache"
 	"MrRSS/internal/database"
@@ -61,8 +62,9 @@ type Handler struct {
 	App               interface{}         // Wails app instance for browser integration (interface{} to avoid import in server mode)
 	ContentCache      *cache.ContentCache // Cache for article content
 	Stats             *statistics.Service // Statistics tracking service
-	SetStartupOnBoot  func(bool) error    // Optional desktop-only startup integration
-	QuitForUpdate     func()              // Desktop shutdown bypassing close-to-tray
+	Advertisements    *advertisement.Service
+	SetStartupOnBoot  func(bool) error // Optional desktop-only startup integration
+	QuitForUpdate     func()           // Desktop shutdown bypassing close-to-tray
 
 	// Discovery state tracking for polling-based progress
 	DiscoveryMu          sync.RWMutex
@@ -85,6 +87,7 @@ func NewHandler(db *database.DB, fetcher *feed.Fetcher, translator translation.T
 		DiscoveryService:  registry.DiscoveryService(),
 		ContentCache:      registry.ContentCache(),
 		Stats:             registry.Stats(),
+		Advertisements:    advertisement.New(nil),
 	}
 
 	return h

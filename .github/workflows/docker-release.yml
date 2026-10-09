@@ -173,6 +173,22 @@ jobs:
               ghcr.io/${OWNER}/mrrss:latest-arm64
           fi
 
+      - name: Verify anonymous registry access
+        env:
+          IMAGE: ghcr.io/${{ needs.extract-metadata.outputs.owner_lowercase }}/mrrss:${{ needs.extract-metadata.outputs.version }}
+        run: |
+          # Use an empty Docker config: the publishing login must not mask a private package.
+          export DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          for attempt in 1 2 3; do
+            if docker manifest inspect "$IMAGE" > /dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Published image is not anonymously accessible. Set the GHCR mrrss package visibility to Public in Package settings (repository visibility is separate). See docs/SERVER_MODE/README.md."
+          exit 1
+
       - name: Summary
         run: |
           OWNER="${{ needs.extract-metadata.outputs.owner_lowercase }}"

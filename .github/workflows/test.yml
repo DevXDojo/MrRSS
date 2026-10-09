@@ -89,6 +89,9 @@ jobs:
         working-directory: ./frontend
         run: npm run test:unit
 
+      - name: Test release notes extraction
+        run: node --test scripts/release-notes.test.mjs
+
       - name: Build frontend
         working-directory: ./frontend
         run: npm run build

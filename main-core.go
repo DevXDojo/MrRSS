@@ -31,7 +31,7 @@ import (
 )
 
 // @title           MrRSS API
-// @version         1.3.39
+// @version         1.3.40
 // @description     MrRSS is a modern, cross-platform desktop RSS reader with auto-translation, smart feed discovery, and AI-powered summarization.
 
 // @contact.name   API Support
@@ -153,6 +153,7 @@ func main() {
 
 	fetcher := feed.NewFetcher(db)
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
+	configureAdvertisements(h)
 
 	// API Routes
 	log.Println("Setting up API routes...")

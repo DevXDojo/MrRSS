@@ -292,6 +292,7 @@ func TestDetectChineseVariant(t *testing.T) {
 			text: "简短",
 			want: "zh",
 		},
+		{name: "Two-character Traditional title", text: "軟體", want: "zh-TW"},
 	}
 
 	for _, tt := range tests {
@@ -337,6 +338,9 @@ func TestShouldTranslate_TraditionalToSimplified(t *testing.T) {
 			targetLang: "zh-TW",
 			want:       true,
 		},
+		{name: "Short Traditional title", text: "軟體", targetLang: "zh", want: true},
+		{name: "Short Simplified title", text: "软件", targetLang: "zh", want: false},
+		{name: "Short Traditional HTML", text: "<b>軟體</b>", targetLang: "zh", want: true},
 	}
 
 	for _, tt := range tests {

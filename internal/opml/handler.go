@@ -313,6 +313,7 @@ func Generate(feeds []models.Feed) ([]byte, error) {
 					found = &Outline{
 						Text:  part,
 						Title: part,
+						Type:  "rss",
 					}
 					*currentOutlines = append(*currentOutlines, found)
 				}
@@ -320,10 +321,14 @@ func Generate(feeds []models.Feed) ([]byte, error) {
 			}
 		}
 
+		feedType := strings.TrimSpace(f.Type)
+		if feedType == "" {
+			feedType = "rss"
+		}
 		*currentOutlines = append(*currentOutlines, &Outline{
 			Text:   f.Title,
 			Title:  f.Title,
-			Type:   f.Type,
+			Type:   feedType,
 			XMLURL: f.URL,
 			// XPath support
 			XPathItem:           f.XPathItem,

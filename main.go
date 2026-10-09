@@ -198,6 +198,7 @@ func main() {
 
 	fetcher := feed.NewFetcher(db)
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
+	configureAdvertisements(h)
 	h.SetStartupOnBoot = func(enabled bool) error {
 		if enabled {
 			return utils.EnableStartup()

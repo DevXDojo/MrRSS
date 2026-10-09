@@ -13,6 +13,7 @@ import { settingsDefaults } from '@/config/defaults';
  */
 export function generateInitialSettings(): SettingsData {
   return {
+    ads_snoozed_until: settingsDefaults.ads_snoozed_until,
     ai_api_key: settingsDefaults.ai_api_key,
     ai_chat_enabled: settingsDefaults.ai_chat_enabled,
     ai_chat_profile_id: settingsDefaults.ai_chat_profile_id,
@@ -168,6 +169,7 @@ export function generateInitialSettings(): SettingsData {
  */
 export function parseSettingsData(data: Record<string, string>): SettingsData {
   return {
+    ads_snoozed_until: data.ads_snoozed_until || settingsDefaults.ads_snoozed_until,
     ai_api_key: data.ai_api_key || settingsDefaults.ai_api_key,
     ai_chat_enabled: data.ai_chat_enabled === 'true',
     ai_chat_profile_id: data.ai_chat_profile_id || settingsDefaults.ai_chat_profile_id,
