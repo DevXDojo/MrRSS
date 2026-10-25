@@ -40,6 +40,47 @@ function Invoke-CheckedCommand {
     return $output
 }
 
+function Invoke-GitRemoteCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    $maximumAttempts = 3
+    $effectiveArguments = $Arguments
+    for ($attempt = 1; $attempt -le $maximumAttempts; $attempt++) {
+        try {
+            return Invoke-CheckedCommand -Command 'git' -Arguments $effectiveArguments
+        }
+        catch {
+            $details = $_.Exception.Message
+            # Retry transport failures only. Authentication, certificate validation,
+            # missing repositories and non-fast-forward failures need user action.
+            $transientError = $details -match (
+                '(?i)unexpected eof|SSL_ERROR_SYSCALL|connection (?:reset|timed out|refused)|' +
+                'could not resolve (?:host|proxy)|failed to connect|' +
+                'operation timed out|HTTP/2 (?:stream|framing)|' +
+                'curl (?:16|18|28|52|55|56|92)\b|remote end hung up unexpectedly'
+            )
+            if (-not $transientError) {
+                throw
+            }
+            if ($attempt -eq $maximumAttempts) {
+                throw "Git 远程操作尝试 $maximumAttempts 次后仍失败。请检查网络或代理后重新运行脚本以继续发布。`n$details"
+            }
+
+            # Scope the protocol fallback to this command; preserve TLS validation
+            # and the user's repository/global Git configuration.
+            if ($details -match '(?i)unexpected eof|SSL_ERROR_SYSCALL|HTTP/2|curl (?:16|92)\b') {
+                $effectiveArguments = @('-c', 'http.version=HTTP/1.1') + $Arguments
+            }
+            $protocolHint = if ($effectiveArguments[0] -eq '-c') { '（使用 HTTP/1.1）' } else { '' }
+            Write-Warning "Git 远程操作遇到网络错误，$attempt 秒后重试$protocolHint（$($attempt + 1)/$maximumAttempts）：git $($Arguments -join ' ')"
+            Start-Sleep -Seconds $attempt
+        }
+    }
+}
+
 function ConvertFrom-CommandJson {
     param(
         [Parameter(Mandatory = $true)]
@@ -395,7 +436,7 @@ try {
         $releaseBranch = $startingBranch
         $newVersion = $releaseBranchMatch.Groups['version'].Value
 
-        Invoke-CheckedCommand -Command 'git' -Arguments @('fetch', 'origin', 'main') | Out-Null
+        Invoke-GitRemoteCommand -Arguments @('fetch', 'origin', 'main') | Out-Null
         $oldVersion = Get-VersionFromGitReference -Reference 'origin/main' -Path $versionFile
         $expectedVersion = Get-NextPatchVersion -Version $oldVersion
         if ($newVersion -ne $expectedVersion) {
@@ -407,18 +448,18 @@ try {
         }
 
         $remoteBranch = @(
-            Invoke-CheckedCommand -Command 'git' -Arguments @('ls-remote', '--heads', 'origin', $releaseBranch)
+            Invoke-GitRemoteCommand -Arguments @('ls-remote', '--heads', 'origin', $releaseBranch)
         )
         $remoteBranchExists = $remoteBranch.Count -gt 0
         if ($remoteBranchExists -and $workingTreeStatus.Count -eq 0) {
-            Invoke-CheckedCommand -Command 'git' -Arguments @(
+            Invoke-GitRemoteCommand -Arguments @(
                 'pull', '--ff-only', 'origin', $releaseBranch
             ) | Out-Null
         }
     }
     else {
         Invoke-CheckedCommand -Command 'git' -Arguments @('checkout', 'main') | Out-Null
-        Invoke-CheckedCommand -Command 'git' -Arguments @('pull', '--ff-only', 'origin', 'main') | Out-Null
+        Invoke-GitRemoteCommand -Arguments @('pull', '--ff-only', 'origin', 'main') | Out-Null
 
         $oldVersion = Get-VersionFromFile -Path $versionFile
         $newVersion = Get-NextPatchVersion -Version $oldVersion
@@ -429,14 +470,14 @@ try {
         )
         $releaseBranchExists = $localBranch.Count -gt 0
         $remoteBranch = @(
-            Invoke-CheckedCommand -Command 'git' -Arguments @('ls-remote', '--heads', 'origin', $releaseBranch)
+            Invoke-GitRemoteCommand -Arguments @('ls-remote', '--heads', 'origin', $releaseBranch)
         )
         $remoteBranchExists = $remoteBranch.Count -gt 0
 
         if ($releaseBranchExists) {
             Invoke-CheckedCommand -Command 'git' -Arguments @('checkout', $releaseBranch) | Out-Null
             if ($remoteBranchExists) {
-                Invoke-CheckedCommand -Command 'git' -Arguments @(
+                Invoke-GitRemoteCommand -Arguments @(
                     'pull', '--ff-only', 'origin', $releaseBranch
                 ) | Out-Null
             }
@@ -585,7 +626,7 @@ try {
     else {
         Write-Host '发布改动已经提交，跳过重复 commit。' -ForegroundColor Green
     }
-    Invoke-CheckedCommand -Command 'git' -Arguments @(
+    Invoke-GitRemoteCommand -Arguments @(
         'push', '--set-upstream', 'origin', $releaseBranch
     ) | Out-Null
 
