@@ -12,10 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - View multimedia images in fullscreen with a toolbar button or `F`; press `Esc` to leave fullscreen before closing the viewer. (#1264)
-- Add Linux `--enable-dmabuf-renderer` to opt out of the NVIDIA DMA-BUF workaround on affected hybrid GPU systems. (#1256)
 
 ### Fixed
 
+- Automatically keep DMA-BUF rendering enabled on Wayland systems using AMD/Intel integrated graphics alongside an NVIDIA GPU, while retaining NVIDIA compatibility handling. No launch arguments are needed. (#1256)
 - Prevent stored XSS and HTML parser mutation attacks; sanitize article, preview, translation, summary, and chat HTML, including older cached content. (GHSA-8q87-xm7v-xv7q, reported by Jan Kahmen of turingpoint; GHSA-fvgp-h89h-v273, reported by @tonghuaroot)
 - Fix Docker server builds omitting shared startup configuration, and add a server package build check to CI. (#1264)
 - Preserve test fixtures when preparing releases and correct the release notes regression test.

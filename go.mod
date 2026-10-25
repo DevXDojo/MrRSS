@@ -18,7 +18,7 @@ require (
 	github.com/longbridgeapp/opencc v0.3.13
 	github.com/mmcdole/gofeed v1.5.0
 	github.com/swaggo/http-swagger v1.3.4
-	github.com/wailsapp/wails/v3 v3.0.0-beta.28
+	github.com/wailsapp/wails/v3 v3.0.0-beta.31
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.60.0
 	golang.org/x/sys v0.49.0
