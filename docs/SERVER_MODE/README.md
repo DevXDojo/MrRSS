@@ -46,5 +46,5 @@ The Docker release workflow checks the published version's manifest using an emp
 Docker 发布流程会使用空 Docker 配置检查版本镜像的匿名访问；登录后推送成功不再代表发布检查通过。修改可见性后，用未登录的 Docker 配置确认可拉取镜像：
 
 ```sh
-docker pull ghcr.io/devxdojo/mrrss:1.3.40
+docker pull ghcr.io/devxdojo/mrrss:1.3.41
 ```
