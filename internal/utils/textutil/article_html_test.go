@@ -34,6 +34,20 @@ func TestArticleHTMLRejectsParserMutationAndEventHandlers(t *testing.T) {
 	}
 }
 
+func TestMarkdownTranslationUsesArticleSanitizer(t *testing.T) {
+	input := `Hello <img src="https://example.org/a.jpg" onerror=alert(1)><details ontoggle=alert(1)>text</details><a href="java&#x73;cript:alert(1)">link</a>`
+	for _, got := range []string{SanitizeHTML(input), ConvertMarkdownToHTML(input)} {
+		for _, bad := range []string{"onerror", "ontoggle", "javascript:"} {
+			if strings.Contains(got, bad) {
+				t.Errorf("unsafe %q in %s", bad, got)
+			}
+		}
+		if !strings.Contains(got, "https://example.org/a.jpg") {
+			t.Errorf("safe image lost: %s", got)
+		}
+	}
+}
+
 func TestArticleMarkdownAndCodeFormatting(t *testing.T) {
 	got := PrepareArticleContent("# Heading\n\n| A | B |\n|---|---|\n|1|2|\n\n```go\nfmt.Println(1)\n```", "https://example.org/article")
 	for _, want := range []string{"<h1", "<table>", `class="language-go"`, "fmt.Println(1)"} {
