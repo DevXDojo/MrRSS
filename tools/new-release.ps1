@@ -263,6 +263,10 @@ function Update-VersionReferences {
         if ($fileName -match '(?i)^CHANGELOG(?:\.|$)') {
             continue
         }
+        # Test versions are fixtures, not application release metadata.
+        if ($fileName -match '(?i)(?:_test\.go$|\.(?:test|spec)\.[^.]+$)') {
+            continue
+        }
 
         $file = Read-TextFile -Path $relativePath
         $updatedContent = $file.Content
