@@ -159,3 +159,8 @@ jobs:
         env:
           CGO_ENABLED: 1
         run: go build -v ./...
+
+      - name: Verify server package compiles
+        env:
+          CGO_ENABLED: 1
+        run: go build -tags server -o "${{ runner.temp }}/mrrss-server" .

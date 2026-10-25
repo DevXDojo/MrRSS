@@ -20,10 +20,10 @@ RUN go mod download
 COPY . .
 
 # Build frontend
-RUN cd frontend && npm install && npm run build
+RUN cd frontend && npm ci && npm run build
 
 # Build the server version
-RUN CGO_ENABLED=1 GOOS=linux go build -tags server -trimpath -buildvcs=false -ldflags="-w -s" -o mrrss-server ./main-core.go
+RUN CGO_ENABLED=1 GOOS=linux go build -tags server -trimpath -buildvcs=false -ldflags="-w -s" -o mrrss-server .
 
 # Runtime stage - minimal alpine image
 FROM alpine:latest
