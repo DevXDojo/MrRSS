@@ -13,7 +13,11 @@ const native = vi.hoisted(() => ({
 }));
 vi.mock('@wailsio/runtime', () => ({
   System: { IsDesktop: () => native.desktop },
-  Window: { Fullscreen: native.enter, UnFullscreen: native.leave, IsFullscreen: native.isFullscreen },
+  Window: {
+    Fullscreen: native.enter,
+    UnFullscreen: native.leave,
+    IsFullscreen: native.isFullscreen,
+  },
   Events: { On: native.on },
 }));
 
@@ -27,17 +31,37 @@ beforeEach(() => {
   native.isFullscreen.mockResolvedValue(false);
   native.on.mockReturnValue(native.remove);
   fullscreenElement = null;
-  Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fullscreenElement });
-  Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: vi.fn(async () => { fullscreenElement = null; }) });
+  Object.defineProperty(document, 'fullscreenElement', {
+    configurable: true,
+    get: () => fullscreenElement,
+  });
+  Object.defineProperty(document, 'exitFullscreen', {
+    configurable: true,
+    value: vi.fn(async () => {
+      fullscreenElement = null;
+    }),
+  });
 });
-afterEach(() => { wrapper?.unmount(); wrapper = undefined; });
+afterEach(() => {
+  wrapper?.unmount();
+  wrapper = undefined;
+});
 
 function setup() {
   const element = document.createElement('div');
-  element.requestFullscreen = vi.fn(async () => { fullscreenElement = element; });
+  element.requestFullscreen = vi.fn(async () => {
+    fullscreenElement = element;
+  });
   const onError = vi.fn();
   let api!: ReturnType<typeof useViewerFullscreen>;
-  wrapper = mount(defineComponent({ setup() { api = useViewerFullscreen(ref(element), onError); return () => h('div'); } }));
+  wrapper = mount(
+    defineComponent({
+      setup() {
+        api = useViewerFullscreen(ref(element), onError);
+        return () => h('div');
+      },
+    })
+  );
   return { api, element, onError };
 }
 
@@ -58,7 +82,8 @@ describe('multimedia viewer fullscreen', () => {
     const { api } = setup();
     await api.toggle();
     expect(native.enter).toHaveBeenCalledOnce();
-    wrapper!.unmount(); wrapper = undefined;
+    wrapper!.unmount();
+    wrapper = undefined;
     expect(native.leave).toHaveBeenCalledOnce();
     expect(native.remove).toHaveBeenCalledOnce();
   });
@@ -88,9 +113,18 @@ describe('multimedia viewer fullscreen', () => {
   it('releases browser fullscreen when a pending entry finishes after unmount', async () => {
     const { api, element } = setup();
     let resolve!: () => void;
-    vi.mocked(element.requestFullscreen).mockImplementation(() => new Promise<void>((done) => { resolve = () => { fullscreenElement = element; done(); }; }));
+    vi.mocked(element.requestFullscreen).mockImplementation(
+      () =>
+        new Promise<void>((done) => {
+          resolve = () => {
+            fullscreenElement = element;
+            done();
+          };
+        })
+    );
     const entry = api.toggle();
-    wrapper!.unmount(); wrapper = undefined;
+    wrapper!.unmount();
+    wrapper = undefined;
     resolve();
     await entry;
     expect(document.exitFullscreen).toHaveBeenCalledOnce();

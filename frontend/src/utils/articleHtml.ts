@@ -1,6 +1,11 @@
 import DOMPurify from 'dompurify';
 
-const embedHosts = ['youtube.com', 'youtube-nocookie.com', 'player.vimeo.com', 'player.bilibili.com'];
+const embedHosts = [
+  'youtube.com',
+  'youtube-nocookie.com',
+  'player.vimeo.com',
+  'player.bilibili.com',
+];
 
 /** Sanitize at the rendering boundary, including content cached by older versions. */
 export function sanitizeArticleHTML(html: string | null | undefined): string {
@@ -19,7 +24,8 @@ export function sanitizeArticleHTML(html: string | null | undefined): string {
       const url = new URL(frame.getAttribute('src') || '');
       if (
         !['http:', 'https:'].includes(url.protocol) ||
-        url.username || url.password ||
+        url.username ||
+        url.password ||
         !embedHosts.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))
       ) {
         frame.remove();
@@ -31,7 +37,9 @@ export function sanitizeArticleHTML(html: string | null | undefined): string {
       frame.remove();
     }
   });
-  fragment.querySelectorAll('img').forEach((img) => img.setAttribute('referrerpolicy', 'no-referrer'));
+  fragment
+    .querySelectorAll('img')
+    .forEach((img) => img.setAttribute('referrerpolicy', 'no-referrer'));
   const template = document.createElement('template');
   template.content.append(fragment);
   return template.innerHTML;

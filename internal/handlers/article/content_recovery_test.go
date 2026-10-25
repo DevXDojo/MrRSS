@@ -4,6 +4,7 @@ import (
 	"MrRSS/internal/handlers/article"
 	"MrRSS/internal/models"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,58 @@ import (
 	"testing"
 	"time"
 )
+
+func TestCachedArticleResponseSanitizesLegacyContent(t *testing.T) {
+	for _, memory := range []bool{false, true} {
+		t.Run(fmt.Sprintf("memory=%t", memory), func(t *testing.T) {
+			h := setupHandler(t)
+			t.Cleanup(func() { h.Fetcher.GetTaskManager().Stop(); h.Fetcher.GetCleanupManager().Stop(); h.DB.Close() })
+			feedID, err := h.DB.AddFeed(&models.Feed{Title: "Legacy feed", URL: "https://example.org/feed"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := h.DB.SaveArticles(context.Background(), []*models.Article{{FeedID: feedID, Title: "Legacy article", URL: "https://example.org/article", PublishedAt: time.Now()}}); err != nil {
+				t.Fatal(err)
+			}
+			var id int64
+			if err := h.DB.QueryRow("SELECT id FROM articles WHERE feed_id=?", feedID).Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			payload := `<p>Keep this text</p><img src="/safe.jpg" onerror=alert(1)><p><noscript></p><img src=x onerror=alert(2)></noscript></p>`
+			if err := h.DB.SetArticleContent(id, payload); err != nil {
+				t.Fatal(err)
+			}
+			if memory {
+				h.ContentCache.Set(id, payload)
+			}
+			rr := httptest.NewRecorder()
+			article.HandleGetArticleContent(h, rr, httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/articles/content?id=%d", id), nil))
+			if rr.Code != http.StatusOK {
+				t.Fatal(rr.Body.String())
+			}
+			var result struct {
+				Content string `json:"content"`
+				Cached  bool   `json:"cached"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if !result.Cached || !strings.Contains(result.Content, "Keep this text") || !strings.Contains(result.Content, "https://example.org/safe.jpg") {
+				t.Fatalf("unexpected response: %+v", result)
+			}
+			for _, unsafe := range []string{"onerror", "<noscript"} {
+				if strings.Contains(result.Content, unsafe) {
+					t.Fatalf("unsafe cached HTML reached response: %s", result.Content)
+				}
+			}
+			// Reading a legacy article sanitizes output without deleting its source.
+			stored, found, err := h.DB.GetArticleContent(id)
+			if err != nil || !found || stored != payload {
+				t.Fatalf("stored source changed: found=%t err=%v", found, err)
+			}
+		})
+	}
+}
 
 func TestReloadInvalidatesBothCachesAndReadsFeedOnce(t *testing.T) {
 	h := setupHandler(t)

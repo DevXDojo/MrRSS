@@ -228,8 +228,19 @@ const onWheelNavigate = ((e: CustomEvent) => {
   }
 }) as EventListener;
 function onFullscreenKey(event: KeyboardEvent) {
-  if (event.key.toLowerCase() !== 'f' || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
-  if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+  if (
+    event.key.toLowerCase() !== 'f' ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.repeat
+  )
+    return;
+  if (
+    event.target instanceof Element &&
+    event.target.closest('input, textarea, select, [contenteditable="true"]')
+  )
+    return;
   if (fullscreen.supported.value) {
     event.preventDefault();
     void fullscreen.toggle();
@@ -284,8 +295,20 @@ onBeforeUnmount(() => {
           v-if="fullscreen.supported.value"
           class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-colors"
           :disabled="fullscreen.pending.value"
-          :title="t(fullscreen.isFullscreen.value ? 'common.imageViewer.exitFullscreen' : 'common.imageViewer.enterFullscreen')"
-          :aria-label="t(fullscreen.isFullscreen.value ? 'common.imageViewer.exitFullscreen' : 'common.imageViewer.enterFullscreen')"
+          :title="
+            t(
+              fullscreen.isFullscreen.value
+                ? 'common.imageViewer.exitFullscreen'
+                : 'common.imageViewer.enterFullscreen'
+            )
+          "
+          :aria-label="
+            t(
+              fullscreen.isFullscreen.value
+                ? 'common.imageViewer.exitFullscreen'
+                : 'common.imageViewer.enterFullscreen'
+            )
+          "
           :aria-pressed="fullscreen.isFullscreen.value"
           @click="fullscreen.toggle"
         >
@@ -508,7 +531,11 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Info bar -->
-    <div v-if="!fullscreen.isFullscreen.value" class="mt-2 px-3 py-3 rounded-lg bg-black/60 backdrop-blur-sm shrink-0" @click.stop>
+    <div
+      v-if="!fullscreen.isFullscreen.value"
+      class="mt-2 px-3 py-3 rounded-lg bg-black/60 backdrop-blur-sm shrink-0"
+      @click.stop
+    >
       <!-- Basic info -->
       <div class="flex items-center justify-between gap-4 mb-2">
         <h2 class="text-base font-bold text-white flex-1 line-clamp-2">
