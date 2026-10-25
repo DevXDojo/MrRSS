@@ -387,6 +387,9 @@ const en: TranslationMessages = {
       title: 'Title',
     },
     imageViewer: {
+      enterFullscreen: 'Fullscreen (F)',
+      exitFullscreen: 'Exit fullscreen (F / Esc)',
+      fullscreenFailed: 'Could not change fullscreen mode. Try the fullscreen button again.',
       resetZoom: 'Reset zoom',
       zoomIn: 'Zoom In',
       zoomOut: 'Zoom Out',
