@@ -4,6 +4,23 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.3.41] - 2026-10-25
+
+### 新增
+
+- 多媒体图片查看器支持通过工具栏按钮或 `F` 全屏；按 `Esc` 先退出全屏，再次按下关闭查看器。 (#1264)
+- Linux 新增 `--enable-dmabuf-renderer`，允许受影响的混合显卡设备显式关闭 NVIDIA DMA-BUF 兼容措施。 (#1256)
+
+### 修复
+
+- 防止存储型 XSS 和 HTML 重解析攻击；统一清理正文、订阅预览、翻译、摘要和聊天回答中的 HTML，覆盖旧版本缓存。 (GHSA-8q87-xm7v-xv7q，由 turingpoint 的 Jan Kahmen 报告；GHSA-fvgp-h89h-v273，由 @tonghuaroot 报告)
+- 修复 Docker 服务端构建遗漏共享启动配置的问题，并在 CI 中增加完整 server 包构建检查。 (#1264)
+- 准备新版本时保留测试夹具，修正发布说明提取的回归测试。
+
+### 调整
+
+- 更新后端、前端和网站依赖，适配 chromedp 新 API，并保持 Wails 构建工具与后端版本一致。 (#1253, #1257, #1258, #1262, #1263)
+
 ## [1.3.40] - 2026-10-08
 
 ### 新增
