@@ -254,6 +254,26 @@ It does not change system graphics settings or stored reader data.
 Linux 出现白屏并伴随 GBM 错误时，请先完全退出 MrRSS（包括托盘进程），再在启动命令后加上
 `--software-rendering`。此选项仅影响本次启动，可能增加 CPU 使用量；下次不加该参数即可恢复正常配置。
 
+### Linux: Slow rendering on hybrid AMD/Intel and NVIDIA systems
+
+Wails disables DMA-BUF when the NVIDIA kernel module is loaded, including some
+systems where the integrated GPU renders the application. If this causes slow
+scrolling or resizing, fully quit MrRSS, including its tray process, then try:
+
+```bash
+./MrRSS --enable-dmabuf-renderer
+```
+
+This explicitly sets `WEBKIT_DISABLE_DMABUF_RENDERER=0` before GTK/WebKit startup.
+For an AppImage, append the same flag to its filename. It applies only to this
+launch and cannot be combined with `--software-rendering`. If rendering becomes
+blank or unstable, quit and relaunch without the flag, or use `--software-rendering`.
+The default still preserves Wails' compatibility workaround and renderer environment.
+
+Linux 混合显卡设备因 NVIDIA 兼容措施出现滚动或缩放卡顿时，可先完全退出程序，再加上
+`--enable-dmabuf-renderer` 启动。此参数仅对本次启动生效；如出现白屏或闪烁，退出后去掉参数，
+或使用 `--software-rendering`。两个参数不能同时使用。
+
 ### Windows: "gcc: command not found"
 
 **Solution**: Install MinGW:
