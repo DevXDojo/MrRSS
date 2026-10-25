@@ -13,9 +13,8 @@
 ### 修复
 
 - 修复 Wayland 混合显卡设备使用 AMD/Intel 核显时被错误关闭 DMA-BUF 导致的卡顿，保留实际使用 NVIDIA 时的兼容处理，正常启动即可生效。 (#1256)
-- 防止存储型 XSS 和 HTML 重解析攻击；统一清理正文、订阅预览、翻译、摘要和聊天回答中的 HTML，覆盖旧版本缓存。 (GHSA-8q87-xm7v-xv7q，由 turingpoint 的 Jan Kahmen 报告；GHSA-fvgp-h89h-v273，由 @tonghuaroot 报告)
+- 防止存储型 XSS 和 HTML 重解析攻击；统一清理正文、订阅预览、翻译、摘要和聊天回答中的 HTML，覆盖旧版本缓存。 (GHSA-8q87-xm7v-xv7q, @kah-ja) (GHSA-fvgp-h89h-v273, @tonghuaroot)
 - 修复 Docker 服务端构建遗漏共享启动配置的问题，并在 CI 中增加完整 server 包构建检查。 (#1264)
-- 准备新版本时保留测试夹具，修正发布说明提取的回归测试。
 
 ### 调整
 
