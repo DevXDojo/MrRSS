@@ -1321,15 +1321,16 @@ func (f *Fetcher) parseFeedWithJavaScript(ctx context.Context, feedURL string, p
 
 	// Run chromedp tasks: navigate to URL and wait for page to load, then get the final HTML
 	utils.DebugLog("parseFeedWithJavaScript: Starting chromedp tasks for URL: %s", feedURL)
-	err = chromedp.Run(browserCtx,
+	err = chromedp.Do(browserCtx,
 		chromedp.Navigate(feedURL),
 		// Wait for the page to be ready (network idle or DOM content loaded)
 		chromedp.WaitReady("body"),
 		// Give some extra time for JavaScript to execute
 		chromedp.Sleep(sleepTime),
-		// Get the final page content
-		chromedp.OuterHTML("html", &pageContent),
 	)
+	if err == nil {
+		pageContent, err = chromedp.Run(browserCtx, chromedp.OuterHTML("html"))
+	}
 
 	if err != nil {
 		utils.DebugLog("parseFeedWithJavaScript: chromedp execution failed: %v", err)
