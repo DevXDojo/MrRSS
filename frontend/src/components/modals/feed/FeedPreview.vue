@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import type { FeedPreview } from '@/composables/feed/useFeedPreview';
 import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import { openInBrowser } from '@/utils/browser';
+import { sanitizeArticleHTML } from '@/utils/articleHtml';
 
 defineProps<{ preview: FeedPreview | null; loading: boolean; failed: boolean }>();
 defineEmits<{ retry: [] }>();
@@ -82,7 +83,7 @@ function handleContentClick(event: MouseEvent) {
             v-if="article.content_html"
             class="preview-content text-sm text-text-primary break-words"
             @click="handleContentClick"
-            v-html="article.content_html"
+            v-html="sanitizeArticleHTML(article.content_html)"
           />
           <p v-else class="text-sm text-text-secondary">{{ t('modal.feed.previewNoContent') }}</p>
           <p v-if="article.truncated" class="text-xs text-text-secondary">

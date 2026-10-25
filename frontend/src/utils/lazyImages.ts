@@ -1,14 +1,17 @@
+import { sanitizeArticleHTML } from './articleHtml';
+
 /**
  * Adds native lazy-loading hints to images inside prepared article HTML.
  *
- * Article HTML arrives already sanitized from the backend; this helper only
- * adds attributes. A template keeps images inert while attributes are added.
+ * Sanitize before parsing into a template: old cached content and parser
+ * differences must not turn inert text into active markup.
  *
  * `loading="lazy"` only defers offscreen images; images in the initial
  * viewport still load immediately. Offscreen article images are a major
  * source of decoded-bitmap memory in the web view.
  */
 export function withLazyImages(html: string): string {
+  html = sanitizeArticleHTML(html);
   if (!html || !/<img\b/i.test(html)) return html;
 
   try {
@@ -24,7 +27,7 @@ export function withLazyImages(html: string): string {
 
     return template.innerHTML;
   } catch {
-    // On any parsing problem, fall back to the original HTML.
-    return html;
+    // Fail closed if the DOM cannot be prepared.
+    return '';
   }
 }

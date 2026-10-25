@@ -44,8 +44,8 @@ var (
 	scriptTagRegex = regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
 )
 
-// CleanHTML sanitizes HTML content by fixing common malformed patterns
-// and removing unwanted inline styles, classes, and scripts.
+// CleanHTML normalizes malformed source HTML for storage and extraction.
+// This is not a security boundary: rendering must use PrepareArticleContent.
 func CleanHTML(htmlContent string) string {
 	if htmlContent == "" {
 		return htmlContent

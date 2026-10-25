@@ -5,6 +5,7 @@ import { PhSpinnerGap, PhArticle, PhArrowClockwise } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
 import { useSettings } from '@/composables/core/useSettings';
 import { resolveFontFamily } from '@/utils/fontDetector';
+import { sanitizeArticleHTML } from '@/utils/articleHtml';
 
 const { t } = useI18n();
 const { settings } = useSettings();
@@ -27,6 +28,7 @@ const emit = defineEmits<{
 }>();
 
 const hasCustomCSS = computed(() => !!settings.value.custom_css_file);
+const safeContent = computed(() => sanitizeArticleHTML(props.articleContent));
 
 // Content styling based on settings
 const contentStyle = computed(() => {
@@ -52,7 +54,7 @@ const contentStyle = computed(() => {
       class="prose prose-sm sm:prose-lg w-full max-w-none text-text-primary prose-content"
       :class="{ 'custom-css-active': hasCustomCSS }"
       :style="contentStyle"
-      v-html="articleContent"
+      v-html="safeContent"
     ></div>
     <!-- Translation loading indicator -->
     <div v-if="isTranslatingContent" class="flex items-center gap-2 mt-4 text-text-secondary">

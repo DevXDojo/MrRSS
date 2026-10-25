@@ -8,6 +8,32 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+func TestArticleHTMLRejectsParserMutationAndEventHandlers(t *testing.T) {
+	for _, input := range []string{
+		`<p>safe</p><p><noscript></p><img src=x onerror="alert(1)"></noscript></p>`,
+		`<noscript><p title="</noscript><img src=x onerror=alert(1)>">`,
+		`<noembed><img src=x onerror=alert(1)></noembed>`,
+		`<noframes><img src=x onerror=alert(1)></noframes>`,
+		`<xmp><img src=x onerror=alert(1)></xmp>`,
+		`<svg><foreignObject><img src=x onerror=alert(1)></foreignObject></svg>`,
+		`<math><annotation-xml encoding="text/html"><img src=x onerror=alert(1)></annotation-xml></math>`,
+		`<img src=x ONERROR=alert(1)><details open ontoggle=alert(1)>safe</details>`,
+		`<a href="java&#x73;cript:alert(1)">bad</a><iframe srcdoc="<script>alert(1)</script>" src="https://evil.example"></iframe>`,
+	} {
+		t.Run(input, func(t *testing.T) {
+			got := PrepareArticleContent(input, "https://example.org/article")
+			for _, bad := range []string{"onerror", "ontoggle", "javascript:", "<noscript", "<noembed", "<noframes", "<xmp", "<svg", "annotation-xml", "srcdoc"} {
+				if strings.Contains(strings.ToLower(got), bad) {
+					t.Errorf("unsafe %q in %s", bad, got)
+				}
+			}
+			if again := PrepareArticleContent(got, "https://example.org/article"); again != got {
+				t.Errorf("unstable serialization: %s -> %s", got, again)
+			}
+		})
+	}
+}
+
 func TestArticleMarkdownAndCodeFormatting(t *testing.T) {
 	got := PrepareArticleContent("# Heading\n\n| A | B |\n|---|---|\n|1|2|\n\n```go\nfmt.Println(1)\n```", "https://example.org/article")
 	for _, want := range []string{"<h1", "<table>", `class="language-go"`, "fmt.Println(1)"} {
