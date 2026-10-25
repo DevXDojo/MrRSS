@@ -5,7 +5,7 @@ import { extractVersion, releaseNotes } from './release-notes.mjs';
 test('extracts only the exact release and preserves subsection headings', () => {
   const markdown = '## [1.3.400]\r\nwrong\r\n## [1.3.41] - 2026-10-08\r\n\r\n### Fixed\r\n- correct\r\n## [1.3.39]\r\nold';
   assert.equal(extractVersion(markdown, '1.3.41'), '### Fixed\n- correct');
-  assert.equal(extractVersion(markdown, '1.3.41'), '');
+  assert.equal(extractVersion(markdown, '1.3.4'), '');
 });
 
 test('includes Chinese when available and supports older English-only releases', () => {
