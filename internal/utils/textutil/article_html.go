@@ -47,7 +47,16 @@ func PrepareArticleContent(content, baseURL string) string {
 	if err != nil {
 		return ""
 	}
-	doc.Find("script,style,link,meta,base,object,embed,form,input,button,textarea,select,svg,template").Remove()
+	// Drop raw-text and foreign-content containers before serialization. In
+	// particular, noscript parses differently in browser templates and must
+	// never carry hidden markup through a second parse (GHSA-8q87-xm7v-xv7q).
+	doc.Find("script,style,link,meta,base,object,embed,form,input,button,textarea,select,svg,template,noscript,noembed,noframes,plaintext,xmp,title,annotation-xml").Remove()
+	doc.Find("*").Each(func(_ int, sel *goquery.Selection) {
+		if !safeArticleElements[sel.Get(0).Data] {
+			// Preserve text and ordinary descendants in custom feed wrappers.
+			sel.ReplaceWithSelection(sel.Contents())
+		}
+	})
 	base, _ := url.Parse(baseURL)
 	// Promote lazy image URLs in RSS HTML too, before removing source attributes.
 	doc.Find("img").Each(func(_ int, image *goquery.Selection) {
@@ -132,6 +141,17 @@ func PrepareArticleContent(content, baseURL string) string {
 	result, _ := doc.Find("body").Html()
 	return strings.TrimSpace(result)
 }
+
+// Keep the element policy explicit as well as the attribute policy below it.
+// MathML is limited to presentation elements; integration points and embedded
+// HTML/XML are excluded so reparsing cannot change the security boundary.
+var safeArticleElements = func() map[string]bool {
+	allowed := make(map[string]bool)
+	for _, tag := range strings.Fields(`html head body a abbr address article aside b bdi bdo blockquote br caption cite code col colgroup dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hgroup hr i img ins kbd li main mark nav ol p picture pre q rp rt ruby s samp section small source span strong sub summary sup table tbody td tfoot th thead time tr u ul var video audio track iframe math mi mn mo ms mtext mrow mfrac msqrt mroot mstyle merror mpadded mphantom mfenced menclose msub msup msubsup munder mover munderover mmultiscripts mprescripts mtable mtr mtd mspace semantics annotation`) {
+		allowed[tag] = true
+	}
+	return allowed
+}()
 
 func allowedEmbedHost(host string) bool {
 	for _, allowed := range []string{"youtube.com", "youtube-nocookie.com", "player.vimeo.com", "player.bilibili.com"} {

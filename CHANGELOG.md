@@ -7,6 +7,22 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.41] - 2026-10-25
+
+### Added
+
+- View multimedia images in fullscreen with a toolbar button or `F`; press `Esc` to leave fullscreen before closing the viewer. (#1264)
+
+### Fixed
+
+- Automatically keep DMA-BUF rendering enabled on Wayland systems using AMD/Intel integrated graphics alongside an NVIDIA GPU, while retaining NVIDIA compatibility handling. No launch arguments are needed. (#1256)
+- Prevent stored XSS and HTML parser mutation attacks; sanitize article, preview, translation, summary, and chat HTML, including older cached content. (GHSA-8q87-xm7v-xv7q, @kah-ja) (GHSA-fvgp-h89h-v273, @tonghuaroot)
+- Fix Docker server builds omitting shared startup configuration, and add a server package build check to CI. (#1264)
+
+### Changed
+
+- Update backend, frontend, and website dependencies; adapt browser feed loading to the new chromedp API and keep the Wails build CLI aligned with the backend. (#1253, #1257, #1258, #1262, #1263)
+
 ## [1.3.40] - 2026-10-08
 
 ### Added

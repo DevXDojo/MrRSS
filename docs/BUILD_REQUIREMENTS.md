@@ -254,6 +254,20 @@ It does not change system graphics settings or stored reader data.
 Linux 出现白屏并伴随 GBM 错误时，请先完全退出 MrRSS（包括托盘进程），再在启动命令后加上
 `--software-rendering`。此选项仅影响本次启动，可能增加 CPU 使用量；下次不加该参数即可恢复正常配置。
 
+### Linux: Hybrid AMD/Intel and NVIDIA graphics
+
+Normal launches automatically use Wails' GPU detection. On Wayland, loading the
+NVIDIA kernel module alone no longer disables WebKit's DMA-BUF renderer when the
+application renders on AMD/Intel integrated graphics. No command-line options or
+settings changes are needed for this case. When NVIDIA renders the application,
+or for X11 sessions where the rendering GPU cannot be reliably determined from
+sysfs, the existing compatibility workaround remains in place. Explicit renderer
+environment variables are still respected.
+
+Wayland 混合显卡设备使用 AMD/Intel 核显时，正常双击启动即可自动保留 DMA-BUF 渲染，
+无需命令行参数或修改设置。实际使用 NVIDIA 渲染，或 X11 会话无法可靠判断渲染显卡时，
+仍保留兼容措施；用户显式设置的渲染环境变量保持有效。
+
 ### Windows: "gcc: command not found"
 
 **Solution**: Install MinGW:

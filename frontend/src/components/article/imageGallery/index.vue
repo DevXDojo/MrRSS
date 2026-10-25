@@ -52,6 +52,7 @@ const showImageViewer = ref(false);
 const selectedArticle = ref<Article | null>(null);
 const allImages = ref<string[]>([]);
 const currentImageIndex = ref(0);
+const viewerModal = ref<InstanceType<typeof ImageViewerModal> | null>(null);
 
 // Load showTextOverlay preference from localStorage
 const savedShowTextOverlay = localStorage.getItem('imageGalleryShowTextOverlay');
@@ -101,7 +102,9 @@ const currentArticleIndex = computed(() => {
 
 // Setup keyboard shortcuts
 const keyboard = useGalleryKeyboard({
-  onClose: closeImageViewer,
+  onClose: () => {
+    if (!viewerModal.value?.exitFullscreen()) closeImageViewer();
+  },
   onPrevious: () => handleNavigate('prev'),
   onNext: () => handleNavigate('next'),
   onZoomIn: () => {
@@ -605,6 +608,7 @@ onUnmounted(() => {
 
     <!-- Image Viewer Modal -->
     <ImageViewerModal
+      ref="viewerModal"
       v-if="showImageViewer && selectedArticle"
       :article="selectedArticle"
       :all-images="allImages"

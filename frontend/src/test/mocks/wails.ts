@@ -20,3 +20,10 @@ export const WindowClose = () => {};
 export const ScreenGetAll = () => [];
 export const BrowserOpenURL = () => {};
 export const Environment = {};
+export const System = { IsDesktop: () => false };
+export const Window = {
+  Fullscreen: async () => {},
+  UnFullscreen: async () => {},
+  IsFullscreen: async () => false,
+};
+export const Events = { On: () => () => {} };

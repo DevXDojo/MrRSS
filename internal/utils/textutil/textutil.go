@@ -44,8 +44,8 @@ var (
 	scriptTagRegex = regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
 )
 
-// CleanHTML sanitizes HTML content by fixing common malformed patterns
-// and removing unwanted inline styles, classes, and scripts.
+// CleanHTML normalizes malformed source HTML for storage and extraction.
+// This is not a security boundary: rendering must use PrepareArticleContent.
 func CleanHTML(htmlContent string) string {
 	if htmlContent == "" {
 		return htmlContent
@@ -115,31 +115,7 @@ func RenderMarkdownInline(markdownText string) string {
 
 // SanitizeHTML removes potentially dangerous HTML tags and attributes.
 func SanitizeHTML(htmlContent string) string {
-	if htmlContent == "" {
-		return ""
-	}
-
-	// Remove script tags
-	scriptRegex := regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
-	htmlContent = scriptRegex.ReplaceAllString(htmlContent, "")
-
-	// Remove style tags
-	styleRegex := regexp.MustCompile(`(?i)<style[^>]*>.*?</style>`)
-	htmlContent = styleRegex.ReplaceAllString(htmlContent, "")
-
-	// Remove iframe tags
-	iframeRegex := regexp.MustCompile(`(?i)<iframe[^>]*>.*?</iframe>`)
-	htmlContent = iframeRegex.ReplaceAllString(htmlContent, "")
-
-	// Remove on* event handlers
-	eventRegex := regexp.MustCompile(`(?i)\s+on\w+\s*=\s*["'][^"']*["']`)
-	htmlContent = eventRegex.ReplaceAllString(htmlContent, "")
-
-	// Remove javascript: protocol
-	jsRegex := regexp.MustCompile(`(?i)javascript:`)
-	htmlContent = jsRegex.ReplaceAllString(htmlContent, "")
-
-	return htmlContent
+	return PrepareArticleContent(htmlContent, "")
 }
 
 // ConvertMarkdownToHTML converts markdown to safe HTML with sanitization.

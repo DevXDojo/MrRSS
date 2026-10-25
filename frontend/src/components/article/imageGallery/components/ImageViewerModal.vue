@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import {
@@ -9,9 +9,12 @@ import {
   PhStar,
   PhMagnifyingGlassPlus,
   PhMagnifyingGlassMinus,
+  PhArrowsOut,
+  PhArrowsIn,
 } from '@phosphor-icons/vue';
 import type { Article } from '@/types/models';
 import { useImageViewer } from '../composables/useImageViewer';
+import { useViewerFullscreen } from '../composables/useViewerFullscreen';
 import ThumbnailStrip from './ThumbnailStrip.vue';
 import { getProxiedMediaUrl, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { isYouTubeArticle, extractYouTubeVideoId } from '@/utils/youtube';
@@ -37,6 +40,11 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const viewerElement = ref<HTMLElement | null>(null);
+const fullscreen = useViewerFullscreen(viewerElement, () =>
+  window.showToast(t('common.imageViewer.fullscreenFailed'), 'error')
+);
+defineExpose({ exitFullscreen: fullscreen.exitFullscreen });
 const onVideoError = () => window.showToast(t('article.videoPlayer.videoLoadError'), 'error');
 const { formatArticleDateTime } = useArticleDateFormat();
 
@@ -212,17 +220,45 @@ function handleWheel(e: WheelEvent): void {
 }
 
 // Listen for custom wheel navigation event from composable
-window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
+const onWheelNavigate = ((e: CustomEvent) => {
   if (e.detail.direction === 'prev') {
     previousImage();
   } else if (e.detail.direction === 'next') {
     nextImage();
   }
-}) as EventListener);
+}) as EventListener;
+function onFullscreenKey(event: KeyboardEvent) {
+  if (
+    event.key.toLowerCase() !== 'f' ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.repeat
+  )
+    return;
+  if (
+    event.target instanceof Element &&
+    event.target.closest('input, textarea, select, [contenteditable="true"]')
+  )
+    return;
+  if (fullscreen.supported.value) {
+    event.preventDefault();
+    void fullscreen.toggle();
+  }
+}
+onMounted(() => {
+  window.addEventListener('image-wheel-navigate', onWheelNavigate);
+  window.addEventListener('keydown', onFullscreenKey);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('image-wheel-navigate', onWheelNavigate);
+  window.removeEventListener('keydown', onFullscreenKey);
+});
 </script>
 
 <template>
   <div
+    ref="viewerElement"
     role="dialog"
     aria-modal="true"
     class="image-viewer-modal fixed inset-0 z-50 bg-black/90 flex flex-col p-4"
@@ -255,6 +291,30 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
 
       <!-- Center: Zoom controls and Action buttons -->
       <div class="flex items-center justify-center gap-2">
+        <button
+          v-if="fullscreen.supported.value"
+          class="px-2 py-1.5 rounded bg-black/50 hover:bg-black/70 text-white transition-colors"
+          :disabled="fullscreen.pending.value"
+          :title="
+            t(
+              fullscreen.isFullscreen.value
+                ? 'common.imageViewer.exitFullscreen'
+                : 'common.imageViewer.enterFullscreen'
+            )
+          "
+          :aria-label="
+            t(
+              fullscreen.isFullscreen.value
+                ? 'common.imageViewer.exitFullscreen'
+                : 'common.imageViewer.enterFullscreen'
+            )
+          "
+          :aria-pressed="fullscreen.isFullscreen.value"
+          @click="fullscreen.toggle"
+        >
+          <PhArrowsIn v-if="fullscreen.isFullscreen.value" :size="20" />
+          <PhArrowsOut v-else :size="20" />
+        </button>
         <!-- Zoom controls (only for images) -->
         <template v-if="!isVideo">
           <button
@@ -460,7 +520,7 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
 
       <!-- Thumbnail strip (only show for images, not videos) -->
       <ThumbnailStrip
-        v-if="!isVideo"
+        v-if="!isVideo && !fullscreen.isFullscreen.value"
         :images="allImages"
         :current-index="localImageIndex"
         :show="showThumbnailStrip"
@@ -471,7 +531,11 @@ window.addEventListener('image-wheel-navigate', ((e: CustomEvent) => {
     </div>
 
     <!-- Info bar -->
-    <div class="mt-2 px-3 py-3 rounded-lg bg-black/60 backdrop-blur-sm shrink-0" @click.stop>
+    <div
+      v-if="!fullscreen.isFullscreen.value"
+      class="mt-2 px-3 py-3 rounded-lg bg-black/60 backdrop-blur-sm shrink-0"
+      @click.stop
+    >
       <!-- Basic info -->
       <div class="flex items-center justify-between gap-4 mb-2">
         <h2 class="text-base font-bold text-white flex-1 line-clamp-2">

@@ -24,7 +24,8 @@ func configureLinuxRendering(platform string, args []string) (application.LinuxW
 			continue
 		}
 		// The explicit option overrides renderer preferences for this process.
-		// Without it, preserve both the environment and Wails' defaults.
+		// Otherwise preserve explicit environment overrides and Wails' automatic
+		// GPU detection, which keeps DMA-BUF enabled on Wayland iGPU systems.
 		if err := os.Setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1"); err != nil {
 			return options, fmt.Errorf("disable WebKit DMA-BUF rendering: %w", err)
 		}
