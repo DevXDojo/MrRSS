@@ -10,7 +10,7 @@ require (
 	github.com/andybalholm/cascadia v1.3.5
 	github.com/antchfx/htmlquery v1.3.7
 	github.com/antchfx/xmlquery v1.5.2
-	github.com/chromedp/chromedp v0.20.1
+	github.com/chromedp/chromedp v0.21.0
 	github.com/emersion/go-imap v1.2.1
 	github.com/emersion/go-imap-id v0.0.0-20190926060100-f94a56b9ecde
 	github.com/go-ego/gse v1.1.0
@@ -18,12 +18,12 @@ require (
 	github.com/longbridgeapp/opencc v0.3.13
 	github.com/mmcdole/gofeed v1.5.0
 	github.com/swaggo/http-swagger v1.3.4
-	github.com/wailsapp/wails/v3 v3.0.0-beta.31
+	github.com/wailsapp/wails/v3 v3.0.0-beta.34
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.61.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
-	modernc.org/sqlite v1.60.1
+	modernc.org/sqlite v1.61.0
 )
 
 require (
@@ -32,7 +32,7 @@ require (
 	github.com/antchfx/xpath v1.3.9 // indirect
 	github.com/chromedp/cdproto v0.157.8 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/emersion/go-sasl v0.0.0-20200509203442-7bfe0ed36a21 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -57,16 +57,16 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mmcdole/goxpp/v2 v2.0.0 // indirect
-	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/swaggo/swag v1.16.6 // indirect
 	github.com/vcaesar/cedar v0.50.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/mod v0.41.0 // indirect
+	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/tools v0.51.0 // indirect
-	modernc.org/libc v1.77.1 // indirect
+	golang.org/x/tools v0.52.0 // indirect
+	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
