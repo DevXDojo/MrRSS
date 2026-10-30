@@ -35,6 +35,12 @@ The example binds to loopback. Network deployment needs controlled access to the
 
 以上示例仅监听本机。向网络开放时应对整个阅读器和 API 配置访问控制；服务端没有用户登录功能。接口见 [API 文档](swagger.json)。
 
+## Static response compression / 静态资源压缩
+
+The server automatically uses gzip for frontend text assets when the browser accepts it. API and media responses keep their existing behavior, including range downloads. A reverse proxy is not required for frontend compression.
+
+当浏览器支持 gzip 时，服务端会自动压缩前端文本静态资源。API、媒体响应及分段下载保持原有行为，前端压缩不依赖反向代理。
+
 ## GHCR image access / 容器镜像访问
 
 Public repository visibility does not make the GHCR package public. If an anonymous pull of `ghcr.io/devxdojo/mrrss:<version>` returns 403, a package administrator must open [mrrss Package settings](https://github.com/orgs/DevXDojo/packages/container/mrrss/settings) and change the package visibility to **Public**. If the organization restricts public packages, an organization owner must allow this first. This is a registry setting, not an application code change. See [GitHub's access and visibility documentation](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility).

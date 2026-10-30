@@ -1,6 +1,8 @@
 package httputil
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -8,9 +10,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/fstest"
 	"time"
 )
 
@@ -325,4 +329,255 @@ func TestCreateHTTPClientFallsBackToHTTP1(t *testing.T) {
 		t.Fatalf("HTTP/1.1 request failed: %v", err)
 	}
 	defer response.Body.Close()
+}
+
+func TestCompressStaticFileServer(t *testing.T) {
+	modified := time.Date(2026, time.October, 30, 0, 0, 0, 0, time.UTC)
+	files := fstest.MapFS{
+		"index.html": {Data: []byte(strings.Repeat("<p>Reader</p>", 100)), ModTime: modified},
+		"app.js":     {Data: []byte(strings.Repeat("console.log('reader');\n", 100)), ModTime: modified},
+		"style.css":  {Data: []byte(strings.Repeat("body { color: black; }\n", 100)), ModTime: modified},
+		"data.json":  {Data: []byte(`{"reader":true}`), ModTime: modified},
+		"icon.svg":   {Data: []byte(`<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>`), ModTime: modified},
+		"image.png":  {Data: append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 100)...), ModTime: modified},
+	}
+	plain := http.FileServer(http.FS(files))
+	compressed := CompressStatic(plain)
+	for _, tc := range []struct {
+		name       string
+		method     string
+		path       string
+		encodings  []string
+		headers    map[string]string
+		wantGzip   bool
+		wantStatus int
+	}{
+		{"javascript", "GET", "/app.js", []string{"gzip"}, nil, true, 200},
+		{"html", "GET", "/", []string{"gzip"}, nil, true, 200},
+		{"css", "GET", "/style.css", []string{"gzip"}, nil, true, 200},
+		{"json", "GET", "/data.json", []string{"gzip"}, nil, true, 200},
+		{"svg", "GET", "/icon.svg", []string{"gzip"}, nil, true, 200},
+		{"unsupported", "GET", "/app.js", []string{"br"}, nil, false, 200},
+		{"identity", "GET", "/app.js", []string{"identity"}, nil, false, 200},
+		{"no encoding", "GET", "/app.js", nil, nil, false, 200},
+		{"explicit zero", "GET", "/app.js", []string{"gzip;q=0, *;q=1"}, nil, false, 200},
+		{"zero wildcard", "GET", "/app.js", []string{"*;q=0"}, nil, false, 200},
+		{"wildcard", "GET", "/app.js", []string{"br, *;q=0.5"}, nil, true, 200},
+		{"multiline", "GET", "/app.js", []string{"br", "GZIP; Q=0.5"}, nil, true, 200},
+		{"prefer identity", "GET", "/app.js", []string{"gzip;q=0.5, identity;q=1"}, nil, false, 200},
+		{"invalid quality", "GET", "/app.js", []string{"gzip;q=invalid"}, nil, false, 200},
+		{"nonfinite quality", "GET", "/app.js", []string{"gzip;q=NaN"}, nil, false, 200},
+		{"quality outside range", "GET", "/app.js", []string{"gzip;q=1.5"}, nil, false, 200},
+		{"head", "HEAD", "/app.js", []string{"gzip"}, nil, false, 200},
+		{"range", "GET", "/app.js", []string{"gzip"}, map[string]string{"Range": "bytes=0-8"}, false, 206},
+		{"not modified", "GET", "/app.js", []string{"gzip"}, map[string]string{"If-Modified-Since": modified.Format(http.TimeFormat)}, false, 304},
+		{"not found", "GET", "/missing.js", []string{"gzip"}, nil, false, 404},
+		{"binary", "GET", "/image.png", []string{"gzip"}, nil, false, 200},
+		{"request no-transform", "GET", "/app.js", []string{"gzip"}, map[string]string{"Cache-Control": "max-age=60, No-Transform"}, false, 200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			for _, encoding := range tc.encodings {
+				req.Header.Add("Accept-Encoding", encoding)
+			}
+			for key, value := range tc.headers {
+				req.Header.Set(key, value)
+			}
+			original := httptest.NewRecorder()
+			plain.ServeHTTP(original, req)
+			result := httptest.NewRecorder()
+			compressed.ServeHTTP(result, req)
+			if result.Code != tc.wantStatus || result.Code != original.Code {
+				t.Fatalf("status=%d, want %d", result.Code, tc.wantStatus)
+			}
+			for _, header := range []string{"Content-Type", "Content-Range", "Last-Modified"} {
+				if got, want := result.Header().Get(header), original.Header().Get(header); got != want {
+					t.Errorf("%s=%q, want %q", header, got, want)
+				}
+			}
+			if !strings.Contains(strings.ToLower(strings.Join(result.Header().Values("Vary"), ",")), "accept-encoding") {
+				t.Error("missing Accept-Encoding cache variation")
+			}
+			body := result.Body.Bytes()
+			if tc.wantGzip {
+				if result.Header().Get("Content-Encoding") != "gzip" || result.Header().Get("Content-Length") != "" {
+					t.Fatalf("unexpected compressed headers: %v", result.Header())
+				}
+				reader, err := gzip.NewReader(bytes.NewReader(body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, err = io.ReadAll(reader)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := reader.Close(); err != nil {
+					t.Fatal(err)
+				}
+			} else if result.Header().Get("Content-Encoding") != "" || result.Header().Get("Content-Length") != original.Header().Get("Content-Length") {
+				t.Fatalf("identity headers changed: %v, original %v", result.Header(), original.Header())
+			}
+			if !bytes.Equal(body, original.Body.Bytes()) {
+				t.Fatal("response bytes changed")
+			}
+		})
+	}
+}
+
+func TestCompressStaticResponseGuards(t *testing.T) {
+	body := []byte(strings.Repeat("reader text ", 100))
+	for _, tc := range []struct {
+		name     string
+		status   int
+		headers  map[string]string
+		empty    bool
+		implicit bool
+	}{
+		{"existing encoding", 200, map[string]string{"Content-Encoding": "br"}, false, false},
+		{"content range", 200, map[string]string{"Content-Range": "bytes 0-10/200"}, false, false},
+		{"no transform", 200, map[string]string{"Cache-Control": "private, no-transform"}, false, false},
+		{"binary content type", 200, map[string]string{"Content-Type": "application/octet-stream"}, false, false},
+		{"invalid content type", 200, map[string]string{"Content-Type": "invalid/type; broken"}, false, false},
+		{"error", 500, nil, false, false},
+		{"created", 201, nil, false, false},
+		{"empty explicit", 200, nil, true, false},
+		{"empty implicit", 200, nil, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/plain")
+				length := len(body)
+				if tc.empty {
+					length = 0
+				}
+				w.Header().Set("Content-Length", strconv.Itoa(length))
+				for key, value := range tc.headers {
+					w.Header().Set(key, value)
+				}
+				if !tc.implicit {
+					w.WriteHeader(tc.status)
+				}
+				if !tc.empty {
+					_, _ = w.Write(body)
+				}
+			})
+			req := httptest.NewRequest("GET", "/asset", nil)
+			req.Header.Set("Accept-Encoding", "gzip")
+			original, result := httptest.NewRecorder(), httptest.NewRecorder()
+			handler.ServeHTTP(original, req)
+			CompressStatic(handler).ServeHTTP(result, req)
+			if result.Code != original.Code || !bytes.Equal(result.Body.Bytes(), original.Body.Bytes()) {
+				t.Fatal("status or original body changed")
+			}
+			for _, key := range []string{"Content-Type", "Content-Encoding", "Content-Length", "Content-Range", "Cache-Control"} {
+				if result.Header().Get(key) != original.Header().Get(key) {
+					t.Errorf("%s changed: result %q, original %q", key, result.Header().Get(key), original.Header().Get(key))
+				}
+			}
+		})
+	}
+}
+
+func TestCompressStaticPreservesVary(t *testing.T) {
+	for _, values := range [][]string{{"Origin", "Accept-Language"}, {"Origin, accept-encoding"}, {"*"}} {
+		for _, encoding := range []string{"gzip", "identity"} {
+			t.Run(strings.Join(values, "/")+"/"+encoding, func(t *testing.T) {
+				req := httptest.NewRequest("GET", "/asset.js", nil)
+				req.Header.Set("Accept-Encoding", encoding)
+				recorder := httptest.NewRecorder()
+				CompressStatic(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					for _, value := range values {
+						w.Header().Add("Vary", value)
+					}
+					w.Header().Set("Content-Type", "application/javascript")
+					_, _ = w.Write([]byte("let reader = true;"))
+				})).ServeHTTP(recorder, req)
+				got := recorder.Header().Values("Vary")
+				if len(got) < len(values) {
+					t.Fatalf("Vary lost values: %v", got)
+				}
+				for i, value := range values {
+					if got[i] != value {
+						t.Fatalf("Vary changed: %v", got)
+					}
+				}
+				if values[0] == "*" && len(got) != 1 {
+					t.Errorf("redundant Vary: %v", got)
+				}
+				if strings.Contains(strings.ToLower(strings.Join(values, ",")), "accept-encoding") && len(got) != len(values) {
+					t.Errorf("duplicate Vary: %v", got)
+				}
+			})
+		}
+	}
+}
+
+type failedCompressionWriter struct {
+	header    http.Header
+	remaining int
+}
+
+func (w *failedCompressionWriter) Header() http.Header { return w.header }
+func (w *failedCompressionWriter) WriteHeader(int)     {}
+func (w *failedCompressionWriter) Write(data []byte) (int, error) {
+	if len(data) <= w.remaining {
+		w.remaining -= len(data)
+		return len(data), nil
+	}
+	written := w.remaining
+	w.remaining = 0
+	return written, io.ErrClosedPipe
+}
+
+func TestCompressStaticPropagatesWriteFailures(t *testing.T) {
+	for _, allowed := range []int{0, 10} {
+		underlying := &failedCompressionWriter{header: make(http.Header), remaining: allowed}
+		underlying.Header().Set("Content-Type", "text/plain")
+		writer := &staticGzipWriter{ResponseWriter: underlying, canCompress: true}
+		_, writeErr := writer.Write([]byte("reader"))
+		closeErr := writer.close()
+		if !errors.Is(writeErr, io.ErrClosedPipe) && !errors.Is(closeErr, io.ErrClosedPipe) {
+			t.Fatalf("write=%v close=%v, want closed pipe", writeErr, closeErr)
+		}
+	}
+}
+
+func TestCompressStaticEmptyWriteAndCommittedHeaders(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/javascript")
+			if explicit {
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "application/octet-stream")
+				w.Header().Set("X-Late", "must-not-be-sent")
+			}
+			if n, err := w.Write(nil); n != 0 || err != nil {
+				t.Errorf("empty write=%d, %v", n, err)
+			}
+			// Even an empty write commits an implicit 200 and its headers.
+			w.WriteHeader(http.StatusNotFound)
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("X-Late", "must-not-be-sent")
+			_, _ = io.WriteString(w, "let reader = true;")
+		})
+		req := httptest.NewRequest(http.MethodGet, "/app.js", nil)
+		req.Header.Set("Accept-Encoding", "gzip")
+		recorder := httptest.NewRecorder()
+		CompressStatic(handler).ServeHTTP(recorder, req)
+		response := recorder.Result()
+		if response.StatusCode != http.StatusOK || response.Header.Get("Content-Encoding") != "gzip" ||
+			response.Header.Get("Content-Type") != "application/javascript" || response.Header.Get("X-Late") != "" {
+			t.Fatalf("explicit=%v, unexpected response headers: %v", explicit, response.Header)
+		}
+		reader, err := gzip.NewReader(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(reader)
+		if err != nil || string(body) != "let reader = true;" {
+			t.Fatalf("body=%q err=%v", body, err)
+		}
+		_ = reader.Close()
+		_ = response.Body.Close()
+	}
 }
