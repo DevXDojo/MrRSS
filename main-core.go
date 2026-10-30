@@ -26,12 +26,13 @@ import (
 	"MrRSS/internal/routes"
 	"MrRSS/internal/translation"
 	"MrRSS/internal/utils/fileutil"
+	"MrRSS/internal/utils/httputil"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // @title           MrRSS API
-// @version         1.3.41
+// @version         1.3.42
 // @description     MrRSS is a modern, cross-platform desktop RSS reader with auto-translation, smart feed discovery, and AI-powered summarization.
 
 // @contact.name   API Support
@@ -176,7 +177,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fileServer := http.FileServer(http.FS(frontendFS))
+	fileServer := httputil.CompressStatic(http.FileServer(http.FS(frontendFS)))
 
 	combinedHandler := &CombinedHandler{
 		apiMux:     apiMux,

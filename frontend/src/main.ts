@@ -1,6 +1,5 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import PhosphorIcons from '@phosphor-icons/vue';
 import i18n, { locale } from './i18n';
 import './style.css';
 import App from './App.vue';
@@ -22,7 +21,6 @@ app.config.errorHandler = (err, instance, info) => {
 
 app.use(pinia);
 app.use(i18n);
-app.use(PhosphorIcons);
 
 // Initialize language setting before mounting
 async function initializeApp() {

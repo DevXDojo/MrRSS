@@ -4,6 +4,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [Unreleased]
+
+### 修复
+
+- 按需导入 Phosphor 图标以缩减首屏脚本，并在 server 模式自动 gzip 压缩前端文本静态资源，保留 API 和媒体响应行为。 (#1270, @marcomarcogd)
+
 ## [1.3.41] - 2026-10-25
 
 ### 新增

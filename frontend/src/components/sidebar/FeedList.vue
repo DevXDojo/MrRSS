@@ -20,6 +20,7 @@ import {
   PhPencil,
   PhCheck,
   PhPushPin,
+  PhPushPinSlash,
   PhFloppyDisk,
   PhSortAscending,
   PhCaretDown,
