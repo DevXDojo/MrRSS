@@ -26,6 +26,7 @@ import (
 	"MrRSS/internal/routes"
 	"MrRSS/internal/translation"
 	"MrRSS/internal/utils/fileutil"
+	"MrRSS/internal/utils/httputil"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -176,7 +177,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fileServer := http.FileServer(http.FS(frontendFS))
+	fileServer := httputil.CompressStatic(http.FileServer(http.FS(frontendFS)))
 
 	combinedHandler := &CombinedHandler{
 		apiMux:     apiMux,

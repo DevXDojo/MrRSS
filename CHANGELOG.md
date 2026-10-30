@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reduce the initial web bundle by importing only used Phosphor icons, and gzip frontend text assets in server mode while preserving API and media responses. (#1270, @marcomarcogd)
+
 ## [1.3.41] - 2026-10-25
 
 ### Added
