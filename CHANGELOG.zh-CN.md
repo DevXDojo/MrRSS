@@ -4,6 +4,8 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [Unreleased]
+
 ## [1.3.41] - 2026-10-25
 
 ### 新增
