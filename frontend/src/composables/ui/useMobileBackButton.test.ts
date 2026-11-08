@@ -8,22 +8,36 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('mobile reader navigation', () => {
   it('closes the highest modal before the reader on Back', async () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true }))
+    );
     const article = ref(false);
     const modal = ref(false);
     const push = vi.spyOn(history, 'pushState').mockImplementation(() => {});
-    const Dialog = defineComponent({
-      setup() { useModalClose(() => { modal.value = false; }, 110); },
+    const TestModal = defineComponent({
+      setup() {
+        useModalClose(() => {
+          modal.value = false;
+        }, 110);
+      },
       template: '<div />',
     });
-    const wrapper = mount(defineComponent({
-      components: { Dialog },
-      setup() {
-        useMobileBackButton(() => article.value, () => { article.value = false; });
-        return { modal };
-      },
-      template: '<Dialog v-if="modal" />',
-    }));
+    const wrapper = mount(
+      defineComponent({
+        components: { TestModal },
+        setup() {
+          useMobileBackButton(
+            () => article.value,
+            () => {
+              article.value = false;
+            }
+          );
+          return { modal };
+        },
+        template: '<TestModal v-if="modal" />',
+      })
+    );
     article.value = true;
     await nextTick();
     const articleState = push.mock.calls[0][0];
@@ -45,13 +59,25 @@ describe('mobile reader navigation', () => {
   });
 
   it('does not add history for desktop selections', async () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false }))
+    );
     const article = ref(false);
     const push = vi.spyOn(history, 'pushState');
-    const wrapper = mount(defineComponent({
-      setup() { useMobileBackButton(() => article.value, () => { article.value = false; }); },
-      template: '<div />',
-    }));
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          useMobileBackButton(
+            () => article.value,
+            () => {
+              article.value = false;
+            }
+          );
+        },
+        template: '<div />',
+      })
+    );
     article.value = true;
     await nextTick();
     expect(push).not.toHaveBeenCalled();
