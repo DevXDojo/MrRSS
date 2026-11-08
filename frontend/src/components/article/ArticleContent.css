@@ -1123,9 +1123,9 @@
     margin: 1.5em 0;
   }
 
-  /* Inline images on mobile */
-  .prose p img,
-  .prose li img {
+  /* Only explicit inline icons should be constrained to the text height. */
+  .prose img.emoji,
+  .prose img.icon {
     max-height: 1.25em;
   }
 

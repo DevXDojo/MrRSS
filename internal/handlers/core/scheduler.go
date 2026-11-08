@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"MrRSS/internal/cache"
+	"MrRSS/internal/freshrss"
 	"MrRSS/internal/models"
 	"MrRSS/internal/utils/fileutil"
 )
@@ -14,6 +15,7 @@ import (
 // StartBackgroundScheduler starts the background scheduler for auto-updates and cleanup.
 func (h *Handler) StartBackgroundScheduler(ctx context.Context) {
 	go h.startAutoMarkReadScheduler(ctx)
+	go freshrss.RunSyncScheduler(ctx, h.DB)
 
 	// Trigger initial cleanup on startup
 	go func() {

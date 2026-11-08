@@ -9,7 +9,34 @@ import {
   type Ref,
   type Component,
 } from 'vue';
-import * as PhosphorIcons from '@phosphor-icons/vue';
+import {
+  PhArrowBendLeftDown,
+  PhArrowBendRightUp,
+  PhArrowSquareOut,
+  PhArrowsClockwise,
+  PhArticle,
+  PhBinoculars,
+  PhCheckCircle,
+  PhCircle,
+  PhClockCountdown,
+  PhCopy,
+  PhDownloadSimple,
+  PhEnvelope,
+  PhEnvelopeOpen,
+  PhEye,
+  PhEyeSlash,
+  PhFolderMinus,
+  PhGlobe,
+  PhLinkSimple,
+  PhMagnifyingGlass,
+  PhMagnifyingGlassPlus,
+  PhPencil,
+  PhPushPin,
+  PhRssSimple,
+  PhStar,
+  PhTextT,
+  PhTrash,
+} from '@phosphor-icons/vue';
 import type { ContextMenuItem } from '@/types/context-menu';
 
 interface Props {
@@ -36,6 +63,36 @@ function handleKeyDown(event: KeyboardEvent) {
     emit('close');
   }
 }
+
+// Keep runtime lookup limited to the icons used by built-in menus.
+const iconComponents: Record<string, Component> = {
+  PhArrowBendLeftDown,
+  PhArrowBendRightUp,
+  PhArrowSquareOut,
+  PhArrowsClockwise,
+  PhArticle,
+  PhBinoculars,
+  PhCheckCircle,
+  PhCircle,
+  PhClockCountdown,
+  PhCopy,
+  PhDownloadSimple,
+  PhEnvelope,
+  PhEnvelopeOpen,
+  PhEye,
+  PhEyeSlash,
+  PhFolderMinus,
+  PhGlobe,
+  PhLinkSimple,
+  PhMagnifyingGlass,
+  PhMagnifyingGlassPlus,
+  PhPencil,
+  PhPushPin,
+  PhRssSimple,
+  PhStar,
+  PhTextT,
+  PhTrash,
+};
 
 // Map old icon names to new component names
 const iconMap: Record<string, string> = {
@@ -68,7 +125,9 @@ const iconMap: Record<string, string> = {
 function getIconComponent(iconName?: string): Component | null {
   if (!iconName) return null;
   const componentName = iconMap[iconName] || iconName;
-  return (PhosphorIcons as Record<string, Component>)[componentName] || null;
+  return Object.prototype.hasOwnProperty.call(iconComponents, componentName)
+    ? iconComponents[componentName]
+    : null;
 }
 
 function handleClickOutside(event: MouseEvent) {

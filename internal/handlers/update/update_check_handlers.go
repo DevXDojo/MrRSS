@@ -295,7 +295,7 @@ func HandleCheckUpdates(h *core.Handler, w http.ResponseWriter, r *http.Request)
 		"is_portable":     isPortable,
 	}
 
-	if downloadURL != "" {
+	if downloadURL != "" && h != nil && h.UpdateAuthorization != "" {
 		result["download_url"] = downloadURL
 		result["asset_name"] = assetName
 		result["asset_size"] = assetSize

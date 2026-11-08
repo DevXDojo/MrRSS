@@ -17,13 +17,21 @@ import MultiSelectDialog from './components/modals/common/MultiSelectDialog.vue'
 import Toast from './components/common/Toast.vue';
 import PartnerAdvertisement from './components/common/PartnerAdvertisement.vue';
 import { useAdvertisementsStore } from './stores/advertisements';
-import { onMounted, onUnmounted, ref, computed, watch, watchEffect } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watch, watchEffect, nextTick, provide } from 'vue';
+import { System } from '@wailsio/runtime';
 import { useNotifications } from './composables/ui/useNotifications';
+import { notificationZIndex } from './composables/ui/useModalClose';
+import { useMobileBackButton } from './composables/ui/useMobileBackButton';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
 import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
 import { useArticleTableSplit } from './composables/ui/useArticleTableSplit';
 import { useWindowState } from './composables/core/useWindowState';
+import { useTickerNavigation } from './composables/core/useTickerNavigation';
+import {
+  useTickerPreferences,
+  tickerPreferencesKey,
+} from './components/ticker/useTickerPreferences';
 import { useAppUpdates } from './composables/core/useAppUpdates';
 import { useSettings } from './composables/core/useSettings';
 import { useCustomCSS } from './composables/ui/useCustomCSS';
@@ -32,9 +40,20 @@ import type { Feed } from './types/models';
 import type { TabName } from './types/settings';
 
 const store = useAppStore();
+useMobileBackButton(
+  () => store.currentArticleId !== null,
+  () => { store.currentArticleId = null; }
+);
 const advertisements = useAdvertisementsStore();
 const { t } = useI18n();
 const { settings } = useSettings();
+if (System.IsDesktop()) {
+  const tickerPreferences = useTickerPreferences(settings);
+  provide(tickerPreferencesKey, tickerPreferences);
+  watch(tickerPreferences.status, (status) => {
+    if (status === 'error') window.showToast?.(t('setting.ticker.saveFailed'), 'error');
+  });
+}
 useCustomCSS(() => settings.value.custom_css_file);
 
 const uiFontSize = computed(() => {
@@ -65,6 +84,13 @@ const showEditFeed = ref(false);
 const feedToEdit = ref<Feed | null>(null);
 const showSettings = ref(false);
 const settingsInitialTab = ref<TabName>('general');
+const settingsModalRef = ref<InstanceType<typeof SettingsModal> | null>(null);
+useTickerNavigation(store, async () => {
+  settingsInitialTab.value = 'general';
+  showSettings.value = true;
+  await nextTick();
+  await settingsModalRef.value?.focusTickerSettings();
+});
 const showDiscoverBlogs = ref(false);
 const feedToDiscover = ref<Feed | null>(null);
 const isSidebarOpen = ref(localStorage.getItem('FeedListExpanded') !== 'false');
@@ -409,6 +435,7 @@ function onFeedUpdated(): void {
     />
     <SettingsModal
       v-if="showSettings"
+      ref="settingsModalRef"
       :initial-tab="settingsInitialTab"
       @close="showSettings = false"
     />
@@ -481,7 +508,7 @@ function onFeedUpdated(): void {
       @close="multiSelectDialog = null"
     />
 
-    <div class="toast-container">
+    <div class="toast-container" :style="{ zIndex: notificationZIndex }">
       <Toast
         v-for="toast in toasts"
         :key="toast.id"

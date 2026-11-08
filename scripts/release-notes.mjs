@@ -18,7 +18,7 @@ export function releaseNotes(english, chinese, version) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const version = process.argv[2];
   if (!version || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) {
-    throw new Error('Supply a release version, e.g. 1.3.41');
+    throw new Error('Supply a release version, e.g. 1.3.42');
   }
   const read = (path) => existsSync(path) ? readFileSync(path, 'utf8') : '';
   writeFileSync('RELEASE_NOTES.md', releaseNotes(read('CHANGELOG.md'), read('CHANGELOG.zh-CN.md'), version));

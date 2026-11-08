@@ -25,8 +25,8 @@ withDefaults(defineProps<Props>(), {
     :class="[customClass, { 'sub-setting-item-column': layout === 'column' }]"
   >
     <div
-      class="flex items-center sm:items-start justify-between gap-2 sm:gap-4 w-full"
-      :class="{ 'flex-col': layout === 'column' }"
+      class="flex items-stretch sm:items-start justify-between gap-2 sm:gap-4 w-full min-w-0"
+      :class="layout === 'column' ? 'flex-col' : 'flex-col sm:flex-row'"
     >
       <div
         class="flex-1 flex items-center sm:items-start gap-2 sm:gap-3 min-w-0"

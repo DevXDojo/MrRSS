@@ -4,12 +4,26 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 )
 
 const waitTimeout = 90 * time.Second
+
+func frontendClient(serverURL string) *http.Client {
+	transport := &http.Transport{Proxy: nil}
+	parsed, _ := url.Parse(serverURL)
+	if parsed != nil && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1") {
+		dialer := &net.Dialer{Timeout: time.Second}
+		transport.DialContext = func(ctx context.Context, _ string, address string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "tcp4", address)
+		}
+	}
+	return &http.Client{Timeout: time.Second, Transport: transport}
+}
 
 func main() {
 	serverURL := os.Getenv("FRONTEND_DEVSERVER_URL")
@@ -24,10 +38,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
 
-	client := &http.Client{
-		Timeout:   time.Second,
-		Transport: &http.Transport{Proxy: nil},
-	}
+	// Probe the same address family used by Wails' frontend proxy. A Vite
+	// listener on ::1 alone must not count as ready for that IPv4 proxy.
+	client := frontendClient(serverURL)
+	defer client.CloseIdleConnections()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 

@@ -556,6 +556,7 @@ func TestSaveArticlesUpdatePreservesRelatedData(t *testing.T) {
 	article := &models.Article{
 		FeedID:                feedID,
 		Title:                 "Article with related data",
+		FreshRSSItemID:        "stable-provider-item",
 		URL:                   "https://example.com/article/original",
 		PublishedAt:           publishedAt,
 		HasValidPublishedTime: true,

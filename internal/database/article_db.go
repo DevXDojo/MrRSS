@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"MrRSS/internal/models"
-	"MrRSS/internal/utils/urlutil"
 
 	"modernc.org/sqlite"
 )
@@ -27,9 +26,9 @@ func (db *DB) SaveArticle(article *models.Article) error {
 	db.WaitForReady()
 
 	// Generate unique_id for deduplication
-	uniqueID := urlutil.GenerateArticleUniqueID(article.Title, article.FeedID, article.PublishedAt, article.HasValidPublishedTime)
-	query := `INSERT OR IGNORE INTO articles (feed_id, title, url, image_url, audio_url, video_url, published_at, translated_title, is_read, is_favorite, is_hidden, is_read_later, summary, original_summary, unique_id, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	result, err := db.Exec(query, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, article.IsRead, article.IsFavorite, article.IsHidden, article.IsReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author)
+	uniqueID := articleUniqueID(article)
+	query := `INSERT OR IGNORE INTO articles (feed_id, title, url, image_url, audio_url, video_url, published_at, translated_title, is_read, is_favorite, is_hidden, is_read_later, summary, original_summary, unique_id, author, freshrss_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	result, err := db.Exec(query, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, article.IsRead, article.IsFavorite, article.IsHidden, article.IsReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author, article.FreshRSSItemID)
 	if err == nil {
 		if changed, countErr := result.RowsAffected(); countErr == nil && changed > 0 {
 			db.articleRevision.Add(1)
@@ -90,8 +89,8 @@ func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) 
 		INSERT INTO articles (
 			feed_id, title, url, image_url, audio_url, video_url, published_at,
 			translated_title, is_read, is_favorite, is_hidden, is_read_later,
-			summary, original_summary, unique_id, author
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			summary, original_summary, unique_id, author, freshrss_item_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(unique_id) DO UPDATE SET
 			feed_id = excluded.feed_id,
 			title = excluded.title,
@@ -106,7 +105,8 @@ func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) 
 			is_hidden = excluded.is_hidden,
 			is_read_later = excluded.is_read_later,
 			original_summary = excluded.original_summary,
-			author = excluded.author
+			author = excluded.author,
+			freshrss_item_id = COALESCE(NULLIF(excluded.freshrss_item_id, ''), articles.freshrss_item_id)
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare article upsert: %w", err)
@@ -122,7 +122,7 @@ func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) 
 		}
 
 		// Generate unique_id for deduplication
-		uniqueID := urlutil.GenerateArticleUniqueID(article.Title, article.FeedID, article.PublishedAt, article.HasValidPublishedTime)
+		uniqueID := articleUniqueID(article)
 
 		// Fetch the existing row to preserve user-controlled status fields and to
 		// detect whether the article actually changed (for no-pubDate feeds).
@@ -174,7 +174,7 @@ func (db *DB) saveArticlesOnce(ctx context.Context, articles []*models.Article) 
 		if updatePublishedAt {
 			updateTime = 1
 		}
-		_, err = stmt.ExecContext(ctx, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, isRead, isFavorite, isHidden, isReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author, updateTime)
+		_, err = stmt.ExecContext(ctx, article.FeedID, article.Title, article.URL, article.ImageURL, article.AudioURL, article.VideoURL, article.PublishedAt, article.TranslatedTitle, isRead, isFavorite, isHidden, isReadLater, article.Summary, article.OriginalSummary, uniqueID, article.Author, article.FreshRSSItemID, updateTime)
 		if err != nil {
 			return fmt.Errorf(
 				"article %d/%d (feed %d): upsert: %w",
@@ -372,14 +372,22 @@ func (db *DB) GetArticlesWithUnreadFilterSorted(filter string, feedID int64, cat
 // GetArticleByID retrieves a single article by its ID.
 // This is more efficient than GetArticles when you only need one article.
 func (db *DB) GetArticleByID(id int64) (*models.Article, error) {
-	db.WaitForReady()
+	return db.GetArticleByIDContext(context.Background(), id)
+}
+
+func (db *DB) GetArticleByIDContext(ctx context.Context, id int64) (*models.Article, error) {
+	select {
+	case <-db.ready:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 	query := `
 		SELECT a.id, a.feed_id, a.title, a.url, a.image_url, a.audio_url, a.video_url, a.published_at, a.is_read, a.is_favorite, a.is_hidden, a.is_read_later, a.translated_title, a.summary, a.freshrss_item_id, f.title, a.author, a.original_summary
 		FROM articles a
 		JOIN feeds f ON a.feed_id = f.id
 		WHERE a.id = ?
 	`
-	row := db.QueryRow(query, id)
+	row := db.QueryRowContext(ctx, query, id)
 
 	var a models.Article
 	var imageURL, audioURL, videoURL, translatedTitle, summary, freshrssItemID, author, originalSummary sql.NullString
@@ -463,18 +471,4 @@ func (db *DB) GetArticlesByIDs(ids []int64) ([]models.Article, error) {
 	}
 
 	return articles, nil
-}
-
-// GetArticleIDByUniqueID retrieves an article's ID by its unique identifier.
-// This is the preferred method for looking up articles as it uses the title+feed_id+published_date based deduplication.
-// Note: Uses date only (YYYY-MM-DD) rather than full timestamp for better deduplication.
-func (db *DB) GetArticleIDByUniqueID(title string, feedID int64, publishedAt time.Time, hasValidPublishedTime bool) (int64, error) {
-	db.WaitForReady()
-	uniqueID := urlutil.GenerateArticleUniqueID(title, feedID, publishedAt, hasValidPublishedTime)
-	var id int64
-	err := db.QueryRow("SELECT id FROM articles WHERE unique_id = ?", uniqueID).Scan(&id)
-	if err != nil {
-		return 0, err
-	}
-	return id, nil
 }

@@ -121,10 +121,16 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       // for valid values at runtime and fail gracefully if settings are incomplete/invalid.
 
       // Save to backend using generated payload (alphabetically sorted)
+      const payload = buildAutoSavePayload(settingsRef);
+      // Ticker controls and the main settings use changed-key writes. A bulk
+      // settings snapshot must not overwrite newer quick toolbar actions.
+      for (const key of Object.keys(payload)) {
+        if (key.startsWith('ticker_')) delete payload[key];
+      }
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildAutoSavePayload(settingsRef)),
+        body: JSON.stringify(payload),
       });
 
       // Clear and re-translate if translation settings changed
@@ -250,8 +256,17 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
     saveTimeout = setTimeout(autoSave, 500); // Wait 500ms after last change
   }
 
-  // Watch the entire settings object for changes
-  watch(() => settingsRef.value, debouncedAutoSave, { deep: true });
+  // Ticker writes have their own debounced queue and should not reset app
+  // scheduling or resend the unrelated settings payload on each quick action.
+  watch(
+    () =>
+      JSON.stringify(
+        Object.fromEntries(
+          Object.entries(settingsRef.value).filter(([key]) => !key.startsWith('ticker_'))
+        )
+      ),
+    debouncedAutoSave
+  );
 
   // Clean up timeout on unmount to prevent memory leaks
   onUnmounted(() => {

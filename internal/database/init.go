@@ -195,5 +195,8 @@ func applyAdditionalMigrations(db *DB) error {
 		return err
 	}
 
-	return migrateReaderProviders(db.DB)
+	if err := migrateReaderProviders(db.DB); err != nil {
+		return err
+	}
+	return migrateArticleIdentity(db.DB)
 }

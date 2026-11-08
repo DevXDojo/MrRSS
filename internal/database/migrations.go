@@ -144,20 +144,9 @@ func runMigrations(db *sql.DB) error {
 // migrateUniqueIDOnArticles adds unique_id column and generates values for existing articles.
 // This replaces URL-based deduplication with title+feed_id+published_date based deduplication.
 func migrateUniqueIDOnArticles(db *sql.DB) error {
-	// Migration: Add unique_id column to articles table for better deduplication
-	_, _ = db.Exec(`ALTER TABLE articles ADD COLUMN unique_id TEXT UNIQUE`)
-
-	// Migration: Migrate existing articles to generate unique_id
-	// For existing articles, generate unique_id from title+feed_id+published_date (date only, not full timestamp)
-	// If url was UNIQUE before, keep it but unique_id is now the primary deduplication key
-	_, err := db.Exec(`
-		UPDATE articles
-		SET unique_id = LOWER(HEX(MD5(title || '|' || feed_id || '|' || COALESCE(strftime('%Y-%m-%d', published_at), ''))))
-		WHERE unique_id IS NULL
-	`)
-	if err != nil {
-		log.Printf("Warning: Failed to migrate unique_id: %v", err)
-	}
+	// SQLite cannot add a UNIQUE column with ALTER TABLE. Existing schemas
+	// already carry the constraint; older schemas receive an index after backfill.
+	_, _ = db.Exec(`ALTER TABLE articles ADD COLUMN unique_id TEXT`)
 
 	// Backfill published_at for articles that have NULL values
 	// Set to current time as fallback (article creation time is unknown)
@@ -181,62 +170,7 @@ func migrateUniqueIDOnArticles(db *sql.DB) error {
 // migrateDropUniqueConstraintOnArticles drops the UNIQUE constraint on url column from articles table.
 // This allows multiple articles with the same URL (e.g., from different feeds).
 func migrateDropUniqueConstraintOnArticles(db *sql.DB) error {
-	// Migration: Drop the UNIQUE constraint on url column if it exists
-	// SQLite doesn't support DROP CONSTRAINT directly, so we need to recreate the table
-	// Check if we need to migrate by checking if url is still UNIQUE
-	var tableInfo string
-	_ = db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='articles'").Scan(&tableInfo)
-	if strings.Contains(tableInfo, "url TEXT UNIQUE") {
-		// Need to recreate table without UNIQUE constraint on url
-		_, err := db.Exec(`
-			CREATE TABLE articles_new (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				feed_id INTEGER,
-				title TEXT,
-				url TEXT,
-				image_url TEXT,
-				audio_url TEXT DEFAULT '',
-				video_url TEXT DEFAULT '',
-				translated_title TEXT,
-				published_at DATETIME,
-				is_read BOOLEAN DEFAULT 0,
-				is_favorite BOOLEAN DEFAULT 0,
-				is_hidden BOOLEAN DEFAULT 0,
-				is_read_later BOOLEAN DEFAULT 0,
-				summary TEXT DEFAULT '',
-				original_summary TEXT DEFAULT '',
-				unique_id TEXT UNIQUE,
-				FOREIGN KEY(feed_id) REFERENCES feeds(id)
-			)
-		`)
-		if err == nil {
-			// Copy data from old table to new table
-			_, _ = db.Exec(`
-				INSERT INTO articles_new (id, feed_id, title, url, image_url, audio_url, video_url, translated_title, published_at, is_read, is_favorite, is_hidden, is_read_later, summary, original_summary, unique_id)
-				SELECT id, feed_id, title, url, image_url, audio_url, video_url, translated_title, published_at, is_read, is_favorite, is_hidden, is_read_later,
-					COALESCE(summary, '') as summary,
-					COALESCE(original_summary, '') as original_summary,
-					LOWER(HEX(MD5(title || '|' || feed_id || '|' || COALESCE(strftime('%Y-%m-%d', published_at), '')))) as unique_id
-				FROM articles
-			`)
-			// Drop old table and rename new table
-			_, _ = db.Exec(`DROP TABLE articles`)
-			_, _ = db.Exec(`ALTER TABLE articles_new RENAME TO articles`)
-			// Recreate indexes
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_feed_id ON articles(feed_id)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at DESC)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_is_read ON articles(is_read)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_is_favorite ON articles(is_favorite)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_is_hidden ON articles(is_hidden)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_is_read_later ON articles(is_read_later)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_feed_published ON articles(feed_id, published_at DESC)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_read_published ON articles(is_read, published_at DESC)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_fav_published ON articles(is_favorite, published_at DESC)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_readlater_published ON articles(is_read_later, published_at DESC)`)
-			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_articles_hidden_published ON articles(is_hidden, published_at DESC)`)
-		}
-	}
-	return nil
+	return dropLegacyArticleURLConstraint(db)
 }
 
 // migrateDropUniqueConstraintOnFeeds drops the UNIQUE constraint on url column from feeds table.

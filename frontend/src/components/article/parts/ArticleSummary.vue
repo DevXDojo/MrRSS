@@ -120,7 +120,6 @@ const shouldShowSummaryContainer = computed(() => {
 const shouldShowTranslatedSummary = computed(() => {
   return Boolean(
     props.translationEnabled &&
-    props.summaryProvider === 'rss' &&
     props.translatedSummary?.text &&
     props.translatedSummary.text !== props.summaryResult?.summary
   );

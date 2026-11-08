@@ -206,6 +206,14 @@ async function selectSettingsTab(tab: TabName) {
   settingsContentRef.value?.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+async function focusTickerSettings() {
+  await selectSettingsTab('general');
+  const target = settingsContentRef.value?.querySelector<HTMLElement>('#desktop-ticker-settings');
+  target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  target?.focus({ preventScroll: true });
+}
+defineExpose({ focusTickerSettings });
+
 async function selectSettingsSearchResult(result: SettingsSearchResult) {
   activeTab.value = result.tab;
   settingsSearchOpen.value = false;
@@ -302,10 +310,10 @@ function handleDiscoverAll() {
     data-settings-modal="true"
   >
     <div
-      class="bg-bg-primary w-full max-w-5xl h-full sm:h-[800px] sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in mx-2 sm:mx-4 my-2 sm:my-4"
+      class="bg-bg-primary w-full min-w-0 max-w-5xl h-full sm:h-[800px] sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in m-0 sm:mx-4 sm:my-4"
     >
       <div
-        class="grid grid-cols-[minmax(0,1fr)_minmax(12rem,20rem)_minmax(0,1fr)] items-center gap-3 border-b border-border p-3 sm:p-5 shrink-0"
+        class="settings-header grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_minmax(12rem,20rem)_minmax(0,1fr)] items-center gap-3 border-b border-border p-3 sm:p-5 shrink-0"
       >
         <h3
           class="justify-self-start text-text-secondary sm:text-lg font-semibold m-0 flex items-center gap-2"
@@ -315,7 +323,7 @@ function handleDiscoverAll() {
         </h3>
         <div
           ref="settingsSearchRef"
-          class="relative w-full justify-self-center"
+          class="settings-search relative w-full min-w-0 justify-self-center"
           @focusout="handleSettingsSearchFocusOut"
         >
           <PhMagnifyingGlass
@@ -345,7 +353,7 @@ function handleDiscoverAll() {
           </button>
           <div
             v-if="settingsSearchQuery.trim() && settingsSearchOpen"
-            class="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-full min-w-72 overflow-hidden rounded-xl border border-border bg-bg-primary py-1.5 shadow-2xl"
+            class="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-full overflow-hidden rounded-xl border border-border bg-bg-primary py-1.5 shadow-2xl"
             role="listbox"
           >
             <button
@@ -391,10 +399,10 @@ function handleDiscoverAll() {
         </button>
       </div>
 
-      <div class="flex flex-1 min-h-0 overflow-hidden">
+      <div class="flex flex-col sm:flex-row flex-1 min-h-0 min-w-0 overflow-hidden">
         <!-- Sidebar Navigation -->
-        <div class="w-48 sm:w-56 border-r border-border bg-bg-secondary shrink-0 overflow-y-scroll">
-          <nav class="p-2 space-y-1">
+        <div class="w-full sm:w-56 border-b sm:border-b-0 sm:border-r border-border bg-bg-secondary shrink-0 overflow-x-auto sm:overflow-x-hidden sm:overflow-y-auto">
+          <nav class="flex sm:block w-max sm:w-full p-2 gap-1 sm:space-y-1">
             <button
               v-for="tab in settingsTabs"
               :key="tab.id"
@@ -410,7 +418,7 @@ function handleDiscoverAll() {
         <!-- Content Area -->
         <div
           ref="settingsContentRef"
-          class="settings-content flex-1 overflow-y-scroll p-3 sm:p-6 min-h-0 scroll-smooth overscroll-contain"
+          class="settings-content flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-3 sm:p-6 min-h-0 scroll-smooth overscroll-contain"
           data-settings-content
         >
           <div v-if="advertisements.visibleAds.length" class="mb-4 space-y-4 sm:mb-6 sm:space-y-6">
@@ -512,7 +520,7 @@ function handleDiscoverAll() {
 <style scoped>
 @reference "../../style.css";
 .sidebar-tab-btn {
-  @apply w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-transparent text-text-secondary font-medium cursor-pointer transition-all relative;
+  @apply w-auto sm:w-full whitespace-nowrap flex items-center gap-3 px-3 py-2.5 rounded-lg bg-transparent text-text-secondary font-medium cursor-pointer transition-all relative;
 }
 
 .sidebar-tab-btn:hover {
@@ -538,6 +546,21 @@ function handleDiscoverAll() {
 
 .settings-content {
   overflow-anchor: none;
+}
+
+@media (max-width: 639px) {
+  .settings-search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .sidebar-tab-btn.active::before {
+    top: auto;
+    bottom: 0;
+    left: 6px;
+    right: 6px;
+    height: 3px;
+    width: auto;
+  }
 }
 
 :deep([data-settings-search-match='true']) {

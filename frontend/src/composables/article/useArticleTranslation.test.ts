@@ -76,6 +76,7 @@ describe('automatic title translation during refresh', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(25000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(window.showToast).not.toHaveBeenCalled();
     translation.cleanup();
     await vi.advanceTimersByTimeAsync(60000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -88,6 +89,7 @@ describe('automatic title translation during refresh', () => {
     await translation.translateArticle(article());
     await translation.translateArticle({ id: 1, title: 'Updated title' } as Article, true);
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(window.showToast).toHaveBeenCalledTimes(1);
   });
 
   it('keeps a rate-limited title pending across refreshes and fills the latest article object', async () => {

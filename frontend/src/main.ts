@@ -1,31 +1,33 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import PhosphorIcons from '@phosphor-icons/vue';
 import i18n, { locale } from './i18n';
 import './style.css';
-import App from './App.vue';
 import { setSettingsFromRawData } from './composables/core/useSettings';
-
-const app = createApp(App);
-const pinia = createPinia();
-
-// Add global error handler for Vue errors
-app.config.errorHandler = (err, instance, info) => {
-  console.error('[Vue Error Handler] Error:', err);
-  console.error('[Vue Error Handler] Component:', instance?.$?.type?.name || 'Unknown');
-  console.error('[Vue Error Handler] Info:', info);
-  // Log the full stack trace
-  if (err instanceof Error) {
-    console.error('[Vue Error Handler] Stack:', err.stack);
-  }
-};
-
-app.use(pinia);
-app.use(i18n);
-app.use(PhosphorIcons);
 
 // Initialize language setting before mounting
 async function initializeApp() {
+  const surface = new URLSearchParams(location.search).get('ticker');
+  const Root =
+    surface === '1'
+      ? (await import('./components/ticker/DesktopTicker.vue')).default
+      : (await import('./App.vue')).default;
+  const app = createApp(Root);
+  const pinia = createPinia();
+
+  // Add global error handler for Vue errors
+  app.config.errorHandler = (err, instance, info) => {
+    console.error('[Vue Error Handler] Error:', err);
+    console.error('[Vue Error Handler] Component:', instance?.$?.type?.name || 'Unknown');
+    console.error('[Vue Error Handler] Info:', info);
+    // Log the full stack trace
+    if (err instanceof Error) {
+      console.error('[Vue Error Handler] Stack:', err.stack);
+    }
+  };
+
+  app.use(pinia);
+  app.use(i18n);
+
   try {
     const res = await fetch('/api/settings');
     if (!res.ok) {

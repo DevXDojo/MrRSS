@@ -1,12 +1,16 @@
 package article
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
 	"MrRSS/internal/handlers/core"
 	"MrRSS/internal/handlers/response"
+	"MrRSS/internal/models"
 )
 
 // HandleArticles returns articles with filtering and pagination.
@@ -17,6 +21,9 @@ import (
 // @Produce      json
 // @Param        filter    query     string  false  "Filter: 'all', 'unread', 'favorite', 'read_later'"  Enums(all, unread, favorite, read_later)
 // @Param        feed_id   query     int64   false  "Filter by feed ID"
+// @Param        id        query     int64   false  "Look up one article as a one-item list, independent of filters and pagination"
+// @Failure      400  {object} map[string]string "Invalid article ID"
+// @Failure      404  {object} map[string]string "Article not found"
 // @Param        category  query     string  false  "Filter by category name"
 // @Param        only_unread query   bool    false  "Filter for only unread articles"
 // @Param        sort_order query    string  false  "Publication order: newest or oldest" Enums(newest, oldest)
@@ -27,6 +34,28 @@ import (
 // @Failure      500  {object}  map[string]string  "Internal server error"
 // @Router       /articles [get]
 func HandleArticles(h *core.Handler, w http.ResponseWriter, r *http.Request) {
+	if _, lookup := r.URL.Query()["id"]; lookup {
+		if r.Method != http.MethodGet {
+			response.Error(w, nil, http.StatusMethodNotAllowed)
+			return
+		}
+		id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+		if err != nil || id <= 0 {
+			response.Error(w, fmt.Errorf("invalid article ID"), http.StatusBadRequest)
+			return
+		}
+		item, err := h.DB.GetArticleByIDContext(r.Context(), id)
+		if errors.Is(err, sql.ErrNoRows) {
+			response.Error(w, fmt.Errorf("article not found"), http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			response.Error(w, fmt.Errorf("could not load article"), http.StatusInternalServerError)
+			return
+		}
+		response.JSON(w, []models.Article{*item})
+		return
+	}
 	filter := r.URL.Query().Get("filter")
 	feedIDStr := r.URL.Query().Get("feed_id")
 	pageStr := r.URL.Query().Get("page")

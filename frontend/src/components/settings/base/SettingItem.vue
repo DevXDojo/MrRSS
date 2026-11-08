@@ -74,4 +74,12 @@ withDefaults(defineProps<Props>(), {
 .setting-item-action-column {
   @apply w-full;
 }
+
+@media (max-width: 639px) {
+  .setting-item { align-items: stretch; flex-direction: column; }
+  .setting-item-action { min-width: 0; max-width: 100%; }
+  .setting-item-action :deep(input:not([type='checkbox'])),
+  .setting-item-action :deep(select),
+  .setting-item-action :deep(textarea) { max-width: 100%; }
+}
 </style>

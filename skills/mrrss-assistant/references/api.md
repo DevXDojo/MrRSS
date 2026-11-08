@@ -6,7 +6,7 @@ Generated from `docs/SERVER_MODE/swagger.json`. Regenerate with:
 python skills/mrrss-assistant/scripts/generate_api_reference.py docs/SERVER_MODE/swagger.json skills/mrrss-assistant/references/api.md
 ```
 
-- API version: `1.3.41`
+- API version: `1.3.42`
 - API root: `{base_url}/api`
 - Endpoint paths below are relative to the API root unless they already start with `/api/`.
 
@@ -144,6 +144,7 @@ Reset AI usage counter
 Get articles with filtering
 
 Parameters:
+  - `id` (query, optional): Look up one article as a one-item list, independent of filters and pagination
   - `filter` (query, optional): Filter: 'all', 'unread', 'favorite', 'read_later'
   - `feed_id` (query, optional): Filter by feed ID
   - `category` (query, optional): Filter by category name
@@ -674,6 +675,7 @@ Parameters:
 Download update
 
 Parameters:
+  - `Authorization` (header, required): Native desktop capability (Bearer token)
   - `request` (body, required): Download request (download_url, asset_name, optional request_id)
 
 Request body: see the Swagger schema for full field details.
@@ -712,6 +714,18 @@ Sync single FreshRSS feed
 
 Parameters:
   - `stream_id` (query, required): FreshRSS stream ID
+
+## Install Update
+
+### `POST /install-update`
+
+Install update
+
+Parameters:
+  - `Authorization` (header, required): Native desktop capability (Bearer token)
+  - `request` (body, required): Install request (file_path)
+
+Request body: see the Swagger schema for full field details.
 
 ## Media
 
@@ -900,15 +914,6 @@ Clear all translations
 ### `GET /update/check`
 
 Check for updates
-
-### `POST /update/install`
-
-Install update
-
-Parameters:
-  - `request` (body, required): Install request (file_path)
-
-Request body: see the Swagger schema for full field details.
 
 ## Version
 

@@ -30,6 +30,45 @@ func setupHandler(t *testing.T) *core.Handler {
 	return core.NewHandler(db, f, nil, nil)
 }
 
+func TestHandleArticlesLookupByID(t *testing.T) {
+	h := setupHandler(t)
+	defer h.DB.Close()
+	feedID, err := h.DB.AddFeed(&models.Feed{Title: "Ticker source", URL: "https://example.org/rss"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := &models.Article{FeedID: feedID, Title: "Selected headline", URL: "https://example.org/post", IsRead: true}
+	if err := h.DB.SaveArticle(item); err != nil {
+		t.Fatal(err)
+	}
+	id, err := h.DB.GetSavedArticleID(item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		query  string
+		status int
+	}{
+		{fmt.Sprintf("id=%d&filter=unread&sort_order=oldest&page=999", id), http.StatusOK},
+		{"id=0", http.StatusBadRequest}, {"id=-1", http.StatusBadRequest}, {"id=abc", http.StatusBadRequest}, {"id=999999", http.StatusNotFound},
+	} {
+		w := httptest.NewRecorder()
+		article.HandleArticles(h, w, httptest.NewRequest(http.MethodGet, "/api/articles?"+tc.query, nil))
+		if w.Code != tc.status {
+			t.Fatalf("%s: status=%d body=%s", tc.query, w.Code, w.Body.String())
+		}
+		if w.Code == http.StatusOK {
+			var got []models.Article
+			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != 1 || got[0].ID != id || !got[0].IsRead || got[0].FeedTitle != "Ticker source" {
+				t.Fatalf("wrong selected article: %+v", got)
+			}
+		}
+	}
+}
+
 func TestHandleArticles_ListAndImageGallery(t *testing.T) {
 	h := setupHandler(t)
 

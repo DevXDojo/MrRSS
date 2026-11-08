@@ -148,6 +148,24 @@ type Defaults struct {
 	TencentSecretId               string `json:"tencent_secret_id"`
 	TencentSecretKey              string `json:"tencent_secret_key"`
 	Theme                         string `json:"theme"`
+	TickerAlwaysOnTop             bool   `json:"ticker_always_on_top"`
+	TickerBackgroundColor         string `json:"ticker_background_color"`
+	TickerBackgroundColorEnd      string `json:"ticker_background_color_end"`
+	TickerEnabled                 bool   `json:"ticker_enabled"`
+	TickerFeedId                  int    `json:"ticker_feed_id"`
+	TickerFontSize                int    `json:"ticker_font_size"`
+	TickerOnlyUnread              bool   `json:"ticker_only_unread"`
+	TickerOpenInBrowser           bool   `json:"ticker_open_in_browser"`
+	TickerPauseOnHover            bool   `json:"ticker_pause_on_hover"`
+	TickerPosition                string `json:"ticker_position"`
+	TickerScreenId                string `json:"ticker_screen_id"`
+	TickerShowSource              bool   `json:"ticker_show_source"`
+	TickerShowTime                bool   `json:"ticker_show_time"`
+	TickerSpeed                   int    `json:"ticker_speed"`
+	TickerTextColor               string `json:"ticker_text_color"`
+	TickerWidth                   int    `json:"ticker_width"`
+	TickerWindowX                 int    `json:"ticker_window_x"`
+	TickerWindowY                 int    `json:"ticker_window_y"`
 	TimeFormat                    string `json:"time_format"`
 	TranslationEnabled            bool   `json:"translation_enabled"`
 	TranslationOnlyMode           bool   `json:"translation_only_mode"`
@@ -443,6 +461,42 @@ func GetString(key string) string {
 		return defaults.TencentSecretKey
 	case "theme":
 		return defaults.Theme
+	case "ticker_always_on_top":
+		return strconv.FormatBool(defaults.TickerAlwaysOnTop)
+	case "ticker_background_color":
+		return defaults.TickerBackgroundColor
+	case "ticker_background_color_end":
+		return defaults.TickerBackgroundColorEnd
+	case "ticker_enabled":
+		return strconv.FormatBool(defaults.TickerEnabled)
+	case "ticker_feed_id":
+		return strconv.Itoa(defaults.TickerFeedId)
+	case "ticker_font_size":
+		return strconv.Itoa(defaults.TickerFontSize)
+	case "ticker_only_unread":
+		return strconv.FormatBool(defaults.TickerOnlyUnread)
+	case "ticker_open_in_browser":
+		return strconv.FormatBool(defaults.TickerOpenInBrowser)
+	case "ticker_pause_on_hover":
+		return strconv.FormatBool(defaults.TickerPauseOnHover)
+	case "ticker_position":
+		return defaults.TickerPosition
+	case "ticker_screen_id":
+		return defaults.TickerScreenId
+	case "ticker_show_source":
+		return strconv.FormatBool(defaults.TickerShowSource)
+	case "ticker_show_time":
+		return strconv.FormatBool(defaults.TickerShowTime)
+	case "ticker_speed":
+		return strconv.Itoa(defaults.TickerSpeed)
+	case "ticker_text_color":
+		return defaults.TickerTextColor
+	case "ticker_width":
+		return strconv.Itoa(defaults.TickerWidth)
+	case "ticker_window_x":
+		return strconv.Itoa(defaults.TickerWindowX)
+	case "ticker_window_y":
+		return strconv.Itoa(defaults.TickerWindowY)
 	case "time_format":
 		return defaults.TimeFormat
 	case "translation_enabled":

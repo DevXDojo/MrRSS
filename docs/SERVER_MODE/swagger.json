@@ -12,7 +12,7 @@
             "name": "GPL-3.0",
             "url": "https://www.gnu.org/licenses/gpl-3.0.en.html"
         },
-        "version": "1.3.41"
+        "version": "1.3.42"
     },
     "host": "localhost:1234",
     "basePath": "/api",
@@ -1090,6 +1090,13 @@
                 "summary": "Get articles with filtering",
                 "parameters": [
                     {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Look up one article as a one-item list, independent of filters and pagination",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "all",
                             "unread",
@@ -1142,6 +1149,24 @@
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid article ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Article not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -3298,7 +3323,7 @@
         },
         "/download-update": {
             "post": {
-                "description": "Download the update file from GitHub releases to the temp directory",
+                "description": "Desktop-only update download; requires a native capability and verifies the official release asset SHA-256 digest. Disabled in server mode.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3310,6 +3335,13 @@
                 ],
                 "summary": "Download update",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Native desktop capability (Bearer token)",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "Download request (download_url, asset_name, optional request_id)",
                         "name": "request",
@@ -3339,6 +3371,15 @@
                     },
                     "500": {
                         "description": "Download failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Desktop update authorization required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5389,9 +5430,9 @@
                 }
             }
         },
-        "/update/install": {
+        "/install-update": {
             "post": {
-                "description": "Install the downloaded update (will restart the application)",
+                "description": "Desktop-only installation of an update verified in this process; requires a native capability and rechecks SHA-256. Disabled in server mode.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5403,6 +5444,13 @@
                 ],
                 "summary": "Install update",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Native desktop capability (Bearer token)",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "Install request (file_path)",
                         "name": "request",
@@ -5432,6 +5480,15 @@
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Desktop update authorization required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

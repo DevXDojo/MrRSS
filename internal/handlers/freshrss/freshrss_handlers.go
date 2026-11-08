@@ -1,13 +1,11 @@
 package freshrss
 
 import (
-	"MrRSS/internal/database"
-	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"MrRSS/internal/freshrss"
@@ -15,18 +13,11 @@ import (
 	"MrRSS/internal/handlers/response"
 )
 
-var activeSyncs sync.Map
-
 func requestProvider(r *http.Request) string {
 	if strings.HasPrefix(r.URL.Path, "/api/miniflux/") {
 		return "miniflux"
 	}
 	return "freshrss"
-}
-
-type syncKey struct {
-	db       *database.DB
-	provider string
 }
 
 // HandleSyncFeed syncs articles for a single FreshRSS feed
@@ -54,47 +45,14 @@ func HandleSyncFeed(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	}
 
 	provider := requestProvider(r)
-	enabled, err := h.DB.GetSetting(provider + "_enabled")
-	if err != nil || enabled != "true" {
-		response.Error(w, fmt.Errorf("reader sync is disabled"), http.StatusBadRequest)
-		return
-	}
-	serverURL, username, password, err := h.DB.GetReaderConfig(provider)
-	if err != nil || serverURL == "" || username == "" || password == "" {
-		response.Error(w, fmt.Errorf("reader settings incomplete"), http.StatusBadRequest)
-		return
-	}
-	key := syncKey{h.DB, provider}
-	if _, running := activeSyncs.LoadOrStore(key, true); running {
-		response.Error(w, fmt.Errorf("reader sync is already running"), http.StatusConflict)
-		return
-	}
-
-	var count int
-	if err := h.DB.QueryRow("SELECT COUNT(*) FROM feeds WHERE is_freshrss_source = 1 AND sync_provider = ? AND freshrss_stream_id = ?", provider, streamID).Scan(&count); err != nil || count == 0 {
-		activeSyncs.Delete(key)
-		response.Error(w, fmt.Errorf("stream does not belong to reader"), http.StatusBadRequest)
-		return
-	}
-
-	// Create bidirectional sync service
-	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
-	log.Printf("[HandleSyncFeed] Syncing stream: %s", streamID)
-
-	// Perform sync in background
-	go func() {
-		defer activeSyncs.Delete(key)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-		count, err := syncService.SyncFeed(ctx, streamID)
-		_ = h.DB.SetSetting(provider+"_last_sync_time", time.Now().Format(time.RFC3339Nano))
-
-		if err != nil {
-			log.Printf("FreshRSS feed sync failed for stream %s: %v", streamID, err)
-		} else {
-			log.Printf("FreshRSS feed sync completed for stream %s: %d articles", streamID, count)
+	if err := freshrss.StartSync(h.BackgroundContext, h.DB, provider, streamID); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, freshrss.ErrSyncRunning) {
+			status = http.StatusConflict
 		}
-	}()
+		response.Error(w, err, status)
+		return
+	}
 
 	// Return success response immediately
 	response.JSON(w, map[string]interface{}{
@@ -121,44 +79,14 @@ func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	}
 
 	provider := requestProvider(r)
-	enabled, err := h.DB.GetSetting(provider + "_enabled")
-	if err != nil || enabled != "true" {
-		response.Error(w, fmt.Errorf("reader sync is disabled"), http.StatusBadRequest)
-		return
-	}
-	serverURL, username, password, err := h.DB.GetReaderConfig(provider)
-	if err != nil || serverURL == "" || username == "" || password == "" {
-		response.Error(w, fmt.Errorf("reader settings incomplete"), http.StatusBadRequest)
-		return
-	}
-	key := syncKey{h.DB, provider}
-	if _, running := activeSyncs.LoadOrStore(key, true); running {
-		response.Error(w, fmt.Errorf("reader sync is already running"), http.StatusConflict)
-		return
-	}
-
-	// Create bidirectional sync service
-	syncService := freshrss.NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, h.DB)
-	log.Printf("[HandleSync] Sync service created, starting sync")
-
-	// Perform sync in background
-	go func() {
-		defer activeSyncs.Delete(key)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-		result, err := syncService.Sync(ctx)
-
-		// Update last sync time
-		lastSyncTime := time.Now().Format(time.RFC3339Nano)
-		_ = h.DB.SetSetting(provider+"_last_sync_time", lastSyncTime)
-
-		if err != nil {
-			log.Printf("FreshRSS sync failed: %v", err)
-		} else {
-			log.Printf("FreshRSS sync completed: pull=%d changes, push=%d changes, duration=%s",
-				result.PullChangesCount, result.PushChangesCount, result.Duration)
+	if err := freshrss.StartSync(h.BackgroundContext, h.DB, provider, ""); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, freshrss.ErrSyncRunning) {
+			status = http.StatusConflict
 		}
-	}()
+		response.Error(w, err, status)
+		return
+	}
 
 	// Return success response immediately
 	response.JSON(w, map[string]interface{}{
@@ -209,11 +137,6 @@ func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		"pending_changes": pendingCount,
 		"failed_items":    len(failedItems),
 		"last_sync_time":  lastSyncTime,
-		"is_syncing":      isSyncRunning(h.DB, provider),
+		"is_syncing":      freshrss.IsSyncRunning(h.DB, provider),
 	})
-}
-
-func isSyncRunning(db *database.DB, provider string) bool {
-	_, running := activeSyncs.Load(syncKey{db: db, provider: provider})
-	return running
 }

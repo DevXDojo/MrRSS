@@ -368,10 +368,11 @@ async function translateText(
           data.reason === 'already_target_language',
       };
     } else {
-      if (requestIsCurrent()) notifyTranslationError(t('common.errors.translatingContent'));
+      if (force && requestIsCurrent())
+        notifyTranslationError(t('common.errors.translatingContent'));
     }
   } catch {
-    if (requestIsCurrent()) notifyTranslationError(t('common.errors.translating'));
+    if (force && requestIsCurrent()) notifyTranslationError(t('common.errors.translating'));
   }
   return { text: '', html: '', failed: true };
 }
@@ -382,15 +383,14 @@ function clearTranslatedSummary() {
   isTranslatingSummary.value = false;
 }
 
-// RSS summaries are already available in the source feed, so translate them
-// after they are loaded instead of sending them through the summarizer again.
+// Translate the finished summary regardless of its source. Language detection
+// and the translation cache still avoid unnecessary provider requests.
 async function translateSummary(result: SummaryResult | null) {
   clearTranslatedSummary();
 
   if (
     !translationEnabled.value ||
     manualTranslation.value ||
-    summaryProvider.value !== 'rss' ||
     !result?.summary ||
     result.is_too_short
   ) {
@@ -464,6 +464,7 @@ async function generateSummary(article: Article, force: boolean = false) {
   }
 
   const result = await generateSummaryComposable(article, displayContent.value, force);
+  if (props.article.id !== article.id) return;
 
   // Update the article summary in store for caching
   if (result?.summary && result.source !== 'rss') {

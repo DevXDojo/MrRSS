@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useI18n } from 'vue-i18n';
 import { ref, computed, type Ref } from 'vue';
 import type {
   Article,
@@ -13,6 +14,7 @@ import type { FilterCondition } from '@/types/filter';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseArticleGroupBy, type ArticleGroupBy } from '@/utils/articleGrouping';
 import { clearArticleContentCache } from '@/utils/articleContentCache';
+import { updateRequestHeaders } from '@/utils/updateAuthorization';
 
 export function preserveSelectedArticle<T extends { id: number }>(
   freshArticles: T[],
@@ -22,8 +24,29 @@ export function preserveSelectedArticle<T extends { id: number }>(
   if (!currentArticleId || freshArticles.some((article) => article.id === currentArticleId)) {
     return freshArticles;
   }
-  const selectedArticle = previousArticles.find((article) => article.id === currentArticleId);
-  return selectedArticle ? [...freshArticles, selectedArticle] : freshArticles;
+  const previousIndex = previousArticles.findIndex((article) => article.id === currentArticleId);
+  if (previousIndex < 0) return freshArticles;
+  const selectedArticle = previousArticles[previousIndex];
+  const freshPositions = new Map(freshArticles.map((article, index) => [article.id, index]));
+  // A newly read article may disappear from an unread-only response. Keep it
+  // beside its surviving neighbours instead of moving the open row to the end.
+  let insertionIndex = freshArticles.length;
+  const nextNeighbour = previousArticles
+    .slice(previousIndex + 1)
+    .find((article) => freshPositions.has(article.id));
+  if (nextNeighbour) insertionIndex = freshPositions.get(nextNeighbour.id)!;
+  else {
+    const previousNeighbour = previousArticles
+      .slice(0, previousIndex)
+      .reverse()
+      .find((article) => freshPositions.has(article.id));
+    if (previousNeighbour) insertionIndex = freshPositions.get(previousNeighbour.id)! + 1;
+  }
+  return [
+    ...freshArticles.slice(0, insertionIndex),
+    selectedArticle,
+    ...freshArticles.slice(insertionIndex),
+  ];
 }
 
 export type Filter = 'all' | 'unread' | 'favorites' | 'readLater' | 'imageGallery' | '';
@@ -180,6 +203,7 @@ export interface AppActions {
 export const useAppStore = defineStore('app', () => {
   // Get settings composable once at store initialization
   const { settings: settingsRef } = useSettings();
+  const { t } = useI18n();
 
   // State
   const articles = ref<Article[]>([]);
@@ -662,7 +686,23 @@ export const useAppStore = defineStore('app', () => {
   }
 
   // Auto Refresh
-  async function refreshFeeds(): Promise<void> {
+  async function refreshFeeds(syncReaders = true): Promise<void> {
+    if (syncReaders) {
+      // Manual refresh includes readers even when a source/category is selected.
+      await startFreshRSSStatusPolling();
+      for (const provider of ['freshrss', 'miniflux'] as const) {
+        if (!settingsRef.value[`${provider}_enabled`]) continue;
+        try {
+          const syncRes = await fetch(`/api/${provider}/sync`, { method: 'POST' });
+          if (!syncRes.ok && syncRes.status !== 409) {
+            throw new Error(`${provider} sync API returned ${syncRes.status}`);
+          }
+        } catch (e) {
+          console.error(`${provider} sync failed:`, e);
+          window.showToast?.(t('setting.freshrss.syncFailed'), 'error');
+        }
+      }
+    }
     if (await refreshSelectedFeeds()) {
       return;
     }
@@ -680,21 +720,6 @@ export const useAppStore = defineStore('app', () => {
       } catch (e) {
         console.error('Invalid JSON response from /api/refresh:', e);
         throw new Error(`Invalid JSON response from refresh API: ${e}`, { cause: e });
-      }
-
-      await startFreshRSSStatusPolling();
-      // Refresh each enabled reader independently.
-      for (const provider of ['freshrss', 'miniflux'] as const) {
-        if (!settingsRef.value[`${provider}_enabled`]) continue;
-        try {
-          const syncRes = await fetch(`/api/${provider}/sync`, { method: 'POST' });
-          if (!syncRes.ok) {
-            throw new Error(`${provider} sync API returned ${syncRes.status}`);
-          }
-        } catch (e) {
-          // Reader sync is independent from the standard feed refresh.
-          console.log(`${provider} sync failed:`, e);
-        }
       }
 
       // Wait a moment to check if refresh is actually running
@@ -895,8 +920,8 @@ export const useAppStore = defineStore('app', () => {
           // Check if auto-update is enabled before downloading
           const { settings } = useSettings();
 
-          console.log('[DEBUG] Update found, auto_update =', settings.value.auto_update);
-          if (settings.value.auto_update) {
+          const autoUpdate = 'auto_update' in settings.value && settings.value.auto_update === true;
+          if (autoUpdate) {
             console.log('[DEBUG] Auto-downloading update...');
             // Auto download and install in background
             autoDownloadAndInstall(data.download_url, data.asset_name);
@@ -917,10 +942,11 @@ export const useAppStore = defineStore('app', () => {
 
   async function autoDownloadAndInstall(downloadUrl: string, assetName?: string): Promise<void> {
     try {
+      const headers = await updateRequestHeaders();
       // Download the update in background
       const downloadRes = await fetch('/api/download-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           download_url: downloadUrl,
           asset_name: assetName,
@@ -944,7 +970,7 @@ export const useAppStore = defineStore('app', () => {
       // Install the update
       const installRes = await fetch('/api/install-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           file_path: downloadData.file_path,
         }),
@@ -966,7 +992,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   const autoRefreshScheduler = createAutoRefreshScheduler(
-    refreshFeeds,
+    () => refreshFeeds(false),
     () => !refreshProgress.value.isRunning
   );
 

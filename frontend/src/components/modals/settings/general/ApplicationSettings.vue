@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
+import { System } from '@wailsio/runtime';
 import { useI18n } from 'vue-i18n';
 import {
   PhPalette,
@@ -10,6 +11,7 @@ import {
   PhTextT,
   PhTextAa,
   PhArrowLineDown,
+  PhRss,
 } from '@phosphor-icons/vue';
 import {
   SettingGroup,
@@ -22,9 +24,13 @@ import {
   ToggleControl,
 } from '@/components/settings';
 import FontFamilySelect from '@/components/settings/FontFamilySelect.vue';
+import TickerSettings from './TickerSettings.vue';
+import { tickerPreferencesKey } from '@/components/ticker/useTickerPreferences';
 import type { SettingsData } from '@/types/settings';
 
 const { t } = useI18n();
+const desktop = System.IsDesktop();
+const tickerPreferences = inject(tickerPreferencesKey, undefined);
 
 interface Props {
   settings: SettingsData;
@@ -137,6 +143,31 @@ function updateUiFontSize(value: number) {
         @update:model-value="updateUiFontSize"
       />
     </SettingItem>
+
+    <div v-if="desktop" id="desktop-ticker-settings" tabindex="-1" class="scroll-mt-3">
+      <SettingItem
+        :icon="PhRss"
+        :title="t('setting.ticker.title')"
+        :description="t('setting.ticker.description')"
+      >
+        <ToggleControl
+          :model-value="settings.ticker_enabled"
+          :aria-label="t('setting.ticker.enabled')"
+          @update:model-value="updateSetting('ticker_enabled', $event)"
+        />
+      </SettingItem>
+      <NestedSettingsContainer v-if="settings.ticker_enabled">
+        <TickerSettings :settings="settings" @update:settings="emit('update:settings', $event)" />
+      </NestedSettingsContainer>
+      <button
+        v-if="tickerPreferences?.status.value === 'error'"
+        class="text-xs text-red-500 mt-2 underline"
+        role="alert"
+        @click="tickerPreferences?.saveNow()"
+      >
+        {{ t('setting.ticker.saveFailed') }} · {{ t('setting.ticker.retry') }}
+      </button>
+    </div>
   </SettingGroup>
 </template>
 

@@ -66,6 +66,9 @@ func NewDB(dataSourceName string) (*DB, error) {
 	// Suppress stale SQLite error messages (for example "out of memory" for
 	// SQLITE_CANTOPEN), while preserving the actual code and useful SQL details.
 	dataSourceName += "&_error_rc=1"
+	// Acquire the writer lock before transaction reads. This lets busy_timeout
+	// wait for other writers instead of failing a stale WAL snapshot upgrade.
+	dataSourceName += "&_txlock=immediate"
 
 	db, err := sql.Open("sqlite", dataSourceName)
 	if err != nil {

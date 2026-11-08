@@ -21,6 +21,7 @@ export const ScreenGetAll = () => [];
 export const BrowserOpenURL = () => {};
 export const Environment = {};
 export const System = { IsDesktop: () => false };
+export const Call = { ByName: async () => undefined };
 export const Window = {
   Fullscreen: async () => {},
   UnFullscreen: async () => {},

@@ -73,7 +73,7 @@ type Article struct {
 	TranslatedTitle       string    `json:"translated_title"`
 	Summary               string    `json:"summary"`          // Cached AI-generated summary
 	OriginalSummary       string    `json:"original_summary"` // Summary/description provided by the RSS item
-	UniqueID              string    `json:"unique_id"`        // Unique identifier for deduplication (title+feed_id+published_date)
+	UniqueID              string    `json:"unique_id"`        // Feed-scoped provider item ID or normalized URL identity
 	FreshRSSItemID        string    `json:"freshrss_item_id"` // FreshRSS/Google Reader item ID for API operations
 }
 

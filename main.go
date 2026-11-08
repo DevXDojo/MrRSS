@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -82,13 +83,12 @@ func (h *CombinedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Let the /wails route be handled by Wails runtime
-			if strings.HasPrefix(r.URL.Path, "/wails") {
-				next.ServeHTTP(w, r)
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				combinedHandler.apiMux.ServeHTTP(w, r)
 				return
 			}
-			// Handle API routes and serve static files
-			combinedHandler.ServeHTTP(w, r)
+			// Preserve Wails runtime routing and the frontend dev server proxy.
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -197,7 +197,10 @@ func main() {
 	translator.SetProfileProvider(profileProvider)
 
 	fetcher := feed.NewFetcher(db)
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
+	h.BackgroundContext = bgCtx
 	configureAdvertisements(h)
 	h.SetStartupOnBoot = func(enabled bool) error {
 		if enabled {
@@ -234,7 +237,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fileServer := http.FileServer(http.FS(frontendFS))
+	fileServer := application.BundledAssetFileServer(frontendFS)
 
 	combinedHandler := &CombinedHandler{
 		apiMux:     apiMux,
@@ -248,7 +251,6 @@ func main() {
 
 	// Start background scheduler
 	log.Println("Starting background scheduler...")
-	bgCtx, bgCancel := context.WithCancel(context.Background())
 
 	// Encryption key for single instance communication (IPC between app instances).
 	// This key is used to encrypt/decrypt messages between first and subsequent instances.
@@ -278,7 +280,10 @@ func main() {
 	log.Println("Starting Wails v3...")
 
 	// Create new Wails v3 application
+	h.UpdateAuthorization = rand.Text()
+	desktopCapabilities := &DesktopCapabilities{updateAuthorization: h.UpdateAuthorization, db: db, showMainWindow: showMainWindow}
 	app := application.New(application.Options{
+		Services:    []application.Service{application.NewService(desktopCapabilities)},
 		Name:        "MrRSS",
 		Description: "A modern, privacy-focused RSS reader",
 		LogLevel:    slog.LevelError,
@@ -306,6 +311,8 @@ func main() {
 	})
 
 	// Set app instance to handler for browser integration
+	desktopCapabilities.app = app
+	app.OnShutdown(desktopCapabilities.shutdownTicker)
 	h.SetApp(app)
 	h.QuitForUpdate = func() {
 		quitRequested.Store(true)
@@ -465,7 +472,7 @@ func main() {
 
 		trayMenu.Add(refreshLabel).OnClick(func(ctx *application.Context) {
 			if h.Fetcher != nil {
-				go h.Fetcher.FetchAll(bgCtx)
+				go h.Fetcher.FetchAll(bgCtx, true)
 			}
 		})
 
@@ -489,7 +496,13 @@ func main() {
 	})
 
 	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		if quitRequested.Load() || !shouldCloseToTray() {
+		if quitRequested.Load() || app.Context().Err() != nil {
+			return
+		}
+		if !shouldCloseToTray() {
+			e.Cancel()
+			quitRequested.Store(true)
+			app.Quit()
 			return
 		}
 		e.Cancel()
@@ -618,6 +631,13 @@ func main() {
 	}()
 
 	log.Println("Window initialized, running app...")
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(_ *application.ApplicationEvent) {
+		if tickerEnabled, _ := db.GetSetting("ticker_enabled"); tickerEnabled == "true" {
+			if err := desktopCapabilities.ShowTicker(); err != nil {
+				log.Printf("Could not open ticker: %v", err)
+			}
+		}
+	})
 
 	// Run the application
 	err = app.Run()

@@ -286,7 +286,7 @@ func HandleRefresh(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	taskManager.MarkRunning()
 
 	// Manual refresh - fetches all feeds in background
-	go h.Fetcher.FetchAll(context.Background())
+	go h.Fetcher.FetchAll(context.Background(), true)
 
 	// Return success response
 	response.JSON(w, map[string]string{"status": "refreshing"})
