@@ -1074,6 +1074,90 @@
       "category": "general",
       "encrypted": false,
       "frontend_key": "ticker_background_color_end"
+    },
+    "ticker_only_unread": {
+      "type": "bool",
+      "default": false,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_only_unread"
+    },
+    "ticker_pause_on_hover": {
+      "type": "bool",
+      "default": true,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_pause_on_hover"
+    },
+    "ticker_show_source": {
+      "type": "bool",
+      "default": true,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_show_source"
+    },
+    "ticker_show_time": {
+      "type": "bool",
+      "default": false,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_show_time"
+    },
+    "ticker_open_in_browser": {
+      "type": "bool",
+      "default": false,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_open_in_browser"
+    },
+    "ticker_always_on_top": {
+      "type": "bool",
+      "default": true,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_always_on_top"
+    },
+    "ticker_position": {
+      "type": "string",
+      "default": "bottom",
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_position"
+    },
+    "ticker_width": {
+      "type": "int",
+      "default": 960,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_width"
+    },
+    "ticker_screen_id": {
+      "type": "string",
+      "default": "",
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_screen_id"
+    },
+    "ticker_window_x": {
+      "type": "int",
+      "default": -10000,
+      "category": "internal",
+      "encrypted": false,
+      "frontend_key": "ticker_window_x"
+    },
+    "ticker_window_y": {
+      "type": "int",
+      "default": -10000,
+      "category": "internal",
+      "encrypted": false,
+      "frontend_key": "ticker_window_y"
+    },
+    "ticker_enabled": {
+      "type": "bool",
+      "default": false,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_enabled"
     }
   }
 }

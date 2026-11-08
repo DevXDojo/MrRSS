@@ -144,6 +144,7 @@ Reset AI usage counter
 Get articles with filtering
 
 Parameters:
+  - `id` (query, optional): Look up one article as a one-item list, independent of filters and pagination
   - `filter` (query, optional): Filter: 'all', 'unread', 'favorite', 'read_later'
   - `feed_id` (query, optional): Filter by feed ID
   - `category` (query, optional): Filter by category name

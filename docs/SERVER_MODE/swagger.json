@@ -1090,6 +1090,13 @@
                 "summary": "Get articles with filtering",
                 "parameters": [
                     {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Look up one article as a one-item list, independent of filters and pagination",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "all",
                             "unread",
@@ -1142,6 +1149,24 @@
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid article ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Article not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

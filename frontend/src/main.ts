@@ -6,10 +6,13 @@ import { setSettingsFromRawData } from './composables/core/useSettings';
 
 // Initialize language setting before mounting
 async function initializeApp() {
+  const surface = new URLSearchParams(location.search).get('ticker');
   const Root =
-    new URLSearchParams(location.search).get('ticker') === '1'
+    surface === '1'
       ? (await import('./components/ticker/DesktopTicker.vue')).default
-      : (await import('./App.vue')).default;
+      : surface === 'settings'
+        ? (await import('./components/ticker/TickerPreferences.vue')).default
+        : (await import('./App.vue')).default;
   const app = createApp(Root);
   const pinia = createPinia();
 

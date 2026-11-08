@@ -95,7 +95,7 @@ func TestTickerPreferencesRoundTrip(t *testing.T) {
 	if defaults["ticker_speed"] != "60" || defaults["ticker_font_size"] != "18" || defaults["ticker_feed_id"] != "0" {
 		t.Fatalf("unexpected ticker defaults: %v", defaults)
 	}
-	values := map[string]string{"ticker_feed_id": "4", "ticker_speed": "80", "ticker_font_size": "22", "ticker_text_color": "#abcdef", "ticker_background_color": "#123456", "ticker_background_color_end": "#654321"}
+	values := map[string]string{"ticker_feed_id": "4", "ticker_speed": "80", "ticker_font_size": "22", "ticker_text_color": "#abcdef", "ticker_background_color": "#123456", "ticker_background_color_end": "#654321", "ticker_enabled": "true", "ticker_only_unread": "true", "ticker_pause_on_hover": "false", "ticker_position": "floating", "ticker_width": "720", "ticker_screen_id": "second-display"}
 	body, err := json.Marshal(values)
 	if err != nil {
 		t.Fatal(err)

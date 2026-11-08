@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Call, System } from '@wailsio/runtime';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { Call, Events, System } from '@wailsio/runtime';
 import { useI18n } from 'vue-i18n';
 import {
   PhPalette,
@@ -11,6 +11,7 @@ import {
   PhTextT,
   PhTextAa,
   PhArrowLineDown,
+  PhRss,
 } from '@phosphor-icons/vue';
 import {
   SettingGroup,
@@ -27,13 +28,56 @@ import type { SettingsData } from '@/types/settings';
 
 const { t } = useI18n();
 const desktop = System.IsDesktop();
-async function openTicker() {
+const savingTicker = ref(false);
+let disposed = false;
+let disposeTickerEvent: (() => void) | undefined;
+async function openTickerPreferences() {
   try {
-    await Call.ByName('main.DesktopCapabilities.ShowTicker');
+    await Call.ByName('main.DesktopCapabilities.ShowTickerSettings');
   } catch {
     window.showToast(t('setting.ticker.openFailed'), 'error');
   }
 }
+async function setTickerEnabled(enabled: boolean) {
+  if (savingTicker.value) return;
+  savingTicker.value = true;
+  try {
+    const response = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker_enabled: String(enabled) }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error('Could not save ticker state');
+    emit('update:settings', { ...props.settings, ticker_enabled: enabled });
+    await Call.ByName('main.DesktopCapabilities.ApplyTickerSettings');
+  } catch {
+    if (!disposed) window.showToast(t('setting.ticker.saveFailed'), 'error');
+  } finally {
+    if (!disposed) savingTicker.value = false;
+  }
+}
+onMounted(() => {
+  if (!desktop) return;
+  disposeTickerEvent = Events.On('ticker:settings-changed', async () => {
+    try {
+      const response = await fetch('/api/settings', { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return;
+      const values: Record<string, string> = await response.json();
+      if (!disposed && !savingTicker.value)
+        emit('update:settings', {
+          ...props.settings,
+          ticker_enabled: values.ticker_enabled === 'true',
+        });
+    } catch {
+      /* The current switch state remains visible until the next update. */
+    }
+  });
+});
+onUnmounted(() => {
+  disposed = true;
+  disposeTickerEvent?.();
+});
 
 interface Props {
   settings: SettingsData;
@@ -66,17 +110,25 @@ function updateUiFontSize(value: number) {
   <SettingGroup :icon="PhPalette" :title="t('setting.general.application')">
     <SettingItem
       v-if="desktop"
-      :icon="PhTextT"
+      :icon="PhRss"
       :title="t('setting.ticker.title')"
       :description="t('setting.ticker.description')"
     >
-      <button
-        type="button"
-        class="px-3 py-2 rounded border border-border bg-bg-tertiary text-text-primary hover:bg-bg-secondary"
-        @click="openTicker"
-      >
-        {{ t('setting.ticker.open') }}
-      </button>
+      <div class="flex items-center gap-3">
+        <ToggleControl
+          :model-value="settings.ticker_enabled"
+          :disabled="savingTicker"
+          :aria-label="t('setting.ticker.enabled')"
+          @update:model-value="setTickerEnabled"
+        />
+        <button
+          type="button"
+          class="px-3 py-2 rounded border border-border bg-bg-tertiary text-text-primary hover:bg-bg-secondary"
+          @click="openTickerPreferences"
+        >
+          {{ t('setting.ticker.preferences') }}
+        </button>
+      </div>
     </SettingItem>
     <SettingWithToggle
       :icon="PhPower"

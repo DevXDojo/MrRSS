@@ -372,14 +372,22 @@ func (db *DB) GetArticlesWithUnreadFilterSorted(filter string, feedID int64, cat
 // GetArticleByID retrieves a single article by its ID.
 // This is more efficient than GetArticles when you only need one article.
 func (db *DB) GetArticleByID(id int64) (*models.Article, error) {
-	db.WaitForReady()
+	return db.GetArticleByIDContext(context.Background(), id)
+}
+
+func (db *DB) GetArticleByIDContext(ctx context.Context, id int64) (*models.Article, error) {
+	select {
+	case <-db.ready:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 	query := `
 		SELECT a.id, a.feed_id, a.title, a.url, a.image_url, a.audio_url, a.video_url, a.published_at, a.is_read, a.is_favorite, a.is_hidden, a.is_read_later, a.translated_title, a.summary, a.freshrss_item_id, f.title, a.author, a.original_summary
 		FROM articles a
 		JOIN feeds f ON a.feed_id = f.id
 		WHERE a.id = ?
 	`
-	row := db.QueryRow(query, id)
+	row := db.QueryRowContext(ctx, query, id)
 
 	var a models.Article
 	var imageURL, audioURL, videoURL, translatedTitle, summary, freshrssItemID, author, originalSummary sql.NullString

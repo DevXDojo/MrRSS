@@ -1,19 +1,26 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
+import { Call } from '@wailsio/runtime';
 import DesktopTicker from './DesktopTicker.vue';
 import { setSettingsFromRawData } from '@/composables/core/useSettings';
+import { generateInitialSettings } from '@/composables/core/useSettings.generated';
+import { openInBrowser } from '@/utils/browser';
 
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key, locale: { value: 'en' } }),
+}));
 vi.mock('@/utils/browser', () => ({ openInBrowser: vi.fn() }));
+vi.mock('@wailsio/runtime', () => ({
+  Call: { ByName: vi.fn(async () => undefined) },
+  Events: { On: () => () => {} },
+}));
 
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-});
-
-describe('desktop ticker data and preferences', () => {
-  it('filters articles via HTTP and saves only ticker preferences', async () => {
+describe('compact desktop ticker', () => {
+  let wrapper: VueWrapper;
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
     vi.useFakeTimers();
+    vi.clearAllMocks();
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     vi.stubGlobal(
       'ResizeObserver',
@@ -22,41 +29,58 @@ describe('desktop ticker data and preferences', () => {
         disconnect() {}
       }
     );
-    setSettingsFromRawData({});
-    const fetchMock = vi.fn(
-      async (url: string) =>
-        new Response(
-          JSON.stringify(
-            url === '/api/feeds'
-              ? [{ id: 2, title: 'Selected feed' }]
-              : url.startsWith('/api/articles?')
-                ? [{ id: 1, title: 'A post', url: 'https://example.org/1' }]
-                : {}
-          )
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    setSettingsFromRawData(
+      Object.fromEntries(
+        Object.entries({ ...generateInitialSettings(), ticker_enabled: true }).map(
+          ([key, value]) => [key, String(value)]
         )
+      )
+    );
+    fetchMock = vi.fn(async (url: string) =>
+      Response.json(
+        url.startsWith('/api/articles?')
+          ? [
+              {
+                id: 1,
+                feed_id: 2,
+                title: 'A quiet headline',
+                feed_title: 'A source',
+                url: 'https://example.org/1',
+                published_at: '2026-11-08T00:00:00Z',
+              },
+            ]
+          : {}
+      )
     );
     vi.stubGlobal('fetch', fetchMock);
-    const wrapper = mount(DesktopTicker);
-    try {
-      await flushPromises();
-      await wrapper.get('select').setValue('2');
-      await flushPromises();
-      expect(fetchMock.mock.calls.some(([url]) => url.includes('feed_id=2'))).toBe(true);
-      await vi.advanceTimersByTimeAsync(500);
-      await flushPromises();
-      const saved = fetchMock.mock.calls.find(([url]) => url === '/api/settings');
-      expect(saved).toBeDefined();
-      const options = (saved as unknown as [string, RequestInit])[1];
-      expect(JSON.parse(String(options.body))).toEqual({
-        ticker_feed_id: '2',
-        ticker_speed: '60',
-        ticker_font_size: '18',
-        ticker_text_color: '#f8fafc',
-        ticker_background_color: '#1e293b',
-        ticker_background_color_end: '#0f172a',
-      });
-    } finally {
-      wrapper.unmount();
-    }
+  });
+  afterEach(() => {
+    wrapper?.unmount();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  it('opens headlines in the reader, supports browser modifiers and keyboard pause', async () => {
+    wrapper = mount(DesktopTicker);
+    await flushPromises();
+    await wrapper.get('.ticker-headline').trigger('click');
+    expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.OpenTickerArticle', 1, 2);
+    await wrapper.get('.ticker-headline').trigger('click', { ctrlKey: true });
+    expect(openInBrowser).toHaveBeenCalledWith('https://example.org/1');
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true })
+    );
+    await wrapper.vm.$nextTick();
+    expect(wrapper.classes()).toContain('is-paused');
+  });
+  it('turns the feature off without changing other preferences when dismissed', async () => {
+    wrapper = mount(DesktopTicker);
+    await flushPromises();
+    await wrapper.get('button[aria-label="setting.ticker.disable"]').trigger('click');
+    await flushPromises();
+    const request = fetchMock.mock.calls.find(([, options]) => options?.method === 'POST');
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ ticker_enabled: 'false' });
+    expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.ApplyTickerSettings');
   });
 });

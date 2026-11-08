@@ -3,104 +3,29 @@
 package main
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
+	"MrRSS/internal/database"
+	"MrRSS/internal/desktopapi"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-// DesktopCapabilities is bound only to the native WebView. The loopback API
-// and server build cannot mint or retrieve this per-process update capability.
+// DesktopCapabilities exposes native window operations and a per-process update
+// capability. Article data continues to use the HTTP API.
 type DesktopCapabilities struct {
-	updateAuthorization string
-	app                 *application.App
-	mu                  sync.Mutex
-	ticker              *application.WebviewWindow
-	tickerDock          int // 1 = top, -1 = bottom, 0 = free floating
+	updateAuthorization   string
+	app                   *application.App
+	db                    *database.DB
+	showMainWindow        func()
+	mu                    sync.Mutex
+	ticker                *application.WebviewWindow
+	tickerPreferences     *application.WebviewWindow
+	tickerGeometry        tickerGeometry
+	tickerConfigured      bool
+	tickerPositionTimer   *time.Timer
+	pendingTickerPosition *desktopapi.TickerBounds
+	tickerClosed          bool
 }
 
 func (s *DesktopCapabilities) UpdateAuthorization() string { return s.updateAuthorization }
-
-func (s *DesktopCapabilities) ShowTicker() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.app == nil {
-		return fmt.Errorf("desktop application unavailable")
-	}
-	if s.ticker == nil {
-		s.ticker = s.app.Window.NewWithOptions(application.WebviewWindowOptions{
-			Name: "MrRSS-ticker", Title: "MrRSS", URL: "/?ticker=1",
-			Width: 900, Height: 72, MinWidth: 320, MinHeight: 56,
-			Frameless: true, AlwaysOnTop: true,
-			BackgroundColour: application.NewRGB(30, 41, 59),
-		})
-		s.ticker.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-			event.Cancel()
-			s.ticker.Hide()
-		})
-		s.ticker.Center()
-	}
-	s.ticker.Show()
-	return nil
-}
-
-func (s *DesktopCapabilities) HideTicker() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.ticker != nil {
-		s.ticker.Hide()
-	}
-}
-
-func (s *DesktopCapabilities) SetTickerExpanded(expanded bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.ticker == nil {
-		return
-	}
-	height := 72
-	if expanded {
-		height = 200
-	}
-	if s.tickerDock != 0 {
-		_ = s.positionTicker(s.tickerDock == 1, height)
-		return
-	}
-	s.ticker.SetSize(s.ticker.Width(), height)
-}
-
-func (s *DesktopCapabilities) PositionTicker(top bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.ticker == nil {
-		return fmt.Errorf("ticker is not open")
-	}
-	s.tickerDock = -1
-	if top {
-		s.tickerDock = 1
-	}
-	return s.positionTicker(top, s.ticker.Height())
-}
-
-// Caller holds mu. Preserve docking when expanding the preferences panel.
-func (s *DesktopCapabilities) positionTicker(top bool, height int) error {
-	screen, err := s.ticker.GetScreen()
-	if err != nil || screen == nil {
-		screen = s.app.Screen.GetPrimary()
-	}
-	if screen == nil {
-		return fmt.Errorf("screen unavailable")
-	}
-	area := screen.WorkArea
-	if area.Height < height {
-		height = area.Height
-	}
-	s.ticker.SetSize(area.Width, height)
-	y := area.Y
-	if !top {
-		y += area.Height - height
-	}
-	s.ticker.SetPosition(area.X, y)
-	return nil
-}

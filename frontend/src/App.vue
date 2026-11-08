@@ -26,6 +26,7 @@ import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
 import { useArticleTableSplit } from './composables/ui/useArticleTableSplit';
 import { useWindowState } from './composables/core/useWindowState';
+import { useTickerNavigation } from './composables/core/useTickerNavigation';
 import { useAppUpdates } from './composables/core/useAppUpdates';
 import { useSettings } from './composables/core/useSettings';
 import { useCustomCSS } from './composables/ui/useCustomCSS';
@@ -34,6 +35,7 @@ import type { Feed } from './types/models';
 import type { TabName } from './types/settings';
 
 const store = useAppStore();
+useTickerNavigation(store);
 useMobileBackButton(
   () => store.currentArticleId !== null,
   () => { store.currentArticleId = null; }

@@ -282,7 +282,7 @@ func main() {
 
 	// Create new Wails v3 application
 	h.UpdateAuthorization = rand.Text()
-	desktopCapabilities := &DesktopCapabilities{updateAuthorization: h.UpdateAuthorization}
+	desktopCapabilities := &DesktopCapabilities{updateAuthorization: h.UpdateAuthorization, db: db, showMainWindow: showMainWindow}
 	app := application.New(application.Options{
 		Services:    []application.Service{application.NewService(desktopCapabilities)},
 		Name:        "MrRSS",
@@ -313,6 +313,7 @@ func main() {
 
 	// Set app instance to handler for browser integration
 	desktopCapabilities.app = app
+	app.OnShutdown(desktopCapabilities.shutdownTicker)
 	h.SetApp(app)
 	h.QuitForUpdate = func() {
 		quitRequested.Store(true)
@@ -496,7 +497,13 @@ func main() {
 	})
 
 	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		if quitRequested.Load() || !shouldCloseToTray() {
+		if quitRequested.Load() || app.Context().Err() != nil {
+			return
+		}
+		if !shouldCloseToTray() {
+			e.Cancel()
+			quitRequested.Store(true)
+			app.Quit()
 			return
 		}
 		e.Cancel()
@@ -625,6 +632,13 @@ func main() {
 	}()
 
 	log.Println("Window initialized, running app...")
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(_ *application.ApplicationEvent) {
+		if tickerEnabled, _ := db.GetSetting("ticker_enabled"); tickerEnabled == "true" {
+			if err := desktopCapabilities.ShowTicker(); err != nil {
+				log.Printf("Could not open ticker: %v", err)
+			}
+		}
+	})
 
 	// Run the application
 	err = app.Run()
