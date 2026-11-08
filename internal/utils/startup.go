@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"MrRSS/internal/utils/fileutil"
+	"MrRSS/internal/utils/procutil"
 )
 
 // EnableStartup enables the application to start on system boot
@@ -62,6 +63,7 @@ func enableStartupWindows(executable string) error {
 		"/t", "REG_SZ",
 		"/d", command,
 		"/f")
+	procutil.HideWindow(cmd)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -78,6 +80,7 @@ func disableStartupWindows() error {
 		"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 		"/v", "MrRSS",
 		"/f")
+	procutil.HideWindow(cmd)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
