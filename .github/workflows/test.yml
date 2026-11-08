@@ -60,7 +60,7 @@ jobs:
         run: go test -v -timeout=5m -run '^TestNVIDIARenders$' github.com/wailsapp/wails/v3/pkg/application
 
       - name: Test desktop startup and asset routing
-        run: go test -v -timeout=5m .
+        run: go test -v -timeout=5m . ./tools/wait-for-dev-server
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
