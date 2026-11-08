@@ -199,11 +199,8 @@ func installPortableUpdate(archivePath string, platform string) error {
 	exeName := filepath.Base(exePath)
 
 	// Create temporary extraction directory
-	extractDir := filepath.Join(os.TempDir(), "mrrss-update-extract")
-	if err := os.RemoveAll(extractDir); err != nil {
-		log.Printf("Warning: failed to clean extract directory: %v", err)
-	}
-	if err := os.MkdirAll(extractDir, 0755); err != nil {
+	extractDir, err := os.MkdirTemp("", "mrrss-update-extract-")
+	if err != nil {
 		return fmt.Errorf("failed to create extract directory: %w", err)
 	}
 	defer os.RemoveAll(extractDir)
