@@ -7,11 +7,25 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.42] - 2026-11-08
+
+### Added
+
+- Add a desktop news ticker with subscription selection, pause/resume, speed, font size, text and gradient colors, and placement at either screen edge. The floating window does not reserve other applications' work area. (#832)
+- Schedule independent FreshRSS and Miniflux synchronization, including optional startup sync and settings controls. Manual refresh also syncs readers when a feed or category is selected. (#1278)
 
 ### Fixed
 
 - Reduce the initial web bundle by importing only used Phosphor icons, and gzip frontend text assets in server mode while preserving API and media responses. (#1270, @marcomarcogd)
+- Fit the article reader and settings on narrow screens, restore normal article image sizing, and close dialogs and the reader in order when using the mobile browser Back button. (#1273)
+- Keep distinct same-title articles using provider item IDs or article URLs, and migrate existing identities without losing reading state, favorites, cached content, or chat history. (#1276)
+- Prevent stale SQLite write snapshots during parallel refreshes and apply bounded backoff to repeatedly failing automatic feed refreshes; manual refresh can retry immediately. (#1277)
+- Keep toast notifications above nested modal overlays. (#1279)
+- Require native desktop authorization for update download and installation, validate official release assets and SHA-256 integrity, and prevent unsafe archive extraction. Server mode uses manual updates. (GHSA-4m74-8q96-mp63, @haveadooday)
+
+### Changed
+
+- Update reviewed backend, frontend, and website dependencies, and align the Wails build CLI with the backend module. (#1267, #1268, #1274, #1275)
 
 ## [1.3.41] - 2026-10-25
 
