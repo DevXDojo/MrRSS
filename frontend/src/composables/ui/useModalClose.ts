@@ -1,7 +1,12 @@
-import { onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, shallowReactive } from 'vue';
 
 // Global modal stack to track nested modals
-const modalStack: Array<{ zIndex: number; close: () => void }> = [];
+const modalStack = shallowReactive<Array<{ zIndex: number; close: () => void }>>([]);
+
+// Notifications must stay above every active modal, including nested dialogs.
+export const notificationZIndex = computed(() =>
+  Math.max(BASE_Z_INDEX, ...modalStack.map((modal) => modal.zIndex)) + Z_INDEX_INCREMENT
+);
 
 // Base z-index for modals
 // Regular modal base layer. Nested modals are raised above the active stack automatically.

@@ -19,6 +19,7 @@ import PartnerAdvertisement from './components/common/PartnerAdvertisement.vue';
 import { useAdvertisementsStore } from './stores/advertisements';
 import { onMounted, onUnmounted, ref, computed, watch, watchEffect } from 'vue';
 import { useNotifications } from './composables/ui/useNotifications';
+import { notificationZIndex } from './composables/ui/useModalClose';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
 import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
@@ -481,7 +482,7 @@ function onFeedUpdated(): void {
       @close="multiSelectDialog = null"
     />
 
-    <div class="toast-container">
+    <div class="toast-container" :style="{ zIndex: notificationZIndex }">
       <Toast
         v-for="toast in toasts"
         :key="toast.id"
