@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useAppStore } from './app';
 
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ locale: { value: 'en' } }) }));
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }) }));
 
 describe('reader sync polling', () => {
   beforeEach(() => {
@@ -44,5 +44,25 @@ describe('reader sync polling', () => {
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/feeds')).toHaveLength(2);
     await vi.advanceTimersByTimeAsync(5000);
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/feeds')).toHaveLength(2);
+  });
+
+  it('manually syncs both readers when a feed is selected, accepting an active sync', async () => {
+    const store = useAppStore();
+    store.currentFeedId = 1;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/settings') {
+        return new Response(JSON.stringify({ freshrss_enabled: 'true', miniflux_enabled: 'true' }));
+      }
+      if (url === '/api/freshrss/sync') return new Response('', { status: 409 });
+      return new Response(JSON.stringify({ is_running: false }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const refresh = store.refreshFeeds();
+    await vi.advanceTimersByTimeAsync(500);
+    await refresh;
+    expect(fetchMock).toHaveBeenCalledWith('/api/freshrss/sync', { method: 'POST' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/miniflux/sync', { method: 'POST' });
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/refresh', { method: 'POST' });
+    store.stopProgressPolling();
   });
 });

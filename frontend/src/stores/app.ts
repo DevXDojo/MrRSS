@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useI18n } from 'vue-i18n';
 import { ref, computed, type Ref } from 'vue';
 import type {
   Article,
@@ -180,6 +181,7 @@ export interface AppActions {
 export const useAppStore = defineStore('app', () => {
   // Get settings composable once at store initialization
   const { settings: settingsRef } = useSettings();
+  const { t } = useI18n();
 
   // State
   const articles = ref<Article[]>([]);
@@ -662,7 +664,23 @@ export const useAppStore = defineStore('app', () => {
   }
 
   // Auto Refresh
-  async function refreshFeeds(): Promise<void> {
+  async function refreshFeeds(syncReaders = true): Promise<void> {
+    if (syncReaders) {
+      // Manual refresh includes readers even when a source/category is selected.
+      await startFreshRSSStatusPolling();
+      for (const provider of ['freshrss', 'miniflux'] as const) {
+        if (!settingsRef.value[`${provider}_enabled`]) continue;
+        try {
+          const syncRes = await fetch(`/api/${provider}/sync`, { method: 'POST' });
+          if (!syncRes.ok && syncRes.status !== 409) {
+            throw new Error(`${provider} sync API returned ${syncRes.status}`);
+          }
+        } catch (e) {
+          console.error(`${provider} sync failed:`, e);
+          window.showToast?.(t('setting.freshrss.syncFailed'), 'error');
+        }
+      }
+    }
     if (await refreshSelectedFeeds()) {
       return;
     }
@@ -680,21 +698,6 @@ export const useAppStore = defineStore('app', () => {
       } catch (e) {
         console.error('Invalid JSON response from /api/refresh:', e);
         throw new Error(`Invalid JSON response from refresh API: ${e}`, { cause: e });
-      }
-
-      await startFreshRSSStatusPolling();
-      // Refresh each enabled reader independently.
-      for (const provider of ['freshrss', 'miniflux'] as const) {
-        if (!settingsRef.value[`${provider}_enabled`]) continue;
-        try {
-          const syncRes = await fetch(`/api/${provider}/sync`, { method: 'POST' });
-          if (!syncRes.ok) {
-            throw new Error(`${provider} sync API returned ${syncRes.status}`);
-          }
-        } catch (e) {
-          // Reader sync is independent from the standard feed refresh.
-          console.log(`${provider} sync failed:`, e);
-        }
       }
 
       // Wait a moment to check if refresh is actually running
@@ -966,7 +969,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   const autoRefreshScheduler = createAutoRefreshScheduler(
-    refreshFeeds,
+    () => refreshFeeds(false),
     () => !refreshProgress.value.isRunning
   );
 
