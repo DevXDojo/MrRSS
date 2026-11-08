@@ -135,6 +135,12 @@ export interface SettingsData {
   tencent_secret_id: string;
   tencent_secret_key: string;
   theme: string;
+  ticker_background_color: string;
+  ticker_background_color_end: string;
+  ticker_feed_id: number;
+  ticker_font_size: number;
+  ticker_speed: number;
+  ticker_text_color: string;
   time_format: string;
   translation_enabled: boolean;
   translation_only_mode: boolean;

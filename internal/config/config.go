@@ -148,6 +148,12 @@ type Defaults struct {
 	TencentSecretId               string `json:"tencent_secret_id"`
 	TencentSecretKey              string `json:"tencent_secret_key"`
 	Theme                         string `json:"theme"`
+	TickerBackgroundColor         string `json:"ticker_background_color"`
+	TickerBackgroundColorEnd      string `json:"ticker_background_color_end"`
+	TickerFeedId                  int    `json:"ticker_feed_id"`
+	TickerFontSize                int    `json:"ticker_font_size"`
+	TickerSpeed                   int    `json:"ticker_speed"`
+	TickerTextColor               string `json:"ticker_text_color"`
 	TimeFormat                    string `json:"time_format"`
 	TranslationEnabled            bool   `json:"translation_enabled"`
 	TranslationOnlyMode           bool   `json:"translation_only_mode"`
@@ -443,6 +449,18 @@ func GetString(key string) string {
 		return defaults.TencentSecretKey
 	case "theme":
 		return defaults.Theme
+	case "ticker_background_color":
+		return defaults.TickerBackgroundColor
+	case "ticker_background_color_end":
+		return defaults.TickerBackgroundColorEnd
+	case "ticker_feed_id":
+		return strconv.Itoa(defaults.TickerFeedId)
+	case "ticker_font_size":
+		return strconv.Itoa(defaults.TickerFontSize)
+	case "ticker_speed":
+		return strconv.Itoa(defaults.TickerSpeed)
+	case "ticker_text_color":
+		return defaults.TickerTextColor
 	case "time_format":
 		return defaults.TimeFormat
 	case "translation_enabled":

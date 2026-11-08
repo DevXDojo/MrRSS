@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { Call, System } from '@wailsio/runtime';
 import { useI18n } from 'vue-i18n';
 import {
   PhPalette,
@@ -25,6 +26,11 @@ import FontFamilySelect from '@/components/settings/FontFamilySelect.vue';
 import type { SettingsData } from '@/types/settings';
 
 const { t } = useI18n();
+const desktop = System.IsDesktop();
+async function openTicker() {
+  try { await Call.ByName('main.DesktopCapabilities.ShowTicker'); }
+  catch { window.showToast(t('setting.ticker.openFailed'), 'error'); }
+}
 
 interface Props {
   settings: SettingsData;
@@ -55,6 +61,11 @@ function updateUiFontSize(value: number) {
 
 <template>
   <SettingGroup :icon="PhPalette" :title="t('setting.general.application')">
+    <SettingItem v-if="desktop" :icon="PhTextT" :title="t('setting.ticker.title')" :description="t('setting.ticker.description')">
+      <button type="button" class="px-3 py-2 rounded border border-border bg-bg-tertiary text-text-primary hover:bg-bg-secondary" @click="openTicker">
+        {{ t('setting.ticker.open') }}
+      </button>
+    </SettingItem>
     <SettingWithToggle
       :icon="PhPower"
       :title="t('setting.general.startupOnBoot')"

@@ -312,6 +312,7 @@ func main() {
 	})
 
 	// Set app instance to handler for browser integration
+	desktopCapabilities.app = app
 	h.SetApp(app)
 	h.QuitForUpdate = func() {
 		quitRequested.Store(true)

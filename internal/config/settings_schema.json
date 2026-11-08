@@ -390,10 +390,18 @@
       "frontend_key": "aiSearchEnabled"
     },
     "sidebar_sort_mode": {
-      "type": "string", "default": "manual", "category": "reading", "encrypted": false, "frontend_key": "sidebar_sort_mode"
+      "type": "string",
+      "default": "manual",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "sidebar_sort_mode"
     },
     "sidebar_pinned_items": {
-      "type": "string", "default": "[]", "category": "reading", "encrypted": false, "frontend_key": "sidebar_pinned_items"
+      "type": "string",
+      "default": "[]",
+      "category": "reading",
+      "encrypted": false,
+      "frontend_key": "sidebar_pinned_items"
     },
     "date_format": {
       "type": "string",
@@ -1024,6 +1032,48 @@
       "category": "ai",
       "encrypted": false,
       "frontend_key": "aiSearchProfileId"
+    },
+    "ticker_feed_id": {
+      "type": "int",
+      "default": 0,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_feed_id"
+    },
+    "ticker_speed": {
+      "type": "int",
+      "default": 60,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_speed"
+    },
+    "ticker_font_size": {
+      "type": "int",
+      "default": 18,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_font_size"
+    },
+    "ticker_text_color": {
+      "type": "string",
+      "default": "#f8fafc",
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_text_color"
+    },
+    "ticker_background_color": {
+      "type": "string",
+      "default": "#1e293b",
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_background_color"
+    },
+    "ticker_background_color_end": {
+      "type": "string",
+      "default": "#0f172a",
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_background_color_end"
     }
   }
 }
