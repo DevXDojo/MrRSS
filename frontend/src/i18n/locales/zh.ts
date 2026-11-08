@@ -1462,6 +1462,7 @@ const zh: TranslationMessages = {
       autoUpdateIntervalDesc: '自动检查更新的时间间隔',
       checkForUpdates: '检查更新',
       currentVersion: '当前版本',
+      downloadVerificationFailed: '更新文件未通过官方发布校验，请重试或手动下载。',
       downloadFailedHelp: '自动下载未完成。您可以检查网络或代理设置后重试，也可以手动下载更新。',
       downloadManually: '前往发布页手动下载',
       downloadNetworkError: '无法连接到 GitHub 下载更新，请检查网络或代理设置。',

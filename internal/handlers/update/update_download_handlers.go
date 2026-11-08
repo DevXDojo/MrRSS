@@ -1,6 +1,7 @@
 package update
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -30,6 +31,9 @@ func HandleDownloadUpdate(h *core.Handler, w http.ResponseWriter, r *http.Reques
 		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
+	if !authorizeUpdate(h, w, r) {
+		return
+	}
 
 	var req struct {
 		DownloadURL string `json:"download_url"`
@@ -42,8 +46,7 @@ func HandleDownloadUpdate(h *core.Handler, w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	const allowedURLPrefix = "https://github.com/DevXDojo/MrRSS/releases/download/"
-	if !strings.HasPrefix(req.DownloadURL, allowedURLPrefix) {
+	if _, err := parseOfficialAsset(req.DownloadURL, req.AssetName); err != nil {
 		log.Printf("Invalid update download URL")
 		response.Error(w, fmt.Errorf("invalid download URL"), http.StatusBadRequest)
 		return
@@ -72,6 +75,16 @@ func HandleDownloadUpdate(h *core.Handler, w http.ResponseWriter, r *http.Reques
 	}
 
 	// Keep simultaneous downloads and pre-existing temp files isolated.
+	metadataCtx, metadataCancel := context.WithTimeout(r.Context(), 30*time.Second)
+	digest, err := officialAssetDigest(metadataCtx, client, req.DownloadURL, req.AssetName)
+	metadataCancel()
+	if err != nil {
+		failDownload(req.RequestID, "download_verification_failed")
+		writeDownloadError(w, req.RequestID, "download_verification_failed")
+		return
+	}
+	restrictUpdateRedirects(client, req.DownloadURL)
+
 	filePath, err := createUpdateDownloadPath(req.AssetName)
 	if err != nil {
 		failDownload(req.RequestID, "download_failed")
@@ -91,6 +104,13 @@ func HandleDownloadUpdate(h *core.Handler, w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if err := verifyUpdateDigest(r.Context(), filePath, digest); err != nil {
+		cleanupUpdateDownload(filePath)
+		failDownload(req.RequestID, "download_verification_failed")
+		writeDownloadError(w, req.RequestID, "download_verification_failed")
+		return
+	}
+	verifiedUpdates.Store(verifiedUpdateKey{h, filePath}, digest)
 	setDownloadProgress(downloadProgress{
 		RequestID: req.RequestID, State: "completed", BytesWritten: written,
 		TotalBytes: total, Percentage: 100,

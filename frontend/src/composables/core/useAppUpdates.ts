@@ -4,6 +4,7 @@
 import { onScopeDispose, ref, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { UpdateInfo, DownloadResponse, InstallResponse } from '@/types/settings';
+import { Call } from '@wailsio/runtime';
 
 export function useAppUpdates() {
   const { t } = useI18n();
@@ -53,6 +54,8 @@ export function useAppUpdates() {
 
   function downloadErrorMessage(errorCode: string): string {
     switch (errorCode) {
+      case 'download_verification_failed':
+        return t('setting.update.downloadVerificationFailed');
       case 'download_proxy_error':
         return t('setting.update.downloadProxyError');
       case 'download_timeout':
@@ -129,9 +132,11 @@ export function useAppUpdates() {
 
     try {
       // Download the update
+      const token = await Call.ByName('main.DesktopCapabilities.UpdateAuthorization') as string;
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
       const downloadRes = await fetch('/api/download-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           download_url: updateInfo.value.download_url,
           asset_name: updateInfo.value.asset_name,
@@ -174,7 +179,7 @@ export function useAppUpdates() {
 
       const installRes = await fetch('/api/install-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           file_path: downloadData.file_path,
         }),

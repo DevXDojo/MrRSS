@@ -1520,6 +1520,7 @@ const en: TranslationMessages = {
       autoUpdateIntervalDesc: 'Interval for automatic update checks',
       checkForUpdates: 'Check for Updates',
       currentVersion: 'Current version',
+      downloadVerificationFailed: 'The update could not be verified against the official release. Please retry or download it manually.',
       downloadFailedHelp:
         'The automatic download did not finish. Check your network or proxy and retry, or download the update manually.',
       downloadManually: 'Open the release page',

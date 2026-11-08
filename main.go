@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -280,7 +281,10 @@ func main() {
 	log.Println("Starting Wails v3...")
 
 	// Create new Wails v3 application
+	h.UpdateAuthorization = rand.Text()
+	desktopCapabilities := &DesktopCapabilities{updateAuthorization: h.UpdateAuthorization}
 	app := application.New(application.Options{
+		Services:    []application.Service{application.NewService(desktopCapabilities)},
 		Name:        "MrRSS",
 		Description: "A modern, privacy-focused RSS reader",
 		LogLevel:    slog.LevelError,

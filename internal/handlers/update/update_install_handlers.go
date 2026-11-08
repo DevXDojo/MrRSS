@@ -37,6 +37,9 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
+	if !authorizeUpdate(h, w, r) {
+		return
+	}
 
 	var req struct {
 		FilePath string `json:"file_path"`
@@ -52,6 +55,12 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 	if err != nil {
 		log.Printf("Invalid file path attempted: %s", req.FilePath)
 		response.Error(w, fmt.Errorf("invalid file path"), http.StatusBadRequest)
+		return
+	}
+
+	digest, ok := verifiedUpdates.LoadAndDelete(verifiedUpdateKey{h, cleanPath})
+	if !ok || verifyUpdateDigest(r.Context(), cleanPath, fmt.Sprint(digest)) != nil {
+		response.Error(w, fmt.Errorf("update must be downloaded and verified in this session"), http.StatusBadRequest)
 		return
 	}
 
@@ -135,10 +144,8 @@ func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request
 				response.Error(w, fmt.Errorf("invalid file type for Windows"), http.StatusBadRequest)
 				return
 			}
-			// Use start command with /B flag to launch in background
-			// Format: start /B <executable_path>
-			// The /B flag prevents creating a new window
-			cmd = exec.Command("cmd.exe", "/C", "start", "/B", cleanPath)
+			// Execute the verified installer directly; never interpret its path as shell code.
+			cmd = exec.Command(cleanPath)
 			scheduleCleanup(cleanPath, 10*time.Second)
 		case "linux":
 			response.Error(w, fmt.Errorf("installed AppImage path is unavailable; please install the update manually"), http.StatusBadRequest)
@@ -282,110 +289,123 @@ func installPortableUpdate(archivePath string, platform string) error {
 	return nil
 }
 
-// extractZip extracts a ZIP archive to the specified directory
+// archivePath validates names consistently on every operating system.
+func archivePath(name string) (string, error) {
+	if strings.ContainsAny(name, "\\:") || !filepath.IsLocal(name) {
+		return "", fmt.Errorf("invalid archive path")
+	}
+	for _, part := range strings.Split(name, "/") {
+		if part == ".." {
+			return "", fmt.Errorf("invalid archive path")
+		}
+	}
+	return filepath.FromSlash(name), nil
+}
+
+// Extraction uses an OS-enforced root, including when an existing path is a
+// symlink. Only directories and ordinary files are accepted from archives.
 func extractZip(zipPath, destDir string) error {
-	r, err := zip.OpenReader(zipPath)
+	archive, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
-
-	for _, f := range r.File {
-		// Prevent path traversal
-		fpath := filepath.Join(destDir, f.Name)
-		if !strings.HasPrefix(filepath.Clean(fpath), filepath.Clean(destDir)) {
-			return fmt.Errorf("invalid file path in archive: %s", f.Name)
+	defer archive.Close()
+	root, err := os.OpenRoot(destDir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	for _, file := range archive.File {
+		name, err := archivePath(file.Name)
+		if err != nil {
+			return err
 		}
-
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(fpath, 0755)
+		if file.FileInfo().IsDir() {
+			if err := root.MkdirAll(name, 0755); err != nil {
+				return err
+			}
 			continue
 		}
-
-		// Create parent directory if needed
-		if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
+		if !file.Mode().IsRegular() {
+			return fmt.Errorf("unsupported archive entry")
+		}
+		if err := root.MkdirAll(filepath.Dir(name), 0755); err != nil {
 			return err
 		}
-
-		// Extract file
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		source, err := file.Open()
 		if err != nil {
 			return err
 		}
-
-		rc, err := f.Open()
+		err = extractRegularFile(root, name, file.Mode().Perm(), source)
+		closeErr := source.Close()
 		if err != nil {
-			outFile.Close()
 			return err
 		}
-
-		_, err = io.Copy(outFile, rc)
-		outFile.Close()
-		rc.Close()
-
-		if err != nil {
-			return err
+		if closeErr != nil {
+			return closeErr
 		}
 	}
 	return nil
 }
 
-// extractTarGz extracts a .tar.gz archive to the specified directory
 func extractTarGz(tarGzPath, destDir string) error {
 	file, err := os.Open(tarGzPath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-
-	gzr, err := gzip.NewReader(file)
+	gz, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
-
-	tr := tar.NewReader(gzr)
-
+	defer gz.Close()
+	root, err := os.OpenRoot(destDir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	reader := tar.NewReader(gz)
 	for {
-		header, err := tr.Next()
+		header, err := reader.Next()
 		if err == io.EOF {
-			break
+			return nil
 		}
 		if err != nil {
 			return err
 		}
-
-		// Prevent path traversal
-		fpath := filepath.Join(destDir, header.Name)
-		if !strings.HasPrefix(filepath.Clean(fpath), filepath.Clean(destDir)) {
-			return fmt.Errorf("invalid file path in archive: %s", header.Name)
+		name, err := archivePath(header.Name)
+		if err != nil {
+			return err
 		}
-
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(fpath, 0755); err != nil {
+			if err := root.MkdirAll(name, 0755); err != nil {
 				return err
 			}
-		case tar.TypeReg:
-			// Create parent directory if needed
-			if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
+		case tar.TypeReg, tar.TypeRegA:
+			if err := root.MkdirAll(filepath.Dir(name), 0755); err != nil {
 				return err
 			}
-
-			// Extract file
-			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
-			if err != nil {
+			if err := extractRegularFile(root, name, os.FileMode(header.Mode).Perm(), reader); err != nil {
 				return err
 			}
-
-			if _, err := io.Copy(outFile, tr); err != nil {
-				outFile.Close()
-				return err
-			}
-			outFile.Close()
+		default:
+			return fmt.Errorf("unsupported archive entry")
 		}
 	}
-	return nil
+}
+
+func extractRegularFile(root *os.Root, name string, mode os.FileMode, source io.Reader) error {
+	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode.Perm())
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(file, source)
+	closeErr := file.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 // copyFile copies a file from src to dst

@@ -79,6 +79,8 @@ const downloadSizeLabel = computed(() => {
 
 const downloadErrorMessage = computed(() => {
   switch (props.downloadErrorCode) {
+    case 'download_verification_failed':
+      return t('setting.update.downloadVerificationFailed');
     case 'download_proxy_error':
       return t('setting.update.downloadProxyError');
     case 'download_timeout':
