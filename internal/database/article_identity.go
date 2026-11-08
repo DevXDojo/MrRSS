@@ -59,16 +59,26 @@ func migrateArticleIdentity(db *sql.DB) error {
 	if done == "1" {
 		return tx.Commit()
 	}
-	rows, err := tx.Query(`SELECT id, feed_id, COALESCE(title, ''), COALESCE(url, ''), COALESCE(freshrss_item_id, '') FROM articles ORDER BY id`)
+	rows, err := tx.Query(`SELECT id, feed_id, COALESCE(title, ''), COALESCE(url, ''), COALESCE(freshrss_item_id, ''), COALESCE(unique_id, ''), published_at FROM articles ORDER BY id`)
 	if err != nil {
 		return err
 	}
 	var articles []models.Article
+	legacyKeys := make(map[int64]string)
 	for rows.Next() {
 		var article models.Article
-		if err := rows.Scan(&article.ID, &article.FeedID, &article.Title, &article.URL, &article.FreshRSSItemID); err != nil {
+		var oldKey string
+		var published sql.NullTime
+		if err := rows.Scan(&article.ID, &article.FeedID, &article.Title, &article.URL, &article.FreshRSSItemID, &oldKey, &published); err != nil {
 			rows.Close()
 			return err
+		}
+		article.PublishedAt = published.Time
+		article.HasValidPublishedTime = published.Valid && !published.Time.IsZero()
+		// A historical key is the best available identity when the source
+		// supplied neither a link nor a provider ID. Preserve its date policy.
+		if article.URL == "" && article.FreshRSSItemID == "" && oldKey != "" {
+			legacyKeys[article.ID] = oldKey
 		}
 		articles = append(articles, article)
 	}
@@ -85,6 +95,9 @@ func migrateArticleIdentity(db *sql.DB) error {
 	seen := make(map[string]bool)
 	for _, article := range articles {
 		key := articleUniqueID(&article)
+		if oldKey, ok := legacyKeys[article.ID]; ok {
+			key = oldKey
+		}
 		if seen[key] {
 			key += fmt.Sprintf(":legacy:%d", article.ID)
 		}

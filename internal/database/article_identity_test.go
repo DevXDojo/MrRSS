@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -24,6 +25,58 @@ func setupIdentityDB(t *testing.T) *DB {
 		t.Fatal(err)
 	}
 	return db
+}
+
+func TestLegacyURLConstraintMigrationPreservesReferences(t *testing.T) {
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "legacy.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	_, err = db.Exec(`PRAGMA foreign_keys=ON;
+	 CREATE TABLE articles (id INTEGER PRIMARY KEY, url TEXT UNIQUE, extra TEXT);
+	 CREATE INDEX articles_extra ON articles(extra);
+	 CREATE TABLE contents (article_id INTEGER REFERENCES articles(id) ON DELETE CASCADE, content TEXT);
+	 INSERT INTO articles VALUES(7,'https://example.org/post','retained');
+	 INSERT INTO contents VALUES(7,'cached article');`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := dropLegacyArticleURLConstraint(db); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var content, extra string
+	if err := db.QueryRow("SELECT content,extra FROM contents JOIN articles ON articles.id=contents.article_id WHERE articles.id=7").Scan(&content, &extra); err != nil || content != "cached article" || extra != "retained" {
+		t.Fatalf("lost data: %q %q %v", content, extra, err)
+	}
+	if _, err := db.Exec("INSERT INTO articles VALUES(8,'https://example.org/post','second')"); err != nil {
+		t.Fatal(err)
+	}
+	var indexes int
+	if err := db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='articles_extra'").Scan(&indexes); err != nil || indexes != 1 {
+		t.Fatalf("index lost: %v", err)
+	}
+	if _, err := db.Exec("INSERT INTO contents VALUES(99,'invalid reference')"); err == nil {
+		t.Fatal("foreign key protection was not restored")
+	}
+}
+
+func TestArticleIdentityMigrationPreservesLinklessLegacyKey(t *testing.T) {
+	db := setupIdentityDB(t)
+	_, err := db.Exec(`INSERT INTO articles(id,feed_id,title,url,published_at,unique_id) VALUES(103,(SELECT id FROM feeds LIMIT 1),'linkless','',CURRENT_TIMESTAMP,'original-key'); DELETE FROM settings WHERE key='article_identity_v2'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateArticleIdentity(db.DB); err != nil {
+		t.Fatal(err)
+	}
+	var key string
+	if err := db.QueryRow("SELECT unique_id FROM articles WHERE id=103").Scan(&key); err != nil || key != "original-key" {
+		t.Fatalf("key=%q err=%v", key, err)
+	}
 }
 
 func TestArticleIdentityKeepsSameTitlePosts(t *testing.T) {
