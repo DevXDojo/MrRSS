@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"MrRSS/internal/utils/procutil"
+
 	"github.com/mmcdole/gofeed"
 )
 
@@ -30,6 +32,7 @@ func findPythonExecutable(ctx context.Context) (string, error) {
 
 	for _, candidate := range candidates {
 		cmd := exec.CommandContext(ctx, candidate, "--version")
+		procutil.HideWindow(cmd)
 		if err := cmd.Run(); err == nil {
 			return candidate, nil
 		}
@@ -97,6 +100,9 @@ func (e *ScriptExecutor) ExecuteScript(ctx context.Context, scriptPath string) (
 
 	// Set working directory to the scripts directory
 	cmd.Dir = e.scriptsDir
+
+	// Never let the script pop up a console window on Windows
+	procutil.HideWindow(cmd)
 
 	// Capture stdout and stderr
 	var stdout, stderr bytes.Buffer
