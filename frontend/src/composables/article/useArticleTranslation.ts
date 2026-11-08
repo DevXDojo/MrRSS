@@ -230,7 +230,7 @@ export function useArticleTranslation() {
               Math.min(300000, 30000 * 2 ** Math.min(failures - 1, 4))
             ),
         });
-        notifyTranslationError(t('common.errors.translatingTitle'));
+        if (!automatic) notifyTranslationError(t('common.errors.translatingTitle'));
       }
     } catch {
       if (isCurrent()) {
@@ -239,7 +239,7 @@ export function useArticleTranslation() {
           failures,
           retryAt: Date.now() + Math.min(300000, 30000 * 2 ** Math.min(failures - 1, 4)),
         });
-        notifyTranslationError(t('common.errors.translating'));
+        if (!automatic) notifyTranslationError(t('common.errors.translating'));
       }
     } finally {
       translatingArticles.value.delete(article.id);

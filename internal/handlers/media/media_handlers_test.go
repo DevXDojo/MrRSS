@@ -199,10 +199,14 @@ func TestRewriteHTMLContent_ResponsiveImageCandidates(t *testing.T) {
 		t.Fatalf("responsive image candidates were not proxied: %s", result)
 	}
 
-	encodedURLs := regexp.MustCompile(`url_b64=([A-Za-z0-9+/=]+)`).FindAllStringSubmatch(result, -1)
+	encodedURLs := regexp.MustCompile(`url_b64=([A-Za-z0-9+/%=]+)`).FindAllStringSubmatch(result, -1)
 	var decodedURLs []string
 	for _, match := range encodedURLs {
-		decoded, err := base64.StdEncoding.DecodeString(match[1])
+		encoded, err := url.QueryUnescape(match[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
 		if err != nil {
 			t.Fatalf("decode proxied URL: %v", err)
 		}

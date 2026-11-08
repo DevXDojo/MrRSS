@@ -56,7 +56,7 @@ describe('reader translation recovery', () => {
     return wrapper;
   }
 
-  function mockTranslations(limited = false, rssSummary = '') {
+  function mockTranslations(limited = false, rssSummary = '', provider = 'rss') {
     let first = true;
     const mock = vi.fn(async (url: string, options?: RequestInit) => {
       if (url === '/api/settings')
@@ -66,8 +66,8 @@ describe('reader translation recovery', () => {
             target_language: 'zh',
             translation_trigger_mode: 'auto',
             summary_enabled: rssSummary ? 'true' : 'false',
-            summary_provider: 'rss',
-            summary_trigger_mode: 'manual',
+            summary_provider: provider,
+            summary_trigger_mode: provider === 'ai' ? 'auto' : 'manual',
             auto_show_all_content: 'false',
             remember_article_position: 'false',
             show_floating_toc: 'false',
@@ -178,5 +178,33 @@ describe('reader translation recovery', () => {
     expect(summaryView.props('translatedSummary').text).toBe(`译文 ${summary}`);
     expect(summaryView.props('isTranslatingSummary')).toBe(false);
     expect(window.showToast).not.toHaveBeenCalled();
+  });
+
+  it.each(['local', 'ai'])('translates an already generated %s summary', async (provider) => {
+    const summary = 'Automatically generated English summary';
+    mockTranslations(false, summary, provider);
+    const view = reader('<p>English paragraph</p>', summary);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.findComponent(ArticleSummary).props('translatedSummary').text).toBe(
+      `译文 ${summary}`
+    );
+    expect(view.findComponent(ArticleSummary).props('summaryResult').summary).toBe(summary);
+  });
+
+  it('keeps automatic failures quiet while preserving explicit translation errors', async () => {
+    const mock = mockTranslations();
+    const defaults = mock.getMockImplementation()!;
+    mock.mockImplementation(async (url, options) =>
+      url === '/api/articles/translate-text'
+        ? new Response('{}', { status: 500 })
+        : defaults(url, options)
+    );
+    const view = reader('<p>English paragraph</p>');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(window.showToast).not.toHaveBeenCalled();
+    expect(view.text()).toContain('English paragraph');
+    view.findComponent(ArticleTitle).vm.$emit('force-translate');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(window.showToast).toHaveBeenCalledTimes(1);
   });
 });

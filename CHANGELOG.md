@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep background translation failures quiet while preserving manual error feedback; translate generated summaries, retain the open article beside its neighbours during unread refreshes, and restore proxied webpage styles and stylesheet-relative resources. (#1259)
 - Reduce the initial web bundle by importing only used Phosphor icons, and gzip frontend text assets in server mode while preserving API and media responses. (#1270, @marcomarcogd)
 - Fit the article reader and settings on narrow screens, restore normal article image sizing, and close dialogs and the reader in order when using the mobile browser Back button. (#1273)
 - Keep distinct same-title articles using provider item IDs or article URLs, and migrate existing identities without losing reading state, favorites, cached content, or chat history. (#1276)

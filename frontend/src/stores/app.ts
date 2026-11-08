@@ -24,8 +24,29 @@ export function preserveSelectedArticle<T extends { id: number }>(
   if (!currentArticleId || freshArticles.some((article) => article.id === currentArticleId)) {
     return freshArticles;
   }
-  const selectedArticle = previousArticles.find((article) => article.id === currentArticleId);
-  return selectedArticle ? [...freshArticles, selectedArticle] : freshArticles;
+  const previousIndex = previousArticles.findIndex((article) => article.id === currentArticleId);
+  if (previousIndex < 0) return freshArticles;
+  const selectedArticle = previousArticles[previousIndex];
+  const freshPositions = new Map(freshArticles.map((article, index) => [article.id, index]));
+  // A newly read article may disappear from an unread-only response. Keep it
+  // beside its surviving neighbours instead of moving the open row to the end.
+  let insertionIndex = freshArticles.length;
+  const nextNeighbour = previousArticles
+    .slice(previousIndex + 1)
+    .find((article) => freshPositions.has(article.id));
+  if (nextNeighbour) insertionIndex = freshPositions.get(nextNeighbour.id)!;
+  else {
+    const previousNeighbour = previousArticles
+      .slice(0, previousIndex)
+      .reverse()
+      .find((article) => freshPositions.has(article.id));
+    if (previousNeighbour) insertionIndex = freshPositions.get(previousNeighbour.id)! + 1;
+  }
+  return [
+    ...freshArticles.slice(0, insertionIndex),
+    selectedArticle,
+    ...freshArticles.slice(insertionIndex),
+  ];
 }
 
 export type Filter = 'all' | 'unread' | 'favorites' | 'readLater' | 'imageGallery' | '';

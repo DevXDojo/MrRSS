@@ -79,6 +79,20 @@ describe('article refresh integration', () => {
     expect(store.navigableArticles.find((item) => item.id === store.currentArticleId)?.id).toBe(75);
     expect(store.isLoading).toBe(false);
   });
+
+  it('keeps the selected newly read article beside its neighbours after an unread refresh', async () => {
+    const store = useAppStore();
+    store.articles = [article(1), { ...article(2), is_read: true }, article(3), article(4)];
+    store.currentArticleId = 2;
+    store.currentFilter = 'unread';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(response([article(5), article(1), article(3), article(4)]))
+    );
+    await store.fetchArticles(false, true);
+    expect(store.articles.map((item) => item.id)).toEqual([5, 1, 2, 3, 4]);
+    expect(store.currentArticleId).toBe(2);
+  });
   it('returns to the source feed with filters cleared and the selected older article retained', async () => {
     const store = useAppStore();
     const selected = { ...article(75), feed_id: 2, is_read: true };

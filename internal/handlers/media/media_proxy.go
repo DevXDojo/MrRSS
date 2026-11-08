@@ -447,7 +447,7 @@ func HandleWebpageProxy(h *core.Handler, w http.ResponseWriter, r *http.Request)
 	}
 
 	// Create request to the target URL
-	req, err := http.NewRequest("GET", webpageURL, nil)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, webpageURL, nil)
 	if err != nil {
 		log.Printf("Failed to create request: %v", err)
 		response.Error(w, err, http.StatusInternalServerError)
@@ -494,7 +494,7 @@ func HandleWebpageProxy(h *core.Handler, w http.ResponseWriter, r *http.Request)
 
 	// If this is HTML content, rewrite all resource URLs
 	if strings.Contains(strings.ToLower(contentType), "text/html") {
-		bodyBytes = rewriteHTMLContent(bodyBytes, webpageURL)
+		bodyBytes = rewriteHTMLContent(bodyBytes, resp.Request.URL.String())
 	}
 
 	// Set response headers to allow framing and remove CORS restrictions
@@ -1140,9 +1140,11 @@ func proxyWebpageResourceURL(value, baseURL string) (string, bool) {
 	if err != nil || parsedURL.Hostname() == "" || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
 		return value, false
 	}
-	return fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
-		base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
-		base64.StdEncoding.EncodeToString([]byte(baseURL))), true
+	query := url.Values{
+		"url_b64":     {base64.StdEncoding.EncodeToString([]byte(resolvedURL))},
+		"referer_b64": {base64.StdEncoding.EncodeToString([]byte(baseURL))},
+	}
+	return "/api/webpage/resource?" + query.Encode(), true
 }
 
 func isHTMLSpace(value byte) bool {
@@ -1151,85 +1153,7 @@ func isHTMLSpace(value byte) bool {
 
 // rewriteLinkHref rewrites href attributes in link tags
 func rewriteLinkHref(content, baseURL string) string {
-	// Match all link tags
-	tagRe := regexp.MustCompile(`<link[^>]*>`)
-
-	matchCount := 0
-	rewriteCount := 0
-
-	result := tagRe.ReplaceAllStringFunc(content, func(match string) string {
-		matchCount++
-		// Try to find the href attribute with double quotes
-		doubleQuoteRe := regexp.MustCompile(`\shref\s*=\s*"([^"]*)"`)
-		doubleQuoteMatch := doubleQuoteRe.FindStringSubmatch(match)
-
-		var urlValue, quote string
-
-		if len(doubleQuoteMatch) >= 2 {
-			// Found double-quoted attribute
-			urlValue = doubleQuoteMatch[1]
-			quote = `"`
-		} else {
-			// Try single quotes
-			singleQuoteRe := regexp.MustCompile(`\shref\s*=\s*'([^']*)'`)
-			singleQuoteMatch := singleQuoteRe.FindStringSubmatch(match)
-			if len(singleQuoteMatch) >= 2 {
-				urlValue = singleQuoteMatch[1]
-				quote = `'`
-			} else {
-				// Try unquoted
-				unquotedRe := regexp.MustCompile(`\shref\s*=\s*([^\s>]+)`)
-				unquotedMatch := unquotedRe.FindStringSubmatch(match)
-				if len(unquotedMatch) >= 2 {
-					urlValue = unquotedMatch[1]
-					quote = ""
-				} else {
-					// href attribute not found
-					return match
-				}
-			}
-		}
-
-		// Skip data: URLs, blob: URLs, and already proxied URLs
-		if strings.HasPrefix(urlValue, "data:") ||
-			strings.HasPrefix(urlValue, "blob:") ||
-			strings.HasPrefix(urlValue, "/api/") ||
-			strings.HasPrefix(urlValue, "#") {
-			return match
-		}
-
-		rewriteCount++
-		// log.Printf("[Link Rewrite] Rewriting link %d: %s", rewriteCount, urlValue)
-
-		// Resolve relative URLs
-		resolvedURL := resolveURL(urlValue, baseURL)
-
-		// Create proxied URL with base64 encoding
-		proxiedURL := fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
-			base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
-			base64.StdEncoding.EncodeToString([]byte(baseURL)))
-
-		// Replace the URL in the match
-		// Use regex to replace href attribute value more reliably
-		if quote != "" {
-			// Quoted value - replace using regex for more flexibility
-			hrefPattern := regexp.MustCompile(`(href)\s*=\s*` + regexp.QuoteMeta(quote) + regexp.QuoteMeta(urlValue) + regexp.QuoteMeta(quote))
-			replacement := fmt.Sprintf(`href=%s%s%s`, quote, proxiedURL, quote)
-			return hrefPattern.ReplaceAllString(match, replacement)
-		} else {
-			// Unquoted value - match and capture the trailing delimiter
-			// Go's regexp doesn't support lookahead, so we match and preserve the trailing char
-			hrefPattern := regexp.MustCompile(`(href)\s*=\s*` + regexp.QuoteMeta(urlValue) + `([\s>])`)
-			replacement := fmt.Sprintf(`href="%s"$2`, proxiedURL)
-			return hrefPattern.ReplaceAllString(match, replacement)
-		}
-	})
-
-	// if matchCount > 0 {
-	// 	log.Printf("[Link Rewrite] Found %d link tags, rewrote %d", matchCount, rewriteCount)
-	// }
-
-	return result
+	return rewriteAttribute(content, "link", "href", baseURL)
 }
 
 // rewriteAnchorHref rewrites href attributes in anchor tags
@@ -1400,115 +1324,44 @@ func rewriteStyleTags(content, baseURL string) string {
 
 // rewriteInlineStyles rewrites style attribute values
 func rewriteInlineStyles(content, baseURL string) string {
-	pattern := `style\s*=\s*(["'])(.*?)\1`
-	pattern = strings.ReplaceAll(pattern, `\1`, `\$1`) // Fix backreference
-	re := regexp.MustCompile(pattern)
-
+	re := regexp.MustCompile(`(?is)\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')`)
 	return re.ReplaceAllStringFunc(content, func(match string) string {
-		subPattern := `style\s*=\s*(["'])(.*?)\1`
-		subPattern = strings.ReplaceAll(subPattern, `\1`, `\$1`) // Fix backreference
-		subRe := regexp.MustCompile(subPattern)
-		matches := subRe.FindStringSubmatch(match)
-		if len(matches) < 3 {
-			return match
+		parts := re.FindStringSubmatch(match)
+		style := parts[1]
+		if style == "" {
+			style = parts[2]
 		}
-
-		quote := matches[1]
-		styleContent := matches[2]
-		// Rewrite @font-face rules first
-		styleContent = rewriteFontFaceRules(styleContent, baseURL)
-		// Then rewrite all other url() references
-		rewrittenStyle := rewriteCSSURLs(styleContent, baseURL)
-
-		return fmt.Sprintf(`style=%s%s%s`, quote, rewrittenStyle, quote)
+		rewritten := rewriteCSSURLs(html.UnescapeString(style), baseURL)
+		return `style="` + html.EscapeString(rewritten) + `"`
 	})
 }
 
-// rewriteCSSURLs rewrites url() references in CSS
+// rewriteCSSURLs resolves imports, fonts and images against the stylesheet URL.
+// Go's regexp does not support backreferences; use separate quoted alternatives.
 func rewriteCSSURLs(css, baseURL string) string {
-	// First, handle @import rules
-	// @import can be: @import "url"; or @import url("url");
-	// We need to handle multiple patterns separately
-	importRe1 := regexp.MustCompile(`@import\s+url\(['"]([^'"]+)['"]\)`)
-	css = importRe1.ReplaceAllStringFunc(css, func(match string) string {
-		subMatches := importRe1.FindStringSubmatch(match)
-		if len(subMatches) < 2 {
-			return match
+	imports := regexp.MustCompile(`(?i)@import\s+(?:"([^"]+)"|'([^']+)')`)
+	css = imports.ReplaceAllStringFunc(css, func(match string) string {
+		parts := imports.FindStringSubmatch(match)
+		value := parts[1]
+		if value == "" {
+			value = parts[2]
 		}
-
-		urlValue := subMatches[1]
-
-		// Skip data: URLs and already proxied URLs
-		if strings.HasPrefix(urlValue, "data:") ||
-			strings.HasPrefix(urlValue, "/api/") {
-			return match
-		}
-
-		// Resolve relative URLs
-		resolvedURL := resolveURL(urlValue, baseURL)
-
-		// Create proxied URL with base64 encoding
-		proxiedURL := fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
-			base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
-			base64.StdEncoding.EncodeToString([]byte(baseURL)))
-
-		return fmt.Sprintf(`@import url("%s")`, proxiedURL)
+		return `@import url("` + value + `")`
 	})
-
-	importRe2 := regexp.MustCompile(`@import\s+['"]([^'"]+)['"]`)
-	css = importRe2.ReplaceAllStringFunc(css, func(match string) string {
-		subMatches := importRe2.FindStringSubmatch(match)
-		if len(subMatches) < 2 {
-			return match
-		}
-
-		urlValue := subMatches[1]
-
-		// Skip data: URLs and already proxied URLs
-		if strings.HasPrefix(urlValue, "data:") ||
-			strings.HasPrefix(urlValue, "/api/") {
-			return match
-		}
-
-		// Resolve relative URLs
-		resolvedURL := resolveURL(urlValue, baseURL)
-
-		// Create proxied URL with base64 encoding
-		proxiedURL := fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
-			base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
-			base64.StdEncoding.EncodeToString([]byte(baseURL)))
-
-		return fmt.Sprintf(`@import url("%s")`, proxiedURL)
-	})
-
-	// Then handle url(...) patterns in CSS
-	pattern := `url\((['"]?)([^'")]+)\1\)`
-	pattern = strings.ReplaceAll(pattern, `\1`, `\$1`) // Fix backreference
-	re := regexp.MustCompile(pattern)
-
+	re := regexp.MustCompile(`(?i)url\(\s*(?:"([^"]*)"|'([^']*)'|([^'"\)]*))\s*\)`)
 	return re.ReplaceAllStringFunc(css, func(match string) string {
-		subMatches := re.FindStringSubmatch(match)
-		if len(subMatches) < 3 {
-			return match
+		parts := re.FindStringSubmatch(match)
+		value := parts[1]
+		if value == "" {
+			value = parts[2]
 		}
-
-		urlValue := subMatches[2]
-
-		// Skip data: URLs and already proxied URLs
-		if strings.HasPrefix(urlValue, "data:") ||
-			strings.HasPrefix(urlValue, "/api/") {
-			return match
+		if value == "" {
+			value = parts[3]
 		}
-
-		// Resolve relative URLs
-		resolvedURL := resolveURL(urlValue, baseURL)
-
-		// Create proxied URL with base64 encoding
-		proxiedURL := fmt.Sprintf("/api/webpage/resource?url_b64=%s&referer_b64=%s",
-			base64.StdEncoding.EncodeToString([]byte(resolvedURL)),
-			base64.StdEncoding.EncodeToString([]byte(baseURL)))
-
-		return fmt.Sprintf(`url(%s)`, proxiedURL)
+		if proxied, ok := proxyWebpageResourceURL(html.EscapeString(value), baseURL); ok {
+			return `url("` + proxied + `")`
+		}
+		return match
 	})
 }
 
@@ -1665,7 +1518,7 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 			response.Error(w, err, http.StatusInternalServerError)
 			return
 		}
-		req, err = http.NewRequest("POST", resourceURL, bytes.NewReader(body))
+		req, err = http.NewRequestWithContext(r.Context(), http.MethodPost, resourceURL, bytes.NewReader(body))
 		if err != nil {
 			log.Printf("Failed to create request: %v", err)
 			response.Error(w, err, http.StatusInternalServerError)
@@ -1676,7 +1529,7 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 			req.Header.Set("Content-Type", contentType)
 		}
 	} else {
-		req, err = http.NewRequest("GET", resourceURL, nil)
+		req, err = http.NewRequestWithContext(r.Context(), http.MethodGet, resourceURL, nil)
 		if err != nil {
 			log.Printf("Failed to create request: %v", err)
 			response.Error(w, err, http.StatusInternalServerError)
@@ -1715,7 +1568,7 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 	// Many servers return incorrect Content-Type headers (e.g., text/plain for .css or .js files)
 	// We override these with the correct type based on file extension
 	shouldInferType := false
-	ext := strings.ToLower(filepath.Ext(resourceURL))
+	ext := webpageResourceExtension(resourceURL)
 	switch ext {
 	case ".css", ".js", ".mjs", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".json", ".xml":
 		// These types MUST have correct MIME types or browsers will reject them
@@ -1762,9 +1615,9 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 		}
 
 		// Rewrite @font-face rules
-		cssContent := rewriteFontFaceRules(string(bodyBytes), referer)
+		cssContent := rewriteFontFaceRules(string(bodyBytes), resp.Request.URL.String())
 		// Rewrite all url() references
-		cssContent = rewriteCSSURLs(cssContent, referer)
+		cssContent = rewriteCSSURLs(cssContent, resp.Request.URL.String())
 
 		// Update content length
 		bodyBytes = []byte(cssContent)
@@ -1883,8 +1736,15 @@ func HandleMediaCacheInfo(h *core.Handler, w http.ResponseWriter, r *http.Reques
 }
 
 // getContentTypeFromPath determines content type from file extension
+func webpageResourceExtension(raw string) string {
+	if parsed, err := url.Parse(raw); err == nil {
+		raw = parsed.Path
+	}
+	return strings.ToLower(filepath.Ext(raw))
+}
+
 func getContentTypeFromPath(path string) string {
-	ext := strings.ToLower(filepath.Ext(path))
+	ext := webpageResourceExtension(path)
 	switch ext {
 	case ".jpg", ".jpeg":
 		return "image/jpeg"
