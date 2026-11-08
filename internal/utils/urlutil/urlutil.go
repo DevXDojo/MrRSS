@@ -223,7 +223,11 @@ func containsMeaningfulWords(key string) bool {
 }
 
 // GenerateArticleUniqueID generates a unique identifier for an article.
-func GenerateArticleUniqueID(title string, feedID int64, publishedAt time.Time, hasValidPublishedTime bool) string {
+func GenerateArticleUniqueID(title string, feedID int64, publishedAt time.Time, hasValidPublishedTime bool, identity ...string) string {
+	if len(identity) > 0 && identity[0] != "" {
+		hash := md5.Sum([]byte(fmt.Sprintf("%d|%s", feedID, identity[0])))
+		return "v2:" + hex.EncodeToString(hash[:])
+	}
 	title = strings.TrimSpace(title)
 
 	var dateStr string

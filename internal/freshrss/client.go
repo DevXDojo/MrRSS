@@ -789,14 +789,15 @@ func (s *SyncService) Sync(ctx context.Context) error {
 		}
 
 		article := &models.Article{
-			FeedID:      freshRSSFeedID,
-			Title:       freshArt.Title,
-			URL:         freshArt.URL,
-			Summary:     freshArt.Content, // Store FreshRSS content as summary
-			PublishedAt: freshArt.Published,
-			IsRead:      false, // FreshRSS unread articles
-			IsFavorite:  false,
-			IsHidden:    false,
+			FeedID:         freshRSSFeedID,
+			FreshRSSItemID: freshArt.ID,
+			Title:          freshArt.Title,
+			URL:            freshArt.URL,
+			Summary:        freshArt.Content, // Store FreshRSS content as summary
+			PublishedAt:    freshArt.Published,
+			IsRead:         false, // FreshRSS unread articles
+			IsFavorite:     false,
+			IsHidden:       false,
 		}
 		mrssArticles = append(mrssArticles, article)
 	}
