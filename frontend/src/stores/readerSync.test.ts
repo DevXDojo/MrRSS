@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useAppStore } from './app';
+import { setSettingsFromRawData } from '@/composables/core/useSettings';
 
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }) }));
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }),
+}));
 
 describe('reader sync polling', () => {
   beforeEach(() => {
@@ -47,6 +50,7 @@ describe('reader sync polling', () => {
   });
 
   it('manually syncs both readers when a feed is selected, accepting an active sync', async () => {
+    setSettingsFromRawData({ freshrss_enabled: 'true', miniflux_enabled: 'true' });
     const store = useAppStore();
     store.currentFeedId = 1;
     const fetchMock = vi.fn(async (url: string) => {
