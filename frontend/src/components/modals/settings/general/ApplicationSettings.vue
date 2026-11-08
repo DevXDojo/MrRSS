@@ -28,8 +28,11 @@ import type { SettingsData } from '@/types/settings';
 const { t } = useI18n();
 const desktop = System.IsDesktop();
 async function openTicker() {
-  try { await Call.ByName('main.DesktopCapabilities.ShowTicker'); }
-  catch { window.showToast(t('setting.ticker.openFailed'), 'error'); }
+  try {
+    await Call.ByName('main.DesktopCapabilities.ShowTicker');
+  } catch {
+    window.showToast(t('setting.ticker.openFailed'), 'error');
+  }
 }
 
 interface Props {
@@ -61,8 +64,17 @@ function updateUiFontSize(value: number) {
 
 <template>
   <SettingGroup :icon="PhPalette" :title="t('setting.general.application')">
-    <SettingItem v-if="desktop" :icon="PhTextT" :title="t('setting.ticker.title')" :description="t('setting.ticker.description')">
-      <button type="button" class="px-3 py-2 rounded border border-border bg-bg-tertiary text-text-primary hover:bg-bg-secondary" @click="openTicker">
+    <SettingItem
+      v-if="desktop"
+      :icon="PhTextT"
+      :title="t('setting.ticker.title')"
+      :description="t('setting.ticker.description')"
+    >
+      <button
+        type="button"
+        class="px-3 py-2 rounded border border-border bg-bg-tertiary text-text-primary hover:bg-bg-secondary"
+        @click="openTicker"
+      >
         {{ t('setting.ticker.open') }}
       </button>
     </SettingItem>

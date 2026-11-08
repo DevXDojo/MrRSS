@@ -121,10 +121,16 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
       // for valid values at runtime and fail gracefully if settings are incomplete/invalid.
 
       // Save to backend using generated payload (alphabetically sorted)
+      const payload = buildAutoSavePayload(settingsRef);
+      // The ticker is edited in its own window. A stale main-window snapshot
+      // must never overwrite preferences saved by that window.
+      for (const key of Object.keys(payload)) {
+        if (key.startsWith('ticker_')) delete payload[key];
+      }
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildAutoSavePayload(settingsRef)),
+        body: JSON.stringify(payload),
       });
 
       // Clear and re-translate if translation settings changed

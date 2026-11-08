@@ -17,6 +17,7 @@ type DesktopCapabilities struct {
 	app                 *application.App
 	mu                  sync.Mutex
 	ticker              *application.WebviewWindow
+	tickerDock          int // 1 = top, -1 = bottom, 0 = free floating
 }
 
 func (s *DesktopCapabilities) UpdateAuthorization() string { return s.updateAuthorization }
@@ -62,6 +63,10 @@ func (s *DesktopCapabilities) SetTickerExpanded(expanded bool) {
 	if expanded {
 		height = 200
 	}
+	if s.tickerDock != 0 {
+		_ = s.positionTicker(s.tickerDock == 1, height)
+		return
+	}
 	s.ticker.SetSize(s.ticker.Width(), height)
 }
 
@@ -71,6 +76,15 @@ func (s *DesktopCapabilities) PositionTicker(top bool) error {
 	if s.ticker == nil {
 		return fmt.Errorf("ticker is not open")
 	}
+	s.tickerDock = -1
+	if top {
+		s.tickerDock = 1
+	}
+	return s.positionTicker(top, s.ticker.Height())
+}
+
+// Caller holds mu. Preserve docking when expanding the preferences panel.
+func (s *DesktopCapabilities) positionTicker(top bool, height int) error {
 	screen, err := s.ticker.GetScreen()
 	if err != nil || screen == nil {
 		screen = s.app.Screen.GetPrimary()
@@ -79,7 +93,6 @@ func (s *DesktopCapabilities) PositionTicker(top bool) error {
 		return fmt.Errorf("screen unavailable")
 	}
 	area := screen.WorkArea
-	height := 72
 	if area.Height < height {
 		height = area.Height
 	}
