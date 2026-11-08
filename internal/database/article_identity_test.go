@@ -98,6 +98,9 @@ func TestArticleIdentityKeepsSameTitlePosts(t *testing.T) {
 			if err := db.SaveArticles(context.Background(), articles); err != nil {
 				t.Fatal(err)
 			}
+			for _, article := range articles {
+				article.Title = "Edited title"
+			}
 			if err := db.SaveArticles(context.Background(), articles); err != nil {
 				t.Fatal(err)
 			}
