@@ -12,12 +12,12 @@ const emit = defineEmits<{ 'update:settings': [settings: SettingsData] }>();
 const { t } = useI18n();
 const store = useAppStore();
 const name = computed(() => (props.provider === 'miniflux' ? 'Miniflux' : 'FreshRSS'));
-type Field = 'enabled' | 'server_url' | 'username' | 'api_password';
+type Field = 'enabled' | 'server_url' | 'username' | 'api_password' | 'auto_sync_interval' | 'sync_on_startup';
 function key(field: Field) {
   return `${props.provider}_${field}` as const;
 }
 const enabled = computed(() => props.settings[`${props.provider}_enabled`]);
-function update(field: Field, value: string | boolean) {
+function update(field: Field, value: string | boolean | number) {
   emit('update:settings', { ...props.settings, [key(field)]: value });
 }
 async function toggle(event: Event) {
@@ -170,6 +170,17 @@ onBeforeUnmount(() => {
           <PhArrowClockwise :size="16" :class="{ 'animate-spin': syncing }" />
           {{ t(syncing ? 'setting.freshrss.syncing' : 'setting.freshrss.sync') }}
         </button>
+      </SubSettingItem>
+      <SubSettingItem :title="t('setting.freshrss.autoSyncInterval')" :description="t('setting.freshrss.autoSyncIntervalDesc')">
+        <InputControl type="number" :min="0" :max="525600"
+          :model-value="settings[`${provider}_auto_sync_interval`]"
+          @update:model-value="update('auto_sync_interval', Math.min(525600, Math.max(0, Number($event) || 0)))" />
+      </SubSettingItem>
+      <SubSettingItem :title="t('setting.freshrss.syncOnStartup')">
+        <input type="checkbox" class="toggle"
+          :checked="settings[`${provider}_sync_on_startup`]"
+          :aria-label="t('setting.freshrss.syncOnStartup')"
+          @change="update('sync_on_startup', ($event.target as HTMLInputElement).checked)" />
       </SubSettingItem>
     </NestedSettingsContainer>
   </div>

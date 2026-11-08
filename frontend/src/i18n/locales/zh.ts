@@ -1200,6 +1200,9 @@ const zh: TranslationMessages = {
       reDetectNetwork: '重新检测',
     },
     freshrss: {
+      autoSyncInterval: '后台同步间隔（分钟）',
+      autoSyncIntervalDesc: '0 表示禁用定时同步。修改后 30 秒内生效，与订阅源刷新周期相互独立。',
+      syncOnStartup: '启动后自动同步',
       integration: '{name} 集成',
       integrationDesc: '通过 Google Reader API 单独配置并同步 {name}。',
       apiPassword: 'Google Reader 密码',

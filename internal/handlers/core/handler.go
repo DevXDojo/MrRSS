@@ -65,6 +65,7 @@ type Handler struct {
 	Advertisements    *advertisement.Service
 	SetStartupOnBoot  func(bool) error // Optional desktop-only startup integration
 	QuitForUpdate     func()           // Desktop shutdown bypassing close-to-tray
+	BackgroundContext context.Context  // Cancelled on application shutdown
 
 	// Discovery state tracking for polling-based progress
 	DiscoveryMu          sync.RWMutex

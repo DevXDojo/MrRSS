@@ -1245,6 +1245,9 @@ const en: TranslationMessages = {
       reDetectNetwork: 'Re-detect',
     },
     freshrss: {
+      autoSyncInterval: 'Background sync interval (minutes)',
+      autoSyncIntervalDesc: '0 disables scheduled sync. Changes take effect within 30 seconds, independently of feed refresh.',
+      syncOnStartup: 'Sync shortly after startup',
       integration: '{name} Integration',
       integrationDesc: 'Configure and sync {name} independently using its Google Reader API.',
       apiPassword: 'Google Reader Password',

@@ -197,7 +197,10 @@ func main() {
 	translator.SetProfileProvider(profileProvider)
 
 	fetcher := feed.NewFetcher(db)
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
+	h.BackgroundContext = bgCtx
 	configureAdvertisements(h)
 	h.SetStartupOnBoot = func(enabled bool) error {
 		if enabled {
@@ -248,7 +251,6 @@ func main() {
 
 	// Start background scheduler
 	log.Println("Starting background scheduler...")
-	bgCtx, bgCancel := context.WithCancel(context.Background())
 
 	// Encryption key for single instance communication (IPC between app instances).
 	// This key is used to encrypt/decrypt messages between first and subsequent instances.
@@ -465,7 +467,7 @@ func main() {
 
 		trayMenu.Add(refreshLabel).OnClick(func(ctx *application.Context) {
 			if h.Fetcher != nil {
-				go h.Fetcher.FetchAll(bgCtx)
+				go h.Fetcher.FetchAll(bgCtx, true)
 			}
 		})
 

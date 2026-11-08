@@ -153,7 +153,10 @@ func main() {
 	translator.SetProfileProvider(profileProvider)
 
 	fetcher := feed.NewFetcher(db)
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
+	h.BackgroundContext = bgCtx
 	configureAdvertisements(h)
 
 	// API Routes
@@ -188,7 +191,6 @@ func main() {
 
 	// Start background scheduler
 	// Use a context that we can cancel on shutdown
-	bgCtx, bgCancel := context.WithCancel(context.Background())
 
 	log.Println("Starting background scheduler...")
 	go h.StartBackgroundScheduler(bgCtx)
