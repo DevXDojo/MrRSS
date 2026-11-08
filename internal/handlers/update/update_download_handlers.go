@@ -17,8 +17,10 @@ import (
 
 // HandleDownloadUpdate downloads the update file.
 // @Summary      Download update
-// @Description  Download the update file from GitHub releases to the temp directory
+// @Description  Desktop-only update download; requires a native capability and verifies the official release asset SHA-256 digest. Disabled in server mode.
 // @Tags         update
+// @Param        Authorization header string true "Native desktop capability (Bearer token)"
+// @Failure      403  {object}  map[string]string  "Desktop update authorization required"
 // @Accept       json
 // @Produce      json
 // @Param        request  body      object  true  "Download request (download_url, asset_name, optional request_id)"

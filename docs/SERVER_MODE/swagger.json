@@ -3298,7 +3298,7 @@
         },
         "/download-update": {
             "post": {
-                "description": "Download the update file from GitHub releases to the temp directory",
+                "description": "Desktop-only update download; requires a native capability and verifies the official release asset SHA-256 digest. Disabled in server mode.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3310,6 +3310,13 @@
                 ],
                 "summary": "Download update",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Native desktop capability (Bearer token)",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "Download request (download_url, asset_name, optional request_id)",
                         "name": "request",
@@ -3339,6 +3346,15 @@
                     },
                     "500": {
                         "description": "Download failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Desktop update authorization required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5391,7 +5407,7 @@
         },
         "/update/install": {
             "post": {
-                "description": "Install the downloaded update (will restart the application)",
+                "description": "Desktop-only installation of an update verified in this process; requires a native capability and rechecks SHA-256. Disabled in server mode.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5403,6 +5419,13 @@
                 ],
                 "summary": "Install update",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Native desktop capability (Bearer token)",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "Install request (file_path)",
                         "name": "request",
@@ -5432,6 +5455,15 @@
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Desktop update authorization required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

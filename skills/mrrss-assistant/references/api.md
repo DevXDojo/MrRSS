@@ -674,6 +674,7 @@ Parameters:
 Download update
 
 Parameters:
+  - `Authorization` (header, required): Native desktop capability (Bearer token)
   - `request` (body, required): Download request (download_url, asset_name, optional request_id)
 
 Request body: see the Swagger schema for full field details.
@@ -906,6 +907,7 @@ Check for updates
 Install update
 
 Parameters:
+  - `Authorization` (header, required): Native desktop capability (Bearer token)
   - `request` (body, required): Install request (file_path)
 
 Request body: see the Swagger schema for full field details.

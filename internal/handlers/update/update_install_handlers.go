@@ -23,8 +23,10 @@ import (
 
 // HandleInstallUpdate triggers the installation of the downloaded update.
 // @Summary      Install update
-// @Description  Install the downloaded update (will restart the application)
+// @Description  Desktop-only installation of an update verified in this process; requires a native capability and rechecks SHA-256. Disabled in server mode.
 // @Tags         update
+// @Param        Authorization header string true "Native desktop capability (Bearer token)"
+// @Failure      403  {object}  map[string]string  "Desktop update authorization required"
 // @Accept       json
 // @Produce      json
 // @Param        request  body      object  true  "Install request (file_path)"
