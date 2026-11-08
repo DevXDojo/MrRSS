@@ -83,6 +83,41 @@ func TestHandleSettings_GET(t *testing.T) {
 	}
 }
 
+func TestTickerPreferencesRoundTrip(t *testing.T) {
+	h := setupHandlerWithDB(t)
+	defer h.DB.Close()
+	w := httptest.NewRecorder()
+	HandleSettings(h, w, httptest.NewRequest(http.MethodGet, "/api/settings", nil))
+	var defaults map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &defaults); err != nil {
+		t.Fatal(err)
+	}
+	if defaults["ticker_speed"] != "60" || defaults["ticker_font_size"] != "18" || defaults["ticker_feed_id"] != "0" {
+		t.Fatalf("unexpected ticker defaults: %v", defaults)
+	}
+	values := map[string]string{"ticker_feed_id": "4", "ticker_speed": "80", "ticker_font_size": "22", "ticker_text_color": "#abcdef", "ticker_background_color": "#123456", "ticker_background_color_end": "#654321"}
+	body, err := json.Marshal(values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w = httptest.NewRecorder()
+	HandleSettings(h, w, httptest.NewRequest(http.MethodPost, "/api/settings", bytes.NewReader(body)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	HandleSettings(h, w, httptest.NewRequest(http.MethodGet, "/api/settings", nil))
+	var saved map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &saved); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range values {
+		if saved[key] != want {
+			t.Errorf("%s=%q want %q", key, saved[key], want)
+		}
+	}
+}
+
 func TestHandleSettings_POST(t *testing.T) {
 	h := setupHandlerWithDB(t)
 
