@@ -147,6 +147,9 @@ function onKeydown(event: KeyboardEvent) {
 function visibilityChanged() {
   pageVisible.value = !document.hidden;
 }
+function onFocusIn(event: FocusEvent) {
+  focused.value = event.target instanceof Element && event.target.matches(':focus-visible');
+}
 function onBlur() {
   focused.value = false;
   hovering.value = false;
@@ -193,7 +196,7 @@ onUnmounted(() => {
     :style="style"
     @mouseenter="hovering = true"
     @mouseleave="hovering = false"
-    @focusin="focused = true"
+    @focusin="onFocusIn"
     @focusout="focused = false"
   >
     <div

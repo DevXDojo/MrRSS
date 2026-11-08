@@ -83,13 +83,12 @@ func (h *CombinedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Let the /wails route be handled by Wails runtime
-			if strings.HasPrefix(r.URL.Path, "/wails") {
-				next.ServeHTTP(w, r)
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				combinedHandler.apiMux.ServeHTTP(w, r)
 				return
 			}
-			// Handle API routes and serve static files
-			combinedHandler.ServeHTTP(w, r)
+			// Preserve Wails runtime routing and the frontend dev server proxy.
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -238,7 +237,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fileServer := http.FileServer(http.FS(frontendFS))
+	fileServer := application.BundledAssetFileServer(frontendFS)
 
 	combinedHandler := &CombinedHandler{
 		apiMux:     apiMux,

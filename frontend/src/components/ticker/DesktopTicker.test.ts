@@ -6,6 +6,19 @@ import { setSettingsFromRawData } from '@/composables/core/useSettings';
 import { generateInitialSettings } from '@/composables/core/useSettings.generated';
 import { openInBrowser } from '@/utils/browser';
 
+const marquee = vi.hoisted(() => ({ paused: undefined as undefined | (() => boolean) }));
+vi.mock('./useTickerMarquee', () => ({
+  useTickerMarquee: (
+    _viewport: unknown,
+    _group: unknown,
+    _track: unknown,
+    options: { paused: () => boolean }
+  ) => {
+    marquee.paused = options.paused;
+    return { copies: 2, step: vi.fn() };
+  },
+}));
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: { value: 'en' } }),
 }));
@@ -82,5 +95,23 @@ describe('compact desktop ticker', () => {
     const request = fetchMock.mock.calls.find(([, options]) => options?.method === 'POST');
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({ ticker_enabled: 'false' });
     expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.ApplyTickerSettings');
+  });
+  it('resumes after mouse playback controls while pausing for keyboard focus', async () => {
+    wrapper = mount(DesktopTicker);
+    await flushPromises();
+    const headline = wrapper.get('.ticker-headline');
+    const matches = vi.spyOn(headline.element, 'matches');
+    matches.mockReturnValue(false);
+    await headline.trigger('focusin');
+    await wrapper.trigger('mouseenter');
+    expect(marquee.paused?.()).toBe(true);
+    await wrapper.trigger('mouseleave');
+    expect(marquee.paused?.()).toBe(false);
+    matches.mockReturnValue(true);
+    await headline.trigger('focusin');
+    expect(marquee.paused?.()).toBe(true);
+    await headline.trigger('focusout');
+    expect(marquee.paused?.()).toBe(false);
+    matches.mockRestore();
   });
 });

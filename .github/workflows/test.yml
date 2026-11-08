@@ -59,6 +59,9 @@ jobs:
       - name: Verify Linux hybrid GPU detection
         run: go test -v -timeout=5m -run '^TestNVIDIARenders$' github.com/wailsapp/wails/v3/pkg/application
 
+      - name: Test desktop startup and asset routing
+        run: go test -v -timeout=5m .
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
