@@ -63,6 +63,9 @@ type TaskManager struct {
 	logFile    *os.File
 	logMutex   sync.Mutex
 	logEnabled bool
+
+	failureMutex sync.Mutex
+	failures     map[int64]feedFailure
 }
 
 // TaskStats represents runtime statistics
@@ -241,6 +244,9 @@ func (tm *TaskManager) AddToQueueHead(ctx context.Context, feed models.Feed, rea
 // AddToQueueTail adds a task to the queue tail (lowest priority)
 // Used for: scheduled refresh with custom interval
 func (tm *TaskManager) AddToQueueTail(ctx context.Context, feed models.Feed, reason TaskReason) {
+	if tm.feedCoolingDown(feed.ID, time.Now()) {
+		return
+	}
 	// Skip FreshRSS feeds - they are refreshed via sync, not standard refresh
 	if feed.IsFreshRSSSource {
 		log.Printf("Skipping FreshRSS feed %s (refreshed via sync only)", feed.Title)
@@ -305,7 +311,7 @@ func (tm *TaskManager) AddToQueueTail(ctx context.Context, feed models.Feed, rea
 
 // AddGlobalRefresh adds multiple feeds to the queue tail for global refresh
 // Used for: scheduled global refresh
-func (tm *TaskManager) AddGlobalRefresh(ctx context.Context, feeds []models.Feed) {
+func (tm *TaskManager) AddGlobalRefresh(ctx context.Context, feeds []models.Feed, manual ...bool) {
 	tm.stateMutex.RLock()
 	isStopped := tm.isStopped
 	tm.stateMutex.RUnlock()
@@ -322,7 +328,7 @@ func (tm *TaskManager) AddGlobalRefresh(ctx context.Context, feeds []models.Feed
 	filteredFeeds := make([]models.Feed, 0, len(feeds))
 	skippedCount := 0
 	for _, feed := range feeds {
-		if feed.IsFreshRSSSource {
+		if feed.IsFreshRSSSource || (!(len(manual) > 0 && manual[0]) && tm.feedCoolingDown(feed.ID, time.Now())) {
 			skippedCount++
 		} else {
 			filteredFeeds = append(filteredFeeds, feed)
@@ -334,6 +340,7 @@ func (tm *TaskManager) AddGlobalRefresh(ctx context.Context, feeds []models.Feed
 	feeds = filteredFeeds
 
 	if len(feeds) == 0 {
+		tm.checkCompletion()
 		return
 	}
 
@@ -363,10 +370,8 @@ func (tm *TaskManager) AddGlobalRefresh(ctx context.Context, feeds []models.Feed
 		log.Printf("ERROR: Failed to track feed refresh: %v", err)
 	}
 
-	// Clear all feed error marks in database
-	if err := tm.fetcher.db.ClearAllFeedErrors(); err != nil {
-		log.Printf("Failed to clear all feed errors: %v", err)
-	}
+	// Keep failures visible until that feed actually succeeds, including while
+	// a repeatedly failing scheduled feed is waiting for its next attempt.
 
 	// Add feeds to queue tail with deduplication
 	// Lock order: always check pool first, then queue
@@ -641,7 +646,7 @@ func (tm *TaskManager) processTask(ctx context.Context, task *RefreshTask) {
 	}
 
 	// Second attempt: use configured retry timeout if first attempt failed
-	if !success && err != nil {
+	if !success && err != nil && ctx.Err() == nil {
 		log.Printf("First attempt failed for %s: %v, retrying with %v timeout", task.Feed.Title, err, retryTimeout)
 		tm.logOperation("RT", task.Feed.Title)
 
@@ -656,6 +661,10 @@ func (tm *TaskManager) processTask(ctx context.Context, task *RefreshTask) {
 	}
 
 	// Handle result
+	if ctx.Err() != nil {
+		return
+	}
+	tm.recordFeedResult(task.Feed.ID, err == nil, time.Now())
 	if err != nil {
 		log.Printf("Failed to fetch feed %s after retry: %v", task.Feed.Title, err)
 		tm.logOperation("FL", task.Feed.Title)

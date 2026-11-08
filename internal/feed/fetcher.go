@@ -228,7 +228,7 @@ func (f *Fetcher) retryTimeout() time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-func (f *Fetcher) FetchAll(ctx context.Context) {
+func (f *Fetcher) FetchAll(ctx context.Context, manual ...bool) {
 	// Get all feeds
 	feeds, err := f.db.GetFeeds()
 	if err != nil {
@@ -314,7 +314,7 @@ func (f *Fetcher) FetchAll(ctx context.Context) {
 	f.taskManager.SetPoolCapacity(concurrency)
 
 	// Use task manager for global refresh (all feeds go to queue tail)
-	f.taskManager.AddGlobalRefresh(ctx, filteredFeeds)
+	f.taskManager.AddGlobalRefresh(ctx, filteredFeeds, manual...)
 }
 
 func (f *Fetcher) FetchFeed(ctx context.Context, feed models.Feed) {

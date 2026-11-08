@@ -57,10 +57,6 @@ func GetFeedType(feed *models.Feed) string {
 func HandleProgress(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	progress := h.Fetcher.GetProgressWithStats()
 
-	// Log for debugging
-	log.Printf("[HandleProgress] Returning progress: is_running=%v, pool=%d, queue=%d",
-		progress.IsRunning, progress.PoolTaskCount, progress.QueueTaskCount)
-
 	response.JSON(w, progress)
 }
 
