@@ -8,6 +8,17 @@ export const notificationZIndex = computed(() =>
   Math.max(BASE_Z_INDEX, ...modalStack.map((modal) => modal.zIndex)) + Z_INDEX_INCREMENT
 );
 
+export const openModalCount = computed(() => modalStack.length);
+
+export function closeTopModal(): boolean {
+  const top = modalStack.reduce<(typeof modalStack)[number] | undefined>(
+    (highest, modal) => !highest || modal.zIndex >= highest.zIndex ? modal : highest,
+    undefined
+  );
+  top?.close();
+  return Boolean(top);
+}
+
 // Base z-index for modals
 // Regular modal base layer. Nested modals are raised above the active stack automatically.
 const BASE_Z_INDEX = 50;
@@ -61,7 +72,7 @@ export function useModalClose(onClose: () => void, modalZIndex?: number) {
       modalStack.splice(index, 1);
     }
     // Remove with capture option to match the addEventListener call
-    document.removeEventListener('keydown', handleKeyDown, { capture: true } as any);
+    document.removeEventListener('keydown', handleKeyDown, { capture: true });
   });
 
   return {

@@ -91,7 +91,7 @@ onBeforeUnmount(() => {
 <template>
   <main
     :class="[
-      'flex-1 bg-bg-primary flex flex-col h-full absolute w-full md:static md:w-auto z-30 transition-transform duration-300',
+      'flex-1 min-w-0 bg-bg-primary flex flex-col h-full fixed inset-0 md:inset-auto w-full md:static md:w-auto z-30 transition-transform duration-300',
       article ? 'translate-x-0' : 'translate-x-full md:translate-x-0',
     ]"
   >

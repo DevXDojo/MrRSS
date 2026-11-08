@@ -20,6 +20,7 @@ import { useAdvertisementsStore } from './stores/advertisements';
 import { onMounted, onUnmounted, ref, computed, watch, watchEffect } from 'vue';
 import { useNotifications } from './composables/ui/useNotifications';
 import { notificationZIndex } from './composables/ui/useModalClose';
+import { useMobileBackButton } from './composables/ui/useMobileBackButton';
 import { useKeyboardShortcuts } from './composables/ui/useKeyboardShortcuts';
 import { useContextMenu } from './composables/ui/useContextMenu';
 import { useResizablePanels } from './composables/ui/useResizablePanels';
@@ -33,6 +34,10 @@ import type { Feed } from './types/models';
 import type { TabName } from './types/settings';
 
 const store = useAppStore();
+useMobileBackButton(
+  () => store.currentArticleId !== null,
+  () => { store.currentArticleId = null; }
+);
 const advertisements = useAdvertisementsStore();
 const { t } = useI18n();
 const { settings } = useSettings();
