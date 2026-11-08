@@ -4,7 +4,7 @@
 import { onScopeDispose, ref, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { UpdateInfo, DownloadResponse, InstallResponse } from '@/types/settings';
-import { Call } from '@wailsio/runtime';
+import { updateRequestHeaders } from '@/utils/updateAuthorization';
 
 export function useAppUpdates() {
   const { t } = useI18n();
@@ -132,8 +132,7 @@ export function useAppUpdates() {
 
     try {
       // Download the update
-      const token = await Call.ByName('main.DesktopCapabilities.UpdateAuthorization') as string;
-      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+      const headers = await updateRequestHeaders();
       const downloadRes = await fetch('/api/download-update', {
         method: 'POST',
         headers,

@@ -14,6 +14,7 @@ import type { FilterCondition } from '@/types/filter';
 import { useSettings } from '@/composables/core/useSettings';
 import { parseArticleGroupBy, type ArticleGroupBy } from '@/utils/articleGrouping';
 import { clearArticleContentCache } from '@/utils/articleContentCache';
+import { updateRequestHeaders } from '@/utils/updateAuthorization';
 
 export function preserveSelectedArticle<T extends { id: number }>(
   freshArticles: T[],
@@ -898,8 +899,8 @@ export const useAppStore = defineStore('app', () => {
           // Check if auto-update is enabled before downloading
           const { settings } = useSettings();
 
-          console.log('[DEBUG] Update found, auto_update =', settings.value.auto_update);
-          if (settings.value.auto_update) {
+          const autoUpdate = 'auto_update' in settings.value && settings.value.auto_update === true;
+          if (autoUpdate) {
             console.log('[DEBUG] Auto-downloading update...');
             // Auto download and install in background
             autoDownloadAndInstall(data.download_url, data.asset_name);
@@ -920,10 +921,11 @@ export const useAppStore = defineStore('app', () => {
 
   async function autoDownloadAndInstall(downloadUrl: string, assetName?: string): Promise<void> {
     try {
+      const headers = await updateRequestHeaders();
       // Download the update in background
       const downloadRes = await fetch('/api/download-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           download_url: downloadUrl,
           asset_name: assetName,
@@ -947,7 +949,7 @@ export const useAppStore = defineStore('app', () => {
       // Install the update
       const installRes = await fetch('/api/install-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           file_path: downloadData.file_path,
         }),

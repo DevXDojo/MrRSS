@@ -714,6 +714,18 @@ Sync single FreshRSS feed
 Parameters:
   - `stream_id` (query, required): FreshRSS stream ID
 
+## Install Update
+
+### `POST /install-update`
+
+Install update
+
+Parameters:
+  - `Authorization` (header, required): Native desktop capability (Bearer token)
+  - `request` (body, required): Install request (file_path)
+
+Request body: see the Swagger schema for full field details.
+
 ## Media
 
 ### `POST /media/cache/cleanup`
@@ -901,16 +913,6 @@ Clear all translations
 ### `GET /update/check`
 
 Check for updates
-
-### `POST /update/install`
-
-Install update
-
-Parameters:
-  - `Authorization` (header, required): Native desktop capability (Bearer token)
-  - `request` (body, required): Install request (file_path)
-
-Request body: see the Swagger schema for full field details.
 
 ## Version
 

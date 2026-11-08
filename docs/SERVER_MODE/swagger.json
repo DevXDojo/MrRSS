@@ -5405,7 +5405,7 @@
                 }
             }
         },
-        "/update/install": {
+        "/install-update": {
             "post": {
                 "description": "Desktop-only installation of an update verified in this process; requires a native capability and rechecks SHA-256. Disabled in server mode.",
                 "consumes": [

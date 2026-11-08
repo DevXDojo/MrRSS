@@ -33,7 +33,7 @@ import (
 // @Success      200  {object}  map[string]interface{}  "Installation started (success, message)"
 // @Failure      400  {object}  map[string]string  "Bad request (invalid file path or type)"
 // @Failure      500  {object}  map[string]string  "Internal server error"
-// @Router       /update/install [post]
+// @Router       /install-update [post]
 func HandleInstallUpdate(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, nil, http.StatusMethodNotAllowed)
