@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add an optional single-line desktop news ticker with a persistent enable switch, hover controls, smooth pause and headline navigation, source and unread filters, a separate settings window, palette presets, and remembered floating placement. Open headlines in MrRSS or a browser. Docking does not reserve other applications’ work area. (#832)
+- Add a single-line desktop news ticker, enabled and floating by default, with a persistent enable switch, hover controls, smooth pause and headline navigation, source and unread filters, nested settings in the main window, preset palettes, and remembered floating position and drag-resized width. Open headlines in MrRSS or a browser. Docking does not reserve other applications’ work area. (#832)
 - Schedule independent FreshRSS and Miniflux synchronization, including optional startup sync and settings controls. Manual refresh also syncs readers when a feed or category is selected. (#1278)
 
 ### Fixed

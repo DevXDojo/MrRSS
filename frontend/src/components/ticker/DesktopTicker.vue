@@ -122,27 +122,9 @@ function articleTooltip(article: Article) {
     .filter(Boolean)
     .join('\n');
 }
-function openArticle(article: Article, event: MouseEvent) {
-  if (settings.value.ticker_open_in_browser || event.ctrlKey || event.metaKey)
-    void openInBrowser(article.url);
+function openArticle(article: Article) {
+  if (settings.value.ticker_open_in_browser) void openInBrowser(article.url);
   else void nativeAction('OpenTickerArticle', article.id, article.feed_id);
-}
-function onKeydown(event: KeyboardEvent) {
-  const target = event.target instanceof Element ? event.target : null;
-  if (target?.closest('input,select,textarea,[contenteditable="true"]')) return;
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    void disableTicker();
-  } else if ((event.ctrlKey || event.metaKey) && event.key === ',') {
-    event.preventDefault();
-    openPreferences();
-  } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-    event.preventDefault();
-    navigate(event.key === 'ArrowRight' ? 1 : -1);
-  } else if (event.code === 'Space' && !target?.closest('button')) {
-    event.preventDefault();
-    paused.value = !paused.value;
-  }
 }
 function visibilityChanged() {
   pageVisible.value = !document.hidden;
@@ -173,7 +155,6 @@ onMounted(() => {
     })
   );
   document.addEventListener('visibilitychange', visibilityChanged);
-  document.addEventListener('keydown', onKeydown);
   window.addEventListener('blur', onBlur);
   reducedMotion.addEventListener?.('change', motionChanged);
 });
@@ -182,7 +163,6 @@ onUnmounted(() => {
   clearTimeout(messageTimer);
   disposers.forEach((dispose) => dispose());
   document.removeEventListener('visibilitychange', visibilityChanged);
-  document.removeEventListener('keydown', onKeydown);
   window.removeEventListener('blur', onBlur);
   reducedMotion.removeEventListener?.('change', motionChanged);
   if (window.showToast === tickerToast) window.showToast = previousToast;
@@ -199,6 +179,18 @@ onUnmounted(() => {
     @focusin="onFocusIn"
     @focusout="focused = false"
   >
+    <template v-if="settings.ticker_position === 'floating'">
+      <div
+        class="ticker-resize-edge left"
+        :title="t('setting.ticker.resizeHint')"
+        aria-hidden="true"
+      ></div>
+      <div
+        class="ticker-resize-edge right"
+        :title="t('setting.ticker.resizeHint')"
+        aria-hidden="true"
+      ></div>
+    </template>
     <div
       class="ticker-grip"
       :title="
@@ -237,7 +229,7 @@ onUnmounted(() => {
             :data-ticker-article="article.id"
             :tabindex="copy > 1 ? -1 : 0"
             :title="articleTooltip(article)"
-            @click="openArticle(article, $event)"
+            @click="openArticle(article)"
             @auxclick.middle.prevent="openInBrowser(article.url)"
           >
             <span v-if="settings.ticker_show_source && article.feed_title" class="ticker-source">{{
@@ -386,6 +378,36 @@ onUnmounted(() => {
 .ticker-strip.is-floating {
   border: 1px solid color-mix(in srgb, var(--ticker-chrome) 18%, transparent);
   border-radius: 10px;
+}
+.ticker-resize-edge {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: ew-resize;
+}
+.ticker-resize-edge.left {
+  left: 0;
+}
+.ticker-resize-edge.right {
+  right: 0;
+}
+.ticker-resize-edge::after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 14px;
+  top: 50%;
+  left: 1px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--ticker-chrome);
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.ticker-strip:hover .ticker-resize-edge::after {
+  opacity: 0.2;
 }
 .ticker-grip {
   display: flex;

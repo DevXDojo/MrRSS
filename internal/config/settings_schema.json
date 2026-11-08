@@ -1119,7 +1119,7 @@
     },
     "ticker_position": {
       "type": "string",
-      "default": "bottom",
+      "default": "floating",
       "category": "general",
       "encrypted": false,
       "frontend_key": "ticker_position"
@@ -1154,7 +1154,7 @@
     },
     "ticker_enabled": {
       "type": "bool",
-      "default": false,
+      "default": true,
       "category": "general",
       "encrypted": false,
       "frontend_key": "ticker_enabled"

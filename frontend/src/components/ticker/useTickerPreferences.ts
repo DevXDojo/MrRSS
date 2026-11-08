@@ -1,8 +1,11 @@
-import { onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch, type Ref, type InjectionKey } from 'vue';
 import { Call, Events } from '@wailsio/runtime';
 import type { SettingsData } from '@/types/settings';
 import { parseSettingsData } from '@/composables/core/useSettings.generated';
 import { tickerPayload } from './tickerPreferences';
+
+export const tickerPreferencesKey: InjectionKey<ReturnType<typeof useTickerPreferences>> =
+  Symbol('tickerPreferences');
 
 // Each window submits only its changed keys, so a settings panel and a quick
 // toolbar action cannot overwrite each other's newer preferences.
@@ -111,11 +114,6 @@ export function useTickerPreferences(settings: Ref<SettingsData>) {
   onMounted(() => {
     disposeEvents.push(
       Events.On('ticker:settings-changed', () => {
-        void reload();
-      })
-    );
-    disposeEvents.push(
-      Events.On('ticker:preferences-shown', () => {
         void reload();
       })
     );

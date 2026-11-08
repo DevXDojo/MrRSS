@@ -6,6 +6,7 @@ import type { TabName } from '@/types/settings';
 export const settingsSearchKeys: Record<TabName, string[]> = {
   general: [
     'setting.general.application',
+    'setting.ticker.title',
     'setting.general.startupOnBoot',
     'setting.general.closeToTray',
     'setting.general.theme',

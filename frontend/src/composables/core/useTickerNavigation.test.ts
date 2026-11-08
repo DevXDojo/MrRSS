@@ -6,13 +6,15 @@ import { useTickerNavigation } from './useTickerNavigation';
 
 const native = vi.hoisted(() => ({
   listener: undefined as undefined | ((event: { data: unknown }) => void),
+  settingsListener: undefined as undefined | ((event: { data: unknown }) => void),
   dispose: vi.fn(),
 }));
 vi.mock('@wailsio/runtime', () => ({
   System: { IsDesktop: vi.fn(() => true) },
   Events: {
     On: (_name: string, callback: (event: { data: unknown }) => void) => {
-      native.listener = callback;
+      if (_name === 'ticker:open-settings') native.settingsListener = callback;
+      else native.listener = callback;
       return native.dispose;
     },
   },
@@ -66,7 +68,7 @@ it('loads the headline outside the main page before selecting its source', async
   } finally {
     wrapper.unmount();
   }
-  expect(native.dispose).toHaveBeenCalledOnce();
+  expect(native.dispose).toHaveBeenCalledTimes(2);
 });
 it('does not replace a newer user selection after a slow headline lookup', async () => {
   let finish!: (response: Response) => void;
@@ -93,6 +95,26 @@ it('does not replace a newer user selection after a slow headline lookup', async
     store.currentArticleId = 99;
     finish(Response.json([item]));
     await flushPromises();
+    expect(store.selectFeedInArticleList).not.toHaveBeenCalled();
+  } finally {
+    wrapper.unmount();
+  }
+});
+
+it('opens the main settings through its navigation callback without selecting an article', async () => {
+  const store = state();
+  const openSettings = vi.fn();
+  const wrapper = mount(
+    defineComponent({
+      setup() {
+        useTickerNavigation(store, openSettings);
+      },
+      template: '<div />',
+    })
+  );
+  try {
+    native.settingsListener?.({ data: undefined });
+    expect(openSettings).toHaveBeenCalledOnce();
     expect(store.selectFeedInArticleList).not.toHaveBeenCalled();
   } finally {
     wrapper.unmount();

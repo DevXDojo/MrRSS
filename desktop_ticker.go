@@ -78,7 +78,8 @@ func (s *DesktopCapabilities) showTickerLocked() error {
 				return nil
 			})
 		})
-		s.ticker.OnWindowEvent(events.Common.WindowDidMove, func(_ *application.WindowEvent) { s.rememberTickerPosition() })
+		s.ticker.OnWindowEvent(events.Common.WindowDidMove, func(_ *application.WindowEvent) { s.rememberTickerBounds() })
+		s.ticker.OnWindowEvent(events.Common.WindowDidResize, func(_ *application.WindowEvent) { s.rememberTickerBounds() })
 	}
 	if err := s.applyTickerSettingsLocked(); err != nil {
 		return err
@@ -99,38 +100,14 @@ func (s *DesktopCapabilities) HideTicker() {
 	_ = s.runTickerUI(func() error { s.hideTickerLocked(); return nil })
 }
 
+// ShowTickerSettings focuses the main window and opens its nested ticker settings.
 func (s *DesktopCapabilities) ShowTickerSettings() error {
-	return s.runTickerUI(s.showTickerSettingsLocked)
-}
-func (s *DesktopCapabilities) showTickerSettingsLocked() error {
-	if s.app == nil || s.tickerClosed {
-		return fmt.Errorf("desktop application unavailable")
+	if s.showMainWindow == nil {
+		return fmt.Errorf("main window unavailable")
 	}
-	if s.tickerPreferences == nil {
-		width, height := 460, 700
-		if screen := s.app.Screen.GetPrimary(); screen != nil {
-			width = min(width, max(320, screen.WorkArea.Width-48))
-			height = min(height, max(320, screen.WorkArea.Height-64))
-		}
-		s.tickerPreferences = s.app.Window.NewWithOptions(application.WebviewWindowOptions{
-			Name: "MrRSS-ticker-settings", Title: "MrRSS", URL: "/?ticker=settings", Width: width, Height: height, MinWidth: min(380, width), MinHeight: min(420, height),
-			AlwaysOnTop: true, Hidden: true, BackgroundColour: application.NewRGB(248, 249, 250),
-		})
-		s.tickerPreferences.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-			_ = s.runTickerUI(func() error { event.Cancel(); s.tickerPreferences.Hide(); return nil })
-		})
-		s.tickerPreferences.Center()
-	}
-	s.tickerPreferences.Show()
-	s.tickerPreferences.Focus()
-	s.tickerPreferences.EmitEvent("ticker:preferences-shown")
-	return nil
-}
-func (s *DesktopCapabilities) HideTickerSettings() {
-	_ = s.runTickerUI(func() error {
-		if s.tickerPreferences != nil {
-			s.tickerPreferences.Hide()
-		}
+	return s.runTickerUI(func() error {
+		s.showMainWindow()
+		s.app.Event.Emit("ticker:open-settings")
 		return nil
 	})
 }
@@ -153,8 +130,17 @@ func (s *DesktopCapabilities) applyTickerPreferencesLocked() error {
 	s.app.Event.Emit("ticker:settings-changed")
 	return nil
 }
-func (s *DesktopCapabilities) applyTickerSettingsLocked() error {
+func (s *DesktopCapabilities) requestedTickerGeometry() tickerGeometry {
 	geometry := tickerGeometry{position: s.tickerSetting("ticker_position"), screen: s.tickerSetting("ticker_screen_id"), width: s.tickerInteger("ticker_width"), fontSize: s.tickerInteger("ticker_font_size"), x: s.tickerInteger("ticker_window_x"), y: s.tickerInteger("ticker_window_y")}
+	// A quick toolbar action must not restore stale database bounds while a
+	// drag or resize is still waiting for the debounced write.
+	if pending := s.pendingTickerBounds; geometry.position == "floating" && pending != nil {
+		geometry.width, geometry.x, geometry.y = pending.Width, pending.X, pending.Y
+	}
+	return geometry
+}
+func (s *DesktopCapabilities) applyTickerSettingsLocked() error {
+	geometry := s.requestedTickerGeometry()
 	s.ticker.SetAlwaysOnTop(s.tickerSetting("ticker_always_on_top") == "true")
 	if s.tickerConfigured && geometry == s.tickerGeometry {
 		return nil
@@ -184,7 +170,14 @@ func (s *DesktopCapabilities) applyTickerSettingsLocked() error {
 	}
 	s.tickerGeometry = geometry
 	s.tickerConfigured = true
+	s.ticker.SetResizable(geometry.position == "floating")
+	s.ticker.SetMaxSize(0, 0)
 	s.ticker.SetMinSize(min(360, bounds.Width), bounds.Height)
+	maxWidth := bounds.Width
+	if geometry.position == "floating" {
+		maxWidth = min(2400, area.Width)
+	}
+	s.ticker.SetMaxSize(maxWidth, bounds.Height)
 	s.ticker.SetBounds(application.Rect{X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height})
 	return nil
 }
@@ -208,37 +201,42 @@ func (s *DesktopCapabilities) OpenTickerArticle(articleID, feedID int64) error {
 		return nil
 	})
 }
-func (s *DesktopCapabilities) rememberTickerPosition() {
+func (s *DesktopCapabilities) rememberTickerBounds() {
 	_ = s.runTickerUI(func() error {
 		if s.ticker == nil || s.tickerGeometry.position != "floating" {
 			return nil
 		}
 		x, y := s.ticker.Position()
-		s.pendingTickerPosition = &desktopapi.TickerBounds{X: x, Y: y}
-		if s.tickerPositionTimer != nil {
-			s.tickerPositionTimer.Stop()
+		width, height := s.ticker.Size()
+		if width <= 0 {
+			return nil
 		}
-		s.tickerPositionTimer = time.AfterFunc(300*time.Millisecond, func() {
+		s.tickerGeometry.width, s.tickerGeometry.x, s.tickerGeometry.y = width, x, y
+		s.pendingTickerBounds = &desktopapi.TickerBounds{X: x, Y: y, Width: width, Height: height}
+		if s.tickerBoundsTimer != nil {
+			s.tickerBoundsTimer.Stop()
+		}
+		s.tickerBoundsTimer = time.AfterFunc(300*time.Millisecond, func() {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if !s.tickerClosed {
-				s.saveTickerPositionLocked()
+				s.saveTickerBoundsLocked()
 			}
 		})
 		return nil
 	})
 }
-func (s *DesktopCapabilities) saveTickerPositionLocked() {
-	if s.db == nil || s.pendingTickerPosition == nil {
+func (s *DesktopCapabilities) saveTickerBoundsLocked() {
+	if s.db == nil || s.pendingTickerBounds == nil {
 		return
 	}
-	position := s.pendingTickerPosition
+	position := s.pendingTickerBounds
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err == nil {
 		defer tx.Rollback()
-		for key, value := range map[string]int{"ticker_window_x": position.X, "ticker_window_y": position.Y} {
+		for key, value := range map[string]int{"ticker_window_x": position.X, "ticker_window_y": position.Y, "ticker_width": position.Width} {
 			if _, err = tx.ExecContext(ctx, "INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)", key, strconv.Itoa(value)); err != nil {
 				break
 			}
@@ -248,17 +246,17 @@ func (s *DesktopCapabilities) saveTickerPositionLocked() {
 		}
 	}
 	if err != nil {
-		log.Printf("Could not save ticker position: %v", err)
+		log.Printf("Could not save ticker bounds: %v", err)
 		return
 	}
-	s.pendingTickerPosition = nil
+	s.pendingTickerBounds = nil
 }
 func (s *DesktopCapabilities) shutdownTicker() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tickerClosed = true
-	if s.tickerPositionTimer != nil {
-		s.tickerPositionTimer.Stop()
+	if s.tickerBoundsTimer != nil {
+		s.tickerBoundsTimer.Stop()
 	}
-	s.saveTickerPositionLocked()
+	s.saveTickerBoundsLocked()
 }

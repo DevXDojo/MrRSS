@@ -74,17 +74,14 @@ describe('compact desktop ticker', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
-  it('opens headlines in the reader, supports browser modifiers and keyboard pause', async () => {
+  it('opens headlines using the configured destination and pauses through its toolbar', async () => {
     wrapper = mount(DesktopTicker);
     await flushPromises();
     await wrapper.get('.ticker-headline').trigger('click');
     expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.OpenTickerArticle', 1, 2);
-    await wrapper.get('.ticker-headline').trigger('click', { ctrlKey: true });
+    await wrapper.get('.ticker-headline').trigger('auxclick', { button: 1 });
     expect(openInBrowser).toHaveBeenCalledWith('https://example.org/1');
-    document.dispatchEvent(
-      new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true })
-    );
-    await wrapper.vm.$nextTick();
+    await wrapper.get('button[aria-label="setting.ticker.pause"]').trigger('click');
     expect(wrapper.classes()).toContain('is-paused');
   });
   it('turns the feature off without changing other preferences when dismissed', async () => {

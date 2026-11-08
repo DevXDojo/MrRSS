@@ -122,8 +122,8 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
 
       // Save to backend using generated payload (alphabetically sorted)
       const payload = buildAutoSavePayload(settingsRef);
-      // The ticker is edited in its own window. A stale main-window snapshot
-      // must never overwrite preferences saved by that window.
+      // Ticker controls and the main settings use changed-key writes. A bulk
+      // settings snapshot must not overwrite newer quick toolbar actions.
       for (const key of Object.keys(payload)) {
         if (key.startsWith('ticker_')) delete payload[key];
       }
@@ -256,8 +256,17 @@ export function useSettingsAutoSave(settings: Ref<SettingsData> | (() => Setting
     saveTimeout = setTimeout(autoSave, 500); // Wait 500ms after last change
   }
 
-  // Watch the entire settings object for changes
-  watch(() => settingsRef.value, debouncedAutoSave, { deep: true });
+  // Ticker writes have their own debounced queue and should not reset app
+  // scheduling or resend the unrelated settings payload on each quick action.
+  watch(
+    () =>
+      JSON.stringify(
+        Object.fromEntries(
+          Object.entries(settingsRef.value).filter(([key]) => !key.startsWith('ticker_'))
+        )
+      ),
+    debouncedAutoSave
+  );
 
   // Clean up timeout on unmount to prevent memory leaks
   onUnmounted(() => {

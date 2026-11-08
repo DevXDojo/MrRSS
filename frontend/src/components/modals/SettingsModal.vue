@@ -206,6 +206,14 @@ async function selectSettingsTab(tab: TabName) {
   settingsContentRef.value?.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+async function focusTickerSettings() {
+  await selectSettingsTab('general');
+  const target = settingsContentRef.value?.querySelector<HTMLElement>('#desktop-ticker-settings');
+  target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  target?.focus({ preventScroll: true });
+}
+defineExpose({ focusTickerSettings });
+
 async function selectSettingsSearchResult(result: SettingsSearchResult) {
   activeTab.value = result.tab;
   settingsSearchOpen.value = false;

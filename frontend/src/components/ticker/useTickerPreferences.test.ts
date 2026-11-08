@@ -23,7 +23,7 @@ describe('independent ticker preference writes', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    settings.value = generateInitialSettings();
+    settings.value = { ...generateInitialSettings(), ticker_enabled: false };
   });
   afterEach(() => {
     wrapper?.unmount();
@@ -87,5 +87,25 @@ describe('independent ticker preference writes', () => {
     expect(Call.ByName).not.toHaveBeenCalled();
     expect(await api.saveNow()).toBe(true);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ ticker_enabled: 'true' });
+  });
+  it('keeps the main window save queue alive when nested settings are closed', async () => {
+    const fetchMock = vi.fn(async () => Response.json({}));
+    vi.stubGlobal('fetch', fetchMock);
+    const shown = ref(true);
+    wrapper = mount(
+      defineComponent({
+        setup() {
+          api = useTickerPreferences(settings);
+          return { shown, settings };
+        },
+        template: '<section><div v-if="shown">{{ settings.ticker_speed }}</div></section>',
+      })
+    );
+    settings.value.ticker_speed = 82;
+    shown.value = false;
+    await vi.advanceTimersByTimeAsync(350);
+    await flushPromises();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ ticker_speed: '82' });
+    expect(api.status.value).toBe('saved');
   });
 });

@@ -10,9 +10,7 @@ async function initializeApp() {
   const Root =
     surface === '1'
       ? (await import('./components/ticker/DesktopTicker.vue')).default
-      : surface === 'settings'
-        ? (await import('./components/ticker/TickerPreferences.vue')).default
-        : (await import('./App.vue')).default;
+      : (await import('./App.vue')).default;
   const app = createApp(Root);
   const pinia = createPinia();
 

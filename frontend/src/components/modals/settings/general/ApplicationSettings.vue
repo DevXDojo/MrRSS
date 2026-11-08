@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { Call, Events, System } from '@wailsio/runtime';
+import { computed, inject } from 'vue';
+import { System } from '@wailsio/runtime';
 import { useI18n } from 'vue-i18n';
 import {
   PhPalette,
@@ -24,60 +24,13 @@ import {
   ToggleControl,
 } from '@/components/settings';
 import FontFamilySelect from '@/components/settings/FontFamilySelect.vue';
+import TickerSettings from './TickerSettings.vue';
+import { tickerPreferencesKey } from '@/components/ticker/useTickerPreferences';
 import type { SettingsData } from '@/types/settings';
 
 const { t } = useI18n();
 const desktop = System.IsDesktop();
-const savingTicker = ref(false);
-let disposed = false;
-let disposeTickerEvent: (() => void) | undefined;
-async function openTickerPreferences() {
-  try {
-    await Call.ByName('main.DesktopCapabilities.ShowTickerSettings');
-  } catch {
-    window.showToast(t('setting.ticker.openFailed'), 'error');
-  }
-}
-async function setTickerEnabled(enabled: boolean) {
-  if (savingTicker.value) return;
-  savingTicker.value = true;
-  try {
-    const response = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker_enabled: String(enabled) }),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) throw new Error('Could not save ticker state');
-    emit('update:settings', { ...props.settings, ticker_enabled: enabled });
-    await Call.ByName('main.DesktopCapabilities.ApplyTickerSettings');
-  } catch {
-    if (!disposed) window.showToast(t('setting.ticker.saveFailed'), 'error');
-  } finally {
-    if (!disposed) savingTicker.value = false;
-  }
-}
-onMounted(() => {
-  if (!desktop) return;
-  disposeTickerEvent = Events.On('ticker:settings-changed', async () => {
-    try {
-      const response = await fetch('/api/settings', { signal: AbortSignal.timeout(5000) });
-      if (!response.ok) return;
-      const values: Record<string, string> = await response.json();
-      if (!disposed && !savingTicker.value)
-        emit('update:settings', {
-          ...props.settings,
-          ticker_enabled: values.ticker_enabled === 'true',
-        });
-    } catch {
-      /* The current switch state remains visible until the next update. */
-    }
-  });
-});
-onUnmounted(() => {
-  disposed = true;
-  disposeTickerEvent?.();
-});
+const tickerPreferences = inject(tickerPreferencesKey, undefined);
 
 interface Props {
   settings: SettingsData;
@@ -108,28 +61,6 @@ function updateUiFontSize(value: number) {
 
 <template>
   <SettingGroup :icon="PhPalette" :title="t('setting.general.application')">
-    <SettingItem
-      v-if="desktop"
-      :icon="PhRss"
-      :title="t('setting.ticker.title')"
-      :description="t('setting.ticker.description')"
-    >
-      <div class="flex items-center gap-3">
-        <ToggleControl
-          :model-value="settings.ticker_enabled"
-          :disabled="savingTicker"
-          :aria-label="t('setting.ticker.enabled')"
-          @update:model-value="setTickerEnabled"
-        />
-        <button
-          type="button"
-          class="px-3 py-2 rounded border border-border bg-bg-tertiary text-text-primary hover:bg-bg-secondary"
-          @click="openTickerPreferences"
-        >
-          {{ t('setting.ticker.preferences') }}
-        </button>
-      </div>
-    </SettingItem>
     <SettingWithToggle
       :icon="PhPower"
       :title="t('setting.general.startupOnBoot')"
@@ -212,6 +143,31 @@ function updateUiFontSize(value: number) {
         @update:model-value="updateUiFontSize"
       />
     </SettingItem>
+
+    <div v-if="desktop" id="desktop-ticker-settings" tabindex="-1" class="scroll-mt-3">
+      <SettingItem
+        :icon="PhRss"
+        :title="t('setting.ticker.title')"
+        :description="t('setting.ticker.description')"
+      >
+        <ToggleControl
+          :model-value="settings.ticker_enabled"
+          :aria-label="t('setting.ticker.enabled')"
+          @update:model-value="updateSetting('ticker_enabled', $event)"
+        />
+      </SettingItem>
+      <NestedSettingsContainer v-if="settings.ticker_enabled">
+        <TickerSettings :settings="settings" @update:settings="emit('update:settings', $event)" />
+      </NestedSettingsContainer>
+      <button
+        v-if="tickerPreferences?.status.value === 'error'"
+        class="text-xs text-red-500 mt-2 underline"
+        role="alert"
+        @click="tickerPreferences?.saveNow()"
+      >
+        {{ t('setting.ticker.saveFailed') }} · {{ t('setting.ticker.retry') }}
+      </button>
+    </div>
   </SettingGroup>
 </template>
 
