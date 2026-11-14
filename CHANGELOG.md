@@ -16,10 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Hide Windows console windows when refreshing script feeds and changing the launch-at-login setting. (#1282, @ClutchBear)
+- Hide Windows console windows when refreshing script feeds and changing the launch-at-login setting. (#1282) (@ClutchBear)
 - Resolve Windows data directory junctions used by Scoop before opening app storage. (#1286)
 - Report failed FreshRSS and Miniflux syncs, preserve the last successful sync time, and give queued edits a separate push deadline. (#1287)
-- Isolate original webpage previews from MrRSS settings and data while preserving styles, images, and outbound links. (@orshih6)
+- Isolate original webpage previews from MrRSS settings and data while preserving styles, images, and outbound links. (GHSA-w922-2r33-vcx4) (@orshih6)
 
 ## [1.3.42] - 2026-11-08
 
@@ -32,12 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Keep desktop development pages and dynamically imported modules on the Wails frontend proxy, and align the development server and readiness probe on IPv4 loopback to prevent blank or failed previews.
 - Keep background translation failures quiet while preserving manual error feedback; translate generated summaries, retain the open article beside its neighbours during unread refreshes, and restore proxied webpage styles and stylesheet-relative resources. (#1259)
-- Reduce the initial web bundle by importing only used Phosphor icons, and gzip frontend text assets in server mode while preserving API and media responses. (#1270, @marcomarcogd)
+- Reduce the initial web bundle by importing only used Phosphor icons, and gzip frontend text assets in server mode while preserving API and media responses. (#1270) (@marcomarcogd)
 - Fit the article reader and settings on narrow screens, restore normal article image sizing, and close dialogs and the reader in order when using the mobile browser Back button. (#1273)
 - Keep distinct same-title articles using provider item IDs or article URLs, and migrate existing identities without losing reading state, favorites, cached content, or chat history. (#1276)
 - Prevent stale SQLite write snapshots during parallel refreshes and apply bounded backoff to repeatedly failing automatic feed refreshes; manual refresh can retry immediately. (#1277)
 - Keep toast notifications above nested modal overlays. (#1279)
-- Require native desktop authorization for update download and installation, validate official release assets and SHA-256 integrity, and prevent unsafe archive extraction. Server mode uses manual updates. (GHSA-4m74-8q96-mp63, @haveadooday)
+- Require native desktop authorization for update download and installation, validate official release assets and SHA-256 integrity, and prevent unsafe archive extraction. Server mode uses manual updates. (GHSA-4m74-8q96-mp63) (@haveadooday)
 
 ### Changed
 
@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Automatically keep DMA-BUF rendering enabled on Wayland systems using AMD/Intel integrated graphics alongside an NVIDIA GPU, while retaining NVIDIA compatibility handling. No launch arguments are needed. (#1256)
-- Prevent stored XSS and HTML parser mutation attacks; sanitize article, preview, translation, summary, and chat HTML, including older cached content. (GHSA-8q87-xm7v-xv7q, @kah-ja) (GHSA-fvgp-h89h-v273, @tonghuaroot)
+- Prevent stored XSS and HTML parser mutation attacks; sanitize article, preview, translation, summary, and chat HTML, including older cached content. (GHSA-8q87-xm7v-xv7q) (@kah-ja) (GHSA-fvgp-h89h-v273) (@tonghuaroot)
 - Fix Docker server builds omitting shared startup configuration, and add a server package build check to CI. (#1264)
 
 ### Changed
