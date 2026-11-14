@@ -85,3 +85,54 @@ func TestStylesheetProxyUsesItsOwnBaseAndMIMEWithVersionQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestWebpageProxyIsolatesActiveContent(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Security-Policy", "script-src *")
+		w.Header().Set("Refresh", "0; url=/api/settings")
+		w.Header().Set("Set-Cookie", "injected=yes")
+		fmt.Fprint(w, `<meta http-equiv="refresh" content="0;url=/api/settings"><script src="evil.js"></script><img src="/pic.png" onerror="evil()"><iframe srcdoc="evil"></iframe><a href="javascript:evil()">unsafe</a><a href="../news?a=1&amp;b=2">news</a>`)
+	}))
+	defer upstream.Close()
+	h := setupHandler(t)
+	defer h.DB.Close()
+	query := url.Values{"url": {upstream.URL + "/articles/original"}, "referer": {upstream.URL}}
+	for _, endpoint := range []struct {
+		path   string
+		handle http.HandlerFunc
+	}{
+		{"/api/webpage/proxy", func(w http.ResponseWriter, r *http.Request) { HandleWebpageProxy(h, w, r) }},
+		{"/api/webpage/resource", func(w http.ResponseWriter, r *http.Request) { HandleWebpageResource(h, w, r) }},
+	} {
+		t.Run(endpoint.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			endpoint.handle(w, httptest.NewRequest(http.MethodGet, endpoint.path+"?"+query.Encode(), nil))
+			if w.Code != http.StatusOK {
+				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+			}
+			csp := w.Header().Get("Content-Security-Policy")
+			if !strings.HasPrefix(csp, "sandbox ") || !strings.Contains(csp, "default-src 'none'") || strings.Contains(csp, "allow-scripts") || strings.Contains(csp, "allow-same-origin") {
+				t.Errorf("unsafe response policy: %q", csp)
+			}
+			if w.Header().Get("Refresh") != "" || w.Header().Get("Set-Cookie") != "" {
+				t.Errorf("unexpected upstream headers: %v", w.Header())
+			}
+			if endpoint.path != "/api/webpage/proxy" {
+				return
+			}
+			body := w.Body.String()
+			for _, active := range []string{"<script", "onerror", "<iframe", "http-equiv", "javascript:"} {
+				if strings.Contains(body, active) {
+					t.Errorf("preview retained %q", active)
+				}
+			}
+			if !strings.Contains(body, `href="`+upstream.URL+`/news?a=1&amp;b=2" target="_blank" rel="noopener noreferrer"`) {
+				t.Errorf("outbound link was lost: %s", body)
+			}
+			if got := decodedWebpageResources(t, body); len(got) != 1 || got[0] != upstream.URL+"/pic.png" {
+				t.Errorf("wrong preview resources: %v", got)
+			}
+		})
+	}
+}

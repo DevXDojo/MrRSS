@@ -130,7 +130,8 @@ onBeforeUnmount(() => {
           :key="article.id"
           :src="`/api/webpage/proxy?url=${encodeURIComponent(article.url)}`"
           class="w-full h-full border-none"
-          sandbox="allow-scripts allow-same-origin allow-popups"
+          sandbox="allow-popups allow-popups-to-escape-sandbox"
+          referrerpolicy="no-referrer"
         ></iframe>
       </div>
 
