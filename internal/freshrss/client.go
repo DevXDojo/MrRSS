@@ -574,23 +574,16 @@ func (c *Client) editTag(ctx context.Context, itemIDs []string, addTag string, r
 	req.Header.Set("Authorization", "GoogleLogin auth="+c.authToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	log.Printf("[FreshRSS API] edit-tag request: URL=%s addTag=%s removeTag=%s itemIDs=%d",
-		c.baseURL+"/reader/api/0/edit-tag", addTag, removeTag, len(itemIDs))
-	log.Printf("[FreshRSS API] Request body: %s", data.Encode())
-
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("edit-tag request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("edit-tag failed with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("edit-tag returned HTTP %d", resp.StatusCode)
 	}
-
-	log.Printf("[FreshRSS API] edit-tag success: addTag=%s removeTag=%s itemIDs=%d response=%s",
-		addTag, removeTag, len(itemIDs), string(body))
+	_, _ = io.Copy(io.Discard, resp.Body)
 
 	return nil
 }
