@@ -16,15 +16,17 @@ import {
   PhPushPin,
   PhWarningCircle,
 } from '@phosphor-icons/vue';
-import BaseSelect from '@/components/common/BaseSelect.vue';
+import BaseMultiSelect from '@/components/common/BaseMultiSelect.vue';
 import { SubSettingItem, SelectControl, ToggleControl, NumberControl } from '@/components/settings';
 import type { SettingsData } from '@/types/settings';
 import type { Feed } from '@/types/models';
 import {
   tickerNumber,
+  tickerFeedIDs,
   tickerPalette,
   tickerPalettes,
   tickerStyle,
+  tickerUsesShellPlacement,
 } from '@/components/ticker/tickerPreferences';
 
 const props = defineProps<{ settings: SettingsData }>();
@@ -34,10 +36,19 @@ const feeds = ref<Feed[]>([]);
 const feedError = ref(false);
 const loadingFeeds = ref(false);
 const displays = ref<Array<{ id: string; name: string; primary: boolean }>>([]);
-const sourceOptions = computed(() => [
-  { value: 0, label: t('setting.ticker.allFeeds') },
-  ...feeds.value.map((feed) => ({ value: feed.id, label: feed.title })),
-]);
+const positions = ref(['floating', 'top', 'bottom']);
+const positionOptions = computed(() =>
+  positions.value.map((value) => ({ value, label: t(`setting.ticker.positions.${value}`) }))
+);
+const position = computed(() =>
+  positions.value.includes(props.settings.ticker_position)
+    ? props.settings.ticker_position
+    : 'bottom'
+);
+const sourceOptions = computed(() =>
+  feeds.value.map((feed) => ({ value: feed.id, label: feed.title }))
+);
+const selectedFeedIDs = computed(() => tickerFeedIDs(props.settings));
 const displayOptions = computed(() => [
   { value: '', label: t('setting.ticker.currentDisplay') },
   ...displays.value.map((display) => ({
@@ -45,7 +56,7 @@ const displayOptions = computed(() => [
     label: display.name + (display.primary ? ` · ${t('setting.ticker.primaryDisplay')}` : ''),
   })),
 ]);
-const behavior = [
+const behaviorOptions = [
   {
     icon: PhPause,
     key: 'ticker_pause_on_hover',
@@ -61,11 +72,24 @@ const behavior = [
     description: 'alwaysOnTopHint',
   },
 ] as const;
+const behavior = computed(() =>
+  behaviorOptions.filter(
+    (item) => item.key !== 'ticker_always_on_top' || !tickerUsesShellPlacement(position.value)
+  )
+);
 let controller: AbortController | undefined;
 let disposed = false;
 
 function update<K extends keyof SettingsData>(key: K, value: SettingsData[K]) {
   emit('update:settings', { ...props.settings, [key]: value });
+}
+function updateSources(values: (string | number)[]) {
+  const ids = values.map(Number);
+  emit('update:settings', {
+    ...props.settings,
+    ticker_feed_ids: ids.join(',') || '0',
+    ticker_feed_id: ids.length === 1 ? ids[0] : 0,
+  });
 }
 const activePalette = computed(() => tickerPalette(props.settings).id);
 const paletteOptions = computed(() =>
@@ -103,14 +127,18 @@ async function loadFeeds() {
     if (!disposed && !current.signal.aborted) loadingFeeds.value = false;
   }
 }
-onMounted(async () => {
+onMounted(() => {
   void loadFeeds();
-  try {
-    const result = await Call.ByName('main.DesktopCapabilities.GetTickerDisplays');
-    if (!disposed) displays.value = (result as typeof displays.value) ?? [];
-  } catch {
-    /* Placement defaults to the current display. */
-  }
+  void Call.ByName('MrRSS/internal/desktopapi.DesktopCapabilities.GetTickerDisplays')
+    .then((result) => {
+      if (!disposed && Array.isArray(result)) displays.value = result as typeof displays.value;
+    })
+    .catch(() => {});
+  void Call.ByName('MrRSS/internal/desktopapi.DesktopCapabilities.GetTickerPositions')
+    .then((result) => {
+      if (!disposed && Array.isArray(result) && result.length) positions.value = result as string[];
+    })
+    .catch(() => {});
 });
 onUnmounted(() => {
   disposed = true;
@@ -127,7 +155,7 @@ onUnmounted(() => {
     <div class="ticker-preview w-48 sm:w-64" :style="tickerStyle(settings)">
       <PhRss :size="16" class="shrink-0 opacity-60" />
       <span v-if="settings.ticker_show_source" class="preview-source">{{
-        feeds.find((feed) => feed.id === settings.ticker_feed_id)?.title ||
+        feeds.find((feed) => selectedFeedIDs.includes(feed.id))?.title ||
         t('setting.ticker.allFeeds')
       }}</span>
       <span class="truncate">{{ t('setting.ticker.previewTitle') }}</span>
@@ -138,14 +166,14 @@ onUnmounted(() => {
     :title="t('setting.ticker.feed')"
     :description="t('setting.ticker.localRefreshHint')"
   >
-    <BaseSelect
-      :model-value="settings.ticker_feed_id"
+    <BaseMultiSelect
+      :model-value="selectedFeedIDs"
       :options="sourceOptions"
       searchable
-      :disabled="loadingFeeds"
+      :disabled="loadingFeeds || feedError"
       width="w-48 sm:w-64"
-      :placeholder="t('setting.ticker.searchFeeds')"
-      @update:model-value="update('ticker_feed_id', Number($event))"
+      :placeholder="t('setting.ticker.allFeeds')"
+      @update:model-value="updateSources"
     />
   </SubSettingItem>
   <SubSettingItem
@@ -208,16 +236,12 @@ onUnmounted(() => {
   <SubSettingItem
     :icon="PhMonitor"
     :title="t('setting.ticker.position')"
-    :description="t('setting.ticker.positionHint')"
+    :description="t(`setting.ticker.placementHints.${position}`)"
   >
     <SelectControl
-      :model-value="settings.ticker_position"
-      :options="
-        ['top', 'bottom', 'floating'].map((value) => ({
-          value,
-          label: t(`setting.ticker.positions.${value}`),
-        }))
-      "
+      :model-value="position"
+      :options="positionOptions"
+      width="lg"
       @update:model-value="update('ticker_position', String($event))"
     />
   </SubSettingItem>

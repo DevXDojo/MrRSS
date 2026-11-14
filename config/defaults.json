@@ -134,6 +134,7 @@
   "ticker_background_color_end": "#0f172a",
   "ticker_enabled": true,
   "ticker_feed_id": 0,
+  "ticker_feed_ids": "",
   "ticker_font_size": 18,
   "ticker_only_unread": false,
   "ticker_open_in_browser": false,

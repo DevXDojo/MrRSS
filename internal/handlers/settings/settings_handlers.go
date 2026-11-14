@@ -68,6 +68,9 @@ func HandleSettings(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 
 		wasEnabled := map[string]bool{}
 		for _, provider := range []string{"freshrss", "miniflux"} {
+			delete(req, provider+"_last_sync_time")
+			delete(req, provider+"_last_sync_attempt")
+			delete(req, provider+"_last_sync_error")
 			current, _ := h.DB.GetSetting(provider + "_enabled")
 			wasEnabled[provider] = current == "true"
 		}

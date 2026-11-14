@@ -4,7 +4,8 @@ package desktopapi
 type TickerBounds struct{ X, Y, Width, Height int }
 
 // CalculateTickerBounds keeps restored windows inside the available work area.
-// Docking follows the OS work area and never reserves space from other apps.
+// The desktop mode uses the same footprint as a bottom-edge ticker. Native
+// work-area reservations negotiate their position separately with the shell.
 func CalculateTickerBounds(area TickerBounds, position string, width, fontSize, savedX, savedY int) TickerBounds {
 	if area.Width <= 0 || area.Height <= 0 {
 		return TickerBounds{}

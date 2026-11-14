@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"MrRSS/internal/utils/procutil"
+
 	"github.com/mmcdole/gofeed"
 )
 
@@ -81,6 +83,9 @@ func (s *ScriptSource) Fetch(ctx context.Context, config *Config) (*gofeed.Feed,
 	// Set working directory
 	cmd.Dir = s.scriptsDir
 
+	// Never let the script pop up a console window on Windows
+	procutil.HideWindow(cmd)
+
 	// Capture output
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -146,6 +151,7 @@ func findPython(ctx context.Context) (string, error) {
 
 	for _, candidate := range candidates {
 		cmd := exec.CommandContext(ctx, candidate, "--version")
+		procutil.HideWindow(cmd)
 		if err := cmd.Run(); err == nil {
 			return candidate, nil
 		}

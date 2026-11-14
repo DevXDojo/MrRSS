@@ -14,10 +14,10 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
+	"MrRSS/internal/advertisement"
 	"MrRSS/internal/ai"
 	"MrRSS/internal/database"
 	"MrRSS/internal/feed"
@@ -32,7 +32,7 @@ import (
 )
 
 // @title           MrRSS API
-// @version         1.3.42
+// @version         1.3.43
 // @description     MrRSS is a modern, cross-platform desktop RSS reader with auto-translation, smart feed discovery, and AI-powered summarization.
 
 // @contact.name   API Support
@@ -58,21 +58,11 @@ func debugLog(format string, args ...interface{}) {
 	}
 }
 
+//go:embed ads.json
+var bundledAds []byte
+
 //go:embed frontend/dist
 var frontendFiles embed.FS
-
-type CombinedHandler struct {
-	apiMux     *http.ServeMux
-	fileServer http.Handler
-}
-
-func (h *CombinedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/api/") {
-		h.apiMux.ServeHTTP(w, r)
-		return
-	}
-	h.fileServer.ServeHTTP(w, r)
-}
 
 func main() {
 	// Parse flags
@@ -157,7 +147,7 @@ func main() {
 	defer bgCancel()
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
 	h.BackgroundContext = bgCtx
-	configureAdvertisements(h)
+	h.Advertisements = advertisement.New(bundledAds)
 
 	// API Routes
 	log.Println("Setting up API routes...")
@@ -182,9 +172,9 @@ func main() {
 
 	fileServer := httputil.CompressStatic(http.FileServer(http.FS(frontendFS)))
 
-	combinedHandler := &CombinedHandler{
-		apiMux:     apiMux,
-		fileServer: fileServer,
+	combinedHandler := &routes.AssetHandler{
+		API:      apiMux,
+		Frontend: fileServer,
 	}
 
 	log.Printf("Starting in headless server mode on http://%s:%s", *host, *port)

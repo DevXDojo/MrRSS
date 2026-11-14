@@ -226,11 +226,11 @@ func validateStorageDestination(source, destination string) (string, error) {
 	if !filepath.IsAbs(destination) || strings.ContainsAny(destination, "\x00\r\n") {
 		return "", fmt.Errorf("select an absolute directory path")
 	}
-	source, err := filepath.EvalSymlinks(source)
+	source, err := resolveStorageDirectory(source)
 	if err != nil {
 		return "", err
 	}
-	destination, err = filepath.EvalSymlinks(destination)
+	destination, err = resolveStorageDirectory(destination)
 	if err != nil {
 		return "", fmt.Errorf("destination must be an existing empty folder: %w", err)
 	}

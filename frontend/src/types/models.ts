@@ -113,6 +113,7 @@ export interface FeedProgressResponse {
 
 export interface ReaderSyncStatus {
   last_sync_time: string | null;
+  last_error: '' | 'login' | 'timeout' | 'pull' | 'push';
   is_syncing: boolean;
 }
 

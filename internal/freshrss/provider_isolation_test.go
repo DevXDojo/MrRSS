@@ -94,7 +94,7 @@ func TestReaderProvidersKeepIdenticalFeedsAndArticlesIndependent(t *testing.T) {
 	if err := services["freshrss"].SyncArticleStatus(ctx, ids["miniflux"], "https://example.org/1", database.SyncActionStar); err == nil {
 		t.Fatal("foreign article accepted")
 	}
-	if _, err := services["miniflux"].applyServerStatus("https://example.org/1", true, "is_favorite"); err != nil {
+	if _, err := services["miniflux"].applyServerStatus(ctx, "https://example.org/1", true, "is_favorite"); err != nil {
 		t.Fatal(err)
 	}
 	other, err := db.GetArticleByID(ids["freshrss"])

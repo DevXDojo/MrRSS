@@ -78,7 +78,11 @@ describe('compact desktop ticker', () => {
     wrapper = mount(DesktopTicker);
     await flushPromises();
     await wrapper.get('.ticker-headline').trigger('click');
-    expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.OpenTickerArticle', 1, 2);
+    expect(Call.ByName).toHaveBeenCalledWith(
+      'MrRSS/internal/desktopapi.DesktopCapabilities.OpenTickerArticle',
+      1,
+      2
+    );
     await wrapper.get('.ticker-headline').trigger('auxclick', { button: 1 });
     expect(openInBrowser).toHaveBeenCalledWith('https://example.org/1');
     await wrapper.get('button[aria-label="setting.ticker.pause"]').trigger('click');
@@ -91,7 +95,9 @@ describe('compact desktop ticker', () => {
     await flushPromises();
     const request = fetchMock.mock.calls.find(([, options]) => options?.method === 'POST');
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({ ticker_enabled: 'false' });
-    expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.ApplyTickerSettings');
+    expect(Call.ByName).toHaveBeenCalledWith(
+      'MrRSS/internal/desktopapi.DesktopCapabilities.ApplyTickerSettings'
+    );
   });
   it('resumes after mouse playback controls while pausing for keyboard focus', async () => {
     wrapper = mount(DesktopTicker);

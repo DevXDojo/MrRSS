@@ -165,6 +165,9 @@ func getSmartReferer(imageURL, originalReferer string) string {
 // @Failure      500  {object}  map[string]string  "Internal server error"
 // @Router       /media/proxy [get]
 func HandleMediaProxy(h *core.Handler, w http.ResponseWriter, r *http.Request) {
+	// A media URL can also be opened as a top-level document.
+	w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	r = r.WithContext(ctx)
@@ -497,11 +500,8 @@ func HandleWebpageProxy(h *core.Handler, w http.ResponseWriter, r *http.Request)
 		bodyBytes = rewriteHTMLContent(bodyBytes, resp.Request.URL.String())
 	}
 
-	// Set response headers to allow framing and remove CORS restrictions
+	setWebpagePreviewHeaders(w)
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("X-Frame-Options", "SAMEORIGIN") // Allow framing from same origin
-	w.Header().Set("Content-Security-Policy", "")   // Remove CSP to allow resources
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Length", strconv.Itoa(len(bodyBytes)))
 
 	// Write modified response body
@@ -511,322 +511,19 @@ func HandleWebpageProxy(h *core.Handler, w http.ResponseWriter, r *http.Request)
 	}
 }
 
+func setWebpagePreviewHeaders(w http.ResponseWriter) {
+	w.Header().Set("Content-Security-Policy", "sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; font-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Cache-Control", "no-store")
+	// Public styles/fonts can be read by the sandboxed preview's opaque origin.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+}
+
 // rewriteHTMLContent rewrites HTML to proxy all external resources
 func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
-	// Validate base URL
-	if _, err := url.Parse(baseURL); err != nil {
-		log.Printf("Failed to parse base URL: %v", err)
-		return bodyBytes
-	}
-
-	// Convert to string for manipulation
-	content := string(bodyBytes)
-
-	// Inject our script FIRST - before anything else
-	// This script must run before any other scripts to intercept API calls early
-	interceptionScript := `<script>
-	// Use immediately-invoked function with strict error suppression
-	(function() {
-		'use strict';
-		const ORIGINAL_BASE_URL = ` + fmt.Sprintf("'%s'", baseURL) + `;
-		const PROXY_ORIGIN = window.location.origin;
-
-		// DEBUG: Log that interceptor is loaded
-		console.log('[Proxy] Interceptor loaded for:', ORIGINAL_BASE_URL);
-
-		// Override History API BEFORE anything else with try-catch to suppress ALL errors
-		try {
-			const originalPushState = History.prototype.pushState;
-			History.prototype.pushState = function(state, title, url) {
-				try {
-					if (url && typeof url === 'string' && (url.indexOf('http://') === 0 || url.indexOf('https://') === 0)) {
-						// Silently block - don't even log to avoid console spam
-						return undefined;
-					}
-				} catch(e) { /* Suppress all errors */ }
-				try {
-					return originalPushState.call(this, state, title, url);
-				} catch(e) { /* Suppress errors from original call */ }
-			};
-		} catch(e) { /* Suppress errors during override */ }
-
-		try {
-			const originalReplaceState = History.prototype.replaceState;
-			History.prototype.replaceState = function(state, title, url) {
-				try {
-					if (url && typeof url === 'string' && (url.indexOf('http://') === 0 || url.indexOf('https://') === 0)) {
-						// Silently block
-						return undefined;
-					}
-				} catch(e) { /* Suppress all errors */ }
-				try {
-					return originalReplaceState.call(this, state, title, url);
-				} catch(e) { /* Suppress errors from original call */ }
-			};
-		} catch(e) { /* Suppress errors during override */ }
-
-		// Also override on window.history for direct access
-		try {
-			if (window.history && window.history.pushState) {
-				const originalPushState = window.history.pushState;
-				window.history.pushState = function(state, title, url) {
-					try {
-						if (url && typeof url === 'string' && (url.indexOf('http://') === 0 || url.indexOf('https://') === 0)) {
-							return undefined;
-						}
-					} catch(e) { }
-					try {
-						return originalPushState.call(this, state, title, url);
-					} catch(e) { }
-				};
-			}
-		} catch(e) { }
-
-		try {
-			if (window.history && window.history.replaceState) {
-				const originalReplaceState = window.history.replaceState;
-				window.history.replaceState = function(state, title, url) {
-					try {
-						if (url && typeof url === 'string' && (url.indexOf('http://') === 0 || url.indexOf('https://') === 0)) {
-							return undefined;
-						}
-					} catch(e) { }
-					try {
-						return originalReplaceState.call(this, state, title, url);
-					} catch(e) { }
-				};
-			}
-		} catch(e) { }
-
-		// Helper function to resolve relative URLs
-		function resolveRelativeURL(url) {
-			try {
-				// If already absolute, return as-is
-				if (url.indexOf('http://') === 0 || url.indexOf('https://') === 0) {
-					return url;
-				}
-				// Protocol-relative URL
-				if (url.indexOf('//') === 0) {
-					return 'https:' + url;
-				}
-				// Relative URL - resolve against base URL
-				const base = new URL(ORIGINAL_BASE_URL);
-				return new URL(url, base).href;
-			} catch(e) {
-				return url;
-			}
-		}
-
-		// List of domains to skip proxying (analytics, ads, tracking)
-		const SKIP_PROXY_DOMAINS = [
-			'google-analytics.com',
-			'googletagmanager.com',
-			'googlesyndication.com',
-			'googleadservices.com',
-			'doubleclick.net',
-			'facebook.com/tr',
-			'connect.facebook.net',
-			'analytics.twitter.com',
-			't.co',
-			'adform.net',
-			'adnxs.com',
-			'rubiconproject.com',
-			'pubmatic.com',
-			'criteo.com',
-			'crwdcntrl.net',
-			'cookielaw.org',
-			'onetrust.com',
-			'clarity.ms',
-			'bing.com'
-		];
-
-		// Helper function to check if URL should be skipped
-		function shouldSkipProxy(url) {
-			try {
-				const urlObj = new URL(url);
-				const hostname = urlObj.hostname.toLowerCase();
-				return SKIP_PROXY_DOMAINS.some(domain =>
-					hostname === domain || hostname.endsWith('.' + domain)
-				);
-			} catch(e) {
-				return false;
-			}
-		}
-
-		// Intercept fetch() with error suppression
-		try {
-			const originalFetch = window.fetch;
-			window.fetch = function(input, ...args) {
-				let modifiedInput = input;
-				try {
-					let url = input;
-					// Handle Request objects
-					if (input && typeof input === 'object' && input.url) {
-						url = input.url;
-					}
-					if (typeof url === 'string') {
-						// Resolve relative URLs to absolute
-						const absoluteUrl = resolveRelativeURL(url);
-
-						// Only intercept external URLs (not our own proxy)
-						if (absoluteUrl.indexOf(PROXY_ORIGIN) !== 0) {
-							// Skip known analytics/ad/tracking domains
-							if (shouldSkipProxy(absoluteUrl)) {
-								// Don't intercept - let it fail naturally
-								return originalFetch.call(this, input, ...args);
-							}
-
-							// Reduce noise - only log important requests
-							if (!absoluteUrl.includes('/analytics') && !absoluteUrl.includes('/collect') && !absoluteUrl.includes('/rum')) {
-								console.log('[Proxy] Intercepting fetch:', url, '->', absoluteUrl);
-							}
-							try {
-								// Use base64 encoding to avoid URL encoding issues
-								const proxyUrl = PROXY_ORIGIN + '/api/webpage/resource?url_b64=' + btoa(absoluteUrl) + '&referer_b64=' + btoa(ORIGINAL_BASE_URL);
-								if (input && typeof input === 'object' && input.url) {
-									modifiedInput = new Request(proxyUrl, input);
-								} else {
-									modifiedInput = proxyUrl;
-								}
-							} catch(e) { }
-						}
-					}
-				} catch(e) { }
-				try {
-					return originalFetch.call(this, modifiedInput, ...args);
-				} catch(e) {
-					return Promise.reject(e);
-				}
-			};
-			console.log('[Proxy] Fetch interceptor installed');
-		} catch(e) { }
-
-		// Intercept XMLHttpRequest with error suppression
-		try {
-			const originalXHROpen = XMLHttpRequest.prototype.open;
-			XMLHttpRequest.prototype.open = function(method, url, ...args) {
-				let modifiedUrl = url;
-				try {
-					if (typeof url === 'string') {
-						// Resolve relative URLs to absolute
-						const absoluteUrl = resolveRelativeURL(url);
-
-						// Only intercept external URLs (not our own proxy)
-						if (absoluteUrl.indexOf(PROXY_ORIGIN) !== 0) {
-							// Skip known analytics/ad/tracking domains
-							if (shouldSkipProxy(absoluteUrl)) {
-								// Don't intercept - let it fail naturally
-								return originalXHROpen.call(this, method, url, ...args);
-							}
-
-							// Reduce noise - only log important requests
-							if (!absoluteUrl.includes('/analytics') && !absoluteUrl.includes('/collect') && !absoluteUrl.includes('/rum')) {
-								console.log('[Proxy] Intercepting XHR:', method, url, '->', absoluteUrl);
-							}
-							try {
-								// Use base64 encoding to avoid URL encoding issues
-								modifiedUrl = PROXY_ORIGIN + '/api/webpage/resource?url_b64=' + btoa(absoluteUrl) + '&referer_b64=' + btoa(ORIGINAL_BASE_URL);
-							} catch(e) { }
-						}
-					}
-				} catch(e) { }
-				try {
-					return originalXHROpen.call(this, method, modifiedUrl, ...args);
-				} catch(e) {
-					throw e;
-				}
-			};
-			console.log('[Proxy] XHR interceptor installed');
-		} catch(e) { }
-
-		// Intercept all link clicks to open in external browser
-		try {
-			document.addEventListener('click', function(e) {
-				try {
-					// Check if clicked element or its parents is a link with our marker
-					let target = e.target;
-					while (target && target !== document) {
-						if (target.tagName === 'A' && target.hasAttribute('data-proxy-link')) {
-							// This is our proxied link
-							const href = target.getAttribute('href');
-							if (href && href.startsWith('BROWSER-OPEN:')) {
-								e.preventDefault();
-								e.stopPropagation();
-								e.stopImmediatePropagation();
-
-								const urlToOpen = href.substring('BROWSER-OPEN:'.length);
-								console.log('[Proxy] Opening link in browser:', urlToOpen);
-
-								// Call our backend to open the URL
-								fetch(PROXY_ORIGIN + '/api/browser/open?url=' + encodeURIComponent(urlToOpen), {
-									method: 'GET',
-									mode: 'cors'
-								}).catch(err => {
-									console.error('[Proxy] Failed to open URL:', err);
-								});
-
-								return false;
-							}
-						}
-						target = target.parentElement;
-					}
-				} catch(err) {
-					console.error('[Proxy] Error handling click:', err);
-				}
-			}, true); // Use capture phase
-			console.log('[Proxy] Link click interceptor installed');
-		} catch(e) {
-			console.error('[Proxy] Failed to install link interceptor:', e);
-		}
-	})();
-	</script>`
-
-	// Add meta tags to block manifest and other external resource requests
-	metaTags := `<meta name="manifest" content=""><link rel="manifest" href="about:blank">`
-
-	// CRITICAL: DON'T use <base> tag - it causes issues with link resolution
-	// Instead, we'll convert ALL relative URLs to absolute URLs in the backend
-	// This ensures both resources and links work correctly
-	baseTag := ``
-
-	// Find <head> tag and insert our interception script FIRST, then meta tags (no base tag)
-	headIndex := strings.Index(strings.ToLower(content), "<head>")
-	if headIndex == -1 {
-		// If no <head>, look for <html>
-		htmlIndex := strings.Index(strings.ToLower(content), "<html>")
-		if htmlIndex != -1 {
-			htmlEndIndex := htmlIndex + strings.Index(content[htmlIndex:], ">") + 1
-			content = content[:htmlEndIndex] + "<head>" + interceptionScript + baseTag + metaTags + "</head>" + content[htmlEndIndex:]
-		}
-	} else {
-		headEndIndex := headIndex + strings.Index(content[headIndex:], ">") + 1
-		// Insert interception script FIRST, then meta tags (no base tag)
-		content = content[:headEndIndex] + interceptionScript + baseTag + metaTags + content[headEndIndex:]
-	}
-
-	// Rewrite script src attributes
-	// log.Printf("[HTML Rewrite] Rewriting script src attributes...")
-	content = rewriteAttribute(content, "script", "src", baseURL)
-
-	// Rewrite link href attributes (for stylesheets)
-	// log.Printf("[HTML Rewrite] Rewriting link href attributes...")
-	content = rewriteLinkHref(content, baseURL)
-
-	// DEBUG: Log a sample of the rewritten HTML to verify it's working
-	// if strings.Contains(content, "/static/") || strings.Contains(content, "/cdn-cgi/") {
-	// 	log.Printf("[HTML Rewrite] DEBUG: Found potential unrewritten URLs in HTML!")
-	// 	// Find and log the first occurrence
-	// 	if idx := strings.Index(content, "/static/"); idx != -1 {
-	// 		start := max(idx - 100, 0)
-	// 		end := min(idx + 200, len(content))
-	// 		log.Printf("[HTML Rewrite] Context around /static/: %s", content[start:end])
-	// 	}
-	// 	if idx := strings.Index(content, "/cdn-cgi/"); idx != -1 {
-	// 		start := max(idx - 100, 0)
-	// 		end := min(idx + 200, len(content))
-	// 		log.Printf("[HTML Rewrite] Context around /cdn-cgi/: %s", content[start:end])
-	// 	}
-	// }
+	content := rewriteLinkHref(string(bodyBytes), baseURL)
 
 	// First, convert lazy-loaded images to normal images
 	// This ensures images load immediately without waiting for lazy loading scripts
@@ -836,9 +533,6 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 	content = rewriteAttribute(content, "img", "src", baseURL)
 	content = rewriteSrcsetAttribute(content, "img", "srcset", baseURL)
 	content = rewriteSrcsetAttribute(content, "img", "data-srcset", baseURL)
-
-	// Rewrite iframe src attributes
-	content = rewriteAttribute(content, "iframe", "src", baseURL)
 
 	// Rewrite video src and poster attributes
 	content = rewriteAttribute(content, "video", "src", baseURL)
@@ -855,25 +549,77 @@ func rewriteHTMLContent(bodyBytes []byte, baseURL string) []byte {
 	// Rewrite track src attributes
 	content = rewriteAttribute(content, "track", "src", baseURL)
 
-	// Rewrite embed src attributes
-	content = rewriteAttribute(content, "embed", "src", baseURL)
-
-	// Rewrite object data attributes
-	content = rewriteAttribute(content, "object", "data", baseURL)
-
-	// Rewrite action attributes in forms
-	content = rewriteAttribute(content, "form", "action", baseURL)
-
-	// Rewrite href attributes in anchor tags (for absolute URLs only)
-	content = rewriteAnchorHref(content, baseURL)
-
 	// Rewrite CSS in style tags
 	content = rewriteStyleTags(content, baseURL)
 
 	// Rewrite inline style attributes
 	content = rewriteInlineStyles(content, baseURL)
 
-	return []byte(content)
+	return prepareWebpagePreview(content, baseURL)
+}
+
+// prepareWebpagePreview removes active elements and makes outbound links open
+// outside the preview. A response policy also enforces a scriptless sandbox.
+func prepareWebpagePreview(content, baseURL string) []byte {
+	doc, err := htmlparser.Parse(strings.NewReader(content))
+	if err != nil {
+		return nil
+	}
+	base, _ := url.Parse(baseURL)
+	var visit func(*htmlparser.Node)
+	visit = func(node *htmlparser.Node) {
+		for child := node.FirstChild; child != nil; {
+			next := child.NextSibling
+			if child.Type == htmlparser.ElementNode {
+				switch child.Data {
+				case "script", "meta", "base", "iframe", "frame", "object", "embed", "template":
+					node.RemoveChild(child)
+					child = next
+					continue
+				}
+				attrs := make([]htmlparser.Attribute, 0, len(child.Attr))
+				for _, attr := range child.Attr {
+					if strings.HasPrefix(attr.Key, "on") || attr.Key == "ping" || attr.Key == "srcdoc" {
+						continue
+					}
+					if child.Data == "a" || child.Data == "area" {
+						switch attr.Key {
+						case "target", "rel", "download", "referrerpolicy":
+							continue
+						case "href":
+							if attr.Namespace != "" {
+								continue
+							}
+							if !strings.HasPrefix(attr.Val, "#") {
+								link, err := url.Parse(strings.TrimSpace(attr.Val))
+								if err != nil || base == nil {
+									continue
+								}
+								link = base.ResolveReference(link)
+								if link.Hostname() == "" || (link.Scheme != "http" && link.Scheme != "https") {
+									continue
+								}
+								attr.Val = link.String()
+								attrs = append(attrs, attr, htmlparser.Attribute{Key: "target", Val: "_blank"},
+									htmlparser.Attribute{Key: "rel", Val: "noopener noreferrer"})
+								continue
+							}
+						}
+					}
+					attrs = append(attrs, attr)
+				}
+				child.Attr = attrs
+			}
+			visit(child)
+			child = next
+		}
+	}
+	visit(doc)
+	var preview bytes.Buffer
+	if err := htmlparser.Render(&preview, doc); err != nil {
+		return nil
+	}
+	return preview.Bytes()
 }
 
 // convertLazyImages resolves lazy image sources before rewriting resource URLs.
@@ -1156,149 +902,6 @@ func rewriteLinkHref(content, baseURL string) string {
 	return rewriteAttribute(content, "link", "href", baseURL)
 }
 
-// rewriteAnchorHref rewrites href attributes in anchor tags
-func rewriteAnchorHref(content, baseURL string) string {
-	// Match all anchor tags with href attribute
-	// This pattern matches any <a> tag that contains an href attribute
-	re := regexp.MustCompile(`<a\s+[^>]*href[^>]*>`)
-
-	// Count matches for debugging
-	matchCount := 0
-	proxiedCount := 0
-
-	result := re.ReplaceAllStringFunc(content, func(match string) string {
-		matchCount++
-
-		// Extract href value using a more flexible regex
-		hrefRe := regexp.MustCompile(`href\s*=\s*(?:["']([^"']+)["']|([^"'\s>]+))`)
-		hrefMatch := hrefRe.FindStringSubmatch(match)
-
-		if len(hrefMatch) < 2 {
-			return match
-		}
-
-		// Get the URL (first captured group is quoted, second is unquoted)
-		var urlValue string
-		if hrefMatch[1] != "" {
-			urlValue = hrefMatch[1]
-		} else if hrefMatch[2] != "" {
-			urlValue = hrefMatch[2]
-		} else {
-			return match
-		}
-
-		// Skip mailto:, tel:, javascript:, and other special protocols
-		if strings.HasPrefix(urlValue, "mailto:") ||
-			strings.HasPrefix(urlValue, "tel:") ||
-			strings.HasPrefix(urlValue, "javascript:") ||
-			strings.HasPrefix(urlValue, "data:") ||
-			strings.HasPrefix(urlValue, "blob:") ||
-			strings.HasPrefix(urlValue, "#") {
-			return match
-		}
-
-		// Skip already proxied URLs (both relative and absolute)
-		if strings.HasPrefix(urlValue, "/api/") ||
-			strings.HasPrefix(urlValue, "http://") && strings.Contains(urlValue, "/api/") ||
-			strings.HasPrefix(urlValue, "https://") && strings.Contains(urlValue, "/api/") {
-			return match
-		}
-
-		// Resolve relative URLs to absolute URLs
-		var resolvedURL string
-		if strings.HasPrefix(urlValue, "http://") || strings.HasPrefix(urlValue, "https://") {
-			// Already absolute
-			resolvedURL = urlValue
-		} else if strings.HasPrefix(urlValue, "//") {
-			// Protocol-relative URL (//example.com) - add https:
-			resolvedURL = "https:" + urlValue
-		} else {
-			// Relative URL - resolve against baseURL
-			resolvedURL = resolveURL(urlValue, baseURL)
-		}
-
-		// Only proxy HTTP/HTTPS URLs
-		if !strings.HasPrefix(resolvedURL, "http://") && !strings.HasPrefix(resolvedURL, "https://") {
-			return match
-		}
-
-		proxiedCount++
-
-		// CRITICAL FIX: Use absolute URL for the proxy endpoint
-		// We must use window.location.origin (which will be our backend) + the endpoint path
-		// This is handled by JavaScript in the iframe, but we need to ensure the href is absolute
-		// Format: https://localhost:9245/api/browser/open?url=...
-		// Since we don't know our backend origin here, we use a protocol-relative URL starting with //
-		// But actually, the iframe's window.location.origin IS our backend, so we just need to ensure
-		// the path starts with / and it will be resolved correctly... wait, that's the problem!
-
-		// The real solution: We need to construct an absolute URL or use JavaScript to handle clicks
-		// For now, let's use a data URL or JavaScript approach, but simpler: make it absolute by using
-		// the current origin. Since we're in an iframe served from our backend, we can use:
-
-		// Option 1: Use JavaScript: href (blocked by CSP usually)
-		// Option 2: Inject a <base> tag pointing to our backend (might break other resources)
-		// Option 3: Use absolute URL with placeholder that JavaScript will fix
-		// Option 4: Intercept clicks via event delegation (best approach)
-
-		// Let's use a special marker that our injected script will recognize
-		proxiedURL := fmt.Sprintf("BROWSER-OPEN:%s", resolvedURL)
-		// log.Printf("[Link Proxy] Proxied link %d: %s -> %s (marker: %s)", proxiedCount, urlValue, resolvedURL, proxiedURL)
-
-		// Replace the href attribute value by finding and replacing the exact value
-		// We need to handle different quote styles
-		if hrefMatch[1] != "" {
-			// Was quoted - replace with quoted version
-			// Find the original href attribute with its quotes and value
-			oldHref := fmt.Sprintf(`href="%s"`, urlValue)
-			oldHrefSingle := fmt.Sprintf(`href='%s'`, urlValue)
-			if strings.Contains(match, oldHref) {
-				newMatch := strings.Replace(match, oldHref, fmt.Sprintf(`href="%s"`, proxiedURL), 1)
-				// Add target="_self" and a special data attribute for our script
-				if !strings.Contains(newMatch, "target=") {
-					newMatch = strings.Replace(newMatch, ">", ` target="_self" data-proxy-link="true">`, 1)
-				} else {
-					newMatch = strings.Replace(newMatch, ">", ` data-proxy-link="true">`, 1)
-				}
-				return newMatch
-			} else if strings.Contains(match, oldHrefSingle) {
-				newMatch := strings.Replace(match, oldHrefSingle, fmt.Sprintf(`href='%s'`, proxiedURL), 1)
-				if !strings.Contains(newMatch, "target=") {
-					newMatch = strings.Replace(newMatch, ">", ` target="_self" data-proxy-link="true">`, 1)
-				} else {
-					newMatch = strings.Replace(newMatch, ">", ` data-proxy-link="true">`, 1)
-				}
-				return newMatch
-			}
-		} else {
-			// Was unquoted
-			oldHref := fmt.Sprintf(`href=%s`, urlValue)
-			newMatch := strings.Replace(match, oldHref, fmt.Sprintf(`href="%s"`, proxiedURL), 1)
-			if !strings.Contains(newMatch, "target=") {
-				newMatch = strings.Replace(newMatch, ">", ` target="_self" data-proxy-link="true">`, 1)
-			} else {
-				newMatch = strings.Replace(newMatch, ">", ` data-proxy-link="true">`, 1)
-			}
-			return newMatch
-		}
-
-		// Fallback: use regex replacement
-		newMatch := hrefRe.ReplaceAllString(match, fmt.Sprintf(`href="%s"`, proxiedURL))
-		if !strings.Contains(newMatch, "target=") {
-			newMatch = strings.Replace(newMatch, ">", ` target="_self" data-proxy-link="true">`, 1)
-		} else {
-			newMatch = strings.Replace(newMatch, ">", ` data-proxy-link="true">`, 1)
-		}
-		return newMatch
-	})
-
-	// if matchCount > 0 {
-	// 	log.Printf("[Link Proxy] Found %d anchor tags, proxied %d links", matchCount, proxiedCount)
-	// }
-
-	return result
-}
-
 // rewriteStyleTags rewrites CSS URLs in <style> tags
 func rewriteStyleTags(content, baseURL string) string {
 	pattern := `<style[^>]*>(.*?)</style>`
@@ -1409,17 +1012,7 @@ func resolveURL(urlStr, baseURL string) string {
 // @Failure      500  {object}  map[string]string  "Internal server error"
 // @Router       /webpage/resource [get]
 func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Request) {
-	// Handle CORS preflight requests
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-		w.Header().Set("Access-Control-Max-Age", "86400")
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		response.Error(w, nil, http.StatusMethodNotAllowed)
 		return
 	}
@@ -1506,41 +1099,19 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	// Create request to the resource URL
-	var req *http.Request
-	var err error
-
-	// For POST requests, read the body
-	if r.Method == http.MethodPost {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			log.Printf("Failed to read request body: %v", err)
-			response.Error(w, err, http.StatusInternalServerError)
-			return
-		}
-		req, err = http.NewRequestWithContext(r.Context(), http.MethodPost, resourceURL, bytes.NewReader(body))
-		if err != nil {
-			log.Printf("Failed to create request: %v", err)
-			response.Error(w, err, http.StatusInternalServerError)
-			return
-		}
-		// Forward content type
-		if contentType := r.Header.Get("Content-Type"); contentType != "" {
-			req.Header.Set("Content-Type", contentType)
-		}
-	} else {
-		req, err = http.NewRequestWithContext(r.Context(), http.MethodGet, resourceURL, nil)
-		if err != nil {
-			log.Printf("Failed to create request: %v", err)
-			response.Error(w, err, http.StatusInternalServerError)
-			return
-		}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, resourceURL, nil)
+	if err != nil {
+		response.Error(w, fmt.Errorf("invalid resource URL"), http.StatusBadRequest)
+		return
 	}
 
 	// Set headers to mimic a browser
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Referer", referer)
 	req.Header.Set("Accept", "*/*")
+	if value := r.Header.Get("Range"); value != "" {
+		req.Header.Set("Range", value)
+	}
 
 	// Execute the request
 	resp, err := client.Do(req)
@@ -1581,25 +1152,14 @@ func HandleWebpageResource(h *core.Handler, w http.ResponseWriter, r *http.Reque
 		log.Printf("[Resource Proxy] Using inferred content type for %s: %s (original: %s)", resourceURL, contentType, resp.Header.Get("Content-Type"))
 	}
 
-	// Copy headers from the response, excluding problematic ones
-	for key, values := range resp.Header {
-		// Skip headers that might cause issues
-		if key == "Content-Security-Policy" ||
-			key == "X-Frame-Options" ||
-			key == "Set-Cookie" ||
-			key == "Access-Control-Allow-Origin" ||
-			key == "Content-Length" || // We'll recalculate this
-			key == "Content-Type" { // We'll set this ourselves
-			continue
-		}
-		for _, value := range values {
-			w.Header().Add(key, value)
+	// Only forward headers needed to serve the resource. The upstream must not
+	// control navigation, cookies, or policies on the application origin.
+	for _, name := range []string{"Content-Range", "Accept-Ranges"} {
+		if value := resp.Header.Get(name); value != "" {
+			w.Header().Set(name, value)
 		}
 	}
-
-	// Set CORS headers to allow loading from the same origin
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+	setWebpagePreviewHeaders(w)
 
 	// Set the correct content type
 	w.Header().Set("Content-Type", contentType)

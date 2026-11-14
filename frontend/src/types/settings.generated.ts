@@ -140,6 +140,7 @@ export interface SettingsData {
   ticker_background_color_end: string;
   ticker_enabled: boolean;
   ticker_feed_id: number;
+  ticker_feed_ids: string;
   ticker_font_size: number;
   ticker_only_unread: boolean;
   ticker_open_in_browser: boolean;

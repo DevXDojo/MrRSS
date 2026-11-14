@@ -72,7 +72,9 @@ describe('independent ticker preference writes', () => {
     await first;
     expect(writes).toEqual([{ ticker_speed: '70' }, { ticker_font_size: '22' }]);
     expect(api.status.value).toBe('saved');
-    expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.ApplyTickerSettings');
+    expect(Call.ByName).toHaveBeenCalledWith(
+      'MrRSS/internal/desktopapi.DesktopCapabilities.ApplyTickerSettings'
+    );
   });
   it('keeps failed changes for an explicit retry', async () => {
     const fetchMock = vi

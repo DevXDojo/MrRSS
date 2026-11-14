@@ -12,7 +12,7 @@
             "name": "GPL-3.0",
             "url": "https://www.gnu.org/licenses/gpl-3.0.en.html"
         },
-        "version": "1.3.42"
+        "version": "1.3.43"
     },
     "host": "localhost:1234",
     "basePath": "/api",
@@ -32,7 +32,7 @@
                 "summary": "Get Miniflux sync status",
                 "responses": {
                     "200": {
-                        "description": "Sync status (pending_changes, failed_items, last_sync_time)",
+                        "description": "Sync status (pending_changes, failed_items, last_sync_time, last_error, is_syncing)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1113,6 +1113,18 @@
                         "format": "int64",
                         "description": "Filter by feed ID",
                         "name": "feed_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated feed IDs (overrides feed_id)",
+                        "name": "feed_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include the description supplied by the feed",
+                        "name": "include_original_summary",
                         "in": "query"
                     },
                     {
@@ -3822,7 +3834,7 @@
                 "summary": "Get FreshRSS sync status",
                 "responses": {
                     "200": {
-                        "description": "Sync status (pending_changes, failed_items, last_sync_time)",
+                        "description": "Sync status (pending_changes, failed_items, last_sync_time, last_error, is_syncing)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

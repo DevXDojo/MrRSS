@@ -1,8 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { shallowMount, flushPromises } from '@vue/test-utils';
+import { Call } from '@wailsio/runtime';
 import { generateInitialSettings } from '@/composables/core/useSettings.generated';
 import { NumberControl, SelectControl } from '@/components/settings';
-import BaseSelect from '@/components/common/BaseSelect.vue';
+import BaseMultiSelect from '@/components/common/BaseMultiSelect.vue';
 import TickerSettings from './TickerSettings.vue';
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
@@ -10,6 +11,53 @@ vi.mock('@wailsio/runtime', () => ({ Call: { ByName: vi.fn(async () => []) } }))
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+it('offers shell placement only when supported and omits the conflicting pin control', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => Response.json([]))
+  );
+  const available = ['floating', 'top', 'bottom'];
+  vi.mocked(Call.ByName).mockImplementation(async (method) =>
+    method.endsWith('.GetTickerPositions') ? available : []
+  );
+  const settings = { ...generateInitialSettings(), ticker_position: 'desktop' };
+  const mountSettings = () =>
+    shallowMount(TickerSettings, {
+      props: { settings },
+      global: { renderStubDefaultSlot: true, stubs: { SubSettingItem: false } },
+    });
+  const placement = (wrapper: ReturnType<typeof mountSettings>) =>
+    wrapper
+      .findAllComponents(SelectControl)
+      .find((control) => control.props('options').some(({ value }) => value === 'floating'))!;
+  const unsupported = mountSettings();
+  await flushPromises();
+  expect(placement(unsupported).props('modelValue')).toBe('bottom');
+  expect(
+    placement(unsupported)
+      .props('options')
+      .map(({ value }) => value)
+  ).toEqual(available);
+  expect(unsupported.text()).toContain('setting.ticker.alwaysOnTop');
+  unsupported.unmount();
+
+  available.push('reserved', 'desktop');
+  const supported = mountSettings();
+  await flushPromises();
+  expect(placement(supported).props('modelValue')).toBe('desktop');
+  expect(
+    placement(supported)
+      .props('options')
+      .map(({ value }) => value)
+  ).toEqual(available);
+  expect(supported.text()).not.toContain('setting.ticker.alwaysOnTop');
+  placement(supported).vm.$emit('update:modelValue', 'reserved');
+  expect(supported.emitted('update:settings')?.[0][0]).toMatchObject({
+    ticker_position: 'reserved',
+  });
+  supported.unmount();
 });
 
 it('loads searchable local subscriptions and emits bounded settings edits', async () => {
@@ -24,12 +72,13 @@ it('loads searchable local subscriptions and emits bounded settings edits', asyn
   });
   try {
     await flushPromises();
-    const sources = wrapper.getComponent(BaseSelect);
+    const sources = wrapper.getComponent(BaseMultiSelect);
     expect(sources.props('searchable')).toBe(true);
     expect(sources.props('options')).toContainEqual({ value: 2, label: 'Local feed' });
-    sources.vm.$emit('update:modelValue', 2);
+    sources.vm.$emit('update:modelValue', [2]);
     expect(wrapper.emitted('update:settings')?.[0][0]).toMatchObject({
       ticker_feed_id: 2,
+      ticker_feed_ids: '2',
       ticker_enabled: true,
     });
     wrapper
@@ -69,7 +118,7 @@ it('allows retrying a subscription loading error without discarding preferences'
       .find((button) => button.text() === 'setting.ticker.retry')!
       .trigger('click');
     await flushPromises();
-    expect(wrapper.getComponent(BaseSelect).props('options')).toContainEqual({
+    expect(wrapper.getComponent(BaseMultiSelect).props('options')).toContainEqual({
       value: 7,
       label: 'Recovered',
     });

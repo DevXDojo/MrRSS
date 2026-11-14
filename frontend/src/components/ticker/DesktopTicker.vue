@@ -17,8 +17,9 @@ import {
 } from '@phosphor-icons/vue';
 import { useSettings } from '@/composables/core/useSettings';
 import { openInBrowser } from '@/utils/browser';
+import DOMPurify from 'dompurify';
 import type { Article } from '@/types/models';
-import { tickerStyle } from './tickerPreferences';
+import { tickerStyle, tickerUsesShellPlacement } from './tickerPreferences';
 import { useTickerPreferences } from './useTickerPreferences';
 import { useTickerArticles } from './useTickerArticles';
 import { useTickerMarquee } from './useTickerMarquee';
@@ -80,7 +81,7 @@ const disposers: Array<() => void> = [];
 
 async function nativeAction(action: string, ...args: Array<number | boolean>) {
   try {
-    await Call.ByName(`main.DesktopCapabilities.${action}`, ...args);
+    await Call.ByName(`MrRSS/internal/desktopapi.DesktopCapabilities.${action}`, ...args);
   } catch {
     tickerToast(t('setting.ticker.openFailed'), 'error');
   }
@@ -109,10 +110,21 @@ function articleTime(article: Article) {
 }
 function articleTooltip(article: Article) {
   const date = new Date(article.published_at);
+  const description = DOMPurify.sanitize(article.original_summary || article.summary || '', {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    FORBID_TAGS: ['noscript'],
+    RETURN_DOM_FRAGMENT: true,
+  });
+  const text = (description.textContent || '').replace(/\s+/g, ' ').trim();
+  const characters = Array.from(text);
+  const summary =
+    characters.length > 180 ? `${characters.slice(0, 180).join('').trimEnd()}…` : text;
   return [
     article.title,
     article.feed_title,
     Number.isNaN(date.getTime()) ? '' : date.toLocaleString(locale.value),
+    summary && summary !== article.title ? `\n${summary}\n` : '',
     t(
       settings.value.ticker_open_in_browser
         ? 'setting.ticker.browserHint'
@@ -326,6 +338,7 @@ onUnmounted(() => {
         <PhArrowClockwise :size="15" :class="{ 'animate-spin': loading }" />
       </button>
       <button
+        v-if="!tickerUsesShellPlacement(settings.ticker_position)"
         class="ticker-pin"
         :class="{ active: settings.ticker_always_on_top }"
         :title="t('setting.ticker.alwaysOnTop')"

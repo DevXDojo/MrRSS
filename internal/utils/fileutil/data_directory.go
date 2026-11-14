@@ -56,7 +56,7 @@ func ConfigureDataDir(path string) error {
 	}
 	// Freeze the canonical path so the instance lock and all data consumers use
 	// the same directory, including launches through a symlink or relative path.
-	abs, err = filepath.EvalSymlinks(abs)
+	abs, err = resolveStorageDirectory(abs)
 	if err != nil {
 		return fmt.Errorf("resolve data directory: %w", err)
 	}

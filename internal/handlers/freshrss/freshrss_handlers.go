@@ -101,7 +101,7 @@ func HandleSync(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 // @Tags         freshrss
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "Sync status (pending_changes, failed_items, last_sync_time)"
+// @Success      200  {object}  map[string]interface{}  "Sync status (pending_changes, failed_items, last_sync_time, last_error, is_syncing)"
 // @Router       /freshrss/status [get]
 func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -109,23 +109,24 @@ func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	provider := requestProvider(r)
 	// Get pending count
-	pendingCount, err := h.DB.GetPendingSyncCount(requestProvider(r))
+	pendingCount, err := h.DB.GetPendingSyncCount(provider)
 	if err != nil {
 		log.Printf("Error getting pending sync count: %v", err)
 		pendingCount = 0
 	}
 
 	// Get failed items
-	failedItems, err := h.DB.GetFailedSyncItems(10, requestProvider(r))
+	failedItems, err := h.DB.GetFailedSyncItems(10, provider)
 	if err != nil {
 		log.Printf("Error getting failed sync items: %v", err)
 		failedItems = nil
 	}
 
 	// Get last sync time from settings
-	lastSyncStr, _ := h.DB.GetSetting(requestProvider(r) + "_last_sync_time")
-	provider := requestProvider(r)
+	lastSyncStr, _ := h.DB.GetSetting(provider + "_last_sync_time")
+	lastError, _ := h.DB.GetSetting(provider + "_last_sync_error")
 	var lastSyncTime *time.Time
 	if lastSyncStr != "" {
 		if ts, err := time.Parse(time.RFC3339, lastSyncStr); err == nil {
@@ -137,6 +138,7 @@ func HandleSyncStatus(h *core.Handler, w http.ResponseWriter, r *http.Request) {
 		"pending_changes": pendingCount,
 		"failed_items":    len(failedItems),
 		"last_sync_time":  lastSyncTime,
+		"last_error":      lastError,
 		"is_syncing":      freshrss.IsSyncRunning(h.DB, provider),
 	})
 }
