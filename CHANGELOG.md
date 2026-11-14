@@ -7,7 +7,18 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.43] - 2026-11-14
+
+### Added
+
+- Select multiple subscriptions for the desktop news ticker and hover over a headline to preview its description. (#1281)
+
+### Fixed
+
+- Hide Windows console windows when refreshing script feeds and changing the launch-at-login setting. (#1282, @ClutchBear)
+- Resolve Windows data directory junctions used by Scoop before opening app storage. (#1286)
+- Report failed FreshRSS and Miniflux syncs, preserve the last successful sync time, and give queued edits a separate push deadline. (#1287)
+- Isolate original webpage previews from MrRSS settings and data while preserving styles, images, and outbound links. (@orshih6)
 
 ## [1.3.42] - 2026-11-08
 
