@@ -1,13 +1,50 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 // Reader providers share the Google Reader protocol, but never credentials or data ownership.
 func ValidReaderProvider(provider string) bool {
 	return provider == "freshrss" || provider == "miniflux"
+}
+
+// ApplyReaderArticleStatus preserves pending local edits until they are pushed.
+func (db *DB) ApplyReaderArticleStatus(ctx context.Context, id int64, value bool, column string) (int, error) {
+	var actions [2]SyncAction
+	switch column {
+	case "is_read":
+		actions = [2]SyncAction{SyncActionMarkRead, SyncActionMarkUnread}
+	case "is_favorite":
+		actions = [2]SyncAction{SyncActionStar, SyncActionUnstar}
+	default:
+		return 0, fmt.Errorf("invalid reader status column")
+	}
+	result, err := db.ExecContext(ctx, `UPDATE articles SET `+column+` = ? WHERE id = ? AND `+column+` != ? AND NOT EXISTS (
+		SELECT 1 FROM freshrss_sync_queue WHERE article_id = ? AND synced_at IS NULL AND sync_action IN (?, ?)
+	)`, value, id, value, id, actions[0], actions[1])
+	if err != nil {
+		return 0, err
+	}
+	changed, err := result.RowsAffected()
+	return int(changed), err
+}
+
+// RecordReaderSync stores the outcome of a completed full sync. The last
+// successful time remains available when a subsequent attempt fails.
+func (db *DB) RecordReaderSync(ctx context.Context, provider string, finished time.Time, failure string) error {
+	timestamp := finished.Format(time.RFC3339Nano)
+	if failure != "" {
+		_, err := db.ExecContext(ctx, `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?), (?, ?)`,
+			provider+"_last_sync_attempt", timestamp, provider+"_last_sync_error", failure)
+		return err
+	}
+	_, err := db.ExecContext(ctx, `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?), (?, ?), (?, '')`,
+		provider+"_last_sync_attempt", timestamp, provider+"_last_sync_time", timestamp, provider+"_last_sync_error")
+	return err
 }
 
 func migrateReaderProviders(db *sql.DB) error {

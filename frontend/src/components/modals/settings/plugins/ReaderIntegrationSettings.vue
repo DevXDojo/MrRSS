@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhLink, PhUser, PhKey, PhArrowClockwise, PhCloudCheck } from '@phosphor-icons/vue';
 import type { SettingsData } from '@/types/settings';
+import type { ReaderSyncStatus } from '@/types/models';
 import { useAppStore } from '@/stores/app';
 import { NestedSettingsContainer, SubSettingItem, InputControl } from '@/components/settings';
 import ReaderProviderIcon from '@/components/common/ReaderProviderIcon.vue';
@@ -12,7 +13,8 @@ const emit = defineEmits<{ 'update:settings': [settings: SettingsData] }>();
 const { t } = useI18n();
 const store = useAppStore();
 const name = computed(() => (props.provider === 'miniflux' ? 'Miniflux' : 'FreshRSS'));
-type Field = 'enabled' | 'server_url' | 'username' | 'api_password' | 'auto_sync_interval' | 'sync_on_startup';
+type Field =
+  'enabled' | 'server_url' | 'username' | 'api_password' | 'auto_sync_interval' | 'sync_on_startup';
 function key(field: Field) {
   return `${props.provider}_${field}` as const;
 }
@@ -35,8 +37,11 @@ async function toggle(event: Event) {
   }
   update('enabled', target.checked);
 }
-const syncing = ref(false);
+const requestingSync = ref(false);
+const statusSyncing = ref(false);
+const syncing = computed(() => requestingSync.value || statusSyncing.value);
 const lastSync = ref<string | null>(null);
+const lastError = ref<ReaderSyncStatus['last_error']>('');
 const controller = new AbortController();
 let poll: ReturnType<typeof setInterval> | undefined;
 let fetchingStatus = false;
@@ -45,7 +50,12 @@ async function status() {
   fetchingStatus = true;
   try {
     const res = await fetch(`/api/${props.provider}/status`, { signal: controller.signal });
-    if (res.ok) lastSync.value = (await res.json()).last_sync_time;
+    if (res.ok) {
+      const data: ReaderSyncStatus = await res.json();
+      lastSync.value = data.last_sync_time;
+      lastError.value = data.last_error || '';
+      statusSyncing.value = data.is_syncing === true;
+    }
   } catch {
     /* Polling resumes on the next interval. */
   } finally {
@@ -54,7 +64,7 @@ async function status() {
 }
 async function syncNow() {
   if (syncing.value) return;
-  syncing.value = true;
+  requestingSync.value = true;
   try {
     // Persist this integration's current values before starting sync, even if autosave is pending.
     const body = Object.fromEntries(
@@ -77,10 +87,11 @@ async function syncNow() {
     });
     if (!res.ok) throw new Error();
     window.showToast(t('setting.freshrss.syncStarted'), 'success');
+    await status();
   } catch {
     if (!controller.signal.aborted) window.showToast(t('setting.freshrss.syncFailed'), 'error');
   } finally {
-    syncing.value = false;
+    requestingSync.value = false;
   }
 }
 onMounted(() => {
@@ -165,22 +176,41 @@ onBeforeUnmount(() => {
             {{ t('setting.freshrss.lastSync') }}:
             {{ lastSync ? new Date(lastSync).toLocaleString() : t('setting.freshrss.never') }}
           </div>
+          <div
+            v-if="lastError && !syncing"
+            class="mt-1 text-xs text-red-600 dark:text-red-400"
+            role="status"
+          >
+            {{ t(`setting.freshrss.syncErrors.${lastError}`) }}
+          </div>
         </template>
         <button class="btn-secondary" :disabled="syncing" @click="syncNow">
           <PhArrowClockwise :size="16" :class="{ 'animate-spin': syncing }" />
           {{ t(syncing ? 'setting.freshrss.syncing' : 'setting.freshrss.sync') }}
         </button>
       </SubSettingItem>
-      <SubSettingItem :title="t('setting.freshrss.autoSyncInterval')" :description="t('setting.freshrss.autoSyncIntervalDesc')">
-        <InputControl type="number" :min="0" :max="525600"
+      <SubSettingItem
+        :title="t('setting.freshrss.autoSyncInterval')"
+        :description="t('setting.freshrss.autoSyncIntervalDesc')"
+      >
+        <InputControl
+          type="number"
+          :min="0"
+          :max="525600"
           :model-value="settings[`${provider}_auto_sync_interval`]"
-          @update:model-value="update('auto_sync_interval', Math.min(525600, Math.max(0, Number($event) || 0)))" />
+          @update:model-value="
+            update('auto_sync_interval', Math.min(525600, Math.max(0, Number($event) || 0)))
+          "
+        />
       </SubSettingItem>
       <SubSettingItem :title="t('setting.freshrss.syncOnStartup')">
-        <input type="checkbox" class="toggle"
+        <input
+          type="checkbox"
+          class="toggle"
           :checked="settings[`${provider}_sync_on_startup`]"
           :aria-label="t('setting.freshrss.syncOnStartup')"
-          @change="update('sync_on_startup', ($event.target as HTMLInputElement).checked)" />
+          @change="update('sync_on_startup', ($event.target as HTMLInputElement).checked)"
+        />
       </SubSettingItem>
     </NestedSettingsContainer>
   </div>

@@ -66,20 +66,31 @@ func StartSync(parent context.Context, db *database.DB, provider, streamID strin
 	service := NewBidirectionalSyncServiceForProvider(serverURL, username, password, provider, db)
 	go func() {
 		defer release()
-		ctx, cancel := context.WithTimeout(parent, 10*time.Minute)
-		defer cancel()
 		var syncErr error
 		if streamID != "" {
+			ctx, cancel := context.WithTimeout(parent, syncStageTimeout)
+			defer cancel()
 			_, syncErr = service.SyncFeed(ctx, streamID)
 		} else {
-			_, syncErr = service.Sync(ctx)
+			_, syncErr = service.Sync(parent)
 		}
 		if parent.Err() != nil {
 			return
 		}
 		if streamID == "" {
-			if err := db.SetSetting(provider+"_last_sync_time", time.Now().Format(time.RFC3339Nano)); err != nil {
-				log.Printf("Save reader sync time: %v", err)
+			var failure string
+			switch {
+			case errors.Is(syncErr, context.DeadlineExceeded):
+				failure = "timeout"
+			case errors.Is(syncErr, errSyncLogin):
+				failure = "login"
+			case errors.Is(syncErr, errSyncPull):
+				failure = "pull"
+			case syncErr != nil:
+				failure = "push"
+			}
+			if err := db.RecordReaderSync(parent, provider, time.Now(), failure); err != nil {
+				log.Printf("Save %s sync status: %v", provider, err)
 			}
 		}
 		if syncErr != nil {
@@ -125,7 +136,10 @@ func RunSyncScheduler(ctx context.Context, db *database.DB) {
 				continue
 			}
 			interval, _ := db.GetSetting(provider + "_auto_sync_interval")
-			last, _ := db.GetSetting(provider + "_last_sync_time")
+			last, _ := db.GetSetting(provider + "_last_sync_attempt")
+			if last == "" {
+				last, _ = db.GetSetting(provider + "_last_sync_time")
+			}
 			onStartup, _ := db.GetSetting(provider + "_sync_on_startup")
 			if !readerSyncDue(now, interval, last, startup && onStartup == "true") || now.Sub(lastAttempt[provider]) < time.Minute {
 				continue

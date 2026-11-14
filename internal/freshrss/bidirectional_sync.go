@@ -2,6 +2,8 @@ package freshrss
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -46,49 +48,58 @@ func NewBidirectionalSyncServiceForProvider(serverURL, username, password, provi
 	}
 }
 
-// Sync performs a full bidirectional sync
-// This is called for manual/scheduled sync
-// Logic: Pull remote changes first, then push local changes
+const syncStageTimeout = 10 * time.Minute
+
+var (
+	errSyncLogin = errors.New("reader login failed")
+	errSyncPull  = errors.New("reader pull failed")
+	errSyncPush  = errors.New("reader push failed")
+)
+
 func (s *BidirectionalSyncService) Sync(ctx context.Context) (*SyncResult, error) {
-	result := &SyncResult{
-		LastSyncTime: time.Now(),
-	}
-	startTime := time.Now()
-	defer func() { result.Duration = time.Since(startTime) }()
+	return s.syncWithTimeout(ctx, syncStageTimeout, syncStageTimeout)
+}
 
-	// Stage 1: Login to FreshRSS
-	if err := s.client.Login(ctx); err != nil {
-		return result, fmt.Errorf("login failed: %w", err)
-	}
+func (s *BidirectionalSyncService) syncWithTimeout(ctx context.Context, pullTimeout, pushTimeout time.Duration) (*SyncResult, error) {
+	start := time.Now()
+	result := &SyncResult{LastSyncTime: start}
+	defer func() { result.Duration = time.Since(start) }()
 
-	// Stage 2: Pull from server (feeds, articles, starred status, read status)
-	log.Printf("Stage 1: Pull from server")
-	pullChanges, err := s.pullFromServer(ctx)
-	if err != nil {
-		log.Printf("Stage 1 ERROR: pull failed: %v", err)
-		result.Errors = append(result.Errors, fmt.Sprintf("pull failed: %v", err))
-		result.PullSuccess = false
-		result.PushSuccess = false
-		return result, err
+	pullCtx, cancelPull := context.WithTimeout(ctx, pullTimeout)
+	if err := s.client.Login(pullCtx); err != nil {
+		cancelPull()
+		return result, fmt.Errorf("%w: %w", errSyncLogin, err)
 	}
-	log.Printf("Stage 1 SUCCESS: %d changes pulled", pullChanges)
-	result.PullSuccess = true
-	result.PullChangesCount = pullChanges
-
-	// Stage 3: Push local changes to server
-	log.Printf("Stage 2: Push to server")
-	pushChanges, err := s.pushToServer(ctx)
-	if err != nil {
-		log.Printf("Stage 2 ERROR: push failed: %v", err)
-		result.Errors = append(result.Errors, fmt.Sprintf("push failed: %v", err))
-		result.PushSuccess = false
-	} else {
-		log.Printf("Stage 2 SUCCESS: %d changes pushed", pushChanges)
-		result.PushSuccess = true
-		result.PushChangesCount = pushChanges
+	pulled, pullErr := s.pullFromServer(pullCtx)
+	if pullErr == nil {
+		pullErr = pullCtx.Err()
+	}
+	cancelPull()
+	result.PullChangesCount = pulled
+	result.PullSuccess = pullErr == nil
+	if pullErr != nil {
+		pullErr = fmt.Errorf("%w: %w", errSyncPull, pullErr)
+		result.Errors = append(result.Errors, pullErr.Error())
+	}
+	if ctx.Err() != nil {
+		return result, ctx.Err()
 	}
 
-	return result, nil
+	pushCtx, cancelPush := context.WithTimeout(ctx, pushTimeout)
+	defer cancelPush()
+	// Explicit queued changes can still be sent after a partial pull. Comparing
+	// entire libraries requires a successful pull to avoid overwriting remote state.
+	pushed, pushErr := s.pushToServer(pushCtx, result.PullSuccess)
+	if pushErr == nil {
+		pushErr = pushCtx.Err()
+	}
+	result.PushChangesCount = pushed
+	result.PushSuccess = pushErr == nil
+	if pushErr != nil {
+		pushErr = fmt.Errorf("%w: %w", errSyncPush, pushErr)
+		result.Errors = append(result.Errors, pushErr.Error())
+	}
+	return result, errors.Join(pullErr, pushErr)
 }
 
 // SyncFeed syncs articles for a single FreshRSS feed/stream
@@ -183,125 +194,87 @@ func (s *BidirectionalSyncService) SyncArticleStatus(ctx context.Context, articl
 	return nil
 }
 
-// pullFromServer pulls changes from FreshRSS server
+// pullFromServer applies available changes and reports a partial pull as failed.
 func (s *BidirectionalSyncService) pullFromServer(ctx context.Context) (int, error) {
-	totalChanges := 0
-	log.Printf("pullFromServer: Starting pull from server")
-
-	// Step 1: Get subscriptions and create feeds
 	subscriptions, err := s.client.GetSubscriptions(ctx)
 	if err != nil {
-		log.Printf("Warning: Failed to get subscriptions: %v", err)
-		if subscriptions == nil {
-			subscriptions = []Subscription{}
+		return 0, fmt.Errorf("get subscriptions: %w", err)
+	}
+	total, err := s.createFeedsFromSubscriptions(ctx, subscriptions)
+	if err != nil {
+		return total, fmt.Errorf("save subscriptions: %w", err)
+	}
+	// Keep fetching healthy feeds when one feed fails. Retain the first failure
+	// so even a large account produces a bounded error.
+	var firstErr error
+	record := func(err error) {
+		if firstErr == nil {
+			firstErr = err
 		}
 	}
-
-	// Only proceed if we have subscriptions
-	if len(subscriptions) > 0 {
-		feedsCreated, err := s.createFeedsFromSubscriptions(ctx, subscriptions)
+	for _, sub := range subscriptions {
+		continuation := ""
+		for {
+			if err := ctx.Err(); err != nil {
+				return total, err
+			}
+			page, err := s.client.GetStreamContents(ctx, sub.ID, nil, 10000, continuation)
+			if err != nil {
+				record(fmt.Errorf("fetch subscription articles: %w", err))
+				break
+			}
+			saved, err := s.saveArticlesFromServer(ctx, page.Items)
+			total += saved
+			if err != nil {
+				record(fmt.Errorf("save subscription articles: %w", err))
+				break
+			}
+			if page.Continuation == "" {
+				break
+			}
+			if page.Continuation == continuation {
+				record(errors.New("reader returned a repeated continuation token"))
+				break
+			}
+			continuation = page.Continuation
+			if err := waitForArticlePage(ctx); err != nil {
+				return total, err
+			}
+		}
+		if err := waitForArticlePage(ctx); err != nil {
+			return total, err
+		}
+	}
+	for _, state := range []struct{ stream, column string }{
+		{"starred", "is_favorite"},
+		{"read", "is_read"},
+	} {
+		articles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/"+state.stream, 10000)
 		if err != nil {
-			log.Printf("Warning: Failed to create feeds: %v", err)
-		} else {
-			totalChanges += feedsCreated
-			log.Printf("Created/updated %d feeds from FreshRSS", feedsCreated)
+			record(fmt.Errorf("fetch %s state: %w", state.stream, err))
+			continue
 		}
-
-		// Step 2: Get articles from each subscription (no limit - fetch all articles)
-		articlesPerFeed := 10000 // Increased from 100 to fetch more articles per feed
-		totalArticles := 0
-
-		for _, sub := range subscriptions {
-			feedURL := strings.TrimPrefix(sub.ID, "feed/")
-
-			// Fetch all articles using pagination
-			continuation := ""
-			feedArticleCount := 0
-			for {
-				result, err := s.client.GetStreamContents(ctx, sub.ID, nil, articlesPerFeed, continuation)
-				if err != nil {
-					log.Printf("Warning: Failed to get articles for feed %s: %v", feedURL, err)
-					break
-				}
-
-				if len(result.Items) > 0 {
-					saved, err := s.saveArticlesFromServer(ctx, result.Items)
-					if err != nil {
-						log.Printf("Warning: Failed to save articles for feed %s: %v", feedURL, err)
-					} else {
-						totalArticles += saved
-						feedArticleCount += saved
-					}
-				}
-
-				// Check if there are more articles to fetch
-				if result.Continuation == "" {
-					break
-				}
-				continuation = result.Continuation
-				log.Printf("Fetched %d articles for feed %s, continuing with pagination...", feedArticleCount, feedURL)
-				time.Sleep(50 * time.Millisecond)
+		for _, article := range articles {
+			if err := ctx.Err(); err != nil {
+				return total, err
 			}
-
-			log.Printf("Total articles fetched for feed %s: %d", feedURL, feedArticleCount)
-			time.Sleep(50 * time.Millisecond)
-		}
-
-		totalChanges += totalArticles
-		log.Printf("Saved %d total articles from %d feeds", totalArticles, len(subscriptions))
-	} else {
-		log.Printf("No subscriptions to sync from FreshRSS")
-	}
-
-	// Step 3: Apply starred status from server (fetch all with pagination)
-	log.Printf("pullFromServer: Step 3 - Applying starred status")
-	starredArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/starred", 10000)
-	if err != nil {
-		log.Printf("Warning: Failed to get starred articles: %v", err)
-	} else {
-		for _, article := range starredArticles {
-			_, err := s.applyServerStatus(article.URL, true, "is_favorite")
-			if err != nil {
-				log.Printf("Warning: Failed to apply starred status for %s: %v", article.URL, err)
-			}
-		}
-		log.Printf("Applied starred status to %d articles from server", len(starredArticles))
-	}
-
-	// Step 4: Apply read status from server using unread count API (fetch all with pagination)
-	log.Printf("pullFromServer: Step 4 - Applying read status using unread count API")
-
-	// First, get unread counts from server to verify sync
-	unreadCounts, err := s.client.GetUnreadCount(ctx)
-	if err != nil {
-		log.Printf("Warning: Failed to get unread counts: %v", err)
-	} else {
-		// Log unread counts for debugging
-		for streamID, count := range unreadCounts {
-			if count > 0 {
-				log.Printf("Server unread count: %s = %d", streamID, count)
+			if _, err := s.applyServerStatus(ctx, article.URL, true, state.column); err != nil {
+				record(fmt.Errorf("apply %s state: %w", state.stream, err))
 			}
 		}
 	}
+	return total, firstErr
+}
 
-	// Fetch all read articles using pagination
-	readArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/read", 10000)
-	if err != nil {
-		log.Printf("Warning: Failed to get read articles: %v", err)
-	} else {
-		for _, article := range readArticles {
-			_, err := s.applyServerStatus(article.URL, true, "is_read")
-			if err != nil {
-				log.Printf("Warning: Failed to apply read status for %s: %v", article.URL, err)
-			}
-		}
-		log.Printf("Applied read status to %d articles from server", len(readArticles))
+func waitForArticlePage(ctx context.Context) error {
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-
-	log.Printf("Pull from server: %d total changes applied", totalChanges)
-	log.Printf("pullFromServer: Completed")
-
-	return totalChanges, nil
 }
 
 // fetchAllArticles fetches all articles from a stream using pagination
@@ -331,10 +304,14 @@ func (s *BidirectionalSyncService) fetchAllArticles(ctx context.Context, streamI
 		if result.Continuation == "" {
 			break
 		}
+		if result.Continuation == continuation {
+			return allArticles, errors.New("reader returned a repeated continuation token")
+		}
 		continuation = result.Continuation
 
-		// Small delay to avoid overwhelming the server
-		time.Sleep(50 * time.Millisecond)
+		if err := waitForArticlePage(ctx); err != nil {
+			return allArticles, err
+		}
 	}
 
 	log.Printf("Finished fetching %d total articles from stream %s (%d pages)",
@@ -342,63 +319,24 @@ func (s *BidirectionalSyncService) fetchAllArticles(ctx context.Context, streamI
 	return allArticles, nil
 }
 
-// applyServerStatus applies server status to local article
-// If local has a pending sync for the same action type, clear it to avoid conflicts
-func (s *BidirectionalSyncService) applyServerStatus(articleURL string, status bool, column string) (int, error) {
-	// Check if article exists locally
-	localArticle, err := s.db.GetArticleByURL(articleURL, s.provider)
-	if err != nil {
-		// Article doesn't exist locally, skip
+// applyServerStatus skips remote items that were never downloaded locally.
+func (s *BidirectionalSyncService) applyServerStatus(ctx context.Context, articleURL string, status bool, column string) (int, error) {
+	article, err := s.db.GetArticleByURL(articleURL, s.provider)
+	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
-	}
-
-	// Check if there's a pending sync change for the SAME action type
-	// Only clear conflicting pending syncs
-	pendingItems, err := s.db.GetPendingSyncChanges(1000, s.provider)
-	hasConflictingSync := false
-	for _, item := range pendingItems {
-		if item.ArticleURL == articleURL {
-			isConflictingAction := false
-			switch column {
-			case "is_favorite":
-				// Star/unstar actions conflict with favorite status changes
-				isConflictingAction = (item.Action == database.SyncActionStar || item.Action == database.SyncActionUnstar)
-			case "is_read":
-				// Mark read/unread actions conflict with read status changes
-				isConflictingAction = (item.Action == database.SyncActionMarkRead || item.Action == database.SyncActionMarkUnread)
-			}
-
-			if isConflictingAction {
-				hasConflictingSync = true
-				log.Printf("[Conflict detected] Article %s has pending %s, server says %s=%v - clearing pending sync",
-					articleURL, item.Action, column, status)
-				break
-			}
-		}
-	}
-
-	// Apply server status
-	switch column {
-	case "is_favorite":
-		err = s.db.SetArticleFavorite(localArticle.ID, status)
-	case "is_read":
-		err = s.db.MarkArticleRead(localArticle.ID, status)
 	}
 	if err != nil {
 		return 0, err
 	}
-
-	// Clear conflicting pending sync if any
-	if hasConflictingSync {
-		_ = s.db.ClearPendingSyncForArticle(localArticle.ID)
-	}
-
-	return 1, nil
+	return s.db.ApplyReaderArticleStatus(ctx, article.ID, status, column)
 }
 
 // createFeedsFromSubscriptions creates local feeds from FreshRSS subscriptions
 func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Context, subscriptions []Subscription) (int, error) {
 	feedsCreated := 0
+	if len(subscriptions) == 0 {
+		return 0, nil
+	}
 
 	// Get all existing feeds to check for duplicates
 	existingFeeds, err := s.db.GetFeeds()
@@ -476,6 +414,9 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 	}
 
 	for _, sub := range subscriptions {
+		if err := ctx.Err(); err != nil {
+			return feedsCreated, err
+		}
 		feedURL := sub.URL
 
 		// Extract category from subscription categories
@@ -565,7 +506,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 					existingFeed.EmailIMAPPort,
 				)
 				if err != nil {
-					log.Printf("Warning: Failed to update feed %s: %v", feedURL, err)
+					return feedsCreated, fmt.Errorf("update subscription: %w", err)
 				} else {
 					feedsCreated++
 					log.Printf("Updated feed '%s' with category '%s'", feedTitle, updateCategory)
@@ -599,7 +540,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 
 		_, err = s.db.AddFeed(newFeed)
 		if err != nil {
-			log.Printf("Warning: Failed to create feed %s: %v", feedURL, err)
+			return feedsCreated, fmt.Errorf("create subscription: %w", err)
 		} else {
 			feedsCreated++
 			if category != "" {
@@ -622,7 +563,7 @@ func (s *BidirectionalSyncService) createFeedsFromSubscriptions(ctx context.Cont
 				log.Printf("Deleting local FreshRSS feed '%s' (removed from server)", feed.Title)
 				err := s.db.DeleteFeed(feed.ID)
 				if err != nil {
-					log.Printf("Warning: Failed to delete feed '%s': %v", feed.Title, err)
+					return feedsCreated, fmt.Errorf("delete removed subscription: %w", err)
 				} else {
 					feedsCreated++
 				}
@@ -667,6 +608,9 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 	skippedCount := 0
 
 	for _, article := range articles {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
 		var feedID int64
 
 		// Try to find feed ID using article's Origin stream ID first
@@ -714,7 +658,10 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 		// Check if article already exists (by URL)
 		existingArticle, err := s.db.GetArticleByURL(article.URL, s.provider)
 
-		if err == nil && existingArticle != nil {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return 0, fmt.Errorf("look up local article: %w", err)
+		}
+		if existingArticle != nil {
 			// Article already exists - this is the deduplication logic
 			// Update the article with FreshRSS data, preserving FreshRSS ID
 			updated := false
@@ -725,7 +672,7 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 			if article.ID != "" && existingArticle.FreshRSSItemID != article.ID {
 				err := s.db.UpdateFreshRSSItemID(existingArticle.ID, article.ID)
 				if err != nil {
-					log.Printf("Warning: Failed to update FreshRSS Item ID for article %s: %v", article.URL, err)
+					return 0, fmt.Errorf("save remote article ID: %w", err)
 				} else {
 					log.Printf("Updated FreshRSS Item ID for existing article %s: %s (was: %s)",
 						article.URL, article.ID, existingArticle.FreshRSSItemID)
@@ -736,9 +683,9 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 			// Update read status from FreshRSS (server is authoritative)
 			// Only update if status differs to avoid unnecessary writes
 			if isRead != existingArticle.IsRead {
-				err := s.db.MarkArticleRead(existingArticle.ID, isRead)
+				_, err := s.db.ApplyReaderArticleStatus(ctx, existingArticle.ID, isRead, "is_read")
 				if err != nil {
-					log.Printf("Warning: Failed to update read status for article %s: %v", article.URL, err)
+					return 0, fmt.Errorf("apply read state: %w", err)
 				} else {
 					log.Printf("Updated read status for article %s: %v (from FreshRSS)", article.URL, isRead)
 					updated = true
@@ -747,9 +694,9 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 
 			// Update favorite status from FreshRSS (server is authoritative)
 			if isStarred != existingArticle.IsFavorite {
-				err := s.db.SetArticleFavorite(existingArticle.ID, isStarred)
+				_, err := s.db.ApplyReaderArticleStatus(ctx, existingArticle.ID, isStarred, "is_favorite")
 				if err != nil {
-					log.Printf("Warning: Failed to update favorite status for article %s: %v", article.URL, err)
+					return 0, fmt.Errorf("apply starred state: %w", err)
 				} else {
 					log.Printf("Updated favorite status for article %s: %v (from FreshRSS)", article.URL, isStarred)
 					updated = true
@@ -845,12 +792,11 @@ func (s *BidirectionalSyncService) saveArticlesFromServer(ctx context.Context, a
 	for url, content := range articleContentMap {
 		savedArticle, err := s.db.GetArticleByURL(url, s.provider)
 		if err != nil {
-			log.Printf("Warning: Could not find saved article with URL %s to set content", url)
-			continue
+			return len(mrssArticles), fmt.Errorf("find saved article for content: %w", err)
 		}
 
 		if err := s.db.SetArticleContent(savedArticle.ID, content); err != nil {
-			log.Printf("Warning: Failed to save content for article ID %d: %v", savedArticle.ID, err)
+			return len(mrssArticles), fmt.Errorf("save article content: %w", err)
 		} else {
 			contentSavedCount++
 		}
@@ -869,25 +815,14 @@ func isGoogleReaderState(category, state string) bool {
 
 // pushToServer pushes local changes to FreshRSS server
 // This compares local vs remote state and immediately syncs any differences
-func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error) {
-	totalChanges := 0
-
-	// First, process any failed items from the queue (retry mechanism)
-	pendingChanges, err := s.db.GetPendingSyncChanges(500, s.provider)
+func (s *BidirectionalSyncService) pushToServer(ctx context.Context, reconcile bool) (int, error) {
+	pending, err := s.db.GetPendingSyncChanges(500, s.provider)
 	if err != nil {
-		log.Printf("Warning: Failed to get pending changes: %v", err)
-	} else if len(pendingChanges) > 0 {
-		log.Printf("[Push] Retrying %d failed sync items from queue", len(pendingChanges))
-		for i, item := range pendingChanges {
-			log.Printf("  [%d] ArticleID=%d URL=%s Action=%s", i, item.ArticleID, item.ArticleURL, item.Action)
-		}
-		changes, err := s.pushPendingItems(ctx, pendingChanges)
-		if err != nil {
-			log.Printf("[Push] Error pushing pending items: %v", err)
-			// Continue anyway, don't fail entire sync
-		} else {
-			totalChanges += changes
-		}
+		return 0, fmt.Errorf("get queued changes: %w", err)
+	}
+	totalChanges, err := s.pushPendingItems(ctx, pending)
+	if err != nil || !reconcile {
+		return totalChanges, err
 	}
 
 	// Get all FreshRSS feeds
@@ -918,23 +853,19 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 	// Fetch remote read status (fetch all with pagination)
 	readArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/read", 10000)
 	if err != nil {
-		log.Printf("[Push] Warning: Failed to get remote read articles: %v", err)
-	} else {
-		for _, article := range readArticles {
-			remoteReadArticles[article.URL] = true
-		}
-		log.Printf("[Push] Fetched %d read articles from remote", len(remoteReadArticles))
+		return totalChanges, fmt.Errorf("fetch remote read state: %w", err)
+	}
+	for _, article := range readArticles {
+		remoteReadArticles[article.URL] = true
 	}
 
 	// Fetch remote starred status (fetch all with pagination)
 	starredArticles, err := s.fetchAllArticles(ctx, "user/-/state/com.google/starred", 10000)
 	if err != nil {
-		log.Printf("[Push] Warning: Failed to get remote starred articles: %v", err)
-	} else {
-		for _, article := range starredArticles {
-			remoteStarredArticles[article.URL] = true
-		}
-		log.Printf("[Push] Fetched %d starred articles from remote", len(remoteStarredArticles))
+		return totalChanges, fmt.Errorf("fetch remote starred state: %w", err)
+	}
+	for _, article := range starredArticles {
+		remoteStarredArticles[article.URL] = true
 	}
 
 	// For each FreshRSS feed, check articles and sync differences
@@ -951,10 +882,12 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 		limit := 10000
 
 		for {
+			if err := ctx.Err(); err != nil {
+				return totalChanges, err
+			}
 			articles, err := s.db.GetArticles("all", feed.ID, "", false, limit, offset)
 			if err != nil {
-				log.Printf("[Push] Warning: Failed to get articles for feed %s: %v", feed.Title, err)
-				break
+				return totalChanges, fmt.Errorf("get local articles: %w", err)
 			}
 
 			if len(articles) == 0 {
@@ -1051,6 +984,9 @@ func (s *BidirectionalSyncService) pushToServer(ctx context.Context) (int, error
 
 // pushPendingItems pushes items that failed previously (from the queue)
 func (s *BidirectionalSyncService) pushPendingItems(ctx context.Context, pendingChanges []database.SyncQueueItem) (int, error) {
+	if len(pendingChanges) == 0 {
+		return 0, nil
+	}
 	totalChanges := 0
 
 	// Group changes by action type
@@ -1139,7 +1075,7 @@ func (s *BidirectionalSyncService) pushPendingItems(ctx context.Context, pending
 
 	// Mark all as synced
 	if err := s.db.MarkSynced(itemIDs); err != nil {
-		log.Printf("Warning: Failed to mark items as synced: %v", err)
+		return totalChanges, fmt.Errorf("mark queued changes as synced: %w", err)
 	}
 
 	log.Printf("[PushPending] Successfully synced %d items from queue", totalChanges)

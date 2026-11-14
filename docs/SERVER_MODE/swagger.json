@@ -32,7 +32,7 @@
                 "summary": "Get Miniflux sync status",
                 "responses": {
                     "200": {
-                        "description": "Sync status (pending_changes, failed_items, last_sync_time)",
+                        "description": "Sync status (pending_changes, failed_items, last_sync_time, last_error, is_syncing)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -3822,7 +3822,7 @@
                 "summary": "Get FreshRSS sync status",
                 "responses": {
                     "200": {
-                        "description": "Sync status (pending_changes, failed_items, last_sync_time)",
+                        "description": "Sync status (pending_changes, failed_items, last_sync_time, last_error, is_syncing)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

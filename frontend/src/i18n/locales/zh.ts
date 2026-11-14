@@ -1311,6 +1311,12 @@ const zh: TranslationMessages = {
       hoursAgo: '{count} 小时前',
       minsAgo: '{count} 分钟前',
       syncFailed: '同步失败',
+      syncErrors: {
+        login: '登录失败，请检查服务器地址、用户名和 API 密码。',
+        timeout: '最近一次同步超时。',
+        pull: '最近一次同步未能下载全部更改。',
+        push: '最近一次同步未能上传全部更改。',
+      },
       feedLocked: '已同步的订阅源无法编辑、移动或修改',
       justNow: '刚刚',
       lastSync: '上次同步',

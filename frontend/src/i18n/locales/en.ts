@@ -1358,6 +1358,12 @@ const en: TranslationMessages = {
       hoursAgo: '{count} hours ago',
       minsAgo: '{count} minutes ago',
       syncFailed: 'Sync failed',
+      syncErrors: {
+        login: 'Sign-in failed. Check the server URL, username, and API password.',
+        timeout: 'The last sync timed out.',
+        pull: 'The last sync could not download all changes.',
+        push: 'The last sync could not send all changes.',
+      },
       feedLocked: 'Synced feed cannot be edited, moved, or modified',
       justNow: 'Just now',
       lastSync: 'Last Sync',
