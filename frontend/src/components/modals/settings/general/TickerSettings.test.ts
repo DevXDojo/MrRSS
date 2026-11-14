@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { shallowMount, flushPromises } from '@vue/test-utils';
+import { Call } from '@wailsio/runtime';
 import { generateInitialSettings } from '@/composables/core/useSettings.generated';
 import { NumberControl, SelectControl } from '@/components/settings';
 import BaseMultiSelect from '@/components/common/BaseMultiSelect.vue';
@@ -10,6 +11,53 @@ vi.mock('@wailsio/runtime', () => ({ Call: { ByName: vi.fn(async () => []) } }))
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+it('offers shell placement only when supported and omits the conflicting pin control', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => Response.json([]))
+  );
+  const available = ['floating', 'top', 'bottom'];
+  vi.mocked(Call.ByName).mockImplementation(async (method) =>
+    method.endsWith('.GetTickerPositions') ? available : []
+  );
+  const settings = { ...generateInitialSettings(), ticker_position: 'desktop' };
+  const mountSettings = () =>
+    shallowMount(TickerSettings, {
+      props: { settings },
+      global: { renderStubDefaultSlot: true, stubs: { SubSettingItem: false } },
+    });
+  const placement = (wrapper: ReturnType<typeof mountSettings>) =>
+    wrapper
+      .findAllComponents(SelectControl)
+      .find((control) => control.props('options').some(({ value }) => value === 'floating'))!;
+  const unsupported = mountSettings();
+  await flushPromises();
+  expect(placement(unsupported).props('modelValue')).toBe('bottom');
+  expect(
+    placement(unsupported)
+      .props('options')
+      .map(({ value }) => value)
+  ).toEqual(available);
+  expect(unsupported.text()).toContain('setting.ticker.alwaysOnTop');
+  unsupported.unmount();
+
+  available.push('reserved', 'desktop');
+  const supported = mountSettings();
+  await flushPromises();
+  expect(placement(supported).props('modelValue')).toBe('desktop');
+  expect(
+    placement(supported)
+      .props('options')
+      .map(({ value }) => value)
+  ).toEqual(available);
+  expect(supported.text()).not.toContain('setting.ticker.alwaysOnTop');
+  placement(supported).vm.$emit('update:modelValue', 'reserved');
+  expect(supported.emitted('update:settings')?.[0][0]).toMatchObject({
+    ticker_position: 'reserved',
+  });
+  supported.unmount();
 });
 
 it('loads searchable local subscriptions and emits bounded settings edits', async () => {

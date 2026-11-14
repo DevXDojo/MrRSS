@@ -1,6 +1,6 @@
 //go:build !server
 
-package main
+package desktopapi
 
 import (
 	"fmt"
@@ -9,9 +9,9 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// Configure rendering before creating the application: GTK and WebKit read
+// ConfigureLinuxRendering runs before creating the application: GTK and WebKit read
 // these environment variables when initializing their renderers.
-func configureLinuxRendering(platform string, args []string) (application.LinuxWindow, error) {
+func ConfigureLinuxRendering(platform string, args []string) (application.LinuxWindow, error) {
 	options := application.LinuxWindow{}
 	if platform != "linux" {
 		return options, nil

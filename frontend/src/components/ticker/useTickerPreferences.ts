@@ -49,7 +49,7 @@ export function useTickerPreferences(settings: Ref<SettingsData>) {
           if (!response.ok) throw new Error('Could not save ticker preferences');
         }
         patch = {};
-        await Call.ByName('main.DesktopCapabilities.ApplyTickerSettings');
+        await Call.ByName('MrRSS/internal/desktopapi.DesktopCapabilities.ApplyTickerSettings');
         inFlight.clear();
       } while (pending.size && !disposed);
       if (!disposed) status.value = 'saved';

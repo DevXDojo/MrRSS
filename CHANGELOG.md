@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Select multiple subscriptions for the desktop news ticker and hover over a headline to preview its description. (#1281)
+- On Windows, reserve space for the news ticker above the taskbar or keep it on the desktop when using Win+D. (#1281)
 
 ### Fixed
 

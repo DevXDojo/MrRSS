@@ -43,7 +43,9 @@ it('authorizes both automatic download and installation through the native capab
       Authorization: 'Bearer desktop-test-token',
     });
   }
-  expect(Call.ByName).toHaveBeenCalledWith('main.DesktopCapabilities.UpdateAuthorization');
+  expect(Call.ByName).toHaveBeenCalledWith(
+    'MrRSS/internal/desktopapi.DesktopCapabilities.UpdateAuthorization'
+  );
 });
 
 it('rejects missing native capabilities before an update request is made', async () => {

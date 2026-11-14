@@ -21,6 +21,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"MrRSS/internal/advertisement"
 	"MrRSS/internal/ai"
 	"MrRSS/internal/database"
 	"MrRSS/internal/desktopapi"
@@ -45,6 +46,9 @@ func debugLog(format string, args ...interface{}) {
 	}
 }
 
+//go:embed ads.json
+var bundledAds []byte
+
 //go:embed frontend/dist
 var frontendFiles embed.FS
 
@@ -66,25 +70,12 @@ func getAppIcon() []byte {
 	return appIconMacOS
 }
 
-type CombinedHandler struct {
-	apiMux     *http.ServeMux
-	fileServer http.Handler
-}
-
-func (h *CombinedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/api/") {
-		h.apiMux.ServeHTTP(w, r)
-		return
-	}
-	h.fileServer.ServeHTTP(w, r)
-}
-
 // APIMiddleware routes API requests to the API handler, and lets Wails handle the rest
-func APIMiddleware(combinedHandler *CombinedHandler) application.Middleware {
+func APIMiddleware(api http.Handler) application.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
-				combinedHandler.apiMux.ServeHTTP(w, r)
+				api.ServeHTTP(w, r)
 				return
 			}
 			// Preserve Wails runtime routing and the frontend dev server proxy.
@@ -159,7 +150,7 @@ func main() {
 
 	log.Printf("Log file: %s", logPath)
 
-	linuxWindowOptions, err := configureLinuxRendering(runtime.GOOS, os.Args[1:])
+	linuxWindowOptions, err := desktopapi.ConfigureLinuxRendering(runtime.GOOS, os.Args[1:])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -201,7 +192,7 @@ func main() {
 	defer bgCancel()
 	h := handlers.NewHandler(db, fetcher, translator, profileProvider)
 	h.BackgroundContext = bgCtx
-	configureAdvertisements(h)
+	h.Advertisements = advertisement.New(bundledAds)
 	h.SetStartupOnBoot = func(enabled bool) error {
 		if enabled {
 			return utils.EnableStartup()
@@ -239,9 +230,9 @@ func main() {
 
 	fileServer := application.BundledAssetFileServer(frontendFS)
 
-	combinedHandler := &CombinedHandler{
-		apiMux:     apiMux,
-		fileServer: fileServer,
+	combinedHandler := &routes.AssetHandler{
+		API:      apiMux,
+		Frontend: fileServer,
 	}
 
 	shouldCloseToTray := func() bool {
@@ -273,7 +264,7 @@ func main() {
 		hideAfterFullscreen.Store(false)
 		// Read the snapshot before Show/UnMinimise can emit native state events.
 		restoreMaximized := hiddenToTray.Load() && lastMaximized.Load()
-		showExistingWindow(mainWindow, restoreMaximized)
+		desktopapi.ShowExistingWindow(mainWindow, restoreMaximized)
 		hiddenToTray.Store(false)
 	}
 
@@ -281,15 +272,16 @@ func main() {
 
 	// Create new Wails v3 application
 	h.UpdateAuthorization = rand.Text()
-	desktopCapabilities := &DesktopCapabilities{updateAuthorization: h.UpdateAuthorization, db: db, showMainWindow: showMainWindow}
+	desktopCapabilities := desktopapi.NewDesktopCapabilities(db, h.UpdateAuthorization, showMainWindow)
 	app := application.New(application.Options{
+		Windows:     desktopapi.WindowOptions(desktopCapabilities),
 		Services:    []application.Service{application.NewService(desktopCapabilities)},
 		Name:        "MrRSS",
 		Description: "A modern, privacy-focused RSS reader",
 		LogLevel:    slog.LevelError,
 		Assets: application.AssetOptions{
 			Handler:    combinedHandler,
-			Middleware: APIMiddleware(combinedHandler),
+			Middleware: APIMiddleware(apiMux),
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: false,
@@ -311,8 +303,7 @@ func main() {
 	})
 
 	// Set app instance to handler for browser integration
-	desktopCapabilities.app = app
-	app.OnShutdown(desktopCapabilities.shutdownTicker)
+	desktopapi.Attach(desktopCapabilities, app)
 	h.SetApp(app)
 	h.QuitForUpdate = func() {
 		quitRequested.Store(true)

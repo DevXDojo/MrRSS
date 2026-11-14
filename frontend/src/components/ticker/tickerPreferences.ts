@@ -11,6 +11,9 @@ export const tickerPalettes = [
 export const tickerNumber = (value: number, fallback: number, min: number, max: number) =>
   Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
 
+export const tickerUsesShellPlacement = (position: string) =>
+  position === 'reserved' || position === 'desktop';
+
 export function tickerFeedIDs(settings: SettingsData): number[] {
   // An empty value predates multi-select. Zero explicitly selects all feeds.
   const selection = settings.ticker_feed_ids || String(settings.ticker_feed_id);

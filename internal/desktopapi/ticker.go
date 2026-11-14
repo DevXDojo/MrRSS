@@ -1,16 +1,16 @@
 //go:build !server
 
-package main
+package desktopapi
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"strconv"
 	"time"
 
 	"MrRSS/internal/config"
-	"MrRSS/internal/desktopapi"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -23,6 +23,15 @@ type TickerDisplay struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Primary bool   `json:"primary"`
+}
+
+const (
+	tickerReserved = "reserved"
+	tickerDesktop  = "desktop"
+)
+
+func (s *DesktopCapabilities) GetTickerPositions() []string {
+	return append([]string{"floating", "top", "bottom"}, nativeTickerPositions()...)
 }
 
 func (s *DesktopCapabilities) tickerSetting(key string) string {
@@ -92,6 +101,8 @@ func (s *DesktopCapabilities) showTickerLocked() error {
 }
 func (s *DesktopCapabilities) hideTickerLocked() {
 	if s.ticker != nil {
+		s.tickerNative.release()
+		s.tickerConfigured = false
 		s.ticker.EmitEvent("ticker:visibility", false)
 		s.ticker.Hide()
 	}
@@ -132,6 +143,7 @@ func (s *DesktopCapabilities) applyTickerPreferencesLocked() error {
 }
 func (s *DesktopCapabilities) requestedTickerGeometry() tickerGeometry {
 	geometry := tickerGeometry{position: s.tickerSetting("ticker_position"), screen: s.tickerSetting("ticker_screen_id"), width: s.tickerInteger("ticker_width"), fontSize: s.tickerInteger("ticker_font_size"), x: s.tickerInteger("ticker_window_x"), y: s.tickerInteger("ticker_window_y")}
+	geometry.position = effectiveTickerPosition(geometry.position, s.GetTickerPositions())
 	// A quick toolbar action must not restore stale database bounds while a
 	// drag or resize is still waiting for the debounced write.
 	if pending := s.pendingTickerBounds; geometry.position == "floating" && pending != nil {
@@ -139,10 +151,20 @@ func (s *DesktopCapabilities) requestedTickerGeometry() tickerGeometry {
 	}
 	return geometry
 }
+
+func effectiveTickerPosition(position string, supported []string) string {
+	if !slices.Contains(supported, position) {
+		return "bottom"
+	}
+	return position
+}
 func (s *DesktopCapabilities) applyTickerSettingsLocked() error {
 	geometry := s.requestedTickerGeometry()
-	s.ticker.SetAlwaysOnTop(s.tickerSetting("ticker_always_on_top") == "true")
+	native := geometry.position == tickerReserved || geometry.position == tickerDesktop
 	if s.tickerConfigured && geometry == s.tickerGeometry {
+		if !native {
+			s.ticker.SetAlwaysOnTop(s.tickerSetting("ticker_always_on_top") == "true")
+		}
 		return nil
 	}
 	screen := s.app.Screen.GetByID(geometry.screen)
@@ -163,13 +185,18 @@ func (s *DesktopCapabilities) applyTickerSettingsLocked() error {
 	if screen == nil {
 		return fmt.Errorf("screen unavailable")
 	}
+	// Release the old reservation before measuring the work area for an
+	// ordinary window. Otherwise the ticker can be offset by its old strip.
+	s.tickerNative.release()
+	s.tickerConfigured = false
+	if updated := s.app.Screen.GetByID(screen.ID); updated != nil {
+		screen = updated
+	}
 	area := screen.WorkArea
-	bounds := desktopapi.CalculateTickerBounds(desktopapi.TickerBounds{X: area.X, Y: area.Y, Width: area.Width, Height: area.Height}, geometry.position, geometry.width, geometry.fontSize, geometry.x, geometry.y)
+	bounds := CalculateTickerBounds(TickerBounds{X: area.X, Y: area.Y, Width: area.Width, Height: area.Height}, geometry.position, geometry.width, geometry.fontSize, geometry.x, geometry.y)
 	if bounds.Width <= 0 || bounds.Height <= 0 {
 		return fmt.Errorf("screen has no available work area")
 	}
-	s.tickerGeometry = geometry
-	s.tickerConfigured = true
 	s.ticker.SetResizable(geometry.position == "floating")
 	s.ticker.SetMaxSize(0, 0)
 	s.ticker.SetMinSize(min(360, bounds.Width), bounds.Height)
@@ -178,7 +205,18 @@ func (s *DesktopCapabilities) applyTickerSettingsLocked() error {
 		maxWidth = min(2400, area.Width)
 	}
 	s.ticker.SetMaxSize(maxWidth, bounds.Height)
-	s.ticker.SetBounds(application.Rect{X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height})
+	if !native {
+		s.ticker.SetAlwaysOnTop(s.tickerSetting("ticker_always_on_top") == "true")
+		s.ticker.SetBounds(application.Rect{X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height})
+	}
+	if native {
+		if err := s.tickerNative.apply(s.ticker, screen, geometry.position, bounds.Height); err != nil {
+			s.hideTickerLocked()
+			return err
+		}
+	}
+	s.tickerGeometry = geometry
+	s.tickerConfigured = true
 	return nil
 }
 func (s *DesktopCapabilities) GetTickerDisplays() []TickerDisplay {
@@ -212,7 +250,7 @@ func (s *DesktopCapabilities) rememberTickerBounds() {
 			return nil
 		}
 		s.tickerGeometry.width, s.tickerGeometry.x, s.tickerGeometry.y = width, x, y
-		s.pendingTickerBounds = &desktopapi.TickerBounds{X: x, Y: y, Width: width, Height: height}
+		s.pendingTickerBounds = &TickerBounds{X: x, Y: y, Width: width, Height: height}
 		if s.tickerBoundsTimer != nil {
 			s.tickerBoundsTimer.Stop()
 		}
@@ -255,6 +293,7 @@ func (s *DesktopCapabilities) shutdownTicker() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tickerClosed = true
+	s.tickerNative.release()
 	if s.tickerBoundsTimer != nil {
 		s.tickerBoundsTimer.Stop()
 	}

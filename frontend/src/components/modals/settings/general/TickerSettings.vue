@@ -26,6 +26,7 @@ import {
   tickerPalette,
   tickerPalettes,
   tickerStyle,
+  tickerUsesShellPlacement,
 } from '@/components/ticker/tickerPreferences';
 
 const props = defineProps<{ settings: SettingsData }>();
@@ -35,6 +36,15 @@ const feeds = ref<Feed[]>([]);
 const feedError = ref(false);
 const loadingFeeds = ref(false);
 const displays = ref<Array<{ id: string; name: string; primary: boolean }>>([]);
+const positions = ref(['floating', 'top', 'bottom']);
+const positionOptions = computed(() =>
+  positions.value.map((value) => ({ value, label: t(`setting.ticker.positions.${value}`) }))
+);
+const position = computed(() =>
+  positions.value.includes(props.settings.ticker_position)
+    ? props.settings.ticker_position
+    : 'bottom'
+);
 const sourceOptions = computed(() =>
   feeds.value.map((feed) => ({ value: feed.id, label: feed.title }))
 );
@@ -46,7 +56,7 @@ const displayOptions = computed(() => [
     label: display.name + (display.primary ? ` · ${t('setting.ticker.primaryDisplay')}` : ''),
   })),
 ]);
-const behavior = [
+const behaviorOptions = [
   {
     icon: PhPause,
     key: 'ticker_pause_on_hover',
@@ -62,6 +72,11 @@ const behavior = [
     description: 'alwaysOnTopHint',
   },
 ] as const;
+const behavior = computed(() =>
+  behaviorOptions.filter(
+    (item) => item.key !== 'ticker_always_on_top' || !tickerUsesShellPlacement(position.value)
+  )
+);
 let controller: AbortController | undefined;
 let disposed = false;
 
@@ -112,14 +127,18 @@ async function loadFeeds() {
     if (!disposed && !current.signal.aborted) loadingFeeds.value = false;
   }
 }
-onMounted(async () => {
+onMounted(() => {
   void loadFeeds();
-  try {
-    const result = await Call.ByName('main.DesktopCapabilities.GetTickerDisplays');
-    if (!disposed) displays.value = (result as typeof displays.value) ?? [];
-  } catch {
-    /* Placement defaults to the current display. */
-  }
+  void Call.ByName('MrRSS/internal/desktopapi.DesktopCapabilities.GetTickerDisplays')
+    .then((result) => {
+      if (!disposed && Array.isArray(result)) displays.value = result as typeof displays.value;
+    })
+    .catch(() => {});
+  void Call.ByName('MrRSS/internal/desktopapi.DesktopCapabilities.GetTickerPositions')
+    .then((result) => {
+      if (!disposed && Array.isArray(result) && result.length) positions.value = result as string[];
+    })
+    .catch(() => {});
 });
 onUnmounted(() => {
   disposed = true;
@@ -217,16 +236,12 @@ onUnmounted(() => {
   <SubSettingItem
     :icon="PhMonitor"
     :title="t('setting.ticker.position')"
-    :description="t('setting.ticker.positionHint')"
+    :description="t(`setting.ticker.placementHints.${position}`)"
   >
     <SelectControl
-      :model-value="settings.ticker_position"
-      :options="
-        ['top', 'bottom', 'floating'].map((value) => ({
-          value,
-          label: t(`setting.ticker.positions.${value}`),
-        }))
-      "
+      :model-value="position"
+      :options="positionOptions"
+      width="lg"
       @update:model-value="update('ticker_position', String($event))"
     />
   </SubSettingItem>
