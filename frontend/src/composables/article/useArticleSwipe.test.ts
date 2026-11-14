@@ -7,15 +7,23 @@ function fixture() {
   const id = ref(1);
   const previous = vi.fn();
   const next = vi.fn();
-  const wrapper = mount({
-    setup() {
-      return {
-        swipe: useArticleSwipe({ articleId: () => id.value, enabled: () => true, previous, next }),
-      };
+  const wrapper = mount(
+    {
+      setup() {
+        return {
+          swipe: useArticleSwipe({
+            articleId: () => id.value,
+            enabled: () => true,
+            previous,
+            next,
+          }),
+        };
+      },
+      template:
+        '<div @touchstart="swipe.touchstart" @touchmove="swipe.touchmove" @touchend="swipe.touchend" @touchcancel="swipe.touchcancel" @wheel="swipe.wheel"><p>Text</p><button>Control</button><pre>Code</pre></div>',
     },
-    template:
-      '<div @touchstart="swipe.touchstart" @touchmove="swipe.touchmove" @touchend="swipe.touchend" @touchcancel="swipe.touchcancel" @wheel="swipe.wheel"><p>Text</p><button>Control</button><pre>Code</pre></div>',
-  });
+    { attachTo: document.body }
+  );
   function touch(type: string, x: number, y = 0, target = 'p', count = 1) {
     const point = { identifier: 1, clientX: x, clientY: y };
     const event = new Event(type, { bubbles: true, cancelable: true });

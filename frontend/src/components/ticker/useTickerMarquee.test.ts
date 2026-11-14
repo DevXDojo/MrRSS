@@ -17,6 +17,11 @@ describe('continuous ticker motion', () => {
     frames.clear();
     callbacks.forEach((callback) => callback(time));
   }
+  function expectOffset(x: number) {
+    expect(track.style.transform).toMatch(
+      new RegExp(`^translate3d\\(${x}px,\\s*0(?:px)?,\\s*0(?:px)?\\)$`)
+    );
+  }
   beforeEach(() => {
     paused.value = false;
     speed.value = 100;
@@ -76,7 +81,7 @@ describe('continuous ticker motion', () => {
   it('resumes without a time jump and changes speed without restarting', async () => {
     advance(0);
     advance(50);
-    expect(track.style.transform).toBe('translate3d(-5px,0,0)');
+    expectOffset(-5);
     paused.value = true;
     await nextTick();
     expect(frames.size).toBe(0);
@@ -84,10 +89,10 @@ describe('continuous ticker motion', () => {
     await nextTick();
     advance(10000);
     advance(10050);
-    expect(track.style.transform).toBe('translate3d(-10px,0,0)');
+    expectOffset(-10);
     speed.value = 200;
     advance(10075);
-    expect(track.style.transform).toBe('translate3d(-15px,0,0)');
+    expectOffset(-15);
   });
   it('keeps the visible title in place when new titles are inserted before it', async () => {
     advance(0);
@@ -97,7 +102,7 @@ describe('continuous ticker motion', () => {
     content.value++;
     await nextTick();
     await nextTick();
-    expect(track.style.transform).toBe('translate3d(-105px,0,0)');
+    expectOffset(-105);
     expect(frames.size).toBe(0);
   });
 });
