@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { shallowMount, flushPromises } from '@vue/test-utils';
 import { generateInitialSettings } from '@/composables/core/useSettings.generated';
 import { NumberControl, SelectControl } from '@/components/settings';
-import BaseSelect from '@/components/common/BaseSelect.vue';
+import BaseMultiSelect from '@/components/common/BaseMultiSelect.vue';
 import TickerSettings from './TickerSettings.vue';
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
@@ -24,12 +24,13 @@ it('loads searchable local subscriptions and emits bounded settings edits', asyn
   });
   try {
     await flushPromises();
-    const sources = wrapper.getComponent(BaseSelect);
+    const sources = wrapper.getComponent(BaseMultiSelect);
     expect(sources.props('searchable')).toBe(true);
     expect(sources.props('options')).toContainEqual({ value: 2, label: 'Local feed' });
-    sources.vm.$emit('update:modelValue', 2);
+    sources.vm.$emit('update:modelValue', [2]);
     expect(wrapper.emitted('update:settings')?.[0][0]).toMatchObject({
       ticker_feed_id: 2,
+      ticker_feed_ids: '2',
       ticker_enabled: true,
     });
     wrapper
@@ -69,7 +70,7 @@ it('allows retrying a subscription loading error without discarding preferences'
       .find((button) => button.text() === 'setting.ticker.retry')!
       .trigger('click');
     await flushPromises();
-    expect(wrapper.getComponent(BaseSelect).props('options')).toContainEqual({
+    expect(wrapper.getComponent(BaseMultiSelect).props('options')).toContainEqual({
       value: 7,
       label: 'Recovered',
     });

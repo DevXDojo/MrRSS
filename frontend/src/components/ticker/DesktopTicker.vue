@@ -17,6 +17,7 @@ import {
 } from '@phosphor-icons/vue';
 import { useSettings } from '@/composables/core/useSettings';
 import { openInBrowser } from '@/utils/browser';
+import DOMPurify from 'dompurify';
 import type { Article } from '@/types/models';
 import { tickerStyle } from './tickerPreferences';
 import { useTickerPreferences } from './useTickerPreferences';
@@ -109,10 +110,21 @@ function articleTime(article: Article) {
 }
 function articleTooltip(article: Article) {
   const date = new Date(article.published_at);
+  const description = DOMPurify.sanitize(article.original_summary || article.summary || '', {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    FORBID_TAGS: ['noscript'],
+    RETURN_DOM_FRAGMENT: true,
+  });
+  const text = (description.textContent || '').replace(/\s+/g, ' ').trim();
+  const characters = Array.from(text);
+  const summary =
+    characters.length > 180 ? `${characters.slice(0, 180).join('').trimEnd()}…` : text;
   return [
     article.title,
     article.feed_title,
     Number.isNaN(date.getTime()) ? '' : date.toLocaleString(locale.value),
+    summary && summary !== article.title ? `\n${summary}\n` : '',
     t(
       settings.value.ticker_open_in_browser
         ? 'setting.ticker.browserHint'

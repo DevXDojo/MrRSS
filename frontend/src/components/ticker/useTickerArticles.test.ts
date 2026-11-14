@@ -72,8 +72,22 @@ describe('ticker article refreshes', () => {
     await flushPromises();
     expect(api.articles.value.map((item) => item.id)).toEqual([2]);
     const query = new URL(fetchMock.mock.calls[1][0], 'http://localhost').searchParams;
-    expect(query.get('feed_id')).toBe('7');
+    expect(query.get('feed_ids')).toBe('7');
     expect(query.get('filter')).toBe('unread');
     expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+  it('requests multiple subscriptions and includes feed descriptions', async () => {
+    const fetchMock = vi.fn(async () => Response.json([article]));
+    vi.stubGlobal('fetch', fetchMock);
+    settings.value.ticker_feed_id = 7;
+    settings.value.ticker_feed_ids = '2,5';
+    start();
+    await flushPromises();
+    const query = new URL(fetchMock.mock.calls[0][0], 'http://localhost').searchParams;
+    expect(query.get('feed_ids')).toBe('2,5');
+    expect(query.get('include_original_summary')).toBe('true');
+    settings.value.ticker_feed_ids = '0';
+    await flushPromises();
+    expect(fetchMock.mock.calls[1][0]).not.toContain('feed_ids');
   });
 });

@@ -805,7 +805,6 @@ const zh: TranslationMessages = {
       feed: '订阅源',
       allFeeds: '全部订阅',
       chooseFeed: '选择来源',
-      searchFeeds: '搜索订阅源…',
       noMatchingFeeds: '没有匹配的订阅源。',
       content: '内容来源',
       appearance: '外观',

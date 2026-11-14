@@ -1,18 +1,29 @@
-import { onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
 import type { SettingsData } from '@/types/settings';
 import type { Article } from '@/types/models';
+import { tickerFeedIDs } from './tickerPreferences';
 
 export function useTickerArticles(settings: Ref<SettingsData>, visible: Ref<boolean>) {
   const articles = ref<Article[]>([]);
   const loading = ref(false);
   const failed = ref(false);
   const refreshedAt = ref<Date | null>(null);
+  const sources = computed(() => tickerFeedIDs(settings.value).join(','));
   let controller: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
   const fingerprint = (items: Article[]) =>
     JSON.stringify(
-      items.map((a) => [a.id, a.title, a.translated_title, a.feed_title, a.published_at, a.is_read])
+      items.map((a) => [
+        a.id,
+        a.title,
+        a.translated_title,
+        a.feed_title,
+        a.published_at,
+        a.is_read,
+        a.original_summary,
+        a.summary,
+      ])
     );
 
   async function refresh() {
@@ -27,9 +38,9 @@ export function useTickerArticles(settings: Ref<SettingsData>, visible: Ref<bool
         filter: settings.value.ticker_only_unread ? 'unread' : 'all',
         limit: '50',
         sort_order: 'newest',
+        include_original_summary: 'true',
       });
-      if (settings.value.ticker_feed_id > 0)
-        query.set('feed_id', String(settings.value.ticker_feed_id));
+      if (sources.value) query.set('feed_ids', sources.value);
       const response = await fetch(`/api/articles?${query}`, { signal: current.signal });
       if (!response.ok) throw new Error('Could not load ticker articles');
       const result: Article[] | null = await response.json();
@@ -48,14 +59,11 @@ export function useTickerArticles(settings: Ref<SettingsData>, visible: Ref<bool
       }
     }
   }
-  watch(
-    () => [settings.value.ticker_feed_id, settings.value.ticker_only_unread],
-    () => {
-      articles.value = [];
-      failed.value = false;
-      void refresh();
-    }
-  );
+  watch([sources, () => settings.value.ticker_only_unread], () => {
+    articles.value = [];
+    failed.value = false;
+    void refresh();
+  });
   watch(visible, (shown) => {
     if (shown) void refresh();
     else {

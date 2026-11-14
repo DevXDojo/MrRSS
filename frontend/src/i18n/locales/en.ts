@@ -836,7 +836,6 @@ const en: TranslationMessages = {
       feed: 'Subscription',
       allFeeds: 'All subscriptions',
       chooseFeed: 'Choose source',
-      searchFeeds: 'Search subscriptions…',
       noMatchingFeeds: 'No matching subscriptions.',
       content: 'Sources',
       appearance: 'Appearance',

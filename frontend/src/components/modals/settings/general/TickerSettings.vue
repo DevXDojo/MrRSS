@@ -16,12 +16,13 @@ import {
   PhPushPin,
   PhWarningCircle,
 } from '@phosphor-icons/vue';
-import BaseSelect from '@/components/common/BaseSelect.vue';
+import BaseMultiSelect from '@/components/common/BaseMultiSelect.vue';
 import { SubSettingItem, SelectControl, ToggleControl, NumberControl } from '@/components/settings';
 import type { SettingsData } from '@/types/settings';
 import type { Feed } from '@/types/models';
 import {
   tickerNumber,
+  tickerFeedIDs,
   tickerPalette,
   tickerPalettes,
   tickerStyle,
@@ -34,10 +35,10 @@ const feeds = ref<Feed[]>([]);
 const feedError = ref(false);
 const loadingFeeds = ref(false);
 const displays = ref<Array<{ id: string; name: string; primary: boolean }>>([]);
-const sourceOptions = computed(() => [
-  { value: 0, label: t('setting.ticker.allFeeds') },
-  ...feeds.value.map((feed) => ({ value: feed.id, label: feed.title })),
-]);
+const sourceOptions = computed(() =>
+  feeds.value.map((feed) => ({ value: feed.id, label: feed.title }))
+);
+const selectedFeedIDs = computed(() => tickerFeedIDs(props.settings));
 const displayOptions = computed(() => [
   { value: '', label: t('setting.ticker.currentDisplay') },
   ...displays.value.map((display) => ({
@@ -66,6 +67,14 @@ let disposed = false;
 
 function update<K extends keyof SettingsData>(key: K, value: SettingsData[K]) {
   emit('update:settings', { ...props.settings, [key]: value });
+}
+function updateSources(values: (string | number)[]) {
+  const ids = values.map(Number);
+  emit('update:settings', {
+    ...props.settings,
+    ticker_feed_ids: ids.join(',') || '0',
+    ticker_feed_id: ids.length === 1 ? ids[0] : 0,
+  });
 }
 const activePalette = computed(() => tickerPalette(props.settings).id);
 const paletteOptions = computed(() =>
@@ -127,7 +136,7 @@ onUnmounted(() => {
     <div class="ticker-preview w-48 sm:w-64" :style="tickerStyle(settings)">
       <PhRss :size="16" class="shrink-0 opacity-60" />
       <span v-if="settings.ticker_show_source" class="preview-source">{{
-        feeds.find((feed) => feed.id === settings.ticker_feed_id)?.title ||
+        feeds.find((feed) => selectedFeedIDs.includes(feed.id))?.title ||
         t('setting.ticker.allFeeds')
       }}</span>
       <span class="truncate">{{ t('setting.ticker.previewTitle') }}</span>
@@ -138,14 +147,14 @@ onUnmounted(() => {
     :title="t('setting.ticker.feed')"
     :description="t('setting.ticker.localRefreshHint')"
   >
-    <BaseSelect
-      :model-value="settings.ticker_feed_id"
+    <BaseMultiSelect
+      :model-value="selectedFeedIDs"
       :options="sourceOptions"
       searchable
-      :disabled="loadingFeeds"
+      :disabled="loadingFeeds || feedError"
       width="w-48 sm:w-64"
-      :placeholder="t('setting.ticker.searchFeeds')"
-      @update:model-value="update('ticker_feed_id', Number($event))"
+      :placeholder="t('setting.ticker.allFeeds')"
+      @update:model-value="updateSources"
     />
   </SubSettingItem>
   <SubSettingItem

@@ -1040,6 +1040,13 @@
       "encrypted": false,
       "frontend_key": "ticker_feed_id"
     },
+    "ticker_feed_ids": {
+      "type": "string",
+      "default": "",
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_feed_ids"
+    },
     "ticker_speed": {
       "type": "int",
       "default": 60,

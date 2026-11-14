@@ -147,6 +147,8 @@ Parameters:
   - `id` (query, optional): Look up one article as a one-item list, independent of filters and pagination
   - `filter` (query, optional): Filter: 'all', 'unread', 'favorite', 'read_later'
   - `feed_id` (query, optional): Filter by feed ID
+  - `feed_ids` (query, optional): Comma-separated feed IDs (overrides feed_id)
+  - `include_original_summary` (query, optional): Include the description supplied by the feed
   - `category` (query, optional): Filter by category name
   - `page` (query, optional): Page number (default: 1)
   - `limit` (query, optional): Items per page (default: 50, max: 500)

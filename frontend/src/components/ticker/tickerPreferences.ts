@@ -10,6 +10,14 @@ export const tickerPalettes = [
 
 export const tickerNumber = (value: number, fallback: number, min: number, max: number) =>
   Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+
+export function tickerFeedIDs(settings: SettingsData): number[] {
+  // An empty value predates multi-select. Zero explicitly selects all feeds.
+  const selection = settings.ticker_feed_ids || String(settings.ticker_feed_id);
+  return [...new Set(selection.split(',').map(Number))].filter(
+    (id) => Number.isSafeInteger(id) && id > 0
+  );
+}
 // Legacy color values are kept in storage, while the interface and rendering
 // use only the supported presets.
 export function tickerPalette(settings: SettingsData) {

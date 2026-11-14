@@ -1117,6 +1117,18 @@
                     },
                     {
                         "type": "string",
+                        "description": "Comma-separated feed IDs (overrides feed_id)",
+                        "name": "feed_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include the description supplied by the feed",
+                        "name": "include_original_summary",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Filter by category name",
                         "name": "category",
                         "in": "query"
