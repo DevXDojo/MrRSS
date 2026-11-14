@@ -8,7 +8,7 @@ This document describes how to build and package MrRSS using the Wails v3 build 
 
 - **Go 1.27+**: [https://golang.org/dl/](https://golang.org/dl/)
 - **Node.js 22.22.2 LTS or 24.15+**: [https://nodejs.org/](https://nodejs.org/)
-- **Wails CLI v3**: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20`
+- **Wails CLI v3** (from the repository root): `go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"`
 - **Task**: [https://taskfile.dev/installation/](https://taskfile.dev/installation/)
 
 ### Platform-Specific Dependencies
@@ -121,7 +121,7 @@ task darwin:build ARCH=universal  # Intel + Apple Silicon
 
 ### Mobile Platforms (Wails v3 only)
 
-**Note**: iOS and Android support is experimental in Wails v3 alpha.
+**Note**: iOS and Android support remains experimental in Wails v3.
 
 ```bash
 # iOS (requires macOS + Xcode)

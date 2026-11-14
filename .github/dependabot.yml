@@ -5,7 +5,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "friday"
     groups:
       go-dependencies:
         patterns:
@@ -21,7 +21,7 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "friday"
     groups:
       frontend-dependencies:
         patterns:
@@ -37,7 +37,7 @@ updates:
     directory: "/website"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "friday"
     groups:
       website-dependencies:
         patterns:
@@ -53,7 +53,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "friday"
     groups:
       github-actions:
         patterns:

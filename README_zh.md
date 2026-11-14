@@ -11,7 +11,7 @@
 [![Version](https://img.shields.io/badge/version-1.3.43-blue.svg)](https://github.com/DevXDojo/MrRSS/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev/)
-[![Wails](https://img.shields.io/badge/Wails-v3%20alpha-red)](https://wails.io/)
+[![Wails](https://img.shields.io/badge/Wails-v3-blue)](https://wails.io/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-3.5+-4FC08D?logo=vue.js)](https://vuejs.org/)
 
 ## ✨ 功能特性
@@ -70,7 +70,7 @@
 
 - [Go](https://go.dev/) (1.27 或更高版本)
 - [Node.js](https://nodejs.org/) (20 LTS 或更高版本，带 npm)
-- [Wails v3](https://v3alpha.wails.io/getting-started/installation/) CLI
+- [Wails v3](https://v3.wails.io/getting-started/installation/) CLI
 
 **平台特定要求：**
 
@@ -105,7 +105,7 @@ sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-c
 3. **安装 Wails v3 CLI**
 
    ```bash
-   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20
+   go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
    ```
 
 4. **构建应用**

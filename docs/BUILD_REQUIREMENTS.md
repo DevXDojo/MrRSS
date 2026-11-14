@@ -4,14 +4,14 @@ This document describes the system-level dependencies required for building MrRS
 
 ## Overview
 
-MrRSS uses Wails v3 (alpha) framework which requires CGO (C bindings for Go):
+MrRSS uses the Wails v3 desktop framework. The project's desktop build tasks enable CGO (C bindings for Go):
 
 - **Wails v3**: For the desktop application framework with built-in system tray
 - **SQLite**: Pure Go implementation (`modernc.org/sqlite`), no C dependencies
 
 ## Important: CGO Requirement
 
-⚠️ **CRITICAL**: Wails v3 requires CGO to be enabled. You must set:
+When building MrRSS without the project's desktop build tasks, enable CGO:
 
 ```bash
 export CGO_ENABLED=1
@@ -43,7 +43,7 @@ sudo apt-get install -y \
 
 - `gcc`: C compiler (required for CGO)
 - `pkg-config`: Build tool for finding libraries
-- `libgtk-4-dev`: GTK4 development headers (for Wails UI)
+- `libgtk-4-dev`: GTK 4.14 or newer development headers (for Wails UI)
 - `libwebkitgtk-6.0-dev`: WebKitGTK 6.0 development headers (for Wails webview, **required for current Wails v3**)
 - `libsoup-3.0-dev`: HTTP library 3.0 (required for Wails v3)
 

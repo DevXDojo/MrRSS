@@ -31,16 +31,12 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 - Go 1.27 or higher
 - Node.js (LTS version)
-- Wails CLI: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20`
+- Wails CLI (from the repository root): `go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"`
 
 **Linux only:** Install system dependencies:
 
 ```bash
-# Ubuntu/Debian
-sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev gcc pkg-config
-
-# For older Ubuntu versions (before 24.04), use:
-# sudo apt-get install libgtk-3-dev libwebkit2gtk-4.0-dev gcc pkg-config
+sudo apt-get install libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc pkg-config
 ```
 
 ### Setup Steps
