@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { PhProhibit, PhTrash } from '@phosphor-icons/vue';
 import BaseSelect from '@/components/common/BaseSelect.vue';
 import BaseMultiSelect from '@/components/common/BaseMultiSelect.vue';
+import BaseDatePicker from '@/components/common/BaseDatePicker.vue';
 import {
   useRuleOptions,
   type Condition,
@@ -142,12 +143,11 @@ function handleMultiSelectUpdate(values: (string | number)[]): void {
         }}</label>
 
         <!-- Date input -->
-        <input
+        <BaseDatePicker
           v-if="isDateField(condition.field)"
-          type="date"
-          :value="condition.value"
-          class="date-field w-full text-xs sm:text-sm"
-          @input="handleValueChange"
+          :model-value="condition.value"
+          :placeholder="t('modal.filter.filterValue')"
+          @update:model-value="emit('update:value', String($event))"
         />
 
         <!-- Boolean select -->
@@ -245,12 +245,6 @@ function handleMultiSelectUpdate(values: (string | number)[]): void {
 @reference "../../../style.css";
 .input-field {
   @apply p-1.5 sm:p-2 border border-border rounded-md bg-bg-primary text-text-primary focus:border-accent focus:outline-none transition-colors;
-  height: 38px;
-}
-
-.date-field {
-  @apply p-1.5 sm:p-2 border border-border rounded-md bg-bg-primary text-text-primary focus:border-accent focus:outline-none transition-colors cursor-pointer;
-  color-scheme: light dark;
   height: 38px;
 }
 
