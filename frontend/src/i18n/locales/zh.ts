@@ -319,6 +319,14 @@ const zh: TranslationMessages = {
     close: '关闭',
     connectionFailed: '连接失败',
     connectionSuccessful: '连接成功',
+    datePicker: {
+      open: '打开日历',
+      placeholder: '选择日期',
+      previousMonth: '上个月',
+      nextMonth: '下个月',
+      today: '今天',
+      clear: '清除',
+    },
     contextMenu: {
       copyImage: '复制图片',
       copyLink: '复制链接',

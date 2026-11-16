@@ -83,6 +83,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Extra classes for the dropdown panel, e.g. a neutral (non-accent) selection style
+  dropdownClass: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits<{
@@ -346,7 +351,7 @@ onUnmounted(() => {
       <div
         v-if="isOpen"
         ref="dropdownRef"
-        class="select-dropdown"
+        :class="['select-dropdown', dropdownClass]"
         :style="dropdownStyle"
         @mouseleave="handleMouseLeave"
       >

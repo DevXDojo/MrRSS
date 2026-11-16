@@ -19,6 +19,7 @@ import {
 } from '@phosphor-icons/vue';
 import { ButtonControl } from '@/components/settings';
 import BaseSelect from '@/components/common/BaseSelect.vue';
+import BaseDatePicker from '@/components/common/BaseDatePicker.vue';
 
 const { t } = useI18n();
 
@@ -104,6 +105,9 @@ const intervalOptions = computed(() => [
   { value: 'month' as Period, label: t('setting.statistic.byMonth'), icon: PhCalendar },
   { value: 'year' as Period, label: t('setting.statistic.byYear'), icon: PhCalendar },
 ]);
+
+// Whether the fixed-interval group is the active period
+const isIntervalPeriod = computed(() => ['week', 'month', 'year'].includes(selectedPeriod.value));
 
 const totalStats = computed(() => {
   const currentStats = stats.value;
@@ -259,26 +263,29 @@ onMounted(async () => {
         <!-- Fixed Interval with Dropdown -->
         <div
           :class="[
-            'flex items-center justify-between p-0 overflow-visible border rounded-lg cursor-pointer text-xs font-medium transition-all',
-            ['week', 'month', 'year'].includes(selectedPeriod)
-              ? 'period-btn-active'
-              : 'period-btn-inactive',
+            'interval-group',
+            isIntervalPeriod ? 'period-btn-active' : 'period-btn-inactive',
           ]"
-          @click="handleIntervalClick"
         >
-          <div class="flex items-center gap-1.5 px-3 py-2 flex-1">
+          <button
+            type="button"
+            class="interval-group-label"
+            :aria-pressed="isIntervalPeriod"
+            @click="handleIntervalClick"
+          >
             <PhCalendar :size="16" />
-            <span class="text-xs font-medium">{{ t('setting.feed.fixedInterval') }}</span>
-          </div>
-          <div class="flex items-center border-l border-border" @click.stop>
-            <BaseSelect
-              :model-value="selectedInterval"
-              :options="intervalOptions"
-              width="w-28"
-              size="xs"
-              @update:model-value="onIntervalChange"
-            />
-          </div>
+            {{ t('setting.feed.fixedInterval') }}
+          </button>
+          <span class="interval-group-divider" aria-hidden="true"></span>
+          <BaseSelect
+            class="interval-group-select"
+            dropdown-class="select-dropdown-neutral"
+            :model-value="selectedInterval"
+            :options="intervalOptions"
+            width="w-24"
+            size="xs"
+            @update:model-value="onIntervalChange"
+          />
         </div>
 
         <!-- Custom Range -->
@@ -305,21 +312,33 @@ onMounted(async () => {
           <PhCalendarPlus :size="16" />
           {{ t('setting.statistic.startDate') }}:
         </label>
-        <input v-model="customStartDate" type="date" class="date-input" @change="fetchStatistics" />
+        <BaseDatePicker
+          v-model="customStartDate"
+          :max="customEndDate"
+          :placeholder="t('common.datePicker.placeholder')"
+          :aria-label="t('setting.statistic.startDate')"
+          @change="fetchStatistics"
+        />
       </div>
       <div class="flex flex-col gap-1.5 flex-1 min-w-[150px]">
         <label class="flex items-center gap-1.5 text-xs text-text-primary font-medium">
           <PhCalendarX :size="16" />
           {{ t('setting.statistic.endDate') }}:
         </label>
-        <input v-model="customEndDate" type="date" class="date-input" @change="fetchStatistics" />
+        <BaseDatePicker
+          v-model="customEndDate"
+          :min="customStartDate"
+          :placeholder="t('common.datePicker.placeholder')"
+          :aria-label="t('setting.statistic.endDate')"
+          @change="fetchStatistics"
+        />
       </div>
-      <button
-        class="px-4 py-2 bg-accent text-white border-none rounded-md font-medium cursor-pointer transition-all hover:opacity-90 hover:-translate-y-px h-9"
+      <ButtonControl
+        type="primary"
+        :label="t('common.form.apply')"
+        class="h-[var(--ui-control-height)]"
         @click="fetchStatistics"
-      >
-        {{ t('common.form.apply') }}
-      </button>
+      />
     </div>
 
     <!-- Navigation -->
@@ -372,16 +391,67 @@ onMounted(async () => {
   @apply flex items-center gap-1.5 px-3 py-2 border rounded-lg cursor-pointer text-xs font-medium transition-all;
 }
 
+/* Fixed-interval segmented control: one pill made of a label + inline select.
+   It is filled with the accent color while one of the fixed intervals is active. */
+.interval-group {
+  @apply inline-flex items-stretch border rounded-lg cursor-pointer text-xs font-medium transition-all;
+}
+
+.interval-group-label {
+  @apply flex items-center gap-1.5 px-3 py-2 bg-transparent border-0 text-xs font-medium cursor-pointer;
+  /* Inherit the pill's text color */
+  color: inherit;
+  white-space: nowrap;
+  border-start-start-radius: calc(var(--ui-radius-control) - 1px);
+  border-end-start-radius: calc(var(--ui-radius-control) - 1px);
+}
+
+.interval-group-divider {
+  @apply w-px flex-shrink-0 self-stretch;
+  background-color: var(--border-color);
+}
+
+/* Let the select blend into the pill instead of showing its own boxed trigger */
+.interval-group-select :deep(.select-trigger) {
+  @apply flex items-center justify-between w-full cursor-pointer;
+  height: auto;
+  min-height: 0;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 0 calc(var(--ui-radius-control) - 1px) calc(var(--ui-radius-control) - 1px) 0;
+  background-color: transparent;
+  color: inherit;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  transition: background-color var(--ui-transition-fast);
+}
+
+.interval-group-select :deep(.select-trigger:hover) {
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.interval-group-select :deep(.select-arrow) {
+  @apply ml-1 flex-shrink-0;
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* Divider and hover tint need more contrast on the filled (active) pill */
+.interval-group.period-btn-active .interval-group-divider {
+  background-color: color-mix(in srgb, #ffffff 45%, transparent);
+}
+
+.interval-group.period-btn-active .interval-group-select :deep(.select-trigger:hover) {
+  background-color: color-mix(in srgb, #ffffff 18%, transparent);
+}
+
 .period-btn-active {
   @apply bg-accent text-white border-accent hover:border-accent;
 }
 
 .period-btn-inactive {
   @apply border-border bg-bg-secondary text-text-primary hover:border-accent;
-}
-
-.date-input {
-  @apply px-3 py-2 border border-border rounded-md bg-bg-primary text-text-primary text-xs transition-colors focus:outline-none focus:border-accent;
 }
 
 .nav-btn {

@@ -79,6 +79,32 @@
   accent-color: white;
 }
 
+/*
+ * Neutral dropdown variant (`dropdownClass="select-dropdown-neutral"`):
+ * keeps the selection highlight in theme greys instead of the accent fill, for
+ * controls that must stay monochrome (e.g. the statistics interval selector).
+ */
+.select-dropdown-neutral .select-option.selected {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.select-dropdown-neutral .select-option.selected:hover,
+.select-dropdown-neutral .select-option.selected.focused {
+  background-color: var(--bg-tertiary);
+  filter: brightness(0.96);
+}
+
+.select-dropdown-neutral .select-option.selected .text-accent,
+.select-dropdown-neutral .select-option.selected svg {
+  color: inherit !important;
+}
+
+.select-dropdown-neutral .select-option.selected .select-checkbox {
+  accent-color: var(--accent-color);
+}
+
 .select-option.focused {
   @apply bg-bg-tertiary;
 }
