@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 
 vi.mock('vue-i18n', async () => {
@@ -31,10 +31,12 @@ const { settings } = (
 ).__test;
 
 const BaseDatePicker = (await import('./BaseDatePicker.vue')).default;
+enableAutoUnmount(afterEach);
 
 function mountPicker(props: Record<string, unknown> = {}) {
   return mount(BaseDatePicker, {
     props: { modelValue: '2026-10-31', ...props },
+    attachTo: document.body,
   });
 }
 
@@ -162,6 +164,21 @@ describe('BaseDatePicker i18n formatting', () => {
     ).map((element) => element.textContent);
     expect(weekdays).toHaveLength(7);
     expect(weekdays[0]).toBe(firstWeekdayLabel('zh-CN'));
+  });
+
+  it('keeps arrow keys in the text field and stops Escape from closing the parent', async () => {
+    const wrapper = mountPicker();
+    const input = wrapper.get('input');
+    await input.trigger('click');
+    const title = document.body.querySelector('.date-picker-title')?.textContent;
+    await input.trigger('keydown', { key: 'ArrowRight' });
+    expect(document.body.querySelector('.date-picker-title')?.textContent).toBe(title);
+
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    document.body.querySelector('.date-picker-nav')?.dispatchEvent(escape);
+    await nextTick();
+    expect(escape.defaultPrevented).toBe(true);
+    expect(document.body.querySelector('.date-picker-panel')).toBeNull();
   });
 
   it('clears the value from the panel footer', async () => {

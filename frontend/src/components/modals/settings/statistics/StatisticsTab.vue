@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhChartBar,
@@ -20,6 +20,7 @@ import {
 import { ButtonControl } from '@/components/settings';
 import BaseSelect from '@/components/common/BaseSelect.vue';
 import BaseDatePicker from '@/components/common/BaseDatePicker.vue';
+import { formatCalendarDate } from '@/utils/date';
 
 const { t } = useI18n();
 
@@ -58,8 +59,11 @@ watch(
 );
 
 // Custom date range
-const customStartDate = ref('');
-const customEndDate = ref('');
+const today = new Date();
+const customEndDate = ref(formatCalendarDate(today, '', 'yyyy-mm-dd'));
+const customStartDate = ref(`${customEndDate.value.slice(0, 7)}-01`);
+const hasCustomRange = computed(() => Boolean(customStartDate.value && customEndDate.value));
+let statisticsRequest: AbortController | undefined;
 
 // All stat types to display (even if zero)
 const allStatTypes = [
@@ -133,6 +137,13 @@ const showNavigation = computed(
 const displayLabel = computed(() => stats.value?.display_label || '');
 
 async function fetchStatistics() {
+  statisticsRequest?.abort();
+  if (selectedPeriod.value === 'custom' && !hasCustomRange.value) {
+    loading.value = false;
+    return;
+  }
+  const request = new AbortController();
+  statisticsRequest = request;
   loading.value = true;
   error.value = undefined;
 
@@ -145,14 +156,16 @@ async function fetchStatistics() {
       url += `&start_date=${customStartDate.value}&end_date=${customEndDate.value}`;
     }
 
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: request.signal });
     if (!response.ok) throw new Error('Failed to fetch statistics');
-    stats.value = await response.json();
+    const result: StatSummary = await response.json();
+    if (!request.signal.aborted) stats.value = result;
   } catch (e) {
+    if (request.signal.aborted) return;
     error.value = e instanceof Error ? e.message : 'Unknown error';
     console.error('Error fetching statistics:', e);
   } finally {
-    loading.value = false;
+    if (!request.signal.aborted) loading.value = false;
   }
 }
 
@@ -210,16 +223,8 @@ async function resetStatistics() {
   }
 }
 
-onMounted(async () => {
-  await fetchStatistics();
-
-  // Set default custom dates to today
-  const today = new Date();
-  customEndDate.value = today.toISOString().split('T')[0];
-  customStartDate.value = new Date(today.getFullYear(), today.getMonth(), 1)
-    .toISOString()
-    .split('T')[0];
-});
+onMounted(fetchStatistics);
+onBeforeUnmount(() => statisticsRequest?.abort());
 </script>
 
 <template>
@@ -336,6 +341,7 @@ onMounted(async () => {
       <ButtonControl
         type="primary"
         :label="t('common.form.apply')"
+        :disabled="!hasCustomRange"
         class="h-[var(--ui-control-height)]"
         @click="fetchStatistics"
       />

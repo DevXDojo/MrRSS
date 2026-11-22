@@ -339,6 +339,7 @@ const en: TranslationMessages = {
     connectionFailed: 'Connection failed',
     connectionSuccessful: 'Connection successful',
     datePicker: {
+      invalid: 'Enter a valid date within the allowed range.',
       open: 'Open calendar',
       placeholder: 'Select date',
       previousMonth: 'Previous month',

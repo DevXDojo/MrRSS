@@ -141,6 +141,7 @@ function parseText(value: string): Date | null {
 }
 
 function commit(nextIso?: string): void {
+  if (nextIso === undefined && !isEditing.value) return;
   isEditing.value = false;
 
   let iso: string;
@@ -153,7 +154,7 @@ function commit(nextIso?: string): void {
     } else {
       const parsed = parseText(raw);
       if (!parsed) {
-        // Keep the previous valid value when the typed text cannot be parsed
+        window.showToast?.(t('common.datePicker.invalid'), 'warning');
         text.value = displayValue.value;
         return;
       }
@@ -162,6 +163,7 @@ function commit(nextIso?: string): void {
   }
 
   if (iso && outOfRange(iso)) {
+    window.showToast?.(t('common.datePicker.invalid'), 'warning');
     text.value = displayValue.value;
     return;
   }
@@ -176,10 +178,6 @@ function commit(nextIso?: string): void {
 function onInput(event: Event): void {
   isEditing.value = true;
   text.value = (event.target as HTMLInputElement).value;
-}
-
-function onFocus(): void {
-  isEditing.value = true;
 }
 
 function onBlur(): void {
@@ -238,6 +236,7 @@ function removeListeners(): void {
 
 function open(): void {
   if (props.disabled || isOpen.value) return;
+  todayIso.value = toIso(new Date());
   syncView();
   updatePosition();
   isOpen.value = true;
@@ -268,13 +267,22 @@ function onPointerDown(event: PointerEvent): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  const inPanel = panelRef.value?.contains(target);
+  if (!inPanel && !rootRef.value?.contains(target)) return;
   if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
     cancelEdit();
     return;
   }
+  if (target === inputRef.value) return;
   if (event.key === 'ArrowLeft') {
+    event.preventDefault();
     changeMonth(-1);
   } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
     changeMonth(1);
   }
 }
@@ -360,10 +368,9 @@ onBeforeUnmount(removeListeners);
       :aria-label="ariaLabel || placeholder || t('common.datePicker.placeholder')"
       @input="onInput"
       @click="open"
-      @focus="onFocus"
       @blur="onBlur"
       @keydown.enter.prevent="commit()"
-      @keydown.esc.prevent="cancelEdit"
+      @keydown.esc.stop.prevent="cancelEdit"
     />
     <button
       type="button"
@@ -421,7 +428,7 @@ onBeforeUnmount(removeListeners);
         </div>
 
         <div class="date-picker-footer">
-          <button type="button" class="date-picker-action" @click="selectToday">
+          <button type="button" class="date-picker-action" :disabled="outOfRange(todayIso)" @click="selectToday">
             {{ t('common.datePicker.today') }}
           </button>
           <button

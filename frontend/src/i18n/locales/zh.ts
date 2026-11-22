@@ -320,6 +320,7 @@ const zh: TranslationMessages = {
     connectionFailed: '连接失败',
     connectionSuccessful: '连接成功',
     datePicker: {
+      invalid: '请输入范围内的有效日期。',
       open: '打开日历',
       placeholder: '选择日期',
       previousMonth: '上个月',
