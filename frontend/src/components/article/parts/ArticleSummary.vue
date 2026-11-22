@@ -33,6 +33,7 @@ interface Props {
   } | null;
   isTranslatingSummary?: boolean;
   translationEnabled: boolean;
+  translationOnlyMode?: boolean;
   summaryProvider?: string;
   summaryTriggerMode?: string;
   isLoadingContent?: boolean;
@@ -290,7 +291,7 @@ async function handleSummaryLinkClick(event: MouseEvent) {
           </Transition>
 
           <!-- Summary Content -->
-          <div v-if="shouldShowTranslatedSummary || isTranslatingSummary" class="mb-3">
+          <div v-if="translationEnabled && (shouldShowTranslatedSummary || isTranslatingSummary)" class="mb-3">
             <div class="mb-1 text-[11px] text-text-secondary">
               {{ t('article.summary.translatedSummary') }}
             </div>
@@ -306,10 +307,11 @@ async function handleSummaryLinkClick(event: MouseEvent) {
             </div>
           </div>
 
-          <div v-if="shouldShowTranslatedSummary" class="mt-1 text-[11px] text-text-secondary">
+          <div v-if="shouldShowTranslatedSummary && !translationOnlyMode" class="mt-1 text-[11px] text-text-secondary">
             {{ t('article.summary.originalSummary') }}
           </div>
           <div
+            v-if="!shouldShowTranslatedSummary || !translationOnlyMode"
             class="text-xs text-text-primary leading-snug select-text prose prose-xs max-w-none"
             @click="handleSummaryLinkClick"
             v-html="sanitizeArticleHTML(summaryResult.html || summaryResult.summary)"

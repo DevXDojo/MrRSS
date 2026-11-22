@@ -31,7 +31,10 @@ const hover = useArticleHoverRead(
   () => props.disabled === true || props.selectionMode === true
 );
 const hasTranslation = computed(
-  () => props.article.translated_title && props.article.translated_title !== props.article.title
+  () =>
+    !settings.value.translation_skip_title &&
+    props.article.translated_title &&
+    props.article.translated_title !== props.article.title
 );
 </script>
 

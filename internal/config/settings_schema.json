@@ -144,6 +144,13 @@
       "encrypted": false,
       "frontend_key": "translationOnlyMode"
     },
+    "translation_skip_title": {
+      "type": "bool",
+      "default": false,
+      "category": "translation",
+      "encrypted": false,
+      "frontend_key": "translation_skip_title"
+    },
     "translation_trigger_mode": {
       "type": "string",
       "default": "auto",

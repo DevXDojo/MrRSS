@@ -7,6 +7,7 @@ import type { Article } from '@/types/models';
 import { useArticleDateFormat } from '@/composables/article/useArticleDateFormat';
 import { getProxiedMediaUrl, isMediaCacheEnabled } from '@/utils/mediaProxy';
 import { useAppStore } from '@/stores/app';
+import { useSettings } from '@/composables/core/useSettings';
 import { imageCache } from '@/utils/imageCache';
 
 interface Props {
@@ -26,6 +27,13 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const store = useAppStore();
+const { settings } = useSettings();
+const hasTranslation = computed(
+  () =>
+    !settings.value.translation_skip_title &&
+    props.article.translated_title &&
+    props.article.translated_title !== props.article.title
+);
 
 // Check if article is from RSSHub feed - O(1) lookup using feedMap
 const isRSSHubArticle = computed(() => {
@@ -171,14 +179,14 @@ function handleImageError(event: Event) {
         <div class="card-title-wrapper">
           <!-- Title -->
           <h4 class="card-title" :class="{ 'read-title': article.is_read }">
-            <span v-if="article.translated_title && article.translated_title !== article.title">
+            <span v-if="hasTranslation">
               {{ article.translated_title }}
             </span>
             <span v-else>{{ article.title }}</span>
           </h4>
           <!-- Original title when translated -->
           <div
-            v-if="article.translated_title && article.translated_title !== article.title"
+            v-if="hasTranslation"
             class="card-original-title"
           >
             {{ article.title }}

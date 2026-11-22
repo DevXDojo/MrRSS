@@ -11,6 +11,7 @@ import FindInPage from '../common/FindInPage.vue';
 import type { Article } from '@/types/models';
 import { openInBrowser } from '@/utils/browser';
 import { useSettings } from '@/composables/core/useSettings';
+import { useArticleTranslationView } from '@/composables/article/useArticleTranslation';
 import { queryArticleContentImages } from '@/utils/articleContentDom';
 
 interface Props {
@@ -38,7 +39,8 @@ const { settings, fetchSettings } = useSettings();
 
 // View state
 const showContent = ref(true);
-const showTranslations = ref(true);
+const { showTranslations, translationOnlyOverride, toggleTranslations, setTranslationOnly } =
+  useArticleTranslationView(() => props.article.id);
 const showFindInPage = ref(false);
 const contentView = ref<InstanceType<typeof ArticleContent> | null>(null);
 
@@ -252,10 +254,6 @@ function toggleContentView() {
   showContent.value = !showContent.value;
 }
 
-function toggleTranslations() {
-  showTranslations.value = !showTranslations.value;
-}
-
 function openOriginal() {
   if (props.article?.url) {
     openInBrowser(props.article.url);
@@ -325,6 +323,9 @@ function handleOverlayClick(e: MouseEvent) {
           :article="article"
           :show-content="showContent"
           :show-translations="showTranslations"
+          :translation-only="contentView?.translationOnlyMode"
+          :can-translate-entire-article="contentView?.canTranslateEntireArticle"
+          :is-translating-article="contentView?.isTranslatingArticle"
           :is-modal="true"
           :is-loading-content="isLoadingContent"
           :is-reading-mode-loading="contentView?.isFetchingFullArticle ?? false"
@@ -336,6 +337,8 @@ function handleOverlayClick(e: MouseEvent) {
           @toggle-read-later="emit('toggleReadLater')"
           @open-original="openOriginal"
           @toggle-translations="toggleTranslations"
+          @set-translation-only="setTranslationOnly"
+          @translate-entire-article="showTranslations = true; contentView?.translateEntireArticle()"
           @reload-content="handleReloadContent"
           @export-to-obsidian="exportToObsidian"
           @export-to-notion="exportToNotion"
@@ -364,6 +367,7 @@ function handleOverlayClick(e: MouseEvent) {
             :is-loading-content="isLoadingContent"
             :attach-image-event-listeners="attachImageEventListeners"
             :show-translations="showTranslations"
+            :translation-only-override="translationOnlyOverride"
             :show-content="showContent"
             class="modal-prose-content"
             @retry-load-content="handleRetryLoadContent"

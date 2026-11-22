@@ -56,6 +56,7 @@ const { copies, step } = useTickerMarquee(viewport, group, track, {
     settings.value.ticker_show_source,
     settings.value.ticker_show_time,
     settings.value.translation_enabled,
+    settings.value.translation_skip_title,
   ],
 });
 const style = useTickerStyle(() => settings.value);
@@ -100,7 +101,9 @@ function navigate(direction: number) {
   step(direction);
 }
 function headline(article: Article) {
-  return settings.value.translation_enabled && article.translated_title
+  const useTranslation =
+    settings.value.translation_enabled && !settings.value.translation_skip_title;
+  return useTranslation && article.translated_title
     ? article.translated_title
     : article.title;
 }

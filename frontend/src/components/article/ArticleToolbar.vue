@@ -19,6 +19,8 @@ import {
   PhLinkSimple,
   PhTextT,
   PhTranslate,
+  PhTextAa,
+  PhArticleNyTimes,
   PhArrowClockwise,
   PhSlidersHorizontal,
   PhBookOpenText,
@@ -47,6 +49,9 @@ interface Props {
   article: Article;
   showContent: boolean;
   showTranslations?: boolean;
+  translationOnly?: boolean;
+  canTranslateEntireArticle?: boolean;
+  isTranslatingArticle?: boolean;
   isModal?: boolean;
   isLoadingContent?: boolean;
   isReadingModeLoading?: boolean;
@@ -54,6 +59,9 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
   showTranslations: true,
+  translationOnly: false,
+  canTranslateEntireArticle: false,
+  isTranslatingArticle: false,
   isModal: false,
   isLoadingContent: false,
   isReadingModeLoading: false,
@@ -68,6 +76,8 @@ defineEmits<{
   toggleReadLater: [];
   openOriginal: [];
   toggleTranslations: [];
+  setTranslationOnly: [value: boolean];
+  translateEntireArticle: [];
   reloadContent: [];
   exportToObsidian: [];
   exportToNotion: [];
@@ -143,27 +153,45 @@ async function copyTitle(article: Article) {
           <PhGlobe v-if="showContent" :size="18" class="sm:w-5 sm:h-5" />
           <PhArticle v-else :size="18" class="sm:w-5 sm:h-5" />
         </button>
-        <button
-          v-if="
-            action.id === 'translation' &&
-            showContent &&
-            settings.translation_enabled &&
-            !settings.translation_only_mode
-          "
-          class="action-btn"
-          :title="
-            showTranslations
-              ? t('setting.reading.hideTranslations')
-              : t('setting.reading.showTranslations')
-          "
-          @click="$emit('toggleTranslations')"
-        >
-          <PhTranslate
-            :size="18"
-            class="sm:w-5 sm:h-5"
-            :weight="showTranslations ? 'fill' : 'regular'"
-          />
-        </button>
+        <template v-if="action.id === 'translation' && showContent && settings.translation_enabled">
+          <button
+            v-if="settings.translation_trigger_mode === 'manual'"
+            type="button"
+            class="action-btn disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="!canTranslateEntireArticle"
+            :title="t('article.translation.translateEntireArticle')"
+            :aria-label="t('article.translation.translateEntireArticle')"
+            @click="$emit('translateEntireArticle')"
+          >
+            <PhSpinnerGap v-if="isTranslatingArticle" :size="18" class="animate-spin sm:w-5 sm:h-5" />
+            <PhArticleNyTimes v-else :size="18" class="sm:w-5 sm:h-5" />
+          </button>
+          <button
+            type="button"
+            class="action-btn"
+            :class="{ 'text-accent': translationOnly }"
+            :aria-pressed="translationOnly"
+            :aria-label="t('setting.content.translationOnlyMode')"
+            :title="t('setting.content.translationOnlyMode')"
+            @click="$emit('setTranslationOnly', !translationOnly)"
+          >
+            <PhTextAa :size="18" class="sm:w-5 sm:h-5" />
+          </button>
+          <button
+            type="button"
+            class="action-btn"
+            :aria-pressed="showTranslations"
+            :aria-label="t('setting.reading.showTranslations')"
+            :title="
+              showTranslations
+                ? t('setting.reading.hideTranslations')
+                : t('setting.reading.showTranslations')
+            "
+            @click="$emit('toggleTranslations')"
+          >
+            <PhTranslate :size="18" class="sm:w-5 sm:h-5" :weight="showTranslations ? 'fill' : 'regular'" />
+          </button>
+        </template>
         <button
           class="action-btn"
           :title="

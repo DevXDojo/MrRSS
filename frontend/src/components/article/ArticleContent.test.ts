@@ -35,7 +35,7 @@ describe('reader translation recovery', () => {
   });
 
   function reader(content: string, summary = '') {
-    wrapper = shallowMount(ArticleContent, {
+    const mounted = shallowMount(ArticleContent, {
       props: {
         article: {
           id: 1,
@@ -53,10 +53,16 @@ describe('reader translation recovery', () => {
         stubs: { ArticleBody: false, TranslationQueueStatus: false },
       },
     });
-    return wrapper;
+    wrapper = mounted;
+    return mounted;
   }
 
-  function mockTranslations(limited = false, rssSummary = '', provider = 'rss') {
+  function mockTranslations(
+    limited = false,
+    rssSummary = '',
+    provider = 'rss',
+    preferences: Record<string, string> = {}
+  ) {
     let first = true;
     const mock = vi.fn(async (url: string, options?: RequestInit) => {
       if (url === '/api/settings')
@@ -72,6 +78,7 @@ describe('reader translation recovery', () => {
             remember_article_position: 'false',
             show_floating_toc: 'false',
             ai_chat_enabled: 'false',
+            ...preferences,
           })
         );
       if (url === '/api/articles/summarize')
@@ -101,6 +108,34 @@ describe('reader translation recovery', () => {
     vi.stubGlobal('fetch', mock);
     return mock;
   }
+
+  it('translates the whole body on demand while preserving the original title', async () => {
+    const mock = mockTranslations(false, '', 'rss', {
+      translation_trigger_mode: 'manual',
+      translation_skip_title: 'true',
+    });
+    const view = reader('<p>First paragraph</p><p>Second paragraph</p><p>中文原文</p>');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mock.mock.calls.filter(([url]) => url === '/api/articles/translate-text')).toEqual([]);
+    expect(view.getComponent(ArticleTitle).props('translateTitleEnabled')).toBe(false);
+
+    const translation = view.vm.translateEntireArticle();
+    await vi.advanceTimersByTimeAsync(0);
+    await translation;
+    const requests = mock.mock.calls
+      .filter(([url]) => url === '/api/articles/translate-text')
+      .map(([, options]) => JSON.parse(String(options?.body)));
+    expect(requests.map(({ text }) => text)).toEqual(['First paragraph', 'Second paragraph', '中文原文']);
+    expect(requests.every(({ force }) => force === false)).toBe(true);
+    expect(view.findAll('.translation-text')).toHaveLength(2);
+
+    await view.setProps({ translationOnlyOverride: true });
+    expect(view.find('.translation-only-mode').exists()).toBe(true);
+    expect(view.getComponent(ArticleTitle).props('translatedTitle')).toBe('');
+    await view.setProps({ showTranslations: false });
+    expect(view.find('.translation-only-mode').exists()).toBe(false);
+    expect(view.find('.hide-translations').exists()).toBe(true);
+  });
 
   it('waits through a limit and completes the same paragraphs without labelling mixed content skipped', async () => {
     const mock = mockTranslations(true);

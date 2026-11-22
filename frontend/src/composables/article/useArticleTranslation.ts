@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue';
+import { ref, watch, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Article } from '@/types/models';
 import {
@@ -10,16 +10,33 @@ import {
 interface TranslationSettings {
   enabled: boolean;
   targetLang: string;
-  translationOnlyMode: boolean;
   triggerMode: 'auto' | 'manual';
 }
 
-export function useArticleTranslation() {
+export function useArticleTranslationView(articleId: () => number | undefined) {
+  const showTranslations = ref(true);
+  const translationOnlyOverride = ref<boolean>();
+  watch(articleId, () => {
+    translationOnlyOverride.value = undefined;
+  });
+
+  function toggleTranslations() {
+    showTranslations.value = !showTranslations.value;
+  }
+
+  function setTranslationOnly(value: boolean) {
+    translationOnlyOverride.value = value;
+    showTranslations.value = true;
+  }
+
+  return { showTranslations, translationOnlyOverride, toggleTranslations, setTranslationOnly };
+}
+
+export function useArticleTranslation(titlesEnabled = () => true) {
   const { t } = useI18n();
   const translationSettings = ref<TranslationSettings>({
     enabled: false,
     targetLang: 'en',
-    translationOnlyMode: false,
     triggerMode: 'auto',
   });
   const translatingArticles: Ref<Set<number>> = ref(new Set());
@@ -84,7 +101,6 @@ export function useArticleTranslation() {
       translationSettings.value = {
         enabled: data.translation_enabled === 'true',
         targetLang: data.target_language || 'en',
-        translationOnlyMode: data.translation_only_mode === 'true',
         triggerMode: data.translation_trigger_mode === 'manual' ? 'manual' : 'auto',
       };
     } catch (e) {
@@ -158,7 +174,7 @@ export function useArticleTranslation() {
   // Translate an article
   async function translateArticle(article: Article, automatic = false): Promise<void> {
     // Don't translate if translation is disabled
-    if (!translationSettings.value.enabled) return;
+    if (!translationSettings.value.enabled || !titlesEnabled()) return;
     if (translatingArticles.value.has(article.id)) return;
     if (disposed) return;
     const key = keyFor(article);
@@ -166,6 +182,7 @@ export function useArticleTranslation() {
     const isCurrent = () =>
       !disposed &&
       translationSettings.value.enabled &&
+      titlesEnabled() &&
       revision === settingsRevision &&
       key === keyFor(article) &&
       (!automatic ||
@@ -279,7 +296,6 @@ export function useArticleTranslation() {
     translationSettings.value = {
       enabled,
       targetLang,
-      translationOnlyMode: translationSettings.value.translationOnlyMode,
       triggerMode: triggerMode === 'manual' ? 'manual' : 'auto',
     };
 

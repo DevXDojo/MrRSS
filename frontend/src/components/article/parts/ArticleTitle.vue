@@ -11,6 +11,7 @@ interface Props {
   translatedTitle: string;
   isTranslatingTitle: boolean;
   translationEnabled: boolean;
+  translateTitleEnabled?: boolean;
   translationOnlyMode?: boolean;
   manualTranslation?: boolean;
   translationSkipped?: boolean;
@@ -19,6 +20,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   manualTranslation: false,
+  translateTitleEnabled: true,
   translationOnlyMode: false,
   translationSkipped: false,
   isTranslatingContent: false,
@@ -69,7 +71,7 @@ function selectArticleFeed() {
       {{ article.title }}
     </h1>
     <button
-      v-if="translationEnabled"
+      v-if="translationEnabled && translateTitleEnabled"
       type="button"
       class="mt-2 flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50"
       :disabled="isTranslatingTitle"

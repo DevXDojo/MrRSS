@@ -244,9 +244,10 @@ const en: TranslationMessages = {
     },
     translation: {
       translateTitle: 'Translate title',
+      translateEntireArticle: 'Translate entire article',
       manualMode: 'Translate on demand',
       manualHint:
-        'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
+        'Use Translate entire article in the toolbar, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
       translatingTitle: 'Translating title...',
       waiting:
         'Translation service is busy. Translation will resume automatically; keep reading the original.',
@@ -1129,15 +1130,17 @@ const en: TranslationMessages = {
       summaryTriggerModeDesc: 'How AI summaries are triggered',
       summaryTriggerModeManual: 'Manual Trigger',
       targetLanguage: 'Target Language',
-      targetLanguageDesc: 'Language to translate article titles to',
+      targetLanguageDesc: 'Language to translate articles into',
       translatingContent: 'Translating content...',
       translation: 'Translation',
       translationCredentialsRequired: 'Translation service requires API key or credentials',
       translationTriggerMode: 'Translation mode',
       translationTriggerModeDesc:
-        'Translate automatically, or only when you request a title or paragraph.',
+        'Translate automatically, or only when you request a translation.',
       translationAutomatic: 'Automatic',
       translationManual: 'On demand',
+      translationKeepOriginalTitles: 'Keep original titles',
+      translationKeepOriginalTitlesDesc: 'Skip title translation while continuing to translate article text.',
       translationOnlyMode: 'Show translations only',
       translationOnlyModeDesc:
         'Hide source text after it is translated; on-demand mode hides only translated titles or paragraphs',

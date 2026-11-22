@@ -33,6 +33,12 @@ const { t } = useI18n();
 const { showPreviewImages } = useShowPreviewImages();
 const { settings } = useSettings();
 const store = useAppStore();
+const hasTranslation = computed(
+  () =>
+    !settings.value.translation_skip_title &&
+    props.article.translated_title &&
+    props.article.translated_title !== props.article.title
+);
 
 // Compact mode setting (layout_mode === 'compact')
 const compactMode = computed(() => {
@@ -225,9 +231,7 @@ function handleImageError(event: Event) {
       <div class="flex items-start gap-1.5 sm:gap-2">
         <!-- Normal mode or no translation: single line title -->
         <h4
-          v-if="
-            !article.translated_title || article.translated_title === article.title || compactMode
-          "
+          v-if="!hasTranslation || compactMode"
           class="flex-1 m-0 text-base sm:text-base font-semibold leading-snug text-text-primary article-title"
           :class="{
             'mb-0.5 sm:mb-1': !compactMode,
@@ -237,16 +241,14 @@ function handleImageError(event: Event) {
           }"
         >
           <span
-            v-if="article.translated_title && article.translated_title !== article.title"
+            v-if="hasTranslation"
             :class="{ 'read-translated-title': article.is_read && compactMode }"
           >
             {{ article.translated_title }}
           </span>
           <span v-else>{{ article.title }}</span>
           <span
-            v-if="
-              compactMode && article.translated_title && article.translated_title !== article.title
-            "
+            v-if="compactMode && hasTranslation"
             class="original-title-inline"
           >
             {{ article.title }}

@@ -172,6 +172,7 @@ type Defaults struct {
 	TranslationEnabled bool             `json:"translation_enabled"`
 	TranslationOnlyMode bool            `json:"translation_only_mode"`
 	TranslationProvider string          `json:"translation_provider"`
+	TranslationSkipTitle bool           `json:"translation_skip_title"`
 	TranslationTriggerMode string       `json:"translation_trigger_mode"`
 	UiFontFamily string                 `json:"ui_font_family"`
 	UiFontSize int                      `json:"ui_font_size"`
@@ -511,6 +512,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.TranslationOnlyMode)
 	case "translation_provider":
 		return defaults.TranslationProvider
+	case "translation_skip_title":
+		return strconv.FormatBool(defaults.TranslationSkipTitle)
 	case "translation_trigger_mode":
 		return defaults.TranslationTriggerMode
 	case "ui_font_family":
