@@ -338,6 +338,14 @@ const en: TranslationMessages = {
     close: 'Close',
     connectionFailed: 'Connection failed',
     connectionSuccessful: 'Connection successful',
+    datePicker: {
+      open: 'Open calendar',
+      placeholder: 'Select date',
+      previousMonth: 'Previous month',
+      nextMonth: 'Next month',
+      today: 'Today',
+      clear: 'Clear',
+    },
     contextMenu: {
       copyImage: 'Copy Image',
       copyLink: 'Copy Link',
