@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PhBookmarkSimple, PhCalendarCheck, PhCheckCircle, PhCursorClick, PhEyeSlash } from '@phosphor-icons/vue';
 import { NestedSettingsContainer, NumberControl, SettingGroup, SettingWithSelect, SettingWithToggle, SubSettingItem } from '@/components/settings';
@@ -18,22 +18,28 @@ const emit = defineEmits<{
   'update:settings': [settings: SettingsData];
 }>();
 
-function updateSetting(key: keyof SettingsData, value: any) {
+function updateSetting<K extends keyof SettingsData>(key: K, value: SettingsData[K]) {
   emit('update:settings', {
     ...props.settings,
     [key]: value,
   });
 }
 
+const presetDays = [1, 3, 7, 30, 90];
+const editingCustomDays = ref(false);
 const autoReadPresetDays = computed({
-  get: () => ([1, 3, 7, 30, 90].includes(props.settings.auto_mark_read_days) ? props.settings.auto_mark_read_days : 'custom'),
+  get: () =>
+    !editingCustomDays.value && presetDays.includes(props.settings.auto_mark_read_days)
+      ? props.settings.auto_mark_read_days
+      : 'custom',
   set: (value: string | number) => {
+    editingCustomDays.value = value === 'custom';
     if (value !== 'custom') updateSetting('auto_mark_read_days', Number(value));
   },
 });
 
 const autoReadOptions = computed(() => [
-  ...[1, 3, 7, 30, 90].map((days) => ({
+  ...presetDays.map((days) => ({
     value: days,
     label: t('setting.reading.autoMarkReadDaysOption', { count: days }),
   })),
@@ -92,7 +98,7 @@ const autoReadOptions = computed(() => [
           :min="1"
           :max="3650"
           :suffix="t('common.time.days')"
-          @update:model-value="updateSetting('auto_mark_read_days', Math.max(1, $event))"
+          @update:model-value="updateSetting('auto_mark_read_days', Math.min(3650, Math.max(1, Math.trunc($event))))"
         />
       </SubSettingItem>
     </NestedSettingsContainer>
