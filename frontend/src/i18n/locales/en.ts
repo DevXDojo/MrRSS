@@ -893,7 +893,7 @@ const en: TranslationMessages = {
       onlyUnread: 'Only unread articles',
       localRefreshHint: 'Reads local articles every minute. Feed updates follow your main app settings.',
       pauseOnHover: 'Pause on hover',
-      pauseOnHoverHint: 'Hold a headline still while choosing what to read.',
+      pauseOnHoverHint: 'Hold a headline still while choosing what to read. Hold the right mouse button over the headlines to scroll faster.',
       showSource: 'Show source',
       showSourceHint: 'A small source label before each headline.',
       showTime: 'Show publication time',
@@ -910,6 +910,7 @@ const en: TranslationMessages = {
       error: 'Could not save or apply',
       done: 'Done',
       palettes: {
+        system: 'Follow system appearance',
         midnight: 'Midnight',
         paper: 'Paper',
         forest: 'Forest',

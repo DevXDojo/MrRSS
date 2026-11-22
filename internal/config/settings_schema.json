@@ -1165,6 +1165,13 @@
       "category": "general",
       "encrypted": false,
       "frontend_key": "ticker_enabled"
+    },
+    "ticker_follow_system_theme": {
+      "type": "bool",
+      "default": false,
+      "category": "general",
+      "encrypted": false,
+      "frontend_key": "ticker_follow_system_theme"
     }
   }
 }

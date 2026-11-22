@@ -862,7 +862,7 @@ const zh: TranslationMessages = {
       onlyUnread: '只显示未读文章',
       localRefreshHint: '每分钟读取本地文章，订阅更新沿用主程序设置。',
       pauseOnHover: '悬停时暂停',
-      pauseOnHoverHint: '鼠标移入后停住标题，方便选择和阅读。',
+      pauseOnHoverHint: '鼠标移入后停住标题，方便选择和阅读。在标题区按住鼠标右键可加快滚动。',
       showSource: '显示来源',
       showSourceHint: '在标题前显示小巧的订阅来源标签。',
       showTime: '显示发布时间',
@@ -879,6 +879,7 @@ const zh: TranslationMessages = {
       error: '未能保存或应用',
       done: '完成',
       palettes: {
+        system: '跟随系统外观',
         midnight: '夜色',
         paper: '纸白',
         forest: '松绿',

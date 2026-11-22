@@ -19,7 +19,7 @@ import { useSettings } from '@/composables/core/useSettings';
 import { openInBrowser } from '@/utils/browser';
 import DOMPurify from 'dompurify';
 import type { Article } from '@/types/models';
-import { tickerStyle, tickerUsesShellPlacement } from './tickerPreferences';
+import { useTickerStyle, tickerUsesShellPlacement } from './tickerPreferences';
 import { useTickerPreferences } from './useTickerPreferences';
 import { useTickerArticles } from './useTickerArticles';
 import { useTickerMarquee } from './useTickerMarquee';
@@ -35,18 +35,20 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const paused = ref(reducedMotion.matches);
 const hovering = ref(false);
 const focused = ref(false);
+const fastForward = ref(false);
 const stopped = computed(
   () =>
     paused.value ||
     !visible.value ||
     focused.value ||
-    (hovering.value && settings.value.ticker_pause_on_hover)
+    (hovering.value && settings.value.ticker_pause_on_hover && !fastForward.value)
 );
 const viewport = ref<HTMLElement | null>(null);
 const group = ref<HTMLElement | null>(null);
 const track = ref<HTMLElement | null>(null);
 const { copies, step } = useTickerMarquee(viewport, group, track, {
   speed: () => settings.value.ticker_speed,
+  speedMultiplier: () => (fastForward.value ? 3 : 1),
   paused: () => stopped.value,
   content: () => [
     articles.value,
@@ -56,7 +58,7 @@ const { copies, step } = useTickerMarquee(viewport, group, track, {
     settings.value.translation_enabled,
   ],
 });
-const style = computed(() => tickerStyle(settings.value));
+const style = useTickerStyle(() => settings.value);
 const previousBackground = document.body.style.backgroundColor;
 watchEffect(() => {
   document.body.style.backgroundColor = String(style.value['--ticker-end']);
@@ -147,6 +149,11 @@ function onFocusIn(event: FocusEvent) {
 function onBlur() {
   focused.value = false;
   hovering.value = false;
+  fastForward.value = false;
+}
+function startFastForward(event: PointerEvent) {
+  fastForward.value = true;
+  viewport.value?.setPointerCapture?.(event.pointerId);
 }
 function motionChanged(event: MediaQueryListEvent) {
   if (event.matches) paused.value = true;
@@ -216,11 +223,20 @@ onUnmounted(() => {
       <PhRss :size="15" weight="bold" /><span class="ticker-brand">MrRSS</span>
       <span
         class="ticker-status-dot"
-        :class="{ paused: paused || (hovering && settings.ticker_pause_on_hover) }"
+        :class="{ paused: stopped }"
         :title="t(paused ? 'setting.ticker.paused' : 'setting.ticker.live')"
       ></span>
     </div>
-    <div ref="viewport" class="ticker-viewport" :aria-label="t('setting.ticker.title')">
+    <div
+      ref="viewport"
+      class="ticker-viewport"
+      :aria-label="t('setting.ticker.title')"
+      @pointerdown.right.prevent="startFastForward"
+      @pointerup.right="fastForward = false"
+      @pointercancel="fastForward = false"
+      @lostpointercapture="fastForward = false"
+      @contextmenu.prevent
+    >
       <div v-if="articles.length" ref="track" class="ticker-track">
         <div
           v-for="copy in copies"

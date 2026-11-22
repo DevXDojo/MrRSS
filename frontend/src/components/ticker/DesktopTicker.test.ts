@@ -6,15 +6,19 @@ import { setSettingsFromRawData } from '@/composables/core/useSettings';
 import { generateInitialSettings } from '@/composables/core/useSettings.generated';
 import { openInBrowser } from '@/utils/browser';
 
-const marquee = vi.hoisted(() => ({ paused: undefined as undefined | (() => boolean) }));
+const marquee = vi.hoisted(() => ({
+  paused: undefined as undefined | (() => boolean),
+  speedMultiplier: undefined as undefined | (() => number),
+}));
 vi.mock('./useTickerMarquee', () => ({
   useTickerMarquee: (
     _viewport: unknown,
     _group: unknown,
     _track: unknown,
-    options: { paused: () => boolean }
+    options: { paused: () => boolean; speedMultiplier: () => number }
   ) => {
     marquee.paused = options.paused;
+    marquee.speedMultiplier = options.speedMultiplier;
     return { copies: 2, step: vi.fn() };
   },
 }));
@@ -116,5 +120,19 @@ describe('compact desktop ticker', () => {
     await headline.trigger('focusout');
     expect(marquee.paused?.()).toBe(false);
     matches.mockRestore();
+  });
+
+  it('temporarily speeds up scrolling during a right-button hold', async () => {
+    wrapper = mount(DesktopTicker);
+    await flushPromises();
+    await wrapper.trigger('mouseenter');
+    const viewport = wrapper.get('.ticker-viewport');
+    expect(marquee.paused?.()).toBe(true);
+    await viewport.trigger('pointerdown', { button: 2 });
+    expect(marquee.paused?.()).toBe(false);
+    expect(marquee.speedMultiplier?.()).toBe(3);
+    await viewport.trigger('pointerup', { button: 2 });
+    expect(marquee.paused?.()).toBe(true);
+    expect(marquee.speedMultiplier?.()).toBe(1);
   });
 });

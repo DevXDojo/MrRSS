@@ -154,6 +154,7 @@ type Defaults struct {
 	TickerEnabled bool                  `json:"ticker_enabled"`
 	TickerFeedId int                    `json:"ticker_feed_id"`
 	TickerFeedIds string                `json:"ticker_feed_ids"`
+	TickerFollowSystemTheme bool        `json:"ticker_follow_system_theme"`
 	TickerFontSize int                  `json:"ticker_font_size"`
 	TickerOnlyUnread bool               `json:"ticker_only_unread"`
 	TickerOpenInBrowser bool            `json:"ticker_open_in_browser"`
@@ -474,6 +475,8 @@ func GetString(key string) string {
 		return strconv.Itoa(defaults.TickerFeedId)
 	case "ticker_feed_ids":
 		return defaults.TickerFeedIds
+	case "ticker_follow_system_theme":
+		return strconv.FormatBool(defaults.TickerFollowSystemTheme)
 	case "ticker_font_size":
 		return strconv.Itoa(defaults.TickerFontSize)
 	case "ticker_only_unread":

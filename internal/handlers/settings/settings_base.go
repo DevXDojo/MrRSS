@@ -153,6 +153,7 @@ var AllSettings = []SettingDef{
 	{Key: "ticker_enabled", Encrypted: false},
 	{Key: "ticker_feed_id", Encrypted: false},
 	{Key: "ticker_feed_ids", Encrypted: false},
+	{Key: "ticker_follow_system_theme", Encrypted: false},
 	{Key: "ticker_font_size", Encrypted: false},
 	{Key: "ticker_only_unread", Encrypted: false},
 	{Key: "ticker_open_in_browser", Encrypted: false},
