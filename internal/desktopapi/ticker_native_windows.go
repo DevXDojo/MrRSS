@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/w32"
 	"golang.org/x/sys/windows"
 )
 
@@ -60,6 +61,27 @@ type tickerNativeWindow struct {
 }
 
 func nativeTickerPositions() []string { return []string{tickerReserved, tickerDesktop} }
+
+func setTickerDockedAppearance(window *application.WebviewWindow, docked bool) {
+	const (
+		cornerPreference = 33 // DWMWA_WINDOW_CORNER_PREFERENCE
+		borderColor      = 34 // DWMWA_BORDER_COLOR
+		noRounding       = 1  // DWMWCP_DONOTROUND
+	)
+	hwnd := uintptr(window.NativeWindow())
+	if hwnd == 0 {
+		return
+	}
+	var corner uint32            // DWMWCP_DEFAULT
+	border := uint32(0xffffffff) // DWMWA_COLOR_DEFAULT
+	if docked {
+		corner = noRounding
+		border = 0xfffffffe // DWMWA_COLOR_NONE
+	}
+	// Windows versions without these attributes already use square corners.
+	w32.DwmSetWindowAttribute(hwnd, cornerPreference, unsafe.Pointer(&corner), unsafe.Sizeof(corner))
+	w32.DwmSetWindowAttribute(hwnd, borderColor, unsafe.Pointer(&border), unsafe.Sizeof(border))
+}
 
 func tickerMessage(name string) uint32 {
 	ptr, _ := windows.UTF16PtrFromString(name)

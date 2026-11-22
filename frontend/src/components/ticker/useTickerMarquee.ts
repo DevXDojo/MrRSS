@@ -3,6 +3,7 @@ import { tickerNumber } from './tickerPreferences';
 
 interface Options {
   speed: () => number;
+  speedMultiplier?: () => number;
   paused: () => boolean;
   content: () => unknown;
 }
@@ -32,9 +33,10 @@ export function useTickerMarquee(
       lastFrame = null;
       return;
     }
-    if (lastFrame !== null)
-      distance +=
-        (Math.min(64, time - lastFrame) * tickerNumber(options.speed(), 60, 10, 200)) / 1000;
+    if (lastFrame !== null) {
+      const speed = tickerNumber(options.speed(), 60, 10, 200) * (options.speedMultiplier?.() ?? 1);
+      distance += (Math.min(64, time - lastFrame) * speed) / 1000;
+    }
     lastFrame = time;
     paint();
     frame = requestAnimationFrame(tick);

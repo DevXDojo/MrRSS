@@ -154,6 +154,7 @@ type Defaults struct {
 	TickerEnabled bool                  `json:"ticker_enabled"`
 	TickerFeedId int                    `json:"ticker_feed_id"`
 	TickerFeedIds string                `json:"ticker_feed_ids"`
+	TickerFollowSystemTheme bool        `json:"ticker_follow_system_theme"`
 	TickerFontSize int                  `json:"ticker_font_size"`
 	TickerOnlyUnread bool               `json:"ticker_only_unread"`
 	TickerOpenInBrowser bool            `json:"ticker_open_in_browser"`
@@ -171,6 +172,7 @@ type Defaults struct {
 	TranslationEnabled bool             `json:"translation_enabled"`
 	TranslationOnlyMode bool            `json:"translation_only_mode"`
 	TranslationProvider string          `json:"translation_provider"`
+	TranslationSkipTitle bool           `json:"translation_skip_title"`
 	TranslationTriggerMode string       `json:"translation_trigger_mode"`
 	UiFontFamily string                 `json:"ui_font_family"`
 	UiFontSize int                      `json:"ui_font_size"`
@@ -474,6 +476,8 @@ func GetString(key string) string {
 		return strconv.Itoa(defaults.TickerFeedId)
 	case "ticker_feed_ids":
 		return defaults.TickerFeedIds
+	case "ticker_follow_system_theme":
+		return strconv.FormatBool(defaults.TickerFollowSystemTheme)
 	case "ticker_font_size":
 		return strconv.Itoa(defaults.TickerFontSize)
 	case "ticker_only_unread":
@@ -508,6 +512,8 @@ func GetString(key string) string {
 		return strconv.FormatBool(defaults.TranslationOnlyMode)
 	case "translation_provider":
 		return defaults.TranslationProvider
+	case "translation_skip_title":
+		return strconv.FormatBool(defaults.TranslationSkipTitle)
 	case "translation_trigger_mode":
 		return defaults.TranslationTriggerMode
 	case "ui_font_family":

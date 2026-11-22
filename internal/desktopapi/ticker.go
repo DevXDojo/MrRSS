@@ -77,7 +77,7 @@ func (s *DesktopCapabilities) showTickerLocked() error {
 		s.ticker = s.app.Window.NewWithOptions(application.WebviewWindowOptions{
 			Name: "MrRSS-ticker", Title: "MrRSS", URL: "/?ticker=1", Width: 960, Height: 44, MinWidth: 360, MinHeight: 44,
 			Frameless: true, DisableResize: true, AlwaysOnTop: true, Hidden: true, BackgroundColour: application.NewRGB(15, 23, 42),
-			Windows: application.WindowsWindow{HiddenOnTaskbar: true},
+			Windows: application.WindowsWindow{HiddenOnTaskbar: true, DisableFramelessWindowDecorations: true},
 		})
 		s.ticker.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 			_ = s.runTickerUI(func() error {
@@ -216,6 +216,7 @@ func (s *DesktopCapabilities) applyTickerSettingsLocked() error {
 		}
 	}
 	s.tickerGeometry = geometry
+	setTickerDockedAppearance(s.ticker, geometry.position != "floating")
 	s.tickerConfigured = true
 	return nil
 }

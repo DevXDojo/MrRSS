@@ -2,6 +2,7 @@
 import { withShortcut } from '@/composables/ui/shortcutBindings';
 import { PhNewspaper, PhCaretLeft, PhCaretRight } from '@phosphor-icons/vue';
 import { useArticleDetail } from '@/composables/article/useArticleDetail';
+import { useArticleTranslationView } from '@/composables/article/useArticleTranslation';
 import ArticleToolbar from './ArticleToolbar.vue';
 import ArticleContent from './ArticleContent.vue';
 import ImageViewer from '../common/ImageViewer.vue';
@@ -38,7 +39,8 @@ const {
   t,
 } = useArticleDetail();
 
-const showTranslations = ref(true);
+const { showTranslations, translationOnlyOverride, toggleTranslations, setTranslationOnly } =
+  useArticleTranslationView(() => article.value?.id);
 const showFindInPage = ref(false);
 const contentView = ref<InstanceType<typeof ArticleContent> | null>(null);
 
@@ -47,10 +49,6 @@ async function enterReadingMode() {
   showContent.value = true;
   await nextTick();
   if (id === article.value?.id) await contentView.value?.enterReadingMode();
-}
-
-function toggleTranslations() {
-  showTranslations.value = !showTranslations.value;
 }
 
 function openFindInPage() {
@@ -108,6 +106,9 @@ onBeforeUnmount(() => {
         :article="article"
         :show-content="showContent"
         :show-translations="showTranslations"
+        :translation-only="contentView?.translationOnlyMode"
+        :can-translate-entire-article="contentView?.canTranslateEntireArticle"
+        :is-translating-article="contentView?.isTranslatingArticle"
         :is-loading-content="isLoadingContent"
         :is-reading-mode-loading="contentView?.isFetchingFullArticle ?? false"
         @reading-mode="enterReadingMode"
@@ -118,6 +119,8 @@ onBeforeUnmount(() => {
         @toggle-read-later="toggleReadLater"
         @open-original="openOriginal"
         @toggle-translations="toggleTranslations"
+        @set-translation-only="setTranslationOnly"
+        @translate-entire-article="showTranslations = true; contentView?.translateEntireArticle()"
         @reload-content="reloadArticleContent"
         @export-to-obsidian="exportToObsidian"
         @export-to-notion="exportToNotion"
@@ -144,6 +147,7 @@ onBeforeUnmount(() => {
         :is-loading-content="isLoadingContent"
         :attach-image-event-listeners="attachImageEventListeners"
         :show-translations="showTranslations"
+        :translation-only-override="translationOnlyOverride"
         :show-content="showContent"
         @retry-load-content="handleRetryLoadContent"
         @previous="goToPreviousArticle"

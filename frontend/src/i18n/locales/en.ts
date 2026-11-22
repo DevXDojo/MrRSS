@@ -244,9 +244,10 @@ const en: TranslationMessages = {
     },
     translation: {
       translateTitle: 'Translate title',
+      translateEntireArticle: 'Translate entire article',
       manualMode: 'Translate on demand',
       manualHint:
-        'Use Translate title, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
+        'Use Translate entire article in the toolbar, or Ctrl-click (Command-click on macOS) a paragraph to translate it.',
       translatingTitle: 'Translating title...',
       waiting:
         'Translation service is busy. Translation will resume automatically; keep reading the original.',
@@ -338,6 +339,15 @@ const en: TranslationMessages = {
     close: 'Close',
     connectionFailed: 'Connection failed',
     connectionSuccessful: 'Connection successful',
+    datePicker: {
+      invalid: 'Enter a valid date within the allowed range.',
+      open: 'Open calendar',
+      placeholder: 'Select date',
+      previousMonth: 'Previous month',
+      nextMonth: 'Next month',
+      today: 'Today',
+      clear: 'Clear',
+    },
     contextMenu: {
       copyImage: 'Copy Image',
       copyLink: 'Copy Link',
@@ -884,7 +894,7 @@ const en: TranslationMessages = {
       onlyUnread: 'Only unread articles',
       localRefreshHint: 'Reads local articles every minute. Feed updates follow your main app settings.',
       pauseOnHover: 'Pause on hover',
-      pauseOnHoverHint: 'Hold a headline still while choosing what to read.',
+      pauseOnHoverHint: 'Hold a headline still while choosing what to read. Hold the right mouse button over the headlines to scroll faster.',
       showSource: 'Show source',
       showSourceHint: 'A small source label before each headline.',
       showTime: 'Show publication time',
@@ -901,6 +911,7 @@ const en: TranslationMessages = {
       error: 'Could not save or apply',
       done: 'Done',
       palettes: {
+        system: 'Follow system appearance',
         midnight: 'Midnight',
         paper: 'Paper',
         forest: 'Forest',
@@ -1119,15 +1130,17 @@ const en: TranslationMessages = {
       summaryTriggerModeDesc: 'How AI summaries are triggered',
       summaryTriggerModeManual: 'Manual Trigger',
       targetLanguage: 'Target Language',
-      targetLanguageDesc: 'Language to translate article titles to',
+      targetLanguageDesc: 'Language to translate articles into',
       translatingContent: 'Translating content...',
       translation: 'Translation',
       translationCredentialsRequired: 'Translation service requires API key or credentials',
       translationTriggerMode: 'Translation mode',
       translationTriggerModeDesc:
-        'Translate automatically, or only when you request a title or paragraph.',
+        'Translate automatically, or only when you request a translation.',
       translationAutomatic: 'Automatic',
       translationManual: 'On demand',
+      translationKeepOriginalTitles: 'Keep original titles',
+      translationKeepOriginalTitlesDesc: 'Skip title translation while continuing to translate article text.',
       translationOnlyMode: 'Show translations only',
       translationOnlyModeDesc:
         'Hide source text after it is translated; on-demand mode hides only translated titles or paragraphs',

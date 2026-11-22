@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'vue';
+import { computed, onMounted, onUnmounted, ref, type CSSProperties } from 'vue';
 import type { SettingsData } from '@/types/settings';
 
 export const tickerPalettes = [
@@ -34,8 +34,10 @@ export function tickerPalette(settings: SettingsData) {
   );
 }
 
-export function tickerStyle(settings: SettingsData): CSSProperties {
-  const { start, end, text } = tickerPalette(settings);
+export function tickerStyle(settings: SettingsData, systemDark = false): CSSProperties {
+  const { start, end, text } = settings.ticker_follow_system_theme
+    ? tickerPalettes[systemDark ? 0 : 1]
+    : tickerPalette(settings);
   const rgb = [1, 3, 5].map((index) => parseInt(end.slice(index, index + 2), 16));
   const light = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 150;
   return {
@@ -45,6 +47,15 @@ export function tickerStyle(settings: SettingsData): CSSProperties {
     '--ticker-chrome': light ? '#1e293b' : '#f1f5f9',
     '--ticker-size': `${tickerNumber(settings.ticker_font_size, 18, 12, 40)}px`,
   };
+}
+
+export function useTickerStyle(settings: () => SettingsData) {
+  const preference = window.matchMedia?.('(prefers-color-scheme: dark)');
+  const systemDark = ref(preference?.matches ?? false);
+  const updateScheme = (event: MediaQueryListEvent) => (systemDark.value = event.matches);
+  onMounted(() => preference?.addEventListener?.('change', updateScheme));
+  onUnmounted(() => preference?.removeEventListener?.('change', updateScheme));
+  return computed(() => tickerStyle(settings(), systemDark.value));
 }
 
 export function tickerPayload(settings: SettingsData): Record<string, string> {

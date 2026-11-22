@@ -130,7 +130,16 @@ const {
   unobserveArticle,
   handleTranslationSettingsChange,
   cleanup: cleanupTranslation,
-} = useArticleTranslation();
+} = useArticleTranslation(() => !settings.value.translation_skip_title);
+
+watch(
+  () => settings.value.translation_skip_title,
+  (skipTitle) => {
+    if (!skipTitle && translationSettings.value.enabled && listRef.value) {
+      setupIntersectionObserver(listRef.value, store.articles);
+    }
+  }
+);
 
 const { activeFilters, resetFilterState, fetchFilteredArticles, loadMoreFilteredArticles } =
   useArticleFilter();

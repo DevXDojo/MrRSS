@@ -7,6 +7,19 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.44] - 2026-11-22
+
+### Added
+
+- Keep original article titles while translating the body, switch the open article to translations-only in the toolbar, and translate an entire article on demand. (#1294)
+- Let the desktop news ticker follow the system’s light or dark appearance, and hold the right mouse button over the headlines to scroll faster. (#1292)
+
+### Fixed
+
+- Use the app’s language and date format for statistics date ranges and rule conditions. (#1293) (@heibaige123)
+- Remove the Windows frame border and rounded corners from docked news tickers. (#1292)
+- Show the custom day-count field when selecting Custom for unread article retention. (#1296)
+
 ## [1.3.43] - 2026-11-14
 
 ### Added

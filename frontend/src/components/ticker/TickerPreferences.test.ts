@@ -36,3 +36,9 @@ it('uses a supported preset for legacy custom colors', () => {
   expect(style['--ticker-start']).toBe('#1e293b');
   expect(style['--ticker-end']).toBe('#0f172a');
 });
+
+it('uses the light and dark palettes when following the system appearance', () => {
+  const settings = { ...generateInitialSettings(), ticker_follow_system_theme: true };
+  expect(tickerStyle(settings, false)['--ticker-start']).toBe('#f8fafc');
+  expect(tickerStyle(settings, true)['--ticker-start']).toBe('#1e293b');
+});

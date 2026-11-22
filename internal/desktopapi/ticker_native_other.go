@@ -12,6 +12,8 @@ type tickerNativeWindow struct{}
 
 func nativeTickerPositions() []string { return nil }
 
+func setTickerDockedAppearance(*application.WebviewWindow, bool) {}
+
 func (*tickerNativeWindow) windowMessage(uintptr, uint32, uintptr, uintptr) (uintptr, bool) {
 	return 0, false
 }

@@ -25,7 +25,7 @@ import {
   tickerFeedIDs,
   tickerPalette,
   tickerPalettes,
-  tickerStyle,
+  useTickerStyle,
   tickerUsesShellPlacement,
 } from '@/components/ticker/tickerPreferences';
 
@@ -91,18 +91,27 @@ function updateSources(values: (string | number)[]) {
     ticker_feed_id: ids.length === 1 ? ids[0] : 0,
   });
 }
-const activePalette = computed(() => tickerPalette(props.settings).id);
-const paletteOptions = computed(() =>
-  tickerPalettes.map((palette) => ({
+const previewStyle = useTickerStyle(() => props.settings);
+const activePalette = computed(() =>
+  props.settings.ticker_follow_system_theme ? 'system' : tickerPalette(props.settings).id
+);
+const paletteOptions = computed(() => [
+  { value: 'system', label: t('setting.ticker.palettes.system') },
+  ...tickerPalettes.map((palette) => ({
     value: palette.id,
     label: t(`setting.ticker.palettes.${palette.id}`),
-  }))
-);
+  })),
+]);
 function choosePalette(value: string | number) {
+  if (value === 'system') {
+    update('ticker_follow_system_theme', true);
+    return;
+  }
   const palette = tickerPalettes.find((item) => item.id === value);
   if (palette)
     emit('update:settings', {
       ...props.settings,
+      ticker_follow_system_theme: false,
       ticker_text_color: palette.text,
       ticker_background_color: palette.start,
       ticker_background_color_end: palette.end,
@@ -152,7 +161,7 @@ onUnmounted(() => {
     :title="t('setting.ticker.preview')"
     :description="t('setting.ticker.previewHint')"
   >
-    <div class="ticker-preview w-48 sm:w-64" :style="tickerStyle(settings)">
+    <div class="ticker-preview w-48 sm:w-64" :style="previewStyle">
       <PhRss :size="16" class="shrink-0 opacity-60" />
       <span v-if="settings.ticker_show_source" class="preview-source">{{
         feeds.find((feed) => selectedFeedIDs.includes(feed.id))?.title ||

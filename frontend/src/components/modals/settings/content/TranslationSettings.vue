@@ -157,6 +157,16 @@ async function clearTranslationCache() {
       </SubSettingItem>
       <SubSettingItem
         :icon="PhTranslate"
+        :title="t('setting.content.translationKeepOriginalTitles')"
+        :description="t('setting.content.translationKeepOriginalTitlesDesc')"
+      >
+        <ToggleControl
+          :model-value="settings.translation_skip_title"
+          @update:model-value="updateSetting('translation_skip_title', $event)"
+        />
+      </SubSettingItem>
+      <SubSettingItem
+        :icon="PhTranslate"
         :title="t('setting.content.translationOnlyMode')"
         :description="t('setting.content.translationOnlyModeDesc')"
       >
