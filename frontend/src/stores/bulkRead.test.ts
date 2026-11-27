@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { useSidebar } from '@/composables/core/useSidebar';
 import { setSettingsFromRawData } from '@/composables/core/useSettings';
@@ -10,24 +11,38 @@ vi.mock('vue-i18n', async (importOriginal) => ({
   useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }),
 }));
 
-afterEach(() => vi.unstubAllGlobals());
+const originalToast = window.showToast;
+afterEach(() => {
+  window.showToast = originalToast;
+  vi.unstubAllGlobals();
+});
 
-function markFolderAsRead(category: string) {
+async function markFolderAsRead(category: string) {
   setSettingsFromRawData({ confirm_mark_as_read: 'false' });
-  return new Promise<void>((resolve, reject) => {
-    window.addEventListener(
-      'open-context-menu',
-      (event) => {
-        const { callback, data } = (event as CustomEvent<{
-          callback: (action: string, categoryName: string) => Promise<void>;
-          data: string;
-        }>).detail;
-        callback('markAllRead', data).then(resolve, reject);
-      },
-      { once: true }
-    );
-    useSidebar().onCategoryContextMenu(new MouseEvent('contextmenu'), category);
+  const wrapper = mount({
+    setup() {
+      const { onCategoryContextMenu } = useSidebar();
+      return { openMenu: (event: MouseEvent) => onCategoryContextMenu(event, category) };
+    },
+    template: '<div @contextmenu="openMenu" />',
   });
+  let result: Promise<void> | undefined;
+  function markFromMenu(event: Event) {
+    const { callback, data } = (event as CustomEvent<{
+      callback: (action: string, categoryName: string) => Promise<void>;
+      data: string;
+    }>).detail;
+    result = callback('markAllRead', data);
+  }
+  window.addEventListener('open-context-menu', markFromMenu);
+  try {
+    await wrapper.trigger('contextmenu');
+    expect(result).toBeDefined();
+    await result;
+  } finally {
+    window.removeEventListener('open-context-menu', markFromMenu);
+    wrapper.unmount();
+  }
 }
 
 describe('mark all as read', () => {
@@ -54,7 +69,7 @@ describe('mark all as read', () => {
     const fetch = vi.fn(async (_input: RequestInfo | URL) => new Response('{}'));
     vi.stubGlobal('fetch', fetch);
     const toast = vi.fn();
-    vi.stubGlobal('showToast', toast);
+    window.showToast = toast;
     await markFolderAsRead('Tech');
     expect(store.articles.map((article) => article.is_read)).toEqual([true, false]);
     expect(fetch).toHaveBeenCalledWith('/api/articles/mark-all-read?category=Tech', {
@@ -73,7 +88,7 @@ describe('mark all as read', () => {
     const fetch = vi.fn().mockResolvedValue(new Response('', { status: 500 }));
     const toast = vi.fn();
     vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('showToast', toast);
+    window.showToast = toast;
 
     await markFolderAsRead('uncategorized');
 
