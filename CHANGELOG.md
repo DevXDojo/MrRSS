@@ -7,7 +7,19 @@ All notable changes to MrRSS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.45] - 2026-11-27
+
+### Added
+
+- Temporarily hide or show the desktop news ticker from the tray or with a customizable in-app shortcut (`Shift+T` by default). The ticker resumes from the previous headline when available and shows how many new headlines arrived while hidden. (#1304)
+
+### Fixed
+
+- Update the open article list and sidebar counts immediately after marking a folder as read from its context menu. (#1301)
+- Show a pointer over links that open article sources from the AI reading report. (#1302)
+- Remove the extra dot from article list options. Active filters still highlight the button, and the selected sort and grouping are shown inside the menu. (#1303)
+- Keep article thumbnails and inline HDR images at a consistent brightness on hover. (#1305)
+- Load the Bilibili player on demand and suppress duplicate embeds and automatic playback in article content. (#1306)
 
 ## [1.3.44] - 2026-11-22
 
