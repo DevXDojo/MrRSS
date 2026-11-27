@@ -834,6 +834,8 @@ const en: TranslationMessages = {
       disabled: 'Ticker is off',
       enabledHint: 'When enabled, the ticker opens with MrRSS. Turning it off leaves the main window open.',
       disable: 'Turn off ticker',
+      toggleVisibility: 'Show or hide the news ticker',
+      newOnResume: '{count} new headline | {count} new headlines',
       settingsHint: 'A single line, with controls on hover. Changes save automatically.',
       openFailed: 'Could not control the ticker. Please try again in the desktop app.',
       saveFailed: 'Could not save or apply ticker preferences.',

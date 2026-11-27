@@ -803,6 +803,8 @@ const zh: TranslationMessages = {
       disabled: '新闻条已关闭',
       enabledHint: '开启后随 MrRSS 启动；关闭新闻条不会影响主窗口。',
       disable: '关闭新闻条',
+      toggleVisibility: '显示或隐藏新闻条',
+      newOnResume: '新增 {count} 条标题',
       settingsHint: '单行常驻，悬停操作。调整后自动保存。',
       openFailed: '无法操作新闻条，请在桌面版中重试。',
       saveFailed: '无法保存或应用新闻条设置。',

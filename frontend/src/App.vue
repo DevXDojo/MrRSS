@@ -18,7 +18,7 @@ import Toast from './components/common/Toast.vue';
 import PartnerAdvertisement from './components/common/PartnerAdvertisement.vue';
 import { useAdvertisementsStore } from './stores/advertisements';
 import { onMounted, onUnmounted, ref, computed, watch, watchEffect, nextTick, provide } from 'vue';
-import { System } from '@wailsio/runtime';
+import { Call, System } from '@wailsio/runtime';
 import { useNotifications } from './composables/ui/useNotifications';
 import { notificationZIndex } from './composables/ui/useModalClose';
 import { useMobileBackButton } from './composables/ui/useMobileBackButton';
@@ -157,6 +157,13 @@ const { shortcuts, shortcutsEnabled } = useKeyboardShortcuts({
     // confirmation dialog, and filtered-article handling as the toolbar button.
     window.dispatchEvent(new CustomEvent('mark-all-as-read'));
   },
+  onToggleTicker: System.IsDesktop()
+    ? () => {
+        void Call.ByName('MrRSS/internal/desktopapi.DesktopCapabilities.ToggleTickerVisibility').catch(
+          () => window.showToast(t('setting.ticker.openFailed'), 'error')
+        );
+      }
+    : undefined,
 });
 
 onMounted(async () => {

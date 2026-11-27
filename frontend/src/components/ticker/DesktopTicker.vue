@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watchEffect } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
 import { Call, Events } from '@wailsio/runtime';
 import { useI18n } from 'vue-i18n';
 import {
@@ -30,7 +30,7 @@ const preferences = useTickerPreferences(settings);
 const nativeVisible = ref(true);
 const pageVisible = ref(!document.hidden);
 const visible = computed(() => nativeVisible.value && pageVisible.value);
-const { articles, loading, failed, refresh } = useTickerArticles(settings, visible);
+const { articles, loading, failed, newOnResume, refresh } = useTickerArticles(settings, visible);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const paused = ref(reducedMotion.matches);
 const hovering = ref(false);
@@ -80,6 +80,9 @@ const tickerToast: Window['showToast'] = (text, type) => {
   );
 };
 window.showToast = tickerToast;
+watch(newOnResume, (count) => {
+  if (count) tickerToast(t('setting.ticker.newOnResume', count), 'success');
+});
 const disposers: Array<() => void> = [];
 
 async function nativeAction(action: string, ...args: Array<number | boolean>) {
@@ -93,6 +96,10 @@ function openPreferences() {
   void nativeAction('ShowTickerSettings');
 }
 async function disableTicker() {
+  if (!settings.value.ticker_enabled) {
+    await nativeAction('HideTicker');
+    return;
+  }
   settings.value.ticker_enabled = false;
   if (!(await preferences.saveNow())) tickerToast(t('setting.ticker.saveFailed'), 'error');
 }

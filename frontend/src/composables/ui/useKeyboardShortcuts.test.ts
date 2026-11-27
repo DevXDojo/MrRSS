@@ -22,20 +22,48 @@ afterEach(() => {
   window.showToast = originalToast;
 });
 
-function setup(isRead: boolean) {
+function setup(isRead: boolean, onToggleTicker?: () => void) {
   const store = useAppStore();
   store.articles = [{ id: 5, is_read: isRead, is_read_later: false } as Article];
   store.currentArticleId = 5;
   const counts = vi.spyOn(store, 'fetchFilterCounts').mockResolvedValue();
   const wrapper = mount({
     setup() {
-      useKeyboardShortcuts({ onAddFeed: vi.fn(), onOpenSettings: vi.fn(), onMarkAllRead: vi.fn() });
+      useKeyboardShortcuts({
+        onAddFeed: vi.fn(),
+        onOpenSettings: vi.fn(),
+        onMarkAllRead: vi.fn(),
+        onToggleTicker,
+      });
       return {};
     },
     template: '<div />',
   });
   return { store, counts, wrapper };
 }
+
+it('toggles the desktop ticker once per key press and leaves the key unbound on the server', () => {
+  const press = (repeat = false) =>
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'T',
+        shiftKey: true,
+        repeat,
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+  const toggle = vi.fn();
+  const desktop = setup(true, toggle);
+  expect(press()).toBe(false);
+  press(true);
+  expect(toggle).toHaveBeenCalledOnce();
+  desktop.wrapper.unmount();
+
+  const server = setup(true);
+  expect(press()).toBe(true);
+  server.wrapper.unmount();
+});
 
 function pressReadLater(): void {
   document.body.dispatchEvent(
