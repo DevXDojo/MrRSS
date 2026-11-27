@@ -45,4 +45,25 @@ describe('article HTML rendering boundary', () => {
       )
     ).toBe('');
   });
+
+  it('omits the featured Bilibili video from the body and disables autoplay on remaining embeds', () => {
+    const featured =
+      'https://www.bilibili.com/blackboard/html5mobileplayer.html?bvid=BV123&cid=undefined';
+    const player = 'https://player.bilibili.com/player.html?bvid=BV123';
+    const prepared = withLazyImages(
+      `<iframe src="${player}&amp;autoplay=1"></iframe><p>Keep this</p>` +
+        `<iframe src="${player}&amp;p=2&amp;autoplay=1" allow="autoplay"></iframe>` +
+        '<iframe src="https://www.youtube.com/embed/123"></iframe>',
+      featured
+    );
+    const body = document.createElement('template');
+    body.innerHTML = sanitizeArticleHTML(prepared);
+    const frames = Array.from(body.content.querySelectorAll('iframe'));
+    expect(frames.map((frame) => frame.getAttribute('src'))).toEqual([
+      `${player}&p=2&autoplay=0`,
+      'https://www.youtube.com/embed/123',
+    ]);
+    expect(frames[0].getAttribute('allow')).toBe("autoplay 'none'");
+    expect(body.content.textContent).toBe('Keep this');
+  });
 });

@@ -93,18 +93,15 @@ describe('Bilibili Utils', () => {
   });
 
   describe('getBilibiliEmbedUrl', () => {
-    it('should return original URL if already an html5mobileplayer URL', () => {
+    it('disables autoplay in existing mobile player URLs', () => {
       const playerUrl =
-        'https://www.bilibili.com/blackboard/html5mobileplayer.html?aid=123&bvid=BV11bAUzBEqG';
-      expect(getBilibiliEmbedUrl(playerUrl)).toBe(playerUrl);
+        'https://www.bilibili.com/blackboard/html5mobileplayer.html?aid=123&bvid=BV11bAUzBEqG&autoplay=1';
+      expect(getBilibiliEmbedUrl(playerUrl)).toBe(playerUrl.replace('autoplay=1', 'autoplay=0'));
     });
 
-    it('should convert video URL to embed URL', () => {
-      expect(getBilibiliEmbedUrl('https://www.bilibili.com/video/BV11bAUzBEqG')).toContain(
-        'html5mobileplayer.html'
-      );
-      expect(getBilibiliEmbedUrl('https://www.bilibili.com/video/BV11bAUzBEqG')).toContain(
-        'bvid=BV11bAUzBEqG'
+    it('converts watch URLs to the official embed and preserves the selected part', () => {
+      expect(getBilibiliEmbedUrl('https://www.bilibili.com/video/BV11bAUzBEqG?p=2')).toBe(
+        'https://player.bilibili.com/player.html?bvid=BV11bAUzBEqG&p=2&autoplay=0'
       );
     });
 

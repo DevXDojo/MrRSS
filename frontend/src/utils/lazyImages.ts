@@ -10,8 +10,8 @@ import { sanitizeArticleHTML } from './articleHtml';
  * viewport still load immediately. Offscreen article images are a major
  * source of decoded-bitmap memory in the web view.
  */
-export function withLazyImages(html: string): string {
-  html = sanitizeArticleHTML(html);
+export function withLazyImages(html: string, featuredVideo?: string): string {
+  html = sanitizeArticleHTML(html, featuredVideo);
   if (!html || !/<img\b/i.test(html)) return html;
 
   try {

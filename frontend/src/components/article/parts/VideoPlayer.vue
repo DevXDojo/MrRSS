@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { PhYoutubeLogo, PhPlayCircle } from '@phosphor-icons/vue';
 import { useI18n } from 'vue-i18n';
 import { isYouTubeUrl } from '@/utils/youtube';
-import { isBilibiliUrl } from '@/utils/bilibili';
+import { getBilibiliEmbedUrl, isBilibiliUrl } from '@/utils/bilibili';
 import { safeVideoUrl } from '@/utils/video';
 
 interface Props {
@@ -15,17 +15,17 @@ const props = defineProps<Props>();
 
 const { t } = useI18n();
 
+const isYouTube = computed(() => isYouTubeUrl(props.videoUrl));
+const isBilibili = computed(() => isBilibiliUrl(props.videoUrl));
 const isLoading = ref(true);
-const videoSource = computed(() => safeVideoUrl(props.videoUrl));
+const videoRequested = ref(false);
+const videoSource = computed(() =>
+  safeVideoUrl(isBilibili.value ? getBilibiliEmbedUrl(props.videoUrl) : props.videoUrl)
+);
 watch(videoSource, () => {
   isLoading.value = true;
+  videoRequested.value = false;
 });
-
-// Check if this is a YouTube video
-const isYouTube = computed(() => isYouTubeUrl(props.videoUrl));
-
-// Check if this is a Bilibili video
-const isBilibili = computed(() => isBilibiliUrl(props.videoUrl));
 
 // Get video platform name
 const videoPlatform = computed(() => {
@@ -95,20 +95,24 @@ function openInNewTab() {
     <!-- Video Player -->
     <div class="relative w-full" style="padding-bottom: 56.25%">
       <!-- 16:9 Aspect Ratio -->
+      <button
+        v-if="videoSource && isBilibili && !videoRequested"
+        type="button"
+        class="absolute inset-0 flex w-full cursor-pointer items-center justify-center gap-2 bg-bg-tertiary text-sm text-accent"
+        @click="videoRequested = true"
+      >
+        <PhPlayCircle :size="24" /> {{ t('article.videoPlayer.loadVideo') }}
+      </button>
       <iframe
-        v-if="videoSource && (isYouTube || isBilibili)"
+        v-else-if="videoSource && (isYouTube || isBilibili)"
         :key="videoSource"
         :src="videoSource"
         :title="articleTitle"
         class="absolute top-0 left-0 w-full h-full border-none"
-        allow="
-          accelerometer;
-          autoplay;
-          clipboard-write;
-          encrypted-media;
-          gyroscope;
-          picture-in-picture;
-          web-share;
+        :allow="
+          isBilibili
+            ? `autoplay 'none'; picture-in-picture`
+            : 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
         "
         allowfullscreen
         @load="onLoad"
@@ -132,7 +136,7 @@ function openInNewTab() {
 
       <!-- Loading indicator -->
       <div
-        v-if="isLoading && videoSource"
+        v-if="isLoading && videoSource && (!isBilibili || videoRequested)"
         class="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-tertiary"
       >
         <div

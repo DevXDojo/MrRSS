@@ -256,6 +256,7 @@ const en: TranslationMessages = {
       aiLimitReached: 'AI usage limit reached. Using free alternatives.',
     },
     videoPlayer: {
+      loadVideo: 'Load video',
       genericPlatform: 'Video',
       openInYouTube: 'Open in YouTube',
       videoLoadError: 'Failed to load video. Please try opening it in the original platform.',

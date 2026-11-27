@@ -245,6 +245,7 @@ const zh: TranslationMessages = {
       aiLimitReached: 'AI 使用量已达上限，正在使用免费替代方案。',
     },
     videoPlayer: {
+      loadVideo: '加载视频',
       genericPlatform: '视频',
       openInYouTube: '在 YouTube 中打开',
       videoLoadError: '加载视频失败，请尝试在 YouTube 中打开。',
