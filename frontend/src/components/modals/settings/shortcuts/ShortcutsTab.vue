@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { ref, onMounted, onUnmounted, computed, watch, type Ref, type Component } from 'vue';
+import { System } from '@wailsio/runtime';
 import {
   PhKeyboard,
   PhArrowDown,
@@ -22,11 +23,13 @@ import {
   PhArrowCounterClockwise,
   PhFunnel,
   PhSidebar,
+  PhRss,
 } from '@phosphor-icons/vue';
 import ShortcutItem from './ShortcutItem.vue';
 import type { SettingsData } from '@/types/settings';
 import { useSettingsAutoSave } from '@/composables/core/useSettingsAutoSave';
 import { ButtonControl, SettingWithToggle, TipBox } from '@/components/settings';
+import { defaultShortcuts, type KeyboardShortcuts } from '@/composables/ui/shortcutBindings';
 
 const { t } = useI18n();
 
@@ -63,70 +66,17 @@ function updateSetting(key: keyof SettingsData, value: any) {
   }
 }
 
-interface Shortcuts {
-  nextArticle: string;
-  previousArticle: string;
-  openArticle: string;
-  closeArticle: string;
-  toggleReadStatus: string;
-  toggleFavoriteStatus: string;
-  toggleReadLaterStatus: string;
-  openInBrowser: string;
-  toggleContentView: string;
-  refreshFeeds: string;
-  markAllRead: string;
-  openSettings: string;
-  addFeed: string;
-  toggleFeedList: string;
-  focusSearch: string;
-  toggleFilter: string;
-  toggleUnreadFilter: string;
-  toggleFavoritesFilter: string;
-  toggleReadLaterFilter: string;
-  goToAllArticles: string;
-  goToUnread: string;
-  goToFavorites: string;
-  goToReadLater: string;
-}
-
 interface ShortcutItemData {
-  key: keyof Shortcuts;
+  key: keyof KeyboardShortcuts;
   label: string;
   icon: Component;
 }
 
-// Default shortcuts configuration
-const defaultShortcuts: Shortcuts = {
-  nextArticle: 'j',
-  previousArticle: 'k',
-  openArticle: 'Enter',
-  closeArticle: 'Escape',
-  toggleReadStatus: 'r',
-  toggleFavoriteStatus: 's',
-  toggleReadLaterStatus: 'l',
-  openInBrowser: 'o',
-  toggleContentView: 'v',
-  refreshFeeds: 'Shift+r',
-  markAllRead: 'Shift+a',
-  openSettings: ',',
-  addFeed: 'a',
-  toggleFeedList: 'b',
-  focusSearch: '/',
-  toggleFilter: 'f',
-  toggleUnreadFilter: 'Alt+r',
-  toggleFavoritesFilter: 'Alt+s',
-  toggleReadLaterFilter: 'Alt+l',
-  goToAllArticles: '1',
-  goToUnread: '2',
-  goToFavorites: '3',
-  goToReadLater: '4',
-};
-
 // Current shortcuts (loaded from settings or use defaults)
-const shortcuts: Ref<Shortcuts> = ref({ ...defaultShortcuts });
+const shortcuts = ref<KeyboardShortcuts>({ ...defaultShortcuts });
 
 // Track which shortcut is being edited
-const editingShortcut: Ref<keyof Shortcuts | null> = ref(null);
+const editingShortcut: Ref<keyof KeyboardShortcuts | null> = ref(null);
 const recordedKey = ref('');
 
 // Shortcut groups for display
@@ -186,6 +136,9 @@ const shortcutGroups = computed<Array<{ label: string; items: ShortcutItemData[]
       { key: 'openSettings', label: t('setting.shortcut.openSettingsShortcut'), icon: PhGear },
       { key: 'addFeed', label: t('setting.shortcut.addFeedShortcut'), icon: PhPlus },
       { key: 'toggleFeedList', label: t('shortcut.toggle.feedList'), icon: PhSidebar },
+      ...(System.IsDesktop()
+        ? [{ key: 'toggleTicker' as const, label: t('setting.ticker.toggleVisibility'), icon: PhRss }]
+        : []),
       { key: 'focusSearch', label: t('setting.shortcut.focusFeedSearch'), icon: PhMagnifyingGlass },
       { key: 'toggleFilter', label: t('shortcut.toggle.filter'), icon: PhFunnel },
       { key: 'toggleUnreadFilter', label: t('shortcut.toggle.unreadFilter'), icon: PhCircle },
@@ -223,7 +176,7 @@ onUnmounted(() => {
 });
 
 // Start editing a shortcut
-function startEditing(shortcutKey: keyof Shortcuts) {
+function startEditing(shortcutKey: keyof KeyboardShortcuts) {
   editingShortcut.value = shortcutKey;
   recordedKey.value = '';
 }
@@ -274,7 +227,8 @@ function handleKeyRecord(e: KeyboardEvent) {
 
   // Check for conflicts
   const conflictKey = Object.entries(shortcuts.value).find(
-    ([k, v]) => v === key && k !== editingShortcut.value
+    ([k, v]) =>
+      v === key && k !== editingShortcut.value && (k !== 'toggleTicker' || System.IsDesktop())
   );
 
   if (conflictKey) {
@@ -377,9 +331,9 @@ watch(
           v-for="item in group.items"
           :key="item.key"
           :item="item"
-          :shortcut-value="shortcuts[item.key as keyof Shortcuts]"
+          :shortcut-value="shortcuts[item.key]"
           :is-editing="editingShortcut === item.key"
-          @edit="startEditing(item.key as keyof Shortcuts)"
+          @edit="startEditing(item.key)"
         />
       </div>
     </div>

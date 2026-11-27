@@ -185,7 +185,7 @@ const showFullTextButton = computed(() => {
 // Images get native lazy-loading hints so offscreen article images are not
 // fetched and decoded until they approach the viewport.
 const displayContent = computed(() => {
-  return withLazyImages(fullArticleContent.value || props.articleContent);
+  return withLazyImages(fullArticleContent.value || props.articleContent, props.article.video_url);
 });
 
 // Use composables for summary and translation
@@ -1334,6 +1334,7 @@ onBeforeUnmount(() => {
         <!-- Video Player (if article has video) -->
         <VideoPlayer
           v-if="article.video_url"
+          :key="article.id"
           :video-url="article.video_url"
           :article-title="article.title"
         />

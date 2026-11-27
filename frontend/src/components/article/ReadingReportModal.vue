@@ -225,7 +225,7 @@ async function copyReport() {
               :key="id"
               :disabled="!sourceByID(id)?.url"
               :title="sourceByID(id)?.title"
-              class="flex items-center gap-1 rounded-full bg-accent/10 px-2 py-1 text-xs text-accent disabled:opacity-50"
+              class="flex items-center gap-1 rounded-full bg-accent/10 px-2 py-1 text-xs text-accent enabled:cursor-pointer disabled:opacity-50"
               @click="showSource(id)"
             >
               [{{ id }}] {{ sourceByID(id)?.title }}<PhArrowSquareOut :size="12" />
@@ -238,7 +238,7 @@ async function copyReport() {
             <li v-for="item in result.report.reading_order" :key="item.source_id">
               <button
                 :disabled="!sourceByID(item.source_id)?.url"
-                class="text-accent hover:underline"
+                class="text-accent enabled:cursor-pointer enabled:hover:underline"
                 @click="showSource(item.source_id)"
               >
                 [{{ item.source_id }}] {{ sourceByID(item.source_id)?.title }}

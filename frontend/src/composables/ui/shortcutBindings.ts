@@ -17,6 +17,7 @@ export interface KeyboardShortcuts {
   openSettings: string;
   addFeed: string;
   toggleFeedList: string;
+  toggleTicker: string;
   focusSearch: string;
   toggleFilter: string;
   toggleUnreadFilter: string;
@@ -28,8 +29,7 @@ export interface KeyboardShortcuts {
   goToReadLater: string;
 }
 
-export const shortcutsEnabled = ref(true);
-export const shortcuts = ref<KeyboardShortcuts>({
+export const defaultShortcuts: Readonly<KeyboardShortcuts> = {
   nextArticle: 'j',
   previousArticle: 'k',
   nextArticleArrow: 'ArrowRight',
@@ -55,7 +55,11 @@ export const shortcuts = ref<KeyboardShortcuts>({
   goToUnread: '2',
   goToFavorites: '3',
   goToReadLater: '4',
-});
+  toggleTicker: 'Shift+t',
+};
+
+export const shortcutsEnabled = ref(true);
+export const shortcuts = ref<KeyboardShortcuts>({ ...defaultShortcuts });
 
 export function withShortcut(
   label: string,

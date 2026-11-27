@@ -13,18 +13,19 @@ import (
 // DesktopCapabilities exposes native window operations and a per-process update
 // capability. Article data continues to use the HTTP API.
 type DesktopCapabilities struct {
-	updateAuthorization string
-	app                 *application.App
-	db                  *database.DB
-	showMainWindow      func()
-	mu                  sync.Mutex
-	ticker              *application.WebviewWindow
-	tickerNative        tickerNativeWindow
-	tickerGeometry      tickerGeometry
-	tickerConfigured    bool
-	tickerBoundsTimer   *time.Timer
-	pendingTickerBounds *TickerBounds
-	tickerClosed        bool
+	updateAuthorization   string
+	app                   *application.App
+	db                    *database.DB
+	showMainWindow        func()
+	mu                    sync.Mutex
+	ticker                *application.WebviewWindow
+	tickerNative          tickerNativeWindow
+	tickerGeometry        tickerGeometry
+	tickerConfigured      bool
+	tickerVisibleOverride *bool
+	tickerBoundsTimer     *time.Timer
+	pendingTickerBounds   *TickerBounds
+	tickerClosed          bool
 }
 
 func (s *DesktopCapabilities) UpdateAuthorization() string { return s.updateAuthorization }

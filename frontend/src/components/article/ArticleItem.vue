@@ -450,6 +450,7 @@ function handleImageError(event: Event) {
 
 .article-thumbnail {
   @apply w-16 h-12 sm:w-20 sm:h-[60px] object-cover rounded bg-bg-tertiary shrink-0 border border-border;
+  dynamic-range-limit: standard;
   /* Performance optimizations */
   contain: layout style paint;
   will-change: auto;

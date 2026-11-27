@@ -76,6 +76,27 @@ describe('ticker article refreshes', () => {
     expect(query.get('filter')).toBe('unread');
     expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
   });
+  it('reports titles added during a hide and keeps normal polling quiet', async () => {
+    const added = { ...article, id: 2, title: 'New headline' };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json([article]))
+      .mockResolvedValueOnce(Response.json([added, article]))
+      .mockResolvedValueOnce(Response.json([{ ...added, id: 3 }, added, article]));
+    vi.stubGlobal('fetch', fetchMock);
+    start();
+    await flushPromises();
+    visible.value = false;
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(api.articles.value).toEqual([article]);
+    visible.value = true;
+    await flushPromises();
+    expect(api.newOnResume.value).toBe(1);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(api.articles.value).toHaveLength(3);
+    expect(api.newOnResume.value).toBe(1);
+  });
   it('requests multiple subscriptions and includes feed descriptions', async () => {
     const fetchMock = vi.fn(async () => Response.json([article]));
     vi.stubGlobal('fetch', fetchMock);

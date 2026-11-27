@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import { bilibiliVideoKey, getBilibiliEmbedUrl, isBilibiliUrl } from './bilibili';
 
 const embedHosts = [
   'youtube.com',
@@ -8,7 +9,7 @@ const embedHosts = [
 ];
 
 /** Sanitize at the rendering boundary, including content cached by older versions. */
-export function sanitizeArticleHTML(html: string | null | undefined): string {
+export function sanitizeArticleHTML(html: string | null | undefined, featuredVideo?: string): string {
   if (!html) return '';
   const fragment = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true, mathMl: true },
@@ -19,6 +20,7 @@ export function sanitizeArticleHTML(html: string | null | undefined): string {
     ALLOW_DATA_ATTR: false,
     RETURN_DOM_FRAGMENT: true,
   });
+  const featuredKey = bilibiliVideoKey(featuredVideo);
   fragment.querySelectorAll('iframe').forEach((frame) => {
     try {
       const url = new URL(frame.getAttribute('src') || '');
@@ -33,6 +35,14 @@ export function sanitizeArticleHTML(html: string | null | undefined): string {
       }
       frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
       frame.setAttribute('allowfullscreen', '');
+      if (isBilibiliUrl(url.href)) {
+        if (featuredKey && bilibiliVideoKey(url.href) === featuredKey) {
+          frame.remove();
+          return;
+        }
+        frame.setAttribute('src', getBilibiliEmbedUrl(url.href));
+        frame.setAttribute('allow', "autoplay 'none'");
+      }
     } catch {
       frame.remove();
     }

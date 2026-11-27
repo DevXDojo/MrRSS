@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, useId, onMounted, onBeforeUnmount } from 'vue';
+import { ref, nextTick, useId, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   PhDotsThree,
@@ -13,7 +13,7 @@ import {
 import type { ArticleSortOrder } from '@/stores/app';
 import type { ArticleGroupBy } from '@/utils/articleGrouping';
 
-const props = defineProps<{
+defineProps<{
   sortOrder: ArticleSortOrder;
   groupBy: ArticleGroupBy;
   filterCount: number;
@@ -36,9 +36,6 @@ const panel = ref<HTMLElement | null>(null);
 const position = ref({ left: '0px', top: '0px', maxHeight: 'none' });
 const orders: ArticleSortOrder[] = ['newest', 'oldest'];
 const modes: ArticleGroupBy[] = ['none', 'date', 'feed'];
-const customized = computed(
-  () => props.filterCount > 0 || props.groupBy !== 'none' || props.sortOrder !== 'newest'
-);
 
 function close(restoreFocus = false) {
   open.value = false;
@@ -111,7 +108,7 @@ onBeforeUnmount(() => {
       ref="trigger"
       type="button"
       class="relative rounded p-1 transition-colors hover:bg-bg-tertiary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent sm:p-1.5"
-      :class="open || customized ? 'text-accent' : 'text-text-secondary hover:text-text-primary'"
+      :class="open || filterCount ? 'text-accent' : 'text-text-secondary hover:text-text-primary'"
       :title="t('article.list.more')"
       :aria-label="t('article.list.more')"
       :aria-expanded="open"
@@ -121,7 +118,6 @@ onBeforeUnmount(() => {
       @keydown.down.prevent="show()"
     >
       <PhDotsThree :size="18" class="sm:h-5 sm:w-5" weight="bold" />
-      <span v-if="customized" class="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-accent" />
     </button>
     <Teleport to="body">
       <div

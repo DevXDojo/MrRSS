@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@phosphor-icons/vue": "^2.2.1",
-    "vue": "^3.5.45"
+    "vue": "^3.5.46"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@typescript-eslint/eslint-plugin": "^8.73.0",
+    "@typescript-eslint/eslint-plugin": "^8.74.0",
     "@typescript-eslint/parser": "^8.64.0",
     "@vitejs/plugin-vue": "^6.0.11",
     "eslint": "^10.15.0",

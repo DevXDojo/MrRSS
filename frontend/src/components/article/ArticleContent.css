@@ -197,7 +197,9 @@
   border-radius: 0.5rem;
   margin: 1.5em auto;
   cursor: pointer;
-  transition: all 0.3s ease-in-out;
+  /* Keep the image at the same brightness when hover changes its compositing. */
+  dynamic-range-limit: standard;
+  transition: box-shadow 0.3s ease-in-out;
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -229,7 +231,6 @@
 }
 
 .prose img:hover {
-  opacity: 0.95;
   box-shadow:
     0 10px 15px -3px rgba(0, 0, 0, 0.1),
     0 4px 6px -2px rgba(0, 0, 0, 0.05);

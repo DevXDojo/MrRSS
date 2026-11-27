@@ -245,6 +245,7 @@ const zh: TranslationMessages = {
       aiLimitReached: 'AI 使用量已达上限，正在使用免费替代方案。',
     },
     videoPlayer: {
+      loadVideo: '加载视频',
       genericPlatform: '视频',
       openInYouTube: '在 YouTube 中打开',
       videoLoadError: '加载视频失败，请尝试在 YouTube 中打开。',
@@ -802,6 +803,8 @@ const zh: TranslationMessages = {
       disabled: '新闻条已关闭',
       enabledHint: '开启后随 MrRSS 启动；关闭新闻条不会影响主窗口。',
       disable: '关闭新闻条',
+      toggleVisibility: '显示或隐藏新闻条',
+      newOnResume: '新增 {count} 条标题',
       settingsHint: '单行常驻，悬停操作。调整后自动保存。',
       openFailed: '无法操作新闻条，请在桌面版中重试。',
       saveFailed: '无法保存或应用新闻条设置。',

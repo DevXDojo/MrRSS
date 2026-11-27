@@ -8,10 +8,12 @@ export function useTickerArticles(settings: Ref<SettingsData>, visible: Ref<bool
   const loading = ref(false);
   const failed = ref(false);
   const refreshedAt = ref<Date | null>(null);
+  const newOnResume = ref(0);
   const sources = computed(() => tickerFeedIDs(settings.value).join(','));
   let controller: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+  let resumePending = false;
   const fingerprint = (items: Article[]) =>
     JSON.stringify(
       items.map((a) => [
@@ -47,6 +49,11 @@ export function useTickerArticles(settings: Ref<SettingsData>, visible: Ref<bool
       if (result !== null && !Array.isArray(result)) throw new Error('Invalid article response');
       if (disposed || current.signal.aborted) return;
       const items = (result ?? []).filter((article) => article.title?.trim());
+      if (resumePending) {
+        const previousIDs = new Set(articles.value.map((article) => article.id));
+        newOnResume.value = items.filter((article) => !previousIDs.has(article.id)).length;
+        resumePending = false;
+      }
       if (fingerprint(items) !== fingerprint(articles.value)) articles.value = items;
       failed.value = false;
       refreshedAt.value = new Date();
@@ -62,14 +69,20 @@ export function useTickerArticles(settings: Ref<SettingsData>, visible: Ref<bool
   watch([sources, () => settings.value.ticker_only_unread], () => {
     articles.value = [];
     failed.value = false;
+    resumePending = false;
+    newOnResume.value = 0;
+    refreshedAt.value = null;
     void refresh();
   });
   watch(visible, (shown) => {
-    if (shown) void refresh();
-    else {
+    if (shown) {
+      resumePending = refreshedAt.value !== null;
+      void refresh();
+    } else {
       clearTimeout(timer);
       controller?.abort();
       loading.value = false;
+      newOnResume.value = 0;
     }
   });
   onMounted(() => {
@@ -80,5 +93,5 @@ export function useTickerArticles(settings: Ref<SettingsData>, visible: Ref<bool
     clearTimeout(timer);
     controller?.abort();
   });
-  return { articles, loading, failed, refreshedAt, refresh };
+  return { articles, loading, failed, refreshedAt, newOnResume, refresh };
 }

@@ -445,15 +445,17 @@ func main() {
 			lang = l
 		}
 
-		var showLabel, refreshLabel, quitLabel string
+		var showLabel, refreshLabel, tickerLabel, quitLabel string
 		switch {
 		case strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "zh"):
 			showLabel = "显示 MrRSS"
 			refreshLabel = "立即刷新"
+			tickerLabel = "显示或隐藏新闻滚动条"
 			quitLabel = "退出"
 		default:
 			showLabel = "Show MrRSS"
 			refreshLabel = "Refresh now"
+			tickerLabel = "Show or hide news ticker"
 			quitLabel = "Quit"
 		}
 
@@ -464,6 +466,11 @@ func main() {
 		trayMenu.Add(refreshLabel).OnClick(func(ctx *application.Context) {
 			if h.Fetcher != nil {
 				go h.Fetcher.FetchAll(bgCtx, true)
+			}
+		})
+		trayMenu.Add(tickerLabel).OnClick(func(_ *application.Context) {
+			if err := desktopCapabilities.ToggleTickerVisibility(); err != nil {
+				log.Printf("Could not toggle ticker: %v", err)
 			}
 		})
 

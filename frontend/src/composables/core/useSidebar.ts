@@ -438,13 +438,12 @@ export function useSidebar() {
         });
         if (!confirmed) return;
       }
-      // Use the category parameter for the API call
       const category = categoryName === 'uncategorized' ? '' : categoryName;
-      await fetch(`/api/articles/mark-all-read?category=${encodeURIComponent(category)}`, {
-        method: 'POST',
-      });
-      store.fetchUnreadCounts();
-      window.showToast(t('article.action.markedAllAsRead'), 'success');
+      if (await store.markAllAsRead(undefined, category)) {
+        window.showToast(t('article.action.markedAllAsRead'), 'success');
+      } else {
+        window.showToast(t('article.action.batchReadUpdateFailed'), 'error');
+      }
     } else if (action === 'dissolve' || action === 'unsubscribeCategory') {
       const category = categoryName === 'uncategorized' ? '' : categoryName;
       const feeds = store.feeds.filter(

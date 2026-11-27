@@ -1,15 +1,23 @@
 /**
  * Bilibili utility functions for video URL handling
  */
+import { safeVideoUrl } from './video';
 
-/**
- * Regular expression to match Bilibili video URLs
- * IMPORTANT: Must match the full URL including protocol
- */
-const BILIBILI_URL_PATTERNS = [
-  /https?:\/\/[\w.]*bilibili\.com\/video\/(BV[\w]+)/i,
-  /https?:\/\/[\w.]*bilibili\.com\/blackboard\/html5mobileplayer\.html/i,
-];
+const watchPath = /^\/video\/(BV[A-Za-z0-9]+)\/?$/i;
+const mobilePlayerPath = '/blackboard/html5mobileplayer.html';
+
+function parseBilibiliUrl(raw: string | undefined): URL | undefined {
+  const safe = safeVideoUrl(raw);
+  if (!safe) return;
+  const url = new URL(safe);
+  if (url.hostname === 'player.bilibili.com' && url.pathname === '/player.html') return url;
+  if (
+    (url.hostname === 'bilibili.com' || url.hostname === 'www.bilibili.com') &&
+    (url.pathname === mobilePlayerPath || watchPath.test(url.pathname))
+  ) {
+    return url;
+  }
+}
 
 /**
  * Regular expression to extract BVID from Bilibili URLs
@@ -22,19 +30,7 @@ const BVID_EXTRACT_PATTERNS = [/bilibili\.com\/video\/(BV[\w]+)/i, /bvid=([\w]+)
  * @returns True if the URL is a Bilibili video URL
  */
 export function isBilibiliUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    if (
-      !['http:', 'https:'].includes(parsed.protocol) ||
-      !(parsed.hostname === 'bilibili.com' || parsed.hostname.endsWith('.bilibili.com'))
-    )
-      return false;
-  } catch {
-    return false;
-  }
-
-  return BILIBILI_URL_PATTERNS.some((pattern) => pattern.test(url));
+  return !!parseBilibiliUrl(url);
 }
 
 /**
@@ -70,20 +66,29 @@ export function extractBilibiliBVID(url: string): string {
  * @returns The embed URL or original URL if not a Bilibili URL
  */
 export function getBilibiliEmbedUrl(url: string): string {
-  if (!url) return '';
-
-  // If it's already an html5mobileplayer URL, return as-is
-  if (url.includes('bilibili.com/blackboard/html5mobileplayer.html')) {
-    return url;
-  }
-
-  // Extract BVID and convert to embed format
-  const bvid = extractBilibiliBVID(url);
+  let player = parseBilibiliUrl(url);
+  if (!player) return url;
+  const bvid = watchPath.exec(player.pathname)?.[1];
   if (bvid) {
-    return `https://www.bilibili.com/blackboard/html5mobileplayer.html?bvid=${bvid}&autoplay=0`;
+    const part = player.searchParams.get('p');
+    player = new URL('https://player.bilibili.com/player.html');
+    player.searchParams.set('bvid', bvid);
+    if (part) player.searchParams.set('p', part);
   }
+  player.searchParams.set('autoplay', '0');
+  return player.href;
+}
 
-  return url;
+export function bilibiliVideoKey(raw: string | undefined): string | undefined {
+  const url = parseBilibiliUrl(raw);
+  if (!url) return;
+  const params = url.searchParams;
+  const episode = params.get('episodeId');
+  if (episode) return `episode:${episode}`;
+  const id = watchPath.exec(url.pathname)?.[1] || params.get('bvid') || params.get('aid');
+  if (!id) return;
+  const cid = params.get('cid');
+  return cid && /^\d+$/.test(cid) ? `${id}:cid:${cid}` : `${id}:p:${params.get('p') || '1'}`;
 }
 
 /**

@@ -8,6 +8,7 @@ interface KeyboardShortcutCallbacks {
   onOpenSettings: () => void;
   onAddFeed: () => void;
   onMarkAllRead: () => Promise<void>;
+  onToggleTicker?: () => void;
 }
 
 export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
@@ -306,7 +307,7 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
     // Match the key combination to a shortcut action
     const action = Object.entries(shortcuts.value).find(([, shortcut]) => shortcut === key)?.[0];
 
-    if (!action) return;
+    if (!action || (action === 'toggleTicker' && (!callbacks.onToggleTicker || e.repeat))) return;
 
     e.preventDefault();
 
@@ -358,6 +359,9 @@ export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
         break;
       case 'toggleFeedList':
         window.dispatchEvent(new CustomEvent('toggle-feed-list'));
+        break;
+      case 'toggleTicker':
+        callbacks.onToggleTicker?.();
         break;
       case 'focusSearch':
         focusSearchInput();

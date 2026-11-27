@@ -83,6 +83,7 @@ func (s *DesktopCapabilities) showTickerLocked() error {
 			_ = s.runTickerUI(func() error {
 				event.Cancel()
 				s.ticker.EmitEvent("ticker:request-disable")
+				s.tickerVisibleOverride = nil
 				s.hideTickerLocked()
 				return nil
 			})
@@ -107,8 +108,44 @@ func (s *DesktopCapabilities) hideTickerLocked() {
 		s.ticker.Hide()
 	}
 }
-func (s *DesktopCapabilities) HideTicker() {
-	_ = s.runTickerUI(func() error { s.hideTickerLocked(); return nil })
+func (s *DesktopCapabilities) HideTicker() error {
+	return s.runTickerUI(func() error {
+		s.tickerVisibleOverride = nil
+		s.hideTickerLocked()
+		return nil
+	})
+}
+
+// ToggleTickerVisibility changes the current session's visibility while leaving
+// the startup preference and the ticker's WebView state intact.
+func (s *DesktopCapabilities) ToggleTickerVisibility() error {
+	return s.runTickerUI(func() error {
+		visible := s.ticker == nil || !s.ticker.IsVisible()
+		if visible {
+			if err := s.showTickerLocked(); err != nil {
+				return err
+			}
+		} else {
+			s.hideTickerLocked()
+		}
+		s.tickerVisibleOverride = nil
+		if visible != (s.tickerSetting("ticker_enabled") == "true") {
+			s.tickerVisibleOverride = &visible
+		}
+		return nil
+	})
+}
+
+func (s *DesktopCapabilities) resolveTickerVisibility(enabled bool) bool {
+	if s.tickerVisibleOverride == nil {
+		return enabled
+	}
+	if enabled == *s.tickerVisibleOverride {
+		// An explicit preference change has caught up with the override.
+		s.tickerVisibleOverride = nil
+		return enabled
+	}
+	return *s.tickerVisibleOverride
 }
 
 // ShowTickerSettings focuses the main window and opens its nested ticker settings.
@@ -131,7 +168,7 @@ func (s *DesktopCapabilities) applyTickerPreferencesLocked() error {
 	if s.app == nil || s.tickerClosed {
 		return fmt.Errorf("desktop application unavailable")
 	}
-	if s.tickerSetting("ticker_enabled") == "true" {
+	if s.resolveTickerVisibility(s.tickerSetting("ticker_enabled") == "true") {
 		if err := s.showTickerLocked(); err != nil {
 			return err
 		}
