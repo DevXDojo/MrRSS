@@ -294,6 +294,7 @@ function handleImageError(event: Event) {
 
 .thumbnail-image {
   @apply w-full h-full object-cover;
+  dynamic-range-limit: standard;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
 }
