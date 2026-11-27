@@ -10,7 +10,7 @@ require (
 	github.com/andybalholm/cascadia v1.3.5
 	github.com/antchfx/htmlquery v1.3.7
 	github.com/antchfx/xmlquery v1.5.2
-	github.com/chromedp/chromedp v0.23.1
+	github.com/chromedp/chromedp v0.24.0
 	github.com/emersion/go-imap v1.2.1
 	github.com/emersion/go-imap-id v0.0.0-20190926060100-f94a56b9ecde
 	github.com/go-ego/gse v1.3.1
@@ -20,10 +20,10 @@ require (
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/wailsapp/wails/v3 v3.1.0
 	golang.org/x/crypto v0.59.0
-	golang.org/x/net v0.62.0
+	golang.org/x/net v0.63.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/text v0.44.0
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
