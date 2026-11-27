@@ -19,6 +19,21 @@ afterEach(() => {
 });
 
 describe('article list more menu', () => {
+  it('highlights active filters without treating sort or group choices as filters', async () => {
+    const wrapper = createMenu();
+    try {
+      const trigger = wrapper.get('button');
+      expect(trigger.classes()).toContain('text-accent');
+      expect(trigger.find('span').exists()).toBe(false);
+
+      await wrapper.setProps({ sortOrder: 'oldest', groupBy: 'date', filterCount: 0 });
+      expect(trigger.classes()).not.toContain('text-accent');
+      expect(trigger.find('span').exists()).toBe(false);
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it('applies sorting and grouping without closing, and opens filters as a separate action', async () => {
     const wrapper = createMenu();
     try {
